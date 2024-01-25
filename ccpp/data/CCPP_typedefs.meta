@@ -890,6 +890,12 @@
   units = flag
   dimensions = (horizontal_loop_extent)
   type = logical
+[flag_lakefreeze]
+  standard_name = flag_for_lake_water_freeze
+  long_name = flag for lake water freeze
+  units = flag
+  dimensions = (horizontal_loop_extent)
+  type = logical
 [ffmm_water]
   standard_name = Monin_Obukhov_similarity_function_for_momentum_over_water
   long_name = Monin-Obukhov similarity function for momentum over water
@@ -3187,11 +3193,8 @@
   name = CCPP_typedefs
   type = module
   relative_path = ../physics/physics
-  dependencies = machine.F,radlw_param.f,radsw_param.f
-  dependencies = rte-rrtmgp/rrtmgp/mo_gas_optics_rrtmgp.F90,rte-rrtmgp/rte/mo_optical_props.F90
-  dependencies = rte-rrtmgp/extensions/cloud_optics/mo_cloud_optics.F90
-  dependencies = rte-rrtmgp/rrtmgp/mo_gas_concentrations.F90,rte-rrtmgp/rte/mo_rte_config.F90
-  dependencies = rte-rrtmgp/rte/mo_source_functions.F90
+  dependencies = hooks/machine.F,photochem/module_ozphys.F90
+  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
 
 [ccpp-arg-table]
   name = CCPP_typedefs

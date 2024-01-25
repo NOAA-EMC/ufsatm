@@ -28,7 +28,7 @@ module fv3atm_cap_mod
                                     NUOPC_ModelGet
 !
   use module_fv3_config,      only: quilting, quilting_restart, output_fh,   &
-                                    nfhout, nfhout_hf, nsout, dt_atmos,      &
+                                    dt_atmos,                                &
                                     calendar, cpl_grid_id,                   &
                                     cplprint_flag, first_kdt
 
@@ -36,7 +36,7 @@ module fv3atm_cap_mod
                                     num_files, filename_base,                &
                                     wrttasks_per_group, n_group,             &
                                     lead_wrttask, last_wrttask,              &
-                                    nsout_io, iau_offset, lflname_fulltime,  &
+                                    iau_offset, lflname_fulltime,            &
                                     time_unlimited
 !
   use module_fcst_grid_comp,  only: fcstSS => SetServices
@@ -301,7 +301,6 @@ module fv3atm_cap_mod
     if(mype == 0) print *,'af ufs config,quilting=',quilting,' calendar=', trim(calendar),' iau_offset=',iau_offset, &
       ' noutput_fh=',noutput_fh
 !
-    nfhout = 0 ; nfhmax_hf = 0 ; nfhout_hf = 0 ; nsout = 0
     if ( quilting ) then
       call ESMF_ConfigGetAttribute(config=CF,value=use_saved_routehandles, &
                                    label ='use_saved_routehandles:', &
@@ -333,15 +332,6 @@ module fv3atm_cap_mod
         call ESMF_ConfigGetAttribute(config=CF,value=filename_base(i), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       enddo
-
-! variables for output
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhout,   label ='nfhout:',   default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhmax_hf,label ='nfhmax_hf:',default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhout_hf,label ='nfhout_hf:',default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nsout,    label ='nsout:',    default=-1,rc=rc)
-      nsout_io = nsout
-!
-      if(mype==0) print *,'af ufs config,nfhout,nsout=',nfhout,nfhmax_hf,nfhout_hf, nsout,noutput_fh
 
       call ESMF_ConfigGetAttribute(config=CF, value=time_unlimited, label ='time_unlimited:', default=.false., rc=rc)
 
@@ -819,64 +809,7 @@ module fv3atm_cap_mod
       if(iau_offset > 0) then
         output_startfh = iau_offset
       endif
-      if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,'nsout=',nsout, &
-        'iau_offset=',iau_offset,'nfhmax_hf=',nfhmax_hf,'nfhout_hf=',nfhout_hf, &
-        'nfhout=',nfhout
-!
-!--- set up output_fh with output forecast hours
-! if the run does not have iau, it will have output after first step integration as fh00
-! if the run has iau, it will start output at fh=00 at the cycle time (usually StartTime+IAU_offsetTI)
-      if(nsout > 0) then
-!--- use nsout for output frequency nsout*dt_atmos
-        nfh = 0
-        if( nfhmax > output_startfh ) nfh = nint((nfhmax-output_startfh)/(nsout*dt_atmos/3600.))+1
-        if(nfh >0) then
-          allocate(output_fh(nfh))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nsout*dt_atmos/3600. + output_startfh
-          enddo
-        endif
-      elseif (nfhmax_hf > 0 ) then
-!--- use high frequency output and low frequency for output forecast time
-        nfh = 0
-        if( nfhout_hf>0 .and. nfhmax_hf>output_startfh) nfh = nint((nfhmax_hf-output_startfh)/nfhout_hf)+1
-        nfh2 = 0
-        if( nfhout>0 .and. nfhmax>nfhmax_hf) nfh2 = nint((nfhmax-nfhmax_hf)/nfhout)
-        if( nfh+nfh2 > 0) then
-          allocate(output_fh(nfh+nfh2))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nfhout_hf + output_startfh
-          enddo
-          do i=1,nfh2
-            output_fh(nfh+i) = nfhmax_hf + i*nfhout
-          enddo
-        endif
-      elseif (nfhout > 0 ) then
-!--- use one output freqency
-        nfh = 0
-        if( nfhout > 0 .and. nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/nfhout) + 1
-        if( nfh > 0 ) then
-          allocate(output_fh(nfh))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nfhout + output_startfh
-          enddo
-        endif
-      endif
+      if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,' iau_offset=',iau_offset
 !
 !-----------------------------------------------------------------------
 !***  SET THE FIRST WRITE GROUP AS THE FIRST ONE TO ACT.

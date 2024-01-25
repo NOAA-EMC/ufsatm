@@ -1,0 +1,89 @@
+# This is a CI workflow for the fv3atm project.
+#
+# This workflow builds and tests the fv3atm library using GCC, and it tests
+# different CMake build options.
+#
+# Alex Richert, 6 Dec 2023
+
+name: GCC
+on:
+  push:
+    branches:
+    - develop
+  pull_request:
+    branches:
+    - develop
+
+jobs:
+  GCC:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        cmake_opts: ["-D32BIT=ON", "-D32BIT=OFF"]
+        gcc_ver: ["11"]
+        mpi: ["mpich"]
+
+    steps:
+
+    - name: install-doxygen
+      run: |
+        sudo apt-get install doxygen graphviz
+        
+    - name: checkout-fv3atm
+      uses: actions/checkout@v3
+      with:
+        path: ${{ github.workspace }}/fv3atm
+        submodules: recursive
+
+    - name: cache-spack
+      id: cache-spack
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/spack-develop
+        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-2-${{ matrix.cmake_opts }}-${{ matrix.mpich }}
+
+    # Building dependencies takes 40+ min
+    - name: spack-install
+      if: steps.cache-spack.outputs.cache-hit != 'true'
+      run: |
+        wget --no-verbose https://github.com/spack/spack/archive/refs/heads/develop.zip
+        unzip develop.zip -d ${GITHUB_WORKSPACE}/ &> unzip.out
+        . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
+        spack env create gcc${{ matrix.gcc_ver }} ${GITHUB_WORKSPACE}/fv3atm/ci/spack.yaml
+        spack env activate gcc${{ matrix.gcc_ver }}
+        spack compiler find | grep gcc@${{ matrix.gcc_ver }}
+        spack external find gmake cmake git git-lfs perl python ${{ matrix.mpi }}
+        spack config add "packages:all:require:['%gcc@${{ matrix.gcc_ver }}']"
+        spack config add "packages:mpi:require:'${{ matrix.mpi }}'"
+        spack concretize |& tee ${SPACK_ENV}/log.concretize
+        spack install -j2 --fail-fast
+
+    - name: build-fv3atm
+      run: |
+        . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
+        spack env activate gcc${{ matrix.gcc_ver }}
+        spack load $(spack find --format "{name}")
+        cd ${GITHUB_WORKSPACE}/fv3atm
+        git clone https://github.com/NOAA-EMC/CMakeModules
+        git clone --recurse-submodules https://github.com/NOAA-PSL/stochastic_physics stochastic_physics_repo
+        mkdir ${GITHUB_WORKSPACE}/build
+        sed -i 's/doc /upp_doc /' upp/docs/CMakeLists.txt
+        cd ${GITHUB_WORKSPACE}/build
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_DOCS=ON
+        make -j2
+        ls -l /home/runner/work/fv3atm/fv3atm/fv3atm/io
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: docs
+        path: |
+          build/docs/html
+          
+    - name: debug-artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ failure() }}
+      with:
+        name: ccpp_prebuild_logs
+        path: ${{ github.workspace }}/build/ccpp/ccpp_prebuild.*
+

@@ -29,7 +29,6 @@
       use mpi
       use esmf
       use fms
-      use mpp_mod, only : mpp_init   ! needed for fms 2023.02
 
       use write_internal_state
       use module_fv3_io_def,   only : num_pes_fcst,                             &
@@ -38,7 +37,6 @@
                                       imo,jmo,ichunk2d,jchunk2d,                &
                                       ichunk3d,jchunk3d,kchunk3d,               &
                                       quantize_mode,quantize_nsd,               &
-                                      nsout => nsout_io,                        &
                                       cen_lon, cen_lat,                         &
                                       lon1, lat1, lon2, lat2, dlon, dlat,       &
                                       stdlat1, stdlat2, dx, dy, iau_offset,     &
@@ -254,7 +252,6 @@
       lprnt = lead_write_task == wrt_int_state%mype
 
       call fms_init(wrt_mpi_comm)
-      call mpp_init()
 
 !      print *,'in wrt, lead_write_task=', &
 !         lead_write_task,'last_write_task=',last_write_task, &
@@ -1337,7 +1334,7 @@
 
 ! save calendar_type (as integer) for use in 'coupler.res'
         if (index(trim(attNameList(i)),'time:calendar') > 0) then
-          select case( uppercase(trim(valueS)) )
+          select case( fms_mpp_uppercase(trim(valueS)) )
           case( 'JULIAN' )
               calendar_type = JULIAN
           case( 'GREGORIAN' )
@@ -1349,7 +1346,7 @@
           case( 'NO_CALENDAR' )
               calendar_type = NO_CALENDAR
           case default
-              call mpp_error ( FATAL, 'fcst_initialize: calendar must be one of '// &
+              call fms_mpp_error ( FATAL, 'fcst_initialize: calendar must be one of '// &
                                       'JULIAN|GREGORIAN|NOLEAP|THIRTY_DAY|NO_CALENDAR.' )
           end select
         endif
@@ -1876,7 +1873,7 @@
 
       if (nf_hours < 0) return
 
-      if (nsout > 0 .or. lflname_fulltime) then
+      if (lflname_fulltime) then
         ndig = max(log10(nf_hours+0.5)+1., 3.)
         write(cform, '("(I",I1,".",I1,",A1,I2.2,A1,I2.2)")') ndig, ndig
         write(cfhour, cform) nf_hours,'-',nf_minutes,'-',nf_seconds
@@ -2448,7 +2445,7 @@
 
           if (out_phase == 2 .and. restart_written .and. mype == lead_write_task) then
             !**  write coupler.res log file
-            open(newunit=nolog, file='RESTART/'//trim(time_restart)//'.coupler.res', status='new')
+            open(newunit=nolog, file='RESTART/'//trim(time_restart)//'.coupler.res')
             write(nolog,"(i6,8x,a)") calendar_type , &
                  '(Calendar: no_calendar=0, thirty_day_months=1, julian=2, gregorian=3, noleap=4)'
             write(nolog,"(6i6,8x,a)") start_time(1:6), &

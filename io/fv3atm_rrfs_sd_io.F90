@@ -62,15 +62,18 @@ module fv3atm_rrfs_sd_io
   type rrfs_sd_emissions_type
     integer, private :: nvar_dust12m = 5
     integer, private :: nvar_emi = 1
-    integer, private :: nvar_fire = 3
+    integer, private :: nvar_fire = 2
+    integer, private :: nvar_fire2d = 4
 
     character(len=32), pointer, dimension(:), private :: dust12m_name => null()
     character(len=32), pointer, dimension(:), private :: emi_name => null()
     character(len=32), pointer, dimension(:), private :: fire_name => null()
+    character(len=32), pointer, dimension(:), private :: fire_name2d => null()
 
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: dust12m_var => null()
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: emi_var => null()
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: fire_var => null()
+    real(kind=kind_phys), pointer, dimension(:,:,:  ), private :: fire_var2d => null()
 
   contains
 
@@ -520,18 +523,28 @@ contains
   ! --------------------------------------------------------------------
 
   !>@ Allocates temporary arrays and registers variables for reading the fire data file.
-  subroutine rrfs_sd_emissions_register_fire(data, restart, Atm_block)
+  subroutine rrfs_sd_emissions_register_fire(data, Model, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
+    type(GFS_control_type),   intent(in) :: Model
     type(FmsNetcdfDomainFile_t) :: restart
     type(block_control_type), intent(in) :: Atm_block
 
+    real(kind=kind_phys), pointer, dimension(:,:) :: var_p2 => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p2 => NULL()
     integer :: num, nx, ny
+    integer :: ebb_dcycle
+
+    ebb_dcycle=Model%ebb_dcycle
 
     if(associated(data%fire_name)) then
       deallocate(data%fire_name)
       nullify(data%fire_name)
+    endif
+
+    if(associated(data%fire_name2d)) then
+      deallocate(data%fire_name2d)
+      nullify(data%fire_name2d)
     endif
 
     if(associated(data%fire_var)) then
@@ -539,51 +552,87 @@ contains
       nullify(data%fire_var)
     endif
 
+    if(associated(data%fire_var2d)) then
+      deallocate(data%fire_var2d)
+      nullify(data%fire_var2d)
+    endif
+
     !--- allocate the various containers needed for rrfssd fire data
     call get_nx_ny_from_atm(Atm_block, nx, ny)
     allocate(data%fire_name(data%nvar_fire))
+    allocate(data%fire_name2d(data%nvar_fire2d))
     allocate(data%fire_var(nx,ny,24,data%nvar_fire))
+    allocate(data%fire_var2d(nx,ny,data%nvar_fire2d))
 
-    data%fire_name(1)  = 'ebb_smoke_hr'
-    data%fire_name(2)  = 'frp_avg_hr'
-    data%fire_name(3)  = 'frp_std_hr'
+    data%fire_name(1)  = 'ebb_smoke_hr'  ! 2d x 24 hours
+    data%fire_name(2)  = 'frp_avg_hr'    ! 2d x 24 hours
+
+    ! For the operational system
+    data%fire_name2d(1)  = 'ebb_rate'  ! 2d
+    data%fire_name2d(2)  = 'frp_davg'
+    data%fire_name2d(3)  = 'fire_end_hr'
+    data%fire_name2d(4)  = 'hwp_davg'
 
     !--- register axis
     call register_axis(restart, 'lon', 'X')
     call register_axis(restart, 'lat', 'Y')
-    call register_axis(restart, 't', 24)
-    !--- register the 3D fields
-    do num = 1,data%nvar_fire
+    if (ebb_dcycle==1) then ! -- retro mode
+     !--- register the 3D fields
+     call register_axis(restart, 't', 24)
+     do num = 1,data%nvar_fire
       var3_p2 => data%fire_var(:,:,:,num)
       call register_restart_field(restart, data%fire_name(num), var3_p2, &
            dimensions=(/'t  ', 'lat', 'lon'/), is_optional=.true.)
-    enddo
+     enddo
+    elseif (ebb_dcycle==2) then ! -- forecast mode
+     !--- register the 2D fields
+     call register_axis(restart, 't', 1)
+     do num = 1,data%nvar_fire2d
+      var_p2 => data%fire_var2d(:,:,num)
+      call register_restart_field(restart, data%fire_name2d(num), var_p2, &
+           dimensions=(/'lat', 'lon'/), is_optional=.true.)
+     enddo
+    else
+     ! -- user define their own fire emission
+    endif
 
   end subroutine rrfs_sd_emissions_register_fire
 
   ! --------------------------------------------------------------------
 
   !>@ Called after register_fire() to copy data from internal arrays to the model grid and deallocate arrays
-  subroutine rrfs_sd_emissions_copy_fire(data, Sfcprop, Atm_block)
+  subroutine rrfs_sd_emissions_copy_fire(data, Model, Sfcprop, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
+    type(GFS_control_type),   intent(in) :: Model
     type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
     type(block_control_type), intent(in) :: Atm_block
 
     integer :: nb, ix, k, i, j
+    integer :: ebb_dcycle
+
+    ebb_dcycle=Model%ebb_dcycle
 
     !$omp parallel do default(shared) private(i, j, nb, ix, k)
     do nb = 1, Atm_block%nblks
-      !--- 3D variables
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-        !--- assign hprime(1:10) and hprime(15:24) with new oro stat data
-        do k = 1, 24
+        if (ebb_dcycle==1) then ! -- retro mode
+        !--- 3D variables
+         do k = 1, 24
           Sfcprop(nb)%smoke_RRFS(ix,k,1)  = data%fire_var(i,j,k,1)
           Sfcprop(nb)%smoke_RRFS(ix,k,2)  = data%fire_var(i,j,k,2)
-          Sfcprop(nb)%smoke_RRFS(ix,k,3)  = data%fire_var(i,j,k,3)
-        enddo
+         enddo
+        elseif (ebb_dcycle==2) then ! -- forecast mode
+        !--- 2D variables
+          Sfcprop(nb)%smoke2d_RRFS(ix,1)  = data%fire_var2d(i,j,1)
+          Sfcprop(nb)%smoke2d_RRFS(ix,2)  = data%fire_var2d(i,j,2)
+          Sfcprop(nb)%smoke2d_RRFS(ix,3)  = data%fire_var2d(i,j,3)
+          Sfcprop(nb)%smoke2d_RRFS(ix,4)  = data%fire_var2d(i,j,4)
+        else
+         ! -- user define their own fire emission
+        endif
       enddo
     enddo
   end subroutine rrfs_sd_emissions_copy_fire

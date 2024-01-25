@@ -4005,12 +4005,12 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'snodi'
-    ExtDiag(idx)%desc = 'water equivalent snow depth over ice'
+    ExtDiag(idx)%desc = 'snow depth over ice'
     ExtDiag(idx)%unit = 'mm'
     ExtDiag(idx)%mod_name = 'gfs_sfc'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%weasdi(:)
+      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%snodi(:)
     enddo
 
     idx = idx + 1
@@ -4658,16 +4658,59 @@ module GFS_diagnostics
       do nb = 1,nblks
         ExtDiag(idx)%data(nb)%var2 => Coupling(nb)%rrfs_hwp
       enddo
+      idx = idx + 1
+      ExtDiag(idx)%axes = 2
+      ExtDiag(idx)%name = 'HWP_ave'
+      ExtDiag(idx)%desc = 'averaged fire weather potential'
+      ExtDiag(idx)%unit = ' '
+      ExtDiag(idx)%mod_name = 'gfs_sfc'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+        ExtDiag(idx)%data(nb)%var2 => Coupling(nb)%rrfs_hwp_ave
+      enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'ebb_smoke_hr'
-      ExtDiag(idx)%desc = 'hourly smoke emission'
+      ExtDiag(idx)%name = 'wetdpc_smoke'
+      ExtDiag(idx)%desc = 'convective wet deposition smoke'
+      ExtDiag(idx)%unit = ' '
+      ExtDiag(idx)%mod_name = 'gfs_sfc'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+        ExtDiag(idx)%data(nb)%var2 => Coupling(nb)%wetdpc_flux(:,1)
+      enddo
+
+      idx = idx + 1
+      ExtDiag(idx)%axes = 2
+      ExtDiag(idx)%name = 'wetdpc_dust'
+      ExtDiag(idx)%desc = 'convective wet deposition dust'
+      ExtDiag(idx)%unit = ' '
+      ExtDiag(idx)%mod_name = 'gfs_sfc'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+        ExtDiag(idx)%data(nb)%var2 => Coupling(nb)%wetdpc_flux(:,2)
+      enddo
+
+      idx = idx + 1
+      ExtDiag(idx)%axes = 2
+      ExtDiag(idx)%name = 'wetdpc_coarsepm'
+      ExtDiag(idx)%desc = 'convective wet deposition coarsepm'
+      ExtDiag(idx)%unit = ' '
+      ExtDiag(idx)%mod_name = 'gfs_sfc'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+        ExtDiag(idx)%data(nb)%var2 => Coupling(nb)%wetdpc_flux(:,3)
+      enddo
+
+      idx = idx + 1
+      ExtDiag(idx)%axes = 2
+      ExtDiag(idx)%name = 'ebb_smoke_in'
+      ExtDiag(idx)%desc = 'input smoke emission'
       ExtDiag(idx)%unit = 'ug m-2 s-1'
       ExtDiag(idx)%mod_name = 'gfs_sfc'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%ebb_smoke_hr
+       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%ebb_smoke_in
       enddo
 
       idx = idx + 1
@@ -4678,29 +4721,18 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_sfc'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%ebb_smoke_hr
+       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%fhist
       enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'frp_hr'
-      ExtDiag(idx)%desc = 'hourly frp'
+      ExtDiag(idx)%name = 'frp_input'
+      ExtDiag(idx)%desc = 'input frp'
       ExtDiag(idx)%unit = 'mw'
       ExtDiag(idx)%mod_name = 'gfs_sfc'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%frp_hr
-      enddo
-
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'frp_std_hr'
-      ExtDiag(idx)%desc = 'hourly std frp'
-      ExtDiag(idx)%unit = 'mw'
-      ExtDiag(idx)%mod_name = 'gfs_sfc'
-      allocate (ExtDiag(idx)%data(nblks))
-      do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%frp_std_hr
+       ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%frp_input
       enddo
 
       idx = idx + 1
@@ -4712,28 +4744,6 @@ module GFS_diagnostics
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
        ExtDiag(idx)%data(nb)%var3 => Coupling(nb)%ebu_smoke(:,:)
-      enddo
-
-      idx = idx + 1
-      ExtDiag(idx)%axes = 3
-      ExtDiag(idx)%name = 'smoke_ext'
-      ExtDiag(idx)%desc = 'smoke extinction at 550nm'
-      ExtDiag(idx)%unit = ' '
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      allocate (ExtDiag(idx)%data(nblks))
-      do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var3 => Coupling(nb)%smoke_ext(:,:)
-      enddo
-
-      idx = idx + 1
-      ExtDiag(idx)%axes = 3
-      ExtDiag(idx)%name = 'dust_ext'
-      ExtDiag(idx)%desc = 'dust extinction at 550nm'
-      ExtDiag(idx)%unit = ' '
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      allocate (ExtDiag(idx)%data(nblks))
-      do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var3 => Coupling(nb)%dust_ext(:,:)
       enddo
 
       idx = idx + 1

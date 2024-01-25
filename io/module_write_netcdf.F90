@@ -1,10 +1,19 @@
+!> @file
+!> @brief Module containing history files output routines.
+!> @author Dusan Jovic @date Nov 1, 2017
+
+!> Return error to ESMF and finalize it.
 #define ESMF_ERR_RETURN(rc) \
     if (ESMF_LogFoundError(rc, msg="Breaking out of subroutine", line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+!> Return error to ESMF and finalize it.
 #define NC_ERR_STOP(status) \
     if (status /= nf90_noerr) write(0,*) "file: ", __FILE__, " line: ", __LINE__, trim(nf90_strerror(status)); \
     if (status /= nf90_noerr) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+!> @brief Output routines for writing history files.
+!>
+!> @author Dusan Jovic @date Nov 1, 2017
 module module_write_netcdf
 
   use mpi
@@ -19,11 +28,21 @@ module module_write_netcdf
   private
   public write_netcdf
 
-  logical :: par
+  logical :: par !< True if parallel I/O should be used.
 
-  contains
+contains
 
-!----------------------------------------------------------------------------------------
+  !> Write netCDF file.
+  !>
+  !> @param[in] wrtfb ESMF write field bundle.
+  !> @param[in] filename NetCDF filename.
+  !> @param[in] use_parallel_netcdf True if parallel I/O should be used.
+  !> @param[in] mpi_comm MPI communicator for parallel I/O.
+  !> @param[in] mype MPI rank.
+  !> @param[in] grid_id Output grid identifier.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine write_netcdf(wrtfb, filename, &
                           use_parallel_netcdf, mpi_comm, mype, &
                           grid_id, rc)
@@ -716,7 +735,14 @@ module module_write_netcdf
 
   end subroutine write_netcdf
 
-!----------------------------------------------------------------------------------------
+  !> Get global attribute.
+  !>
+  !> @param[in] fldbundle ESMF field bundle.
+  !> @param[in] ncid NetCDF file ID.
+  !> @param[in] mype MPI rank.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine get_global_attr(fldbundle, ncid, mype, rc)
     type(ESMF_FieldBundle), intent(in) :: fldbundle
     integer, intent(in)                :: ncid
@@ -785,7 +811,15 @@ module module_write_netcdf
 
   end subroutine get_global_attr
 
-!----------------------------------------------------------------------------------------
+  !> Get grid attribute.
+  !>
+  !> @param[in] grid ESMF output grid.
+  !> @param[in] prefix grid attribute prefix.
+  !> @param[in] ncid NetCDF file ID.
+  !> @param[in] varid NetCDF variable ID.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine get_grid_attr(grid, prefix, ncid, varid, rc)
     type(ESMF_Grid), intent(in)  :: grid
     character(len=*), intent(in) :: prefix
@@ -849,7 +883,17 @@ module module_write_netcdf
 
   end subroutine get_grid_attr
 
-!----------------------------------------------------------------------------------------
+  !> Add a dimension.
+  !>
+  !> @param[in] ncid NetCDF file ID.
+  !> @param[in] dim_name Dimension name.
+  !> @param[in] dimid Dimension ID.
+  !> @param[in] grpid Group ID.
+  !> @param[in] grid ESMF output grid.
+  !> @param[in] mype MPI rank.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine add_dim(ncid, dim_name, dimid, grid, mype, rc)
     integer, intent(in)             :: ncid
     character(len=*), intent(in)    :: dim_name

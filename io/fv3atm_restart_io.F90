@@ -593,7 +593,7 @@ contains
       if (.not.amiopen) call mpp_error( FATAL, 'Error with opening file'//trim(infile) )
 
       ! Register axes and variables, allocate memory
-      call rrfs_sd_emis%register_fire(rrfssd_restart, Atm_block)
+      call rrfs_sd_emis%register_fire(Model, rrfssd_restart, Atm_block)
 
       !--- read new GSL created rrfssd restart/data
       call mpp_error(NOTE,'reading rrfssd information from INPUT/SMOKE_RRFS_data.nc')
@@ -601,7 +601,7 @@ contains
       call close_file(rrfssd_restart)
 
       !--- Copy to Sfcprop and free temporary arrays:
-      call rrfs_sd_emis%copy_fire(Sfcprop, Atm_block)
+      call rrfs_sd_emis%copy_fire(Model, Sfcprop, Atm_block)
 
     endif if_smoke  ! RRFS_SD
 
