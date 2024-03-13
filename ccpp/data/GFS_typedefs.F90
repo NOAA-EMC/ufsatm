@@ -655,6 +655,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: max_fplume (:)  => null()  !< maximum plume rise level
     real (kind=kind_phys), pointer :: uspdavg (:)     => null()  !< BL average wind speed
     real (kind=kind_phys), pointer :: hpbl_thetav (:) => null()  !< BL depth parcel method
+    real (kind=kind_phys), pointer :: rho_dry (:,:)   => null()  !< dry air density 3D array
     !--- hourly fire potential index
     real (kind=kind_phys), pointer :: rrfs_hwp   (:)  => null()  !< hourly fire potential index
     real (kind=kind_phys), pointer :: rrfs_hwp_ave   (:)   => null()  !< *Average* hourly fire potential index
@@ -1557,6 +1558,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: dust_alpha        !< alpha parameter for fengsha dust scheme
     real(kind=kind_phys) :: dust_gamma        !< gamma parameter for fengsha dust scheme
     real(kind=kind_phys) :: wetdep_ls_alpha   !< alpha parameter for wet deposition
+    real(kind=kind_phys) :: plume_alpha       !< alpha parameter for plumerise scheme
     integer              :: ebb_dcycle        !< 1:retro; 2:forecast of fire emission
     integer              :: seas_opt
     integer              :: dust_opt
@@ -1570,6 +1572,7 @@ module GFS_typedefs
     integer              :: plumerisefire_frq
     integer              :: n_dbg_lines
     integer              :: smoke_forecast
+    logical              :: add_fire_moist_flux ! Flag to add moisture fluxes based on PM2.5 emissions
     logical              :: aero_ind_fdb    ! WFA/IFA indirect
     logical              :: aero_dir_fdb    ! smoke/dust direct
     logical              :: rrfs_smoke_debug
@@ -2359,7 +2362,7 @@ module GFS_typedefs
     allocate (Sfcprop%hprime   (IM,Model%nmtvr))
     allocate (Sfcprop%dust12m_in  (IM,12,5))
     allocate (Sfcprop%smoke_RRFS(IM,24,2))
-    allocate (Sfcprop%smoke2d_RRFS(IM,4))
+    allocate (Sfcprop%smoke2d_RRFS(IM,5))
     allocate (Sfcprop%emi_in   (IM,1))
     allocate(Sfcprop%albdirvis_lnd (IM))
     allocate(Sfcprop%albdirnir_lnd (IM))
@@ -3258,6 +3261,7 @@ module GFS_typedefs
       allocate (Coupling%min_fplume(IM))
       allocate (Coupling%max_fplume(IM))
       allocate (Coupling%uspdavg(IM))
+      allocate (Coupling%rho_dry   (IM,Model%levs))
       allocate (Coupling%hpbl_thetav(IM))
       allocate (Coupling%rrfs_hwp  (IM))
       allocate (Coupling%rrfs_hwp_ave  (IM))
@@ -3270,6 +3274,7 @@ module GFS_typedefs
       Coupling%min_fplume = clear_val
       Coupling%max_fplume = clear_val
       Coupling%uspdavg = clear_val
+      Coupling%rho_dry = clear_val
       Coupling%hpbl_thetav = clear_val
       Coupling%rrfs_hwp   = clear_val
       Coupling%rrfs_hwp_ave = clear_val
@@ -3972,6 +3977,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: dust_alpha = 0.
     real(kind=kind_phys) :: dust_gamma = 0.
     real(kind=kind_phys) :: wetdep_ls_alpha = 0.5
+    real(kind=kind_phys) :: plume_alpha = 0.05
     integer :: dust_moist_opt = 1         ! fecan :1  else shao
     integer :: ebb_dcycle = 1             ! 1:retro; 2:forecast
     integer :: seas_opt = 2
@@ -3982,10 +3988,11 @@ module GFS_typedefs
     logical :: extended_sd_diags = .false.
     integer :: wetdep_ls_opt  = 1
     logical :: do_plumerise   = .false.
+    logical :: add_fire_moist_flux = .false.
     integer :: addsmoke_flag  = 1
     integer :: plumerisefire_frq = 60
     integer :: n_dbg_lines = 3
-    integer :: smoke_forecast = 0         ! RRFS-sd read in ebb_smoke
+    integer :: smoke_forecast = 2         ! RRFS-sd read in ebb_smoke
     logical :: aero_ind_fdb = .false.     ! RRFS-sd wfa/ifa emission
     logical :: aero_dir_fdb = .false.     ! RRFS-sd smoke/dust radiation feedback
     logical :: rrfs_smoke_debug = .false. ! RRFS-sd plumerise debug
@@ -4164,6 +4171,7 @@ module GFS_typedefs
                                rrfs_smoke_debug, do_plumerise, plumerisefire_frq,           &
                                addsmoke_flag, enh_mix, mix_chem, smoke_dir_fdb_coef,        &
                                do_smoke_transport,smoke_conv_wet_coef,n_dbg_lines,          &
+                               add_fire_moist_flux, plume_alpha,                            &
                           !--- C3/GF closures
                                ichoice,ichoicem,ichoice_s,                                  &
                           !--- (DFI) time ranges with radar-prescribed microphysics tendencies
@@ -4404,6 +4412,7 @@ module GFS_typedefs
     Model%dust_alpha        = dust_alpha
     Model%dust_gamma        = dust_gamma
     Model%wetdep_ls_alpha   = wetdep_ls_alpha
+    Model%plume_alpha       = plume_alpha
     Model%ebb_dcycle        = ebb_dcycle
     Model%seas_opt          = seas_opt
     Model%dust_opt          = dust_opt
@@ -4416,6 +4425,7 @@ module GFS_typedefs
     Model%n_dbg_lines       = n_dbg_lines
     Model%plumerisefire_frq = plumerisefire_frq
     Model%addsmoke_flag     = addsmoke_flag
+    Model%add_fire_moist_flux = add_fire_moist_flux
     Model%smoke_forecast    = smoke_forecast
     Model%aero_ind_fdb      = aero_ind_fdb
     Model%aero_dir_fdb      = aero_dir_fdb
@@ -6542,6 +6552,7 @@ module GFS_typedefs
         print *, 'dust_alpha       : ',Model%dust_alpha
         print *, 'dust_gamma       : ',Model%dust_gamma
         print *, 'wetdep_ls_alpha  : ',Model%wetdep_ls_alpha
+        print *, 'plume_alpha      : ',Model%plume_alpha
         print *, 'ebb_dcycle       : ',Model%ebb_dcycle
         print *, 'seas_opt         : ',Model%seas_opt
         print *, 'dust_opt         : ',Model%dust_opt
@@ -6552,6 +6563,7 @@ module GFS_typedefs
         print *, 'wetdep_ls_opt    : ',Model%wetdep_ls_opt
         print *, 'do_plumerise     : ',Model%do_plumerise
         print *, 'plumerisefire_frq: ',Model%plumerisefire_frq
+        print *, 'add_fire_moist_flux: ',Model%add_fire_moist_flux
         print *, 'addsmoke_flag    : ',Model%addsmoke_flag
         print *, 'smoke_forecast   : ',Model%smoke_forecast
         print *, 'aero_ind_fdb     : ',Model%aero_ind_fdb
