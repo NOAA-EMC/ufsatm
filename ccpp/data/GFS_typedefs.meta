@@ -5652,6 +5652,12 @@
   units = none
   dimensions = ()
   type = integer
+[conv_cf_opt]
+  standard_name = option_for_convection_scheme_cloud_fraction_computation
+  long_name = option for convection scheme cloud fraction computation
+  units = flag
+  dimensions = ()
+  type = integer
 [nmtvr]
   standard_name = number_of_statistical_measures_of_subgrid_orography
   long_name = number of topographic variables in GWD
