@@ -119,6 +119,34 @@
   type = real
   kind = kind_phys
   active = (do_lightning_threat_index_calculations)
+[def_1]
+  standard_name = shear_prod
+  long_name = 3D shear production
+  units = m2 s-2
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_1(:,1)]
+  standard_name = shear_prod_at_surface_adjacent_layer
+  long_name = 3D shear production at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+[def_2]
+  standard_name = TKE_transfer
+  long_name = TKE transfer and pressure correlation
+  units = m2 s-2
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_2(:,1)]
+  standard_name = TKE_transfer_at_surface_adjacent_layer
+  long_name = TKE transfer and pressure correlation at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
 [vvl]
   standard_name = lagrangian_tendency_of_air_pressure
   long_name = layer mean vertical velocity
@@ -5507,6 +5535,12 @@
 [dspheat]
   standard_name = flag_TKE_dissipation_heating
   long_name = flag for tke dissipative heating
+  units = flag
+  dimensions = ()
+  type = logical
+[sa3dtke]
+  standard_name = flag_sa_3d_tke_scheme
+  long_name = flag for scale-aware 3d tke scheme
   units = flag
   dimensions = ()
   type = logical
