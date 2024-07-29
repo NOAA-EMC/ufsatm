@@ -9907,7 +9907,7 @@
   standard_name = auxiliary_2d_arrays
   long_name = auxiliary 2d arrays to output (for debugging)
   units = none
-  dimensions = (horizontal_loop_extent,number_of_xyz_dimensioned_auxiliary_arrays)
+  dimensions = (horizontal_loop_extent,number_of_xy_dimensioned_auxiliary_arrays)
   type = real
   kind = kind_phys
   active = (number_of_xy_dimensioned_auxiliary_arrays > 0)
