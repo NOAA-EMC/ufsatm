@@ -815,7 +815,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    if (mpp_pe() == mpp_root_pe()) print *,'in atmos_model, fhzero=',GFS_Control%fhzero, 'fhour=',sec/3600.,sec_lastfhzerofh/3600
 
    if (mod((sec-sec_lastfhzerofh),int(GFS_Control%fhzero*3600.)) /= 0) then
-     diag_time = Time - real_to_time_type(mod(int((GFS_Control%kdt - 1)*dt_phys-sec_lastfhzerofh),int(GFS_Control%fhzero))*3600.0)
+     diag_time = Time - real_to_time_type(real(mod(int((GFS_Control%kdt - 1)*dt_phys-sec_lastfhzerofh),int(GFS_Control%fhzero*3600.0))))
      if (mpp_pe() == mpp_root_pe()) print *,'Warning: in atmos_init,start at non multiple of fhzero'
    endif
    if (Atmos%iau_offset > zero) then
