@@ -407,7 +407,7 @@ contains
                if (is_cubed_sphere) then
                   chunksizes = [im, jm, 1, 1, 1]
                else
-                  chunksizes = [ichunk3d(grid_id), jchunk3d(grid_id), fldlev(i), 1]
+                  chunksizes = [ichunk3d(grid_id), jchunk3d(grid_id), min(kchunk3d(grid_id),fldlev(i)), 1]
                end if
                ncerr = nf90_def_var_chunking(ncid, varids(i), NF90_CHUNKED, chunksizes) ; NC_ERR_STOP(ncerr)
             end if
