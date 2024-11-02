@@ -430,6 +430,7 @@ module post_fv3
             if (trim(attName) == 'nsoil')  wrt_int_state%nsoil=varival
             if (trim(attName) == 'fhzero') wrt_int_state%fhzero=varival
             if (trim(attName) == 'imp_physics') wrt_int_state%imp_physics=varival
+            if (trim(attName) == 'landsfcmdl') wrt_int_state%landsfcmdl=varival
           endif
         else if (typekind==ESMF_TYPEKIND_R4) then
           if(n==1) then
@@ -624,7 +625,7 @@ module post_fv3
 !
       imp_physics = wrt_int_state%imp_physics       !set GFS mp physics to 99 for Zhao scheme
       dtp         = wrt_int_state%dtp
-      iSF_SURFACE_PHYSICS = 2
+      iSF_SURFACE_PHYSICS = wrt_int_state%landsfcmdl 
       spval = 9.99e20
 !
 ! nems gfs has zhour defined
