@@ -593,7 +593,6 @@ module post_fv3
 !
       integer i, ip1, j, l, k, n, iret, ibdl, rc, kstart, kend
       integer i1,i2,j1,j2,k1,k2
-      integer landsfcmdl
       integer fieldDimCount,gridDimCount,ncount_field,bundle_grid_id
       integer jdate(8)
       logical foundland, foundice, found, mvispresent
