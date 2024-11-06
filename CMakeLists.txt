@@ -126,6 +126,7 @@ add_library(fv3atm
   io/module_fv3_io_def.F90
   io/module_write_internal_state.F90
   io/module_wrt_grid_comp.F90
+  io/module_gather_test.F90
   ${moving_nest_srcs}
   ${POST_SRC}
 )

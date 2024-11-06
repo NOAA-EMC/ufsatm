@@ -45,6 +45,7 @@
                                       ideflate, zstandard_level, lflname_fulltime
       use module_write_netcdf, only : write_netcdf
       use module_write_restart_netcdf, only : write_restart_netcdf
+      use module_gather_test
       use physcons,            only : pi => con_pi
 #ifdef INLINE_POST
       use post_fv3,            only : post_run_fv3
@@ -1647,7 +1648,7 @@
 !-----------------------------------------------------------------------
 !***  local variables
 !
-      TYPE(ESMF_VM)                         :: VM
+      type(ESMF_VM)                         :: VM
       type(ESMF_FieldBundle)                :: file_bundle, mirror_bundle
       type(ESMF_StateItem_Flag)             :: itemType
       type(ESMF_Time)                       :: currtime
@@ -2345,24 +2346,25 @@
               call ESMF_GridGet(grid, tileCount=tileCount, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-              if (tileCount == 6) then ! restart bundle is on cubed sphere
-                call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
-                                                convention="NetCDF", purpose="FV3",            &
-                                                status=ESMF_FILESTATUS_REPLACE,                &
-                                                state=stateGridFB, comps=compsGridFB,rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              ! if (tileCount == 6) then ! restart bundle is on cubed sphere
+              !   call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
+              !                                   convention="NetCDF", purpose="FV3",            &
+              !                                   status=ESMF_FILESTATUS_REPLACE,                &
+              !                                   state=stateGridFB, comps=compsGridFB,rc=rc)
+              !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-                call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
-                                                filename=trim(filename), convention="NetCDF",  &
-                                                purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
-                                                timeslice=step, state=optimize(nbdl)%state,    &
-                                                comps=optimize(nbdl)%comps, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-              else
+              !   call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
+              !                                   filename=trim(filename), convention="NetCDF",  &
+              !                                   purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
+              !                                   timeslice=step, state=optimize(nbdl)%state,    &
+              !                                   comps=optimize(nbdl)%comps, rc=rc)
+              !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+              ! else
                 call  write_restart_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                    .true., wrt_mpi_comm, wrt_int_state%mype, &
-                                    rc)
-              endif ! cubed sphere vs. regional/nest write grid
+                                           .true., wrt_mpi_comm, mype, &
+                                           rc=rc)
+              ! endif ! cubed sphere vs. regional/nest write grid
 
               restart_written = .true.
 
@@ -2371,9 +2373,16 @@
 
               if (trim(output_file(nnnn)) == 'netcdf_parallel') then
                 call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                 .true., wrt_mpi_comm,wrt_int_state%mype, &
+                                 .true., VM, wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id,rc)
               else
+#if 1
+                ! call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
+                !                  .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
+                !                  grid_id,rc)
+
+                call gather_test(wrt_int_state%wrtFB(nbdl), rc)
+#else
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &
                                                 status=ESMF_FILESTATUS_REPLACE,                &
@@ -2388,14 +2397,14 @@
                                                 comps=optimize(nbdl)%comps, rc=rc)
 
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#endif
               end if
 
             else if (trim(output_grid(grid_id)) == 'gaussian_grid' .or. &
                      trim(output_grid(grid_id)) == 'global_latlon') then
 
               call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                               use_parallel_netcdf, wrt_mpi_comm,wrt_int_state%mype, &
+                               use_parallel_netcdf, VM, wrt_mpi_comm,wrt_int_state%mype, &
                                grid_id,rc)
 
             else if (trim(output_grid(grid_id)) == 'regional_latlon' .or.        &
@@ -2411,7 +2420,7 @@
               endif
 
               call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                use_parallel_netcdf, wrt_mpi_comm,wrt_int_state%mype, &
+                                use_parallel_netcdf, VM, wrt_mpi_comm,wrt_int_state%mype, &
                                 grid_id,rc)
 
             else ! unknown output_grid
@@ -3015,7 +3024,7 @@
 !
 !-----------------------------------------------------------------------
 !
-
+#if 0
   subroutine ESMFproto_FieldBundleWrite(fieldbundle, fileName, &
     convention, purpose, status, timeslice, state, comps, rc)
     type(ESMF_FieldBundle),     intent(in)              :: fieldbundle
@@ -4220,7 +4229,7 @@
     deallocate(deBlockList)
 
   end subroutine ESMFproto_FieldMakeSingleTile
-
+#endif
 !
 !-----------------------------------------------------------------------
   subroutine splat4(idrt,jmax,aslat)

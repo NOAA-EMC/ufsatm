@@ -19,6 +19,7 @@ module module_write_netcdf
   use mpi_f08
   use esmf
   use netcdf
+
   use module_fv3_io_def,only : ideflate, quantize_mode, quantize_nsd, zstandard_level, &
                                ichunk2d,jchunk2d,ichunk3d,jchunk3d,kchunk3d, &
                                dx,dy,lon1,lat1,lon2,lat2, &
@@ -48,23 +49,23 @@ contains
   !>
   !> @author Dusan Jovic @date Nov 1, 2017
   subroutine write_netcdf(wrtfb, filename, &
-                          use_parallel_netcdf, comm, mype, &
+                          use_parallel_netcdf, VM, comm, mype, &
                           grid_id, rc)
 !
-    use mpi_f08
-
     type(ESMF_FieldBundle), intent(in) :: wrtfb
     character(*), intent(in)           :: filename
     logical, intent(in)                :: use_parallel_netcdf
+    type(ESMF_VM), intent(in)          :: VM
     type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, intent(in)                :: grid_id
     integer, optional,intent(out)      :: rc
-!
+
 !** local vars
     integer, parameter :: NF90_NODIMSCALE_ATTACH = int(Z'40000')
     integer :: i,j,t, istart,iend,jstart,jend
     integer :: im, jm, lm, lsoil
+    integer :: nproc, nproc_per_tile
 
     integer, dimension(:), allocatable              :: fldlev
 
@@ -113,7 +114,8 @@ contains
     logical shuffle
 
     logical :: is_cubed_sphere
-    integer :: rank, deCount, localDeCount, dimCount, tileCount
+    logical :: is_cubed_sphere_tiled
+    integer :: rank, deCount, localDeCount, dimCount, tileCount, tile_number, rootPet
     integer :: my_tile, start_i, start_j
     integer, dimension(:,:), allocatable :: minIndexPDe, maxIndexPDe
     integer, dimension(:,:), allocatable :: minIndexPTile, maxIndexPTile
@@ -121,6 +123,11 @@ contains
     logical :: do_io
     integer :: par_access
     character(len=ESMF_MAXSTR) :: output_grid_name
+
+    character(256) :: actualFileName
+    integer :: idx
+    type(MPI_Comm)  :: io_comm
+    type(MPI_Comm)  :: dup_comm
 !
     interface
       function nf_set_log_level(new_level) result(status)
@@ -131,9 +138,13 @@ contains
 
     ! ncerr = nf_set_log_level(3); NC_ERR_STOP(ncerr)
 
+    io_comm = comm
+
     is_cubed_sphere = .false.
+    is_cubed_sphere_tiled = .false.
     tileCount = 0
     my_tile = 0
+    rootPet = 0
     start_i = -10000000
     start_j = -10000000
 
@@ -147,8 +158,6 @@ contains
        end if
     end if
 
-    do_io = par .or. (mype==0)
-
     call ESMF_FieldBundleGet(wrtfb, fieldCount=fieldCount, rc=rc); ESMF_ERR_RETURN(rc)
     call ESMF_AttributeGet(wrtfb, convention="NetCDF", purpose="FV3", &
                            name='grid', value=output_grid_name, rc=rc); ESMF_ERR_RETURN(rc)
@@ -158,7 +167,7 @@ contains
     allocate(varids(fieldCount))
 
     call ESMF_FieldBundleGet(wrtfb, fieldList=fcstField, grid=wrtgrid, &
-!                             itemorderflag=ESMF_ITEMORDER_ADDORDER, &
+                             ! itemorderflag=ESMF_ITEMORDER_ADDORDER, &
                              rc=rc); ESMF_ERR_RETURN(rc)
 
     call ESMF_GridGet(wrtgrid, dimCount=gridDimCount, rc=rc); ESMF_ERR_RETURN(rc)
@@ -228,6 +237,11 @@ contains
        end if
     end do
 
+    if (is_cubed_sphere) then
+       is_cubed_sphere = .false.
+       is_cubed_sphere_tiled = .true.
+    end if
+
     lm = maxval(fldlev(:))
     call get_dimlen_if_exists(ncid, "zsoil", wrtgrid, lsoil, rc)
     if (lsoil > 0 .and. (.not. any(fldlev(:) == lsoil))) then
@@ -251,17 +265,50 @@ contains
        end if
     end if
 
+    do_io = par .or. (mype==0)
+
+    tile_number = 1
+    if (is_cubed_sphere_tiled) then
+       call MPI_Comm_Dup(comm, dup_comm, rc)
+       call MPI_Comm_Size(dup_comm, nproc, ierr)
+       if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       if (mod(nproc,6) /=0) then
+         if (mype==0) write(0,*)'For cubed sphere restarts, nproc must be divisible by 6. nproc = ', nproc
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
+       nproc_per_tile = nproc / 6
+       do_io = do_io .or. mod(mype,nproc_per_tile) == 0
+       tile_number = mype / nproc_per_tile + 1
+       rootPet = (tile_number - 1) * nproc_per_tile
+       if (tile_number /= my_tile) then
+         if (mype==0) write(0,*)'Internal error: tile_number /= my_tile ', tile_number, my_tile
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
+       if (par) then
+         call MPI_Comm_Split(dup_comm, tile_number, mod(mype,nproc_per_tile), io_comm, ierr)
+         if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
+    end if
+
     ! create netcdf file and enter define mode
     if (do_io) then
 
+       actualFileName = trim(filename)
+       if (is_cubed_sphere_tiled) then
+          idx = index(trim(filename), ".nc", .true.)
+          write(actualFileName, fmt='(a,i1,a)') trim(fileName(:idx-1))//".tile", tile_number, ".nc"
+       end if
+
        if (par) then
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(IOR(NF90_CLOBBER,netcdf_file_type),NF90_NODIMSCALE_ATTACH),&
-                  comm=comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
+                  comm=io_comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
        else
-          ncerr = nf90_create(trim(filename),&
+          call ESMF_LogWrite("Creating : "//trim(actualFileName), ESMF_LOGMSG_INFO, rc=rc)
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(IOR(NF90_CLOBBER,netcdf_file_type),NF90_NODIMSCALE_ATTACH),&
                   ncid=ncid); NC_ERR_STOP(ncerr)
+          call ESMF_LogWrite("Created  : "//trim(actualFileName), ESMF_LOGMSG_INFO, rc=rc)
        end if
 
        ! disable auto filling.
@@ -399,6 +446,8 @@ contains
             if (rank == 2 .and. ichunk2d(grid_id) > 0 .and. jchunk2d(grid_id) > 0) then
                if (is_cubed_sphere) then
                   chunksizes = [im, jm, 1, 1]
+               else if (is_cubed_sphere_tiled) then
+                  chunksizes = [im, jm, 1]
                else
                   chunksizes = [ichunk2d(grid_id), jchunk2d(grid_id),            1]
                end if
@@ -406,6 +455,8 @@ contains
             else if (rank == 3 .and. ichunk3d(grid_id) > 0 .and. jchunk3d(grid_id) > 0 .and. kchunk3d(grid_id) > 0) then
                if (is_cubed_sphere) then
                   chunksizes = [im, jm, 1, 1, 1]
+               else if (is_cubed_sphere_tiled) then
+                  chunksizes = [im, jm, 1, 1]
                else
                   chunksizes = [ichunk3d(grid_id), jchunk3d(grid_id), min(kchunk3d(grid_id),fldlev(i)), 1]
                end if
@@ -517,24 +568,40 @@ contains
 
     end if
 
+    ! call ESMF_VMBarrier(VM, rc=rc)
+    ! call ESMF_LogWrite(trim(filename)//" Start writing variables", ESMF_LOGMSG_INFO, rc=rc)
+
     !
     ! write lon,lat variables
     !
-    if (allocated(start_idx)) deallocate(start_idx)
+    ! if (allocated(start_idx)) deallocate(start_idx)
+    ! call ESMF_LogWrite(trim(filename)//" ovde0", ESMF_LOGMSG_INFO, rc=rc)
+    ! call ESMF_VMBarrier(VM, rc=rc)
+    ! call ESMF_LogWrite(trim(filename)//" ovde1", ESMF_LOGMSG_INFO, rc=rc)
     if (is_cubed_sphere) then
-       allocate(start_idx(3))
+       ! allocate(start_idx(3))
        start_idx = [start_i, start_j, my_tile]
     else
-       allocate(start_idx(2))
+       ! allocate(start_idx(2))
+       ! call ESMF_VMBarrier(VM, rc=rc)
+       ! call ESMF_LogWrite(trim(filename)//" ovde2", ESMF_LOGMSG_INFO, rc=rc)
        start_idx = [start_i, start_j]
+       ! call ESMF_VMBarrier(VM, rc=rc)
+       ! call ESMF_LogWrite(trim(filename)//" ovde3", ESMF_LOGMSG_INFO, rc=rc)
     end if
+
+    ! call ESMF_VMBarrier(VM, rc=rc)
+    ! call ESMF_LogWrite(trim(filename)//" After allocating start_idx", ESMF_LOGMSG_INFO, rc=rc)
 
     ! write lon (lon_varid)
     if (par) then
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
     else
+       ! call ESMF_VMBarrier(VM, rc=rc)
+       ! call ESMF_LogWrite(trim(filename)//" Before getting coordDim=1 array", ESMF_LOGMSG_INFO, rc=rc)
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, array=array, rc=rc); ESMF_ERR_RETURN(rc)
+       ! call ESMF_LogWrite(trim(filename)//" After  getting coordDim=1 array", ESMF_LOGMSG_INFO, rc=rc)
        if (is_cubed_sphere) then
           do t=1,tileCount
              call ESMF_ArrayGather(array, array_r8_cube(:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
@@ -543,7 +610,10 @@ contains
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          call ESMF_ArrayGather(array, array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+          call ESMF_VMBarrier(VM, rc=rc)
+          call ESMF_LogWrite(trim(filename)//" Before ArrayGather: "// "lon", ESMF_LOGMSG_INFO, rc=rc)
+          call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+          call ESMF_LogWrite(trim(filename)//" After  ArrayGather: "// "lon", ESMF_LOGMSG_INFO, rc=rc)
           if (do_io) then
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
@@ -593,7 +663,10 @@ contains
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          call ESMF_ArrayGather(array, array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+          call ESMF_VMBarrier(VM, rc=rc)
+          call ESMF_LogWrite(trim(filename)//" Before ArrayGather: "// "lat", ESMF_LOGMSG_INFO, rc=rc)
+          call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+          call ESMF_LogWrite(trim(filename)//" After  ArrayGather: "// "lat", ESMF_LOGMSG_INFO, rc=rc)
           if (do_io) then
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
@@ -645,12 +718,12 @@ contains
 
        if (rank == 2) then
 
-         if (allocated(start_idx)) deallocate(start_idx)
+         ! if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            allocate(start_idx(4))
+            ! allocate(start_idx(4))
             start_idx = [start_i,start_j,my_tile,1]
          else
-            allocate(start_idx(3))
+            ! allocate(start_idx(3))
             start_idx = [start_i,start_j,        1]
          end if
 
@@ -671,7 +744,10 @@ contains
                   deallocate(array_r4_cube)
                else
                   allocate(array_r4(im,jm))
-                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_VMBarrier(VM, rc=rc)
+                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -692,7 +768,10 @@ contains
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                else
-                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_VMBarrier(VM, rc=rc)
+                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -702,12 +781,12 @@ contains
 
       else if (rank == 3) then
 
-         if (allocated(start_idx)) deallocate(start_idx)
+         ! if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            allocate(start_idx(5))
+            ! allocate(start_idx(5))
             start_idx = [start_i,start_j,1,my_tile,1]
          else
-            allocate(start_idx(4))
+            ! allocate(start_idx(4))
             start_idx = [start_i,start_j,1,        1]
          end if
 
@@ -722,14 +801,17 @@ contains
                   do t=1,tileCount
                      call ESMF_ArrayGather(array, array_r4_3d_cube(:,:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
                   end do
-                  if (mype==0) then
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                   deallocate(array_r4_3d_cube)
                else
                   allocate(array_r4_3d(im,jm,fldlev(i)))
-                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-                  if (mype==0) then
+                  call ESMF_VMBarrier(VM, rc=rc)
+                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                   deallocate(array_r4_3d)
@@ -745,12 +827,15 @@ contains
                   do t=1,tileCount
                      call ESMF_ArrayGather(array, array_r8_3d_cube(:,:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
                   end do
-                  if (mype==0) then
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                else
-                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-                  if (mype==0) then
+                  call ESMF_VMBarrier(VM, rc=rc)
+                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                end if

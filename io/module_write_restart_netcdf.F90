@@ -33,25 +33,21 @@ module module_write_restart_netcdf
     type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, optional,intent(out)      :: rc
-!
+
 !** local vars
-    integer, parameter :: i8_kind=8
     integer :: i,j,k,t, istart,iend,jstart,jend
     integer :: im, jm, lm
+    integer :: nproc, nproc_per_tile
 
     integer, dimension(:), allocatable              :: fldlev
 
     real(ESMF_KIND_R4), dimension(:,:), pointer     :: array_r4
-    real(ESMF_KIND_R4), dimension(:,:,:), pointer   :: array_r4_cube
     real(ESMF_KIND_R4), dimension(:,:,:), pointer   :: array_r4_3d
-    real(ESMF_KIND_R4), dimension(:,:,:,:), pointer :: array_r4_3d_cube
 
     real(ESMF_KIND_R8), dimension(:,:), pointer     :: array_r8
-    real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_cube
     real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_3d
-    real(ESMF_KIND_R8), dimension(:,:,:,:), pointer :: array_r8_3d_cube
 
-    real(8), dimension(:), allocatable :: x,y
+    ! real(8), dimension(:), allocatable :: x,y
     integer :: fieldCount, fieldDimCount, gridDimCount
     integer, dimension(:), allocatable   :: ungriddedLBound, ungriddedUBound
     integer, dimension(:), allocatable   :: start_idx
@@ -63,15 +59,7 @@ module module_write_restart_netcdf
     type(ESMF_Grid)                      :: wrtgrid
     type(ESMF_Array)                     :: array
     type(ESMF_DistGrid)                  :: distgrid
-
-    integer :: attCount
-    character(len=ESMF_MAXSTR) :: attName, fldName
-
-    integer :: varival
-    real(4) :: varr4val, dataMin, dataMax
-    real(4), allocatable, dimension(:) :: compress_err
-    real(8) :: varr8val
-    character(len=ESMF_MAXSTR) :: varcval
+    character(len=ESMF_MAXSTR)           :: fldName
 
     integer :: ncerr,ierr
     integer :: ncid
@@ -84,7 +72,8 @@ module module_write_restart_netcdf
     logical shuffle
 
     logical :: get_im_jm, found_im_jm
-    integer :: rank, deCount, localDeCount, dimCount, tileCount
+    logical :: is_cubed_sphere
+    integer :: rank, deCount, localDeCount, dimCount, tileCount, tile_number, rootPet
     integer :: my_tile, start_i, start_j
     integer, dimension(:,:), allocatable :: minIndexPDe, maxIndexPDe
     integer, dimension(:,:), allocatable :: minIndexPTile, maxIndexPTile
@@ -96,28 +85,34 @@ module module_write_restart_netcdf
     logical :: isPresent, thereAreVerticals, is_restart_core, dynamics_restart_file
     integer :: udimCount
     character(80), allocatable :: udimList(:)
-    ! character(32), allocatable :: field_checksums(:)
     character(32) :: axis_attr_name
     character(32) :: field_checksum
-!
+
+    character(256) :: actualFileName
+    integer :: idx
+    type(MPI_Comm)  :: io_comm
+
     is_restart_core = .false.
     if ( index(trim(filename),'fv_core.res') > 0 ) is_restart_core = .true.
+
+    io_comm = comm
+
+    is_cubed_sphere = .false.
     tileCount = 0
     my_tile = 0
+    tile_number = 0
+    rootPet = 0
     start_i = -10000000
     start_j = -10000000
 
     par = use_parallel_netcdf
-    do_io = par .or. (mype==0)
 
     call ESMF_FieldBundleGet(wrtfb, fieldCount=fieldCount, rc=rc); ESMF_ERR_RETURN(rc)
 
-    allocate(compress_err(fieldCount)); compress_err=-999.
     allocate(fldlev(fieldCount)) ; fldlev = 0
     allocate(fcstField(fieldCount))
     allocate(varids(fieldCount))
     allocate(zaxis_dimids(fieldCount))
-    ! allocate(field_checksums(fieldCount))
 
     call ESMF_FieldBundleGet(wrtfb, fieldList=fcstField, grid=wrtGrid, &
                              itemorderflag=ESMF_ITEMORDER_ADDORDER, &
@@ -150,11 +145,6 @@ module module_write_restart_netcdf
                              tileCount=tileCount, &
                              rc=rc); ESMF_ERR_RETURN(rc)
 
-          if (tileCount /= 1) then
-             if (mype==0) write(0,*)"write_restart_netcdf: Only tileCount==1 fields are supported!"
-             call ESMF_Finalize(endflag=ESMF_END_ABORT)
-          endif
-
           allocate(minIndexPDe(dimCount,deCount))
           allocate(maxIndexPDe(dimCount,deCount))
           allocate(minIndexPTile(dimCount, tileCount))
@@ -171,6 +161,7 @@ module module_write_restart_netcdf
                              localDeToDeMap=localDeToDeMap, &
                              rc=rc); ESMF_ERR_RETURN(rc)
 
+          is_cubed_sphere = (tileCount == 6)
           my_tile = deToTileMap(localDeToDeMap(1)+1)
           im = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
           jm = maxIndexPTile(2,1) - minIndexPTile(2,1) + 1
@@ -217,15 +208,43 @@ module module_write_restart_netcdf
 
     end do
 
+    do_io = par .or. (mype==0)
+
+    tile_number = 1
+    if (is_cubed_sphere) then
+       call MPI_Comm_Size(comm, nproc, ierr)
+       if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       if (mod(nproc,6) /=0) then
+         if (mype==0) write(0,*)'For cubed sphere restarts, nproc must be divisible by 6. nproc = ', nproc
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
+       nproc_per_tile = nproc / 6
+       do_io = do_io .or. mod(mype,nproc_per_tile) == 0
+       tile_number = mype / nproc_per_tile + 1
+       rootPet = (tile_number - 1) * nproc_per_tile
+       if (tile_number /= my_tile) then
+         if (mype==0) write(0,*)'Internal error: tile_number /= my_tile ', tile_number, my_tile
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
+       end if
+       call MPI_Comm_Split(comm, tile_number, mod(mype,nproc_per_tile), io_comm, ierr)
+       if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    end if
+
     ! create netcdf file and enter define mode
     if (do_io) then
 
+       actualFileName = trim(filename)
+       if (is_cubed_sphere) then
+          idx = index(trim(filename), ".nc", .true.)
+          write(actualFileName, fmt='(a,i1,a)') trim(fileName(:idx-1))//".tile", tile_number, ".nc"
+       end if
+
        if (par) then
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(NF90_CLOBBER,NF90_NETCDF4),&
-                  comm=comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
+                  comm=io_comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
        else
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   ! cmode=IOR(NF90_CLOBBER,NF90_64BIT_OFFSET),&
                   cmode=IOR(NF90_CLOBBER,NF90_NETCDF4),&
                   ncid=ncid); NC_ERR_STOP(ncerr)
@@ -446,7 +465,7 @@ module module_write_restart_netcdf
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r4(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r4, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+               call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -459,7 +478,7 @@ module module_write_restart_netcdf
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r8(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+               call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -489,8 +508,8 @@ module module_write_restart_netcdf
                  if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-               if (mype==0) then
+               call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if
                deallocate(array_r4_3d)
@@ -511,8 +530,8 @@ module module_write_restart_netcdf
                  if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-               if (mype==0) then
+               call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if
                deallocate(array_r8_3d)
