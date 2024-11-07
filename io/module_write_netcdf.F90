@@ -398,14 +398,14 @@ contains
             par_access = NF90_COLLECTIVE
             if (rank == 2 .and. ichunk2d(grid_id) > 0 .and. jchunk2d(grid_id) > 0) then
                if (is_cubed_sphere) then
-                  chunksizes = [im, jm, tileCount, 1]
+                  chunksizes = [im, jm, 1, 1]
                else
                   chunksizes = [ichunk2d(grid_id), jchunk2d(grid_id),            1]
                end if
                ncerr = nf90_def_var_chunking(ncid, varids(i), NF90_CHUNKED, chunksizes) ; NC_ERR_STOP(ncerr)
             else if (rank == 3 .and. ichunk3d(grid_id) > 0 .and. jchunk3d(grid_id) > 0 .and. kchunk3d(grid_id) > 0) then
                if (is_cubed_sphere) then
-                  chunksizes = [im, jm, lm, tileCount, 1]
+                  chunksizes = [im, jm, 1, 1, 1]
                else
                   chunksizes = [ichunk3d(grid_id), jchunk3d(grid_id), min(kchunk3d(grid_id),fldlev(i)), 1]
                end if
