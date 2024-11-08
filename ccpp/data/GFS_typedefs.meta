@@ -697,7 +697,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == 2)
+  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == clm_lake_model_control_selection_value)
 [use_lake_model]
   standard_name = flag_for_using_lake_model
   long_name = flag indicating lake points using a lake model
@@ -711,7 +711,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == 2)
+  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == clm_lake_model_control_selection_value)
 [lake_q2m]
   standard_name =  specific_humidity_at_2m_from_clm_lake
   long_name = specific humidity at 2m from clm lake
@@ -719,7 +719,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == 2)
+  active = (control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == clm_lake_model_control_selection_value)
 [h_ML]
   standard_name = mixed_layer_depth_of_lakes
   long_name = depth of lake mixing layer
@@ -727,7 +727,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [t_ML]
   standard_name = lake_mixed_layer_temperature
   long_name = temperature of lake mixing layer
@@ -735,7 +735,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [t_mnw]
   standard_name = mean_temperature_of_the_water_column
   long_name = thee  mean temperature of the water column
@@ -743,7 +743,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [h_talb]
   standard_name = the_thermally_active_layer_depth_of_the_bottom_sediment
   long_name = the depth of the thermally active layer of the bottom sediment
@@ -751,7 +751,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [t_talb]
   standard_name = temperature_at_the_bottom_of_the_sediment_upper_layer
   long_name = the temperature at the bottom of the sediment upper layer
@@ -759,7 +759,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [t_bot1]
   standard_name = lake_bottom_temperature
   long_name = the temperature at the water-bottom sediment interface
@@ -767,7 +767,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [t_bot2]
   standard_name = temperature_for_bottom_layer_of_water
   long_name = the temperature at the lake bottom layer water
@@ -775,7 +775,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [c_t]
   standard_name = shape_factor_of_water_temperature_vertical_profile
   long_name = the shape factor of water temperature vertical profile
@@ -783,7 +783,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 1 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == flake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [T_snow]
   standard_name = temperature_of_snow_on_lake
   long_name = temperature of snow on a lake
@@ -1897,6 +1897,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme)
 [snowfallac_ice]
   standard_name = surface_snow_amount_assuming_variable_snow_density_over_ice
   long_name = run-total snow accumulation on the ground with variable snow density over ice
@@ -1912,6 +1913,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme)
 [ustm]
   standard_name = surface_friction_velocity_for_momentum
   long_name = friction velocity isolated for momentum only
@@ -2009,7 +2011,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. ( control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == 2) )
+  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. ( control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == clm_lake_model_control_selection_value) )
 [rainncprv]
   standard_name = lwe_thickness_of_explicit_precipitation_amount_on_previous_timestep
   long_name = explicit rainfall from previous timestep
@@ -2017,7 +2019,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. ( control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == 2) )
+  active = (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. ( control_for_lake_model_execution_method > 0 .and. control_for_lake_model_selection == clm_lake_model_control_selection_value) )
 [iceprv]
   standard_name = lwe_thickness_of_ice_precipitation_amount_on_previous_timestep
   long_name = ice amount from previous timestep
@@ -2117,7 +2119,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [input_lakedepth]
   standard_name = lake_depth_before_correction
   long_name = lake depth_before_correction
@@ -2125,7 +2127,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_h2osno2d]
   standard_name = water_equivalent_accumulated_snow_depth_in_clm_lake_model
   long_name = water equiv of acc snow depth over lake in clm lake model
@@ -2133,7 +2135,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_sndpth2d]
   standard_name = actual_snow_depth_in_clm_lake_model
   long_name = actual acc snow depth over lake in clm lake model
@@ -2141,7 +2143,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_snl2d]
   standard_name = snow_layers_in_clm_lake_model
   long_name = snow layers in clm lake model (treated as integer)
@@ -2149,7 +2151,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_snow_z3d]
   standard_name = snow_level_depth_in_clm_lake_model
   long_name = snow level depth in clm lake model
@@ -2157,7 +2159,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_snow_dz3d]
   standard_name = snow_level_thickness_in_clm_lake_model
   long_name = snow level thickness in clm lake model
@@ -2165,7 +2167,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_snow_zi3d]
   standard_name = snow_interface_depth_in_clm_lake_model
   long_name = snow interface_depth in clm lake model
@@ -2173,7 +2175,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_h2osoi_vol3d]
   standard_name = volumetric_soil_water_in_clm_lake_model
   long_name = volumetric soil water in clm lake model
@@ -2181,7 +2183,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_h2osoi_liq3d]
   standard_name = soil_liquid_water_content_in_clm_lake_model
   long_name = soil liquid water content in clm lake model
@@ -2189,7 +2191,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_h2osoi_ice3d]
   standard_name = soil_ice_water_content_in_clm_lake_model
   long_name = soil ice water content in clm lake model
@@ -2197,7 +2199,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_tsfc]
   standard_name = skin_temperature_from_lake_model
   long_name = skin temperature from lake model
@@ -2205,7 +2207,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_t_soisno3d]
   standard_name = soil_or_snow_layer_temperature_from_clm_lake_model
   long_name = soil or snow layer temperature from clm lake model
@@ -2213,7 +2215,7 @@
   dimensions = (horizontal_dimension,snow_plus_soil_minus_one_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_t_lake3d]
   standard_name = lake_layer_temperature_from_clm_lake_model
   long_name = lake layer temperature from clm lake model
@@ -2221,7 +2223,7 @@
   dimensions = (horizontal_dimension,lake_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_savedtke12d]
   standard_name = top_level_eddy_conductivity_from_previous_timestep_in_clm_lake_model
   long_name = top level eddy conductivity from previous timestep in clm lake model
@@ -2229,7 +2231,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_icefrac3d]
   standard_name = lake_fractional_ice_cover_on_clm_lake_levels
   long_name = lake fractional ice cover on clm lake levels
@@ -2237,7 +2239,7 @@
   dimensions = (horizontal_dimension,lake_vertical_dimension_for_clm_lake_model)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_ht]
   standard_name = test_lake_ht
   long_name = test_lake_ht
@@ -2245,7 +2247,7 @@
   units = unitless
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [clm_lake_initialized]
   standard_name = flag_for_clm_lake_initialization
   long_name = set to true in clm_lake_run after likeini is called for that gridpoint
@@ -2253,21 +2255,21 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_is_salty]
   standard_name = clm_lake_is_salty
   long_name = lake at this point is salty (1) or not (0)
   units = 1
   dimensions = (horizontal_dimension)
   type = integer
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [lake_cannot_freeze]
   standard_name = clm_lake_cannot_freeze
   long_name = lake at this point is so salty it cannot freeze
   units = 1
   dimensions = (horizontal_dimension)
   type = integer
-  active = (control_for_lake_model_selection == 2 .and. control_for_lake_model_execution_method > 0)
+  active = (control_for_lake_model_selection == clm_lake_model_control_selection_value .and. control_for_lake_model_execution_method > 0)
 [emdust]
   standard_name = emission_of_dust_for_smoke
   long_name = emission of dust for smoke
@@ -2488,7 +2490,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_stochastic_physics_perturbations .or. flag_for_chemistry_coupling .or. flag_for_global_cellular_automata .or. flag_for_land_coupling)
+  active = (flag_for_surface_flux_coupling .or. flag_for_stochastic_physics_perturbations .or. flag_for_chemistry_coupling .or. flag_for_global_cellular_automata .or. flag_for_land_coupling .or. do_fire_coupling)
 [rainc_cpl]
   standard_name = cumulative_lwe_thickness_of_convective_precipitation_amount_for_coupling
   long_name = total convective precipitation
@@ -2512,7 +2514,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvsfc_cpl]
   standard_name = cumulative_surface_y_momentum_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc y momentum flux multiplied by timestep
@@ -2520,7 +2522,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dtsfc_cpl]
   standard_name = cumulative_surface_upward_sensible_heat_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc sensible heat flux multiplied by timestep
@@ -2528,7 +2530,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dqsfc_cpl]
   standard_name = cumulative_surface_upward_latent_heat_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc latent heat flux multiplied by timestep
@@ -2536,7 +2538,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dlwsfc_cpl]
   standard_name = cumulative_surface_downwelling_longwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc downward lw flux mulitplied by timestep
@@ -2560,7 +2562,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dnirdf_cpl]
   standard_name = cumulative_surface_downwelling_diffuse_nir_shortwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc nir diff downward sw flux multiplied by timestep
@@ -2568,7 +2570,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvisbm_cpl]
   standard_name = cumulative_surface_downwelling_direct_uv_and_vis_shortwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc uv+vis beam dnwd sw flux multiplied by timestep
@@ -2576,7 +2578,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvisdf_cpl]
   standard_name = cumulative_surface_downwelling_diffuse_uv_and_vis_shortwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative sfc uv+vis diff dnwd sw flux multiplied by timestep
@@ -2584,7 +2586,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [nlwsfc_cpl]
   standard_name = cumulative_surface_net_downwelling_longwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative net downward lw flux multiplied by timestep
@@ -2592,7 +2594,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [nswsfc_cpl]
   standard_name = cumulative_surface_net_downwelling_shortwave_flux_for_coupling_multiplied_by_timestep
   long_name = cumulative net downward sw flux multiplied by timestep
@@ -2640,7 +2642,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvsfci_cpl]
   standard_name = surface_y_momentum_flux_for_coupling
   long_name = instantaneous sfc y momentum flux
@@ -2648,7 +2650,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dtsfci_cpl]
   standard_name = surface_upward_sensible_heat_flux_for_coupling
   long_name = instantaneous sfc sensible heat flux
@@ -2656,7 +2658,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [dqsfci_cpl]
   standard_name = surface_upward_latent_heat_flux_for_coupling
   long_name = instantaneous sfc latent heat flux
@@ -2664,7 +2666,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [dlwsfci_cpl]
   standard_name = surface_downwelling_longwave_flux_for_coupling
   long_name = instantaneous sfc downward lw flux
@@ -2688,7 +2690,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dnirdfi_cpl]
   standard_name = surface_downwelling_diffuse_nir_shortwave_flux_for_coupling
   long_name = instantaneous sfc nir diff downward sw flux
@@ -2696,7 +2698,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvisbmi_cpl]
   standard_name = surface_downwelling_direct_uv_and_vis_shortwave_flux_for_coupling
   long_name = instantaneous sfc uv+vis beam downward sw flux
@@ -2704,7 +2706,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvisdfi_cpl]
   standard_name = surface_downwelling_diffuse_uv_and_vis_shortwave_flux_for_coupling
   long_name = instantaneous sfc uv+vis diff downward sw flux
@@ -2712,7 +2714,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [nlwsfci_cpl]
   standard_name = surface_net_downwelling_longwave_flux_for_coupling
   long_name = instantaneous net sfc downward lw flux
@@ -2720,7 +2722,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [nswsfci_cpl]
   standard_name = surface_net_downwelling_shortwave_flux_for_coupling
   long_name = instantaneous net sfc downward sw flux
@@ -2728,7 +2730,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling .or. flag_for_land_coupling)
+  active = (flag_for_surface_flux_coupling .or. flag_for_land_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [nnirbmi_cpl]
   standard_name = surface_net_downwelling_direct_nir_shortwave_flux_for_coupling
   long_name = instantaneous net nir beam sfc downward sw flux
@@ -2768,7 +2770,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [q2mi_cpl]
   standard_name = specific_humidity_at_2m_for_coupling
   long_name = instantaneous Q2m
@@ -2776,7 +2778,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [u10mi_cpl]
   standard_name = x_wind_at_10m_for_coupling
   long_name = instantaneous U10m
@@ -2808,7 +2810,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_air_quality_coupling .or. flag_for_land_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. flag_for_land_coupling .or. do_fire_coupling .or. (flag_for_air_quality_coupling .and. .not. flag_for_surface_flux_coupling))
 [ulwsfcin_cpl]
   standard_name = surface_upwelling_longwave_flux_from_coupled_process
   long_name = surface upwelling LW flux for coupling
@@ -2816,7 +2818,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dusfcin_cpl]
   standard_name = surface_x_momentum_flux_from_coupled_process
   long_name = sfc x momentum flux for coupling
@@ -2824,7 +2826,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dvsfcin_cpl]
   standard_name = surface_y_momentum_flux_from_coupled_process
   long_name = sfc y momentum flux for coupling
@@ -2832,7 +2834,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dtsfcin_cpl]
   standard_name = surface_upward_sensible_heat_flux_from_coupled_process
   long_name = sfc sensible heat flux input
@@ -2840,7 +2842,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dqsfcin_cpl]
   standard_name = surface_upward_latent_heat_flux_from_coupled_process
   long_name = sfc latent heat flux input for coupling
@@ -2848,7 +2850,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [ulwsfcin_med]
   standard_name = surface_upwelling_longwave_flux_over_ocean_from_mediator
   long_name = surface upwelling LW flux over ocean for coupling
@@ -2856,7 +2858,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .and. do_mediator_atmosphere_ocean_fluxes)
+  active = ((flag_for_surface_flux_coupling .or. do_fire_coupling) .and. do_mediator_atmosphere_ocean_fluxes)
 [dusfcin_med]
   standard_name = surface_x_momentum_flux_over_ocean_from_mediator
   long_name = sfc x momentum flux over ocean for coupling
@@ -2872,7 +2874,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .and. do_mediator_atmosphere_ocean_fluxes)
+  active = ((flag_for_surface_flux_coupling .or. do_fire_coupling) .and. do_mediator_atmosphere_ocean_fluxes)
 [dtsfcin_med]
   standard_name = surface_upward_sensible_heat_flux_over_ocean_from_mediator
   long_name = sfc sensible heat flux input over ocean for coupling
@@ -2880,7 +2882,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .and. do_mediator_atmosphere_ocean_fluxes)
+  active = ((flag_for_surface_flux_coupling .or. do_fire_coupling) .and. do_mediator_atmosphere_ocean_fluxes)
 [dqsfcin_med]
   standard_name = surface_upward_latent_heat_flux_over_ocean_from_mediator
   long_name = sfc latent heat flux input over ocean for coupling
@@ -2888,7 +2890,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .and. do_mediator_atmosphere_ocean_fluxes)
+  active = ((flag_for_surface_flux_coupling .or. do_fire_coupling) .and. do_mediator_atmosphere_ocean_fluxes)
 [sncovr1_lnd]
   standard_name = surface_snow_area_fraction_over_land_from_land
   long_name = surface snow area fraction over land for coupling 
@@ -3000,6 +3002,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [slimskin_cpl]
   standard_name = area_type_from_coupled_process
   long_name = sea/land/ice mask input (=0/1/2)
@@ -3007,7 +3010,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
 [dqdt_qmicro]
   standard_name = instantaneous_tendency_of_specific_humidity_due_to_microphysics
   long_name = instantaneous_tendency_of_specific_humidity_due_to_microphysics
@@ -3134,7 +3137,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. flag_for_aerosol_physics)
+  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [nifa2d]
   standard_name = tendency_of_nonhygroscopic_ice_nucleating_aerosols_at_surface_adjacent_layer
   long_name = instantaneous ice-friendly sfc aerosol source
@@ -3142,7 +3145,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. flag_for_aerosol_physics)
+  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [ebu_smoke]
   standard_name = ebu_smoke
   long_name = buffer of vertical fire emission
@@ -8182,7 +8185,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_deep_convection_scheme == identifier_for_grell_freitas_deep_convection .or. control_for_deep_convection_scheme == identifier_for_c3_deep_convection .or. control_for_deep_convection_scheme == identifier_for_new_tiedtke_deep_convection .or. control_for_deep_convection_scheme == identifer_for_scale_aware_mass_flux_deep_convection .or. control_for_shallow_convection_scheme == identifier_for_scale_aware_mass_flux_shallow_convection)
+  active = (control_for_deep_convection_scheme == identifier_for_grell_freitas_deep_convection .or. control_for_deep_convection_scheme == identifier_for_c3_deep_convection .or. control_for_deep_convection_scheme == identifier_for_new_tiedtke_deep_convection .or. control_for_deep_convection_scheme == identifer_for_scale_aware_mass_flux_deep_convection .or. control_for_shallow_convection_scheme == identifier_for_scale_aware_mass_flux_shallow_convection .or. control_for_shallow_convection_scheme == identifier_for_c3_shallow_convection)
 [cactiv]
   standard_name = counter_for_grell_freitas_convection
   long_name = convective activity memory
@@ -9310,7 +9313,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D)
+  active = (flag_for_diagnostics_3D .and. flag_for_tracer_diagnostics_3D)
 [dwn_mf]
   standard_name = cumulative_atmosphere_downdraft_convective_mass_flux
   long_name = cumulative downdraft mass flux
@@ -9318,7 +9321,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D)
+  active = (flag_for_diagnostics_3D .and. flag_for_tracer_diagnostics_3D)
 [det_mf]
   standard_name = cumulative_atmosphere_detrainment_convective_mass_flux
   long_name = cumulative detrainment mass flux
@@ -9326,7 +9329,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D)
+  active = (flag_for_diagnostics_3D .and. flag_for_tracer_diagnostics_3D)
 [do3_dt_prd]
   standard_name = ozone_tendency_due_to_production_and_loss_rate
   long_name = ozone tendency due to production and loss rate
@@ -9334,7 +9337,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
+  active = (flag_for_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
 [do3_dt_ozmx]
   standard_name = ozone_tendency_due_to_ozone_mixing_ratio
   long_name = ozone tendency due to ozone mixing ratio
@@ -9342,7 +9345,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
+  active = (flag_for_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
 [do3_dt_temp]
   standard_name = ozone_tendency_due_to_temperature
   long_name = ozone tendency due to temperature
@@ -9350,7 +9353,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
+  active = (flag_for_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
 [do3_dt_ohoz]
   standard_name = ozone_tendency_due_to_overhead_ozone_column
   long_name = ozone tendency due to overhead ozone column
@@ -9358,7 +9361,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_tracer_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
+  active = (flag_for_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
 [refl_10cm]
   standard_name = radar_reflectivity_10cm
   long_name = instantaneous refl_10cm
@@ -9523,7 +9526,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output == 1)
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output > 0)
 [qwt]
   standard_name = tke_tendency_due_to_vertical_transport
   long_name = tke tendency due to vertical transport and diffusion
@@ -9531,7 +9534,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output == 1)
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output > 0)
 [qshear]
   standard_name = tke_tendency_due_to_shear
   long_name = tke tendency due to shear
@@ -9539,7 +9542,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output == 1)
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output > 0)
 [qbuoy]
   standard_name = tke_tendency_due_to_buoyancy
   long_name = tke tendency due to buoyancy production or consumption
@@ -9547,7 +9550,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output == 1)
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output > 0)
 [qdiss]
   standard_name = tke_tendency_due_to_dissipation
   long_name = tke tendency due to the dissipation of tke
@@ -9555,7 +9558,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output == 1)
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. control_for_tke_budget_output > 0)
 [maxwidth]
   standard_name = maximum_width_of_plumes
   long_name = maximum width of plumes per grid column
@@ -9580,12 +9583,6 @@
   type = real
   kind = kind_phys
   active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
-[ktop_shallow]
-  standard_name = k_level_of_highest_reaching_plume
-  long_name = k-level of highest reaching plume
-  units = count
-  dimensions = (horizontal_dimension)
-  type = integer
 [ktop_plume]
   standard_name = k_level_of_highest_plume
   long_name = k-level of highest plume
@@ -9813,7 +9810,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_ugwp_version_1 .or. flag_for_unified_gravity_wave_physics_diagnostics)
 [dvdt_ogw]
   standard_name = tendency_of_y_wind_due_to_mesoscale_orographic_gravity_wave_drag
   long_name = y wind tendency from meso scale ogw
@@ -10037,6 +10033,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+  active = (flag_to_print_pgr_differences_every_timestep)
 [ltg1_max]
   standard_name = lightning_threat_index_1
   long_name = lightning threat index 1
