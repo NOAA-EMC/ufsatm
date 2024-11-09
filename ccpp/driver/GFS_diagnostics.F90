@@ -554,7 +554,7 @@ module GFS_diagnostics
     ExtDiag(idx)%intpl_method = 'bilinear'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%fluxr(:,32)
+      ExtDiag(idx)%data(nb)%var2 => IntDiag%fluxr(Model%chunk_begin(nb):Model%chunk_end(nb),32)
     enddo
 
     idx = idx + 1
