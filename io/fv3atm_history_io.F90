@@ -186,7 +186,7 @@ CONTAINS
     hist%fhzero = nint(Model%fhzero)
     !   hist%ncld   = Model%ncld
     hist%ncld   = Model%imp_physics
-    hist%nsoil  = Model%lsoil
+    hist%nsoil  = Model%lsoil_lsm
     hist%dtp    = Model%dtp
     hist%imp_physics  = Model%imp_physics
     hist%landsfcmdl  = Model%lsm
