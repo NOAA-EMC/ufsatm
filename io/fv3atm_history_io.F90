@@ -187,8 +187,7 @@ CONTAINS
     hist%fhzero = Model%fhzero
     !   hist%ncld   = Model%ncld
     hist%ncld   = Model%imp_physics
-    hist%nsoil  = Model%lsoil
-    hist%nsoil_lsm  = Model%lsoil_lsm
+    hist%nsoil  = Model%lsoil_lsm
     hist%dtp    = Model%dtp
     hist%imp_physics  = Model%imp_physics
     hist%landsfcmdl  = Model%lsm
