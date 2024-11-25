@@ -465,7 +465,10 @@ module module_write_restart_netcdf
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r4(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               do t=1,tileCount
+                  rootPet = (t - 1) * nproc_per_tile
+                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+               end do
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -478,7 +481,10 @@ module module_write_restart_netcdf
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r8(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               do t=1,tileCount
+                  rootPet = (t - 1) * nproc_per_tile
+                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+               end do
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -508,7 +514,10 @@ module module_write_restart_netcdf
                  if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               do t=1,tileCount
+                  rootPet = (t - 1) * nproc_per_tile
+                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+               end do
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -530,7 +539,10 @@ module module_write_restart_netcdf
                  if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
+               do t=1,tileCount
+                  rootPet = (t - 1) * nproc_per_tile
+                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+               end do
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if

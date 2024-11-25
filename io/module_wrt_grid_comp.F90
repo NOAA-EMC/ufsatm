@@ -2362,7 +2362,7 @@
 
               ! else
                 call  write_restart_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                           .true., wrt_mpi_comm, mype, &
+                                           .false., wrt_mpi_comm, mype, &
                                            rc=rc)
               ! endif ! cubed sphere vs. regional/nest write grid
 
@@ -2377,11 +2377,9 @@
                                  grid_id,rc)
               else
 #if 1
-                ! call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                !                  .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
-                !                  grid_id,rc)
-
-                call gather_test(wrt_int_state%wrtFB(nbdl), rc)
+                call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
+                                 .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
+                                 grid_id,rc)
 #else
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &

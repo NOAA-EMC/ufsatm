@@ -279,7 +279,6 @@ contains
        nproc_per_tile = nproc / 6
        do_io = do_io .or. mod(mype,nproc_per_tile) == 0
        tile_number = mype / nproc_per_tile + 1
-       rootPet = (tile_number - 1) * nproc_per_tile
        if (tile_number /= my_tile) then
          if (mype==0) write(0,*)'Internal error: tile_number /= my_tile ', tile_number, my_tile
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -568,40 +567,21 @@ contains
 
     end if
 
-    ! call ESMF_VMBarrier(VM, rc=rc)
-    ! call ESMF_LogWrite(trim(filename)//" Start writing variables", ESMF_LOGMSG_INFO, rc=rc)
-
     !
     ! write lon,lat variables
     !
-    ! if (allocated(start_idx)) deallocate(start_idx)
-    ! call ESMF_LogWrite(trim(filename)//" ovde0", ESMF_LOGMSG_INFO, rc=rc)
-    ! call ESMF_VMBarrier(VM, rc=rc)
-    ! call ESMF_LogWrite(trim(filename)//" ovde1", ESMF_LOGMSG_INFO, rc=rc)
     if (is_cubed_sphere) then
-       ! allocate(start_idx(3))
        start_idx = [start_i, start_j, my_tile]
     else
-       ! allocate(start_idx(2))
-       ! call ESMF_VMBarrier(VM, rc=rc)
-       ! call ESMF_LogWrite(trim(filename)//" ovde2", ESMF_LOGMSG_INFO, rc=rc)
        start_idx = [start_i, start_j]
-       ! call ESMF_VMBarrier(VM, rc=rc)
-       ! call ESMF_LogWrite(trim(filename)//" ovde3", ESMF_LOGMSG_INFO, rc=rc)
     end if
-
-    ! call ESMF_VMBarrier(VM, rc=rc)
-    ! call ESMF_LogWrite(trim(filename)//" After allocating start_idx", ESMF_LOGMSG_INFO, rc=rc)
 
     ! write lon (lon_varid)
     if (par) then
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
     else
-       ! call ESMF_VMBarrier(VM, rc=rc)
-       ! call ESMF_LogWrite(trim(filename)//" Before getting coordDim=1 array", ESMF_LOGMSG_INFO, rc=rc)
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, array=array, rc=rc); ESMF_ERR_RETURN(rc)
-       ! call ESMF_LogWrite(trim(filename)//" After  getting coordDim=1 array", ESMF_LOGMSG_INFO, rc=rc)
        if (is_cubed_sphere) then
           do t=1,tileCount
              call ESMF_ArrayGather(array, array_r8_cube(:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
@@ -610,10 +590,10 @@ contains
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          call ESMF_VMBarrier(VM, rc=rc)
-          call ESMF_LogWrite(trim(filename)//" Before ArrayGather: "// "lon", ESMF_LOGMSG_INFO, rc=rc)
-          call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-          call ESMF_LogWrite(trim(filename)//" After  ArrayGather: "// "lon", ESMF_LOGMSG_INFO, rc=rc)
+          do t=1,tileCount
+             rootPet = (t - 1) * nproc_per_tile
+             call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+          end do
           if (do_io) then
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
@@ -663,10 +643,10 @@ contains
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          call ESMF_VMBarrier(VM, rc=rc)
-          call ESMF_LogWrite(trim(filename)//" Before ArrayGather: "// "lat", ESMF_LOGMSG_INFO, rc=rc)
-          call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-          call ESMF_LogWrite(trim(filename)//" After  ArrayGather: "// "lat", ESMF_LOGMSG_INFO, rc=rc)
+          do t=1,tileCount
+             rootPet = (t - 1) * nproc_per_tile
+             call ESMF_ArrayGather(array, array_r8, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+          end do
           if (do_io) then
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
@@ -744,10 +724,10 @@ contains
                   deallocate(array_r4_cube)
                else
                   allocate(array_r4(im,jm))
-                  call ESMF_VMBarrier(VM, rc=rc)
-                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
-                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  do t=1,tileCount
+                     rootPet = (t - 1) * nproc_per_tile
+                     call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -768,10 +748,10 @@ contains
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                else
-                  call ESMF_VMBarrier(VM, rc=rc)
-                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
-                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  do t=1,tileCount
+                     rootPet = (t - 1) * nproc_per_tile
+                     call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -807,10 +787,10 @@ contains
                   deallocate(array_r4_3d_cube)
                else
                   allocate(array_r4_3d(im,jm,fldlev(i)))
-                  call ESMF_VMBarrier(VM, rc=rc)
-                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
-                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  do t=1,tileCount
+                     rootPet = (t - 1) * nproc_per_tile
+                     call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -831,10 +811,10 @@ contains
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                else
-                  call ESMF_VMBarrier(VM, rc=rc)
-                  call ESMF_LogWrite(trim(filename)//" Before FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
-                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=my_tile, rc=rc); ESMF_ERR_RETURN(rc)
-                  call ESMF_LogWrite(trim(filename)//" After  FieldGather: "//trim(fldName), ESMF_LOGMSG_INFO, rc=rc)
+                  do t=1,tileCount
+                     rootPet = (t - 1) * nproc_per_tile
+                     call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
