@@ -2,7 +2,7 @@
   path = atmos_cubed_sphere
   #url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
   #branch = dev/emc
-  url = https://github.com/grant-firl/GFDL_atmos_cubed_sphere
+  url = https://github.com/grantfirl/GFDL_atmos_cubed_sphere
   branch = rrfsv1-to-ufs/dev4
 [submodule "ccpp/framework"]
   path = ccpp/framework
