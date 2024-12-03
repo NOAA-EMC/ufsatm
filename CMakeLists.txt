@@ -164,6 +164,11 @@ if(OPENMP)
   target_link_libraries(fv3atm PUBLIC OpenMP::OpenMP_Fortran)
 endif()
 
+if(BUILD_TESTING)
+  include(CTest)
+  add_subdirectory(tests)
+endif()
+
 ###############################################################################
 ### Install
 ###############################################################################

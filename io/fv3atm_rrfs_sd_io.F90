@@ -159,7 +159,7 @@ contains
   subroutine rrfs_sd_state_fill_data(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
@@ -306,25 +306,26 @@ contains
   subroutine rrfs_sd_state_copy_to_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: nb, ix, i, j
+    integer :: nb, ix, i, j, im
 
-    !$omp parallel do default(shared) private(i, j, nb, ix)
+    !$omp parallel do default(shared) private(i, j, nb, ix, im)
     do nb = 1, Atm_block%nblks
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
 
-        Sfcprop(nb)%emdust(ix) = data%emdust(i,j)
-        Sfcprop(nb)%emseas(ix) = data%emseas(i,j)
-        Sfcprop(nb)%emanoc(ix) = data%emanoc(i,j)
-        Sfcprop(nb)%fhist(ix) = data%fhist(i,j)
-        Sfcprop(nb)%coef_bb_dc(ix) = data%coef_bb_dc(i,j)
+        Sfcprop%emdust(im) = data%emdust(i,j)
+        Sfcprop%emseas(im) = data%emseas(i,j)
+        Sfcprop%emanoc(im) = data%emanoc(i,j)
+        Sfcprop%fhist(im) = data%fhist(i,j)
+        Sfcprop%coef_bb_dc(im) = data%coef_bb_dc(i,j)
 
-        Sfcprop(nb)%fire_in(ix,:) = data%fire_in(i,j,:)
+        Sfcprop%fire_in(im,:) = data%fire_in(i,j,:)
       enddo
     enddo
   end subroutine rrfs_sd_state_copy_to_grid
@@ -339,25 +340,26 @@ contains
   subroutine rrfs_sd_state_copy_from_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: nb, ix, i, j
+    integer :: nb, ix, i, j, im
 
-    !$omp parallel do default(shared) private(i, j, nb, ix)
+    !$omp parallel do default(shared) private(i, j, nb, ix, im)
     do nb = 1, Atm_block%nblks
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
 
-        data%emdust(i,j) = Sfcprop(nb)%emdust(ix)
-        data%emseas(i,j) = Sfcprop(nb)%emseas(ix)
-        data%emanoc(i,j) = Sfcprop(nb)%emanoc(ix)
-        data%fhist(i,j) = Sfcprop(nb)%fhist(ix)
-        data%coef_bb_dc(i,j) = Sfcprop(nb)%coef_bb_dc(ix)
+        data%emdust(i,j) = Sfcprop%emdust(im)
+        data%emseas(i,j) = Sfcprop%emseas(im)
+        data%emanoc(i,j) = Sfcprop%emanoc(im)
+        data%fhist(i,j) = Sfcprop%fhist(im)
+        data%coef_bb_dc(i,j) = Sfcprop%coef_bb_dc(im)
 
-        data%fire_in(i,j,:) = Sfcprop(nb)%fire_in(ix,:)
+        data%fire_in(i,j,:) = Sfcprop%fire_in(im,:)
       enddo
     enddo
   end subroutine rrfs_sd_state_copy_from_grid
@@ -412,31 +414,33 @@ contains
   ! --------------------------------------------------------------------
 
   !>@ Called after register_dust12m() to copy data from internal arrays to the model grid and deallocate arrays
-  subroutine rrfs_sd_emissions_copy_dust12m(data, Sfcprop, Atm_block)
+  subroutine rrfs_sd_emissions_copy_dust12m(data, Model, Sfcprop, Atm_block)
     implicit none
-    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
+    type(GFS_control_type),    intent(in) :: Model
+    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
     class(rrfs_sd_emissions_type) :: data
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: num, nb, i, j, ix, k
+    integer :: num, nb, i, j, ix, k, im
 
     if(.not.associated(data%dust12m_name) .or. .not.associated(data%dust12m_var)) then
       write(0,*) 'ERROR: Called copy_dust12m before register_dust12m'
       return
     endif
 
-    !$omp parallel do default(shared) private(i, j, nb, ix, k)
+    !$omp parallel do default(shared) private(i, j, nb, ix, k, im)
     do nb = 1, Atm_block%nblks
       !--- 3D variables
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
         do k = 1, 12
-          Sfcprop(nb)%dust12m_in(ix,k,1)  = data%dust12m_var(i,j,k,1)
-          Sfcprop(nb)%dust12m_in(ix,k,2)  = data%dust12m_var(i,j,k,2)
-          Sfcprop(nb)%dust12m_in(ix,k,3)  = data%dust12m_var(i,j,k,3)
-          Sfcprop(nb)%dust12m_in(ix,k,4)  = data%dust12m_var(i,j,k,4)
-          Sfcprop(nb)%dust12m_in(ix,k,5)  = data%dust12m_var(i,j,k,5)
+          Sfcprop%dust12m_in(im,k,1)  = data%dust12m_var(i,j,k,1)
+          Sfcprop%dust12m_in(im,k,2)  = data%dust12m_var(i,j,k,2)
+          Sfcprop%dust12m_in(im,k,3)  = data%dust12m_var(i,j,k,3)
+          Sfcprop%dust12m_in(im,k,4)  = data%dust12m_var(i,j,k,4)
+          Sfcprop%dust12m_in(im,k,5)  = data%dust12m_var(i,j,k,5)
         enddo
       enddo
     enddo
@@ -489,13 +493,14 @@ contains
   ! --------------------------------------------------------------------
 
   !>@ Called after register_emi() to copy data from internal arrays to the model grid and deallocate arrays
-  subroutine rrfs_sd_emissions_copy_emi(data, Sfcprop, Atm_block)
+  subroutine rrfs_sd_emissions_copy_emi(data, Model, Sfcprop, Atm_block)
     implicit none
-    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
+    type(GFS_control_type),    intent(in) :: Model
+    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
     class(rrfs_sd_emissions_type) :: data
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: num, nb, i, j, ix
+    integer :: num, nb, i, j, ix, im
 
     if(.not.associated(data%emi_name) .or. .not.associated(data%emi_var)) then
       write(0,*) 'ERROR: Called copy_emi before register_emi'
@@ -503,13 +508,14 @@ contains
     endif
 
     do num=1,data%nvar_emi
-      !$omp parallel do default(shared) private(i, j, nb, ix)
+      !$omp parallel do default(shared) private(i, j, nb, ix, im)
       do nb = 1, Atm_block%nblks
         !--- 2D variables
         do ix = 1, Atm_block%blksz(nb)
           i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
           j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-          Sfcprop(nb)%emi_in(ix,num)  = data%emi_var(i,j,1,num)
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%emi_in(im,num)  = data%emi_var(i,j,1,num)
         enddo
       enddo
     enddo
@@ -605,31 +611,32 @@ contains
     implicit none
     class(rrfs_sd_emissions_type) :: data
     type(GFS_control_type),   intent(in) :: Model
-    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
+    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: nb, ix, k, i, j
+    integer :: nb, ix, k, i, j, im
     integer :: ebb_dcycle
 
     ebb_dcycle=Model%ebb_dcycle
 
-    !$omp parallel do default(shared) private(i, j, nb, ix, k)
+    !$omp parallel do default(shared) private(i, j, nb, ix, k, im)
     do nb = 1, Atm_block%nblks
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
         if (ebb_dcycle==1) then ! -- retro mode
         !--- 3D variables
          do k = 1, 24
-          Sfcprop(nb)%smoke_RRFS(ix,k,1)  = data%fire_var(i,j,k,1)
-          Sfcprop(nb)%smoke_RRFS(ix,k,2)  = data%fire_var(i,j,k,2)
+          Sfcprop%smoke_RRFS(im,k,1)  = data%fire_var(i,j,k,1)
+          Sfcprop%smoke_RRFS(im,k,2)  = data%fire_var(i,j,k,2)
          enddo
         elseif (ebb_dcycle==2) then ! -- forecast mode
         !--- 2D variables
-          Sfcprop(nb)%smoke2d_RRFS(ix,1)  = data%fire_var2d(i,j,1)
-          Sfcprop(nb)%smoke2d_RRFS(ix,2)  = data%fire_var2d(i,j,2)
-          Sfcprop(nb)%smoke2d_RRFS(ix,3)  = data%fire_var2d(i,j,3)
-          Sfcprop(nb)%smoke2d_RRFS(ix,4)  = data%fire_var2d(i,j,4)
+          Sfcprop%smoke2d_RRFS(im,1)  = data%fire_var2d(i,j,1)
+          Sfcprop%smoke2d_RRFS(im,2)  = data%fire_var2d(i,j,2)
+          Sfcprop%smoke2d_RRFS(im,3)  = data%fire_var2d(i,j,3)
+          Sfcprop%smoke2d_RRFS(im,4)  = data%fire_var2d(i,j,4)
         else
          ! -- user define their own fire emission
         endif

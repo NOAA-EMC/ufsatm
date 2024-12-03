@@ -24,7 +24,7 @@ jobs:
         mpi: ["mpich", "openmpi"]
 
     steps:
-
+        
     - name: checkout-fv3atm
       uses: actions/checkout@v4
       with:
@@ -59,6 +59,7 @@ jobs:
         spack config add "packages:mpi:require:'${{ matrix.mpi }}'"
         spack concretize |& tee ${SPACK_ENV}/log.concretize
         spack install -j2 --fail-fast
+        echo "spackrc=$?" >> ${GITHUB_ENV}
         spack clean --all
 
   build_fv3atm:
@@ -73,9 +74,20 @@ jobs:
 
     steps:
 
-    - name: install-doxygen
+    # Only do Doxygen and gcovr build for one job
+    - name: decide-doc-gcovr-build
+      run: |
+        if [[ "${{ matrix.cmake_opts }}" == "-D32BIT=ON" && "${{ matrix.gcc_ver }}" == 12 && "${{ matrix.mpi }}" == mpich ]]; then
+          echo 'devbuild=ON' | tee -a ${GITHUB_ENV}
+          echo 'gcov_cmake="-DCMAKE_Fortran_FLAGS=-fprofile-abs-path -fprofile-arcs -ftest-coverage -O0"' | tee -a ${GITHUB_ENV}
+        else
+          echo 'devbuild=OFF' | tee -a ${GITHUB_ENV}
+        fi
+
+    - name: install-utilities
       run: |
         sudo apt-get install doxygen graphviz
+        python3 -m pip install gcovr
 
     - name: install-cmake
       run: |
@@ -109,14 +121,34 @@ jobs:
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cat /home/runner/work/fv3atm/fv3atm/spack-develop/opt/spack/linux-ubuntu22.04-zen2/gcc-12.3.0/fms-2023.04-*/lib/cmake/fms/fms-config.cmake
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_DOCS=ON
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_DOCS=ON ${{ env.gcov_cmake }}
         make -j2
-        ls -l /home/runner/work/fv3atm/fv3atm/fv3atm/io
 
-    - uses: actions/upload-artifact@v4
+    - name: run-tests
+      run: |
+        cd $GITHUB_WORKSPACE/build
+        ctest -j2 --output-on-failure --rerun-failed
+
+    - name: get-test-coverage
+      if: ${{ env.devbuild == 'ON' }}
+      run: |
+        cd $GITHUB_WORKSPACE/build
+        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/fv3atm/tests --exclude $GITHUB_WORKSPACE/fv3atm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/fv3atm/build/ccpp --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/physics --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/framework --exclude $GITHUB_WORKSPACE/fv3atm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
+
+    - name: upload-test-coverage
+      uses: actions/upload-artifact@v4
+      if: ${{ env.devbuild == 'ON' }}
       with:
-        name: docs-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}-${{ matrix.cmake_opts }}
+        name: test-coverage-fv3atm-${{ github.sha }}
+        path: |
+              ${{ github.workspace }}/build/*.html 
+              ${{ github.workspace }}/build/*.css
+
+    - name: upload-docs
+      uses: actions/upload-artifact@v4
+      if: ${{ env.devbuild == 'ON' }}
+      with:
+        name: docs-fv3atm
         path: |
           build/docs/html
 
@@ -126,4 +158,3 @@ jobs:
       with:
         name: ccpp_prebuild_logs-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}-${{ matrix.cmake_opts }}
         path: ${{ github.workspace }}/build/ccpp/ccpp_prebuild.*
-

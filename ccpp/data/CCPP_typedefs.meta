@@ -104,6 +104,7 @@
   dimensions = (horizontal_loop_extent,adjusted_vertical_layer_dimension_for_radiation)
   type = real
   kind = kind_phys
+  active = (.not. flag_for_rrtmgp_radiation_scheme)
 [bexp1d]
   standard_name = perturbation_of_soil_type_b_parameter
   long_name = perturbation of soil type "b" parameter
@@ -1390,22 +1391,6 @@
   type = real
   kind = kind_phys
   active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
-[ncpi]
-  standard_name = local_ice_number_concentration
-  long_name = number concentration of ice local to physics
-  units = kg-1
-  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-  active = (flag_for_shoc)
-[ncpl]
-  standard_name = local_condesed_water_number_concentration
-  long_name = number concentration of condensed water local to physics
-  units = kg-1
-  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-  active = (flag_for_shoc)
 [ncpr]
   standard_name = local_rain_number_concentration
   long_name = number concentration of rain local to physics
@@ -1617,7 +1602,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [qicn]
   standard_name = mass_fraction_of_convective_cloud_ice
   long_name = mass fraction of convective cloud ice water
@@ -1648,7 +1633,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [qsnw]
   standard_name = local_snow_water_mixing_ratio
   long_name = ratio of mass of snow water to mass of dry air plus vapor (without condensates) local to physics
@@ -1656,7 +1641,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [prcpmp]
   standard_name = lwe_thickness_of_explicit_precipitation_amount
   long_name = explicit precipitation (rain, ice, snow, graupel, ...) on physics timestep
@@ -2596,6 +2581,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolslw(:,:,:,2)]
   standard_name = RRTMGP_aerosol_single_scattering_albedo_for_longwave_bands_01_16
   long_name = aerosol single scattering albedo for longwave bands 01-16
@@ -2603,6 +2589,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolslw(:,:,:,3)]
   standard_name = RRTMGP_aerosol_asymmetry_parameter_for_longwave_bands_01_16
   long_name = aerosol asymmetry parameter for longwave bands 01-16
@@ -2610,6 +2597,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw]
   standard_name = RRTMGP_aerosol_optical_properties_for_shortwave_bands_01_16
   long_name = aerosol optical properties for shortwave bands 01-16
@@ -2625,6 +2613,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw(:,:,:,2)]
   standard_name = RRTMGP_aerosol_single_scattering_albedo_for_shortwave_bands_01_16
   long_name = aerosol single scattering albedo for shortwave bands 01-16
@@ -2632,6 +2621,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw(:,:,:,3)]
   standard_name = RRTMGP_aerosol_asymmetry_parameter_for_shortwave_bands_01_16
   long_name = aerosol asymmetry parameter for shortwave bands 01-16
@@ -2639,6 +2629,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [precip_frac]
   standard_name = precipitation_fraction_by_layer
   long_name = precipitation fraction in each layer

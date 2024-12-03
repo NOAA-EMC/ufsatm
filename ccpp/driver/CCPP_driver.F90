@@ -13,7 +13,7 @@ module CCPP_driver
                                 cdata_block,                         &
                                 ccpp_suite,                          &
                                 GFS_control,                         &
-                                GFS_data
+                                GFS_Intdiag
 
   implicit none
 
@@ -81,9 +81,10 @@ module CCPP_driver
         nthrdsX = nthrds
       end if
 
-      ! For physics running over the entire domain, block and thread
-      ! number are not used; set to safe values
+      ! For physics running over the entire domain, block, chunk and thread
+      ! numbers are not used; set to safe values
       cdata_domain%blk_no = 1
+      cdata_domain%chunk_no = 1
       cdata_domain%thrd_no = 1
       cdata_domain%thrd_cnt = 1
 
@@ -93,8 +94,10 @@ module CCPP_driver
       ! Loop over all blocks and threads
       do nt=1,nthrdsX
         do nb=1,nblks
-          ! Assign the correct block and thread numbers
+          ! Assign the correct block, chunk and thread numbers
+          ! Note that we can use block number as chunk number
           cdata_block(nb,nt)%blk_no = nb
+          cdata_block(nb,nt)%chunk_no = nb
           cdata_block(nb,nt)%thrd_no = nt
           cdata_block(nb,nt)%thrd_cnt = nthrdsX
         end do
@@ -129,6 +132,14 @@ module CCPP_driver
         return
       end if
 
+      ! call timestep_init for "physics"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if      
+            
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! DH* 20210104 - this block of code will be removed once the CCPP framework    !
       ! fully supports handling diagnostics through its metadata, work in progress   !
@@ -137,24 +148,18 @@ module CCPP_driver
       !--- determine if radiation diagnostics buckets need to be cleared
       if (nint(GFS_control%fhzero*3600) >= nint(max(GFS_control%fhswr,GFS_control%fhlwr))) then
         if (mod(GFS_control%kdt,GFS_control%nszero) == 1) then
-          do nb = 1,nblks
-            call GFS_data(nb)%Intdiag%rad_zero(GFS_control)
-          end do
+          call GFS_Intdiag%rad_zero(GFS_control)
         endif
       else
         kdt_rad = nint(min(GFS_control%fhswr,GFS_control%fhlwr)/GFS_control%dtp)
         if (mod(GFS_control%kdt,kdt_rad) == 1) then
-          do nb = 1,nblks
-            call GFS_data(nb)%Intdiag%rad_zero(GFS_control)
-          enddo
+          call GFS_Intdiag%rad_zero(GFS_control)
         endif
       endif
 
       !--- determine if physics diagnostics buckets need to be cleared
       if ((mod(GFS_control%kdt-1,GFS_control%nszero)) == 0) then
-        do nb = 1,nblks
-          call GFS_data(nb)%Intdiag%phys_zero(GFS_control)
-        end do
+        call GFS_Intdiag%phys_zero(GFS_control)
       endif
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -181,8 +186,8 @@ module CCPP_driver
 #endif
 !$OMP do schedule (dynamic,1)
       do nb = 1,nblks
-        ! For non-uniform blocks, the last block has a different (shorter)
-        ! length than the other blocks; use special CCPP_Interstitial(nthrdsX)
+        ! For non-uniform blocks/chunks, the last block/chunk has a different (shorter)
+        ! length than the other blocks/chunks; use special CCPP_Interstitial(nthrdsX)
         if (non_uniform_blocks .and. nb==nblks) then
             ntX = nthrdsX
         else
@@ -192,7 +197,7 @@ module CCPP_driver
         call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
         if (ierr2/=0) then
            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                                     ", block ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                                     ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
            ierr = ierr + ierr2
         end if
@@ -216,6 +221,14 @@ module CCPP_driver
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if
+
+      ! call timestep_finalize for "physics"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if      
 
     ! Physics finalize
     else if (trim(step)=="physics_finalize") then

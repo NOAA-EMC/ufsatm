@@ -11,14 +11,17 @@
 # Alex Richert, 6 Dec 2023
 spack:
   specs:
-  - w3emc@2.10.0 precision=4,d,8
-  - ip@develop precision=4,d,8
-  - sp@2.4.0 precision=4,d,8
   - bacio@2.4.1
-  - upp@develop
-  - esmf@8.4.2
+  - crtm@2.4.0
+  - esmf@8.6.0
   - fms@2023.04 +gfs_phys +openmp +pic +quad_precision +deprecated_io constants=GFS precision=32,64
+  - g2@3.5.1
+  - g2tmpl@1.13.0
+  - ip@4.3.0 precision=4,d,8
   - netcdf-c@4.9.2 ~blosc
+  - netcdf-fortran@4.6.1
+  - sp@2.5.0 precision=4,d,8
+  - w3emc@2.10.0 precision=4,d,8
   view: false
   concretizer:
     unify: true

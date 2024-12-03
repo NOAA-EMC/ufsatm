@@ -430,7 +430,9 @@ module post_fv3
             if (trim(attName) == 'ncnsto') wrt_int_state%ntrac=varival
             if (trim(attName) == 'ncld')   wrt_int_state%ncld=varival
             if (trim(attName) == 'nsoil')  wrt_int_state%nsoil=varival
+            if (trim(attName) == 'fhzero')  wrt_int_state%fhzero=varival
             if (trim(attName) == 'imp_physics') wrt_int_state%imp_physics=varival
+            if (trim(attName) == 'landsfcmdl') wrt_int_state%landsfcmdl=varival
           endif
         else if (typekind==ESMF_TYPEKIND_R4) then
           if(n==1) then
@@ -505,9 +507,9 @@ module post_fv3
 !
       use esmf
       use vrbls4d,     only: dust, smoke, fv3dust, coarsepm, SALT, SUSO, SOOT, &
-                             WASO,no3,nh4, PP25, PP10
+                             WASO,no3,nh4, PP25, PP10, ebb
       use vrbls3d,     only: t, q, uh, vh, wh, alpint, dpres, zint, zmid, o3,  &
-                             qqr, qqs, cwm, qqi, qqw, qqg, omga, cfr, pmid,    &
+                             qqr, qqs, cwm, qqi, qqw, qqg, qqh, omga, cfr, pmid, &
                              q2, rlwtt, rswtt, tcucn, tcucns, train, el_pbl,   &
                              pint, exch_h, ref_10cm, qqni, qqnr, qqnw, qqnwfa, &
                              qqnifa, effri, effrl, effrs, aextc55, taod5503d,  &
@@ -546,13 +548,15 @@ module post_fv3
                              sfcvxi, t10m, t10avg, psfcavg, akhsavg, akmsavg,  &
                              albedo, tg, prate_max, pwat, snow_acm, snow_bkt,  &
                              acgraup, graup_bucket, acfrain, frzrn_bucket,     &
-                             ltg1_max, ltg2_max, ltg3_max, ebb, hwp,           &
+                             ltg1_max, ltg2_max, ltg3_max, hwp, albedo,        &
                              aod550,du_aod550,ss_aod550,su_aod550,oc_aod550,   &
                              bc_aod550,maod,                                   &
                              dustpm10, dustcb, bccb, occb, sulfcb, sscb,       &
                              dustallcb, ssallcb, dustpm, sspm, pp25cb, pp10cb, &
                              no3cb, nh4cb, dusmass, ducmass, dusmass25,ducmass25, &
-                             snownc, graupelnc, qrmax, hail_maxhailcast
+                             snownc, graupelnc, qrmax, hail_maxhailcast,       &
+                             smoke_ave,dust_ave,coarsepm_ave,swddif,swddni,    &
+                             xlaixy,wspd10umax,wspd10vmax
       use soil,        only: sldpth, sh2o, smc, stc, sllevel
       use masks,       only: lmv, lmh, htm, vtm, gdlat, gdlon, dx, dy, hbm2, sm, sice
       use ctlblk_mod,  only: im, jm, lm, lp1, jsta, jend, jsta_2l, jend_2u, jsta_m,jend_m, &
@@ -608,7 +612,8 @@ module post_fv3
       real,dimension(:),    allocatable :: slat,qstl
       real,external::FPVSNEW
       real,dimension(:,:),allocatable :: dummy, p2d, t2d, q2d,  qs2d,  &
-                             cw2d, cfr2d, snacc_land, snacc_ice
+                             cw2d, cfr2d, snacc_land, snacc_ice,       &
+                             acsnom_land, acsnom_ice
       real,dimension(:,:,:),allocatable :: ext550
       character(len=80)              :: fieldname, wrtFBName, flatlon, &
                                         VarName
@@ -625,7 +630,7 @@ module post_fv3
 !
       imp_physics = wrt_int_state%imp_physics       !set GFS mp physics to 99 for Zhao scheme
       dtp         = wrt_int_state%dtp
-      iSF_SURFACE_PHYSICS = 2
+      iSF_SURFACE_PHYSICS = wrt_int_state%landsfcmdl
       spval = 9.99e20
 !
 ! nems gfs has zhour defined
@@ -691,15 +696,6 @@ module post_fv3
       !Allocate for regional models only
       if(modelname=='FV3R') then
         allocate(ext550(ista:iend,jsta:jend,lm))
-        allocate(snacc_ice(ista:iend,jsta:jend))
-        allocate(snacc_land(ista:iend,jsta:jend))
-
-        do j=jsta,jend
-          do i=ista,iend
-            snacc_ice(i,j)=spval
-            snacc_land(i,j)=spval
-          end do
-        end do
 
         do l=1,lm
           do j=jsta,jend
@@ -709,6 +705,20 @@ module post_fv3
           end do
         end do
       endif
+
+        allocate(snacc_ice(ista:iend,jsta:jend))
+        allocate(snacc_land(ista:iend,jsta:jend))
+        allocate(acsnom_ice(ista:iend,jsta:jend))
+        allocate(acsnom_land(ista:iend,jsta:jend))
+
+        do j=jsta,jend
+          do i=ista,iend
+            snacc_ice(i,j)=spval
+            snacc_land(i,j)=spval
+            acsnom_ice(i,j)=spval
+            acsnom_land(i,j)=spval
+          end do
+        end do
 
 !
 ! GFS doesn not yet output soil layer thickness, assign SLDPTH to be the same as nam
@@ -1007,24 +1017,46 @@ module post_fv3
               enddo
             endif
 
-            ! biomass burning emissions
-            if(trim(fieldname)=='ebb_smoke_hr') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,ebb,arrayr42d,fillValue,spval)
-              do j=jsta,jend
-                do i=ista, iend
-                  ebb(i,j)=arrayr42d(i,j)
-                  if(abs(arrayr42d(i,j)-fillValue) < small) ebb(i,j)=spval
-                enddo
-              enddo
-            endif
-
-            ! wildfire potential
-            if(trim(fieldname)=='hwp') then
+            ! hourly wildfire potential
+            if(trim(fieldname)=='hwp_ave') then
               !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,hwp,arrayr42d,fillValue,spval)
               do j=jsta,jend
                 do i=ista, iend
                   hwp(i,j)=arrayr42d(i,j)
                   if(abs(arrayr42d(i,j)-fillValue) < small) hwp(i,j)=spval
+                enddo
+              enddo
+            endif
+
+            !hourly averaged smoke
+            if(trim(fieldname)=='smoke_ave') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,smoke_ave,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  smoke_ave(i,j)=arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) smoke_ave(i,j)=spval
+                enddo
+              enddo
+            endif
+
+            !hourly averaged dust
+            if(trim(fieldname)=='dust_ave') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,dust_ave,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  dust_ave(i,j)=arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) dust_ave(i,j)=spval
+                enddo
+              enddo
+            endif
+
+            !hourly averaged coarsepm
+            if(trim(fieldname)=='coarsepm_ave') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,coarsepm_ave,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  coarsepm_ave(i,j)=arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) coarsepm_ave(i,j)=spval
                 enddo
               enddo
             endif
@@ -1069,6 +1101,17 @@ module post_fv3
                 do i=ista, iend
                   acond(i,j)=arrayr42d(i,j)
                   if(abs(arrayr42d(i,j)-fillValue) < small) acond(i,j)=spval
+                enddo
+              enddo
+            endif
+
+            ! surface albedo
+            if(trim(fieldname)=='sfalb') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,albedo,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  albedo(i,j)=arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) albedo(i,j)=spval
                 enddo
               enddo
             endif
@@ -1326,13 +1369,48 @@ module post_fv3
               enddo
             endif
 
-            ! max hourly 10m agl wind speed
-            if(trim(fieldname)=='spd10max') then
+            ! max temporal 10m agl wind speed
+            if (modelname =='GFS')then
+            if(trim(fieldname)=='wind10m_max') then
               !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,wspd10max,arrayr42d,sm,fillValue)
               do j=jsta,jend
                 do i=ista, iend
                   wspd10max(i,j) = arrayr42d(i,j)
                   if (abs(arrayr42d(i,j)-fillValue) < small) wspd10max(i,j) = spval
+                enddo
+              enddo
+            endif
+            else
+            ! max hourly 10m agl wind speed
+            if(trim(fieldname)=='spd10max') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,wspd10max,arrayr42d,sm,fillValue)
+              do j=jsta,jend 
+                do i=ista, iend
+                  wspd10max(i,j) = arrayr42d(i,j)
+                  if (abs(arrayr42d(i,j)-fillValue) < small) wspd10max(i,j) = spval
+                enddo        
+              enddo          
+            endif  
+            endif !end modelname
+
+            ! u comp of temporal max 10m agl wind speed 
+            if(trim(fieldname)=='u10m_max') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,wspd10umax,arrayr42d,sm,fillValue)
+              do j=jsta,jend
+                do i=ista, iend
+                  wspd10umax(i,j) = arrayr42d(i,j)
+                  if (abs(arrayr42d(i,j)-fillValue) < small) wspd10umax(i,j) = spval
+                enddo
+              enddo
+            endif
+
+            ! v comp of temporal max 10m agl wind speed 
+            if(trim(fieldname)=='v10m_max') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,wspd10vmax,arrayr42d,sm,fillValue)
+              do j=jsta,jend
+                do i=ista, iend
+                  wspd10vmax(i,j) = arrayr42d(i,j)
+                  if (abs(arrayr42d(i,j)-fillValue) < small) wspd10vmax(i,j) = spval
                 enddo
               enddo
             endif
@@ -2020,6 +2098,50 @@ module post_fv3
               enddo
             endif
 
+            ! inst incoming clear sky sfc shortwave
+            if(trim(fieldname)=='dswrf_clr') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,rswinc,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  rswinc(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) rswinc(i,j) = spval
+                enddo
+              enddo
+            endif
+
+            ! inst incoming direct beam sfc shortwave
+            if(trim(fieldname)=='visbmdi') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,swddni,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  swddni(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) swddni(i,j) = spval
+                enddo
+              enddo
+            endif
+
+            ! inst incoming diffuse sfc shortwave
+            if(trim(fieldname)=='visdfdi') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,swddif,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  swddif(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) swddif(i,j) = spval
+                enddo
+              enddo
+            endif
+
+            ! leaf area index
+            if(trim(fieldname)=='xlaixy') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,xlaixy,arrayr42d,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  xlaixy(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) xlaixy(i,j) = spval
+                enddo
+              enddo
+            endif
+
             ! time averaged incoming sfc uv-b
             if(trim(fieldname)=='duvb_ave') then
               !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,auvbin,arrayr42d,fillValue,spval)
@@ -2316,8 +2438,6 @@ module post_fv3
               enddo
             endif
 
-            if(modelname=='FV3R')then
-
             !sndepac
             if(trim(fieldname)=='snacc_land') then
               !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,snacc_land,arrayr42d,fillvalue,spval)
@@ -2338,7 +2458,25 @@ module post_fv3
               enddo
             endif
 
-            endif !FV3R
+            !snom
+            if(trim(fieldname)=='snom_land') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,acsnom_land,arrayr42d,fillvalue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  acsnom_land(i,j) = arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillvalue)<small) acsnom_land(i,j) = spval
+                enddo
+              enddo
+            endif
+            if(trim(fieldname)=='snom_ice') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,acsnom_ice,arrayr42d,fillvalue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  acsnom_ice(i,j) = arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillvalue)<small) acsnom_ice(i,j) = spval
+                enddo
+              enddo
+            endif
 
             if(rdaod) then
               ! MERRA2 aerosols
@@ -3452,6 +3590,19 @@ module post_fv3
               enddo
             endif
 
+            ! biomass burning emissions
+            if(trim(fieldname)=='ebu_smoke') then
+              !$omp parallel do default(none) private(i,j,l) shared(jsta,jend,ista,iend,ebb,arrayr43d,fillValue,spval,lm)
+              do l=1,lm
+                do j=jsta,jend
+                  do i=ista, iend
+                    ebb(i,j,l,1)=arrayr43d(i,j,l)
+                    if(abs(arrayr43d(i,j,l)-fillValue) < small) ebb(i,j,l,1)=spval
+                  enddo
+                enddo
+              enddo
+            endif
+
             ! model level T
             if(trim(fieldname)=='tmp') then
               !$omp parallel do default(none) private(i,j,l) shared(lm,jsta,jend,ista,iend,t,arrayr43d,fillvalue,spval)
@@ -3704,6 +3855,19 @@ module post_fv3
                     do i=ista, iend
                       qqg(i,j,l) = arrayr43d(i,j,l)
                       if(abs(arrayr43d(i,j,l)-fillvalue)<small) qqg(i,j,l) = spval
+                    enddo
+                  enddo
+                enddo
+              endif
+
+              ! model level hail mixing ratio
+              if(trim(fieldname)=='hail') then
+                !$omp parallel do default(none) private(i,j,l) shared(lm,jsta,jend,ista,iend,qqh,arrayr43d,fillvalue,spval)
+                do l=1,lm
+                  do j=jsta,jend
+                    do i=ista, iend
+                      qqh(i,j,l) = arrayr43d(i,j,l)
+                      if(abs(arrayr43d(i,j,l)-fillvalue)<small) qqh(i,j,l) = spval
                     enddo
                   enddo
                 enddo
@@ -4411,12 +4575,15 @@ module post_fv3
           enddo
         enddo
         do l=1,lm
-!$omp parallel do default(none) private(i,j) shared(l,jsta,jend,ista,iend,cwm,qrmax,qqg,qqs,qqr,qqi,qqw,spval)
+!$omp parallel do default(none) private(i,j) shared(l,jsta,jend,ista,iend,cwm,qrmax,qqg,qqs,qqr,qqi,qqw,qqh,spval)
           do j=jsta,jend
             do i=ista,iend
               if( qqr(i,j,l) /= spval) then
                 cwm(i,j,l) = qqg(i,j,l)+qqs(i,j,l)+qqr(i,j,l)+qqi(i,j,l)+qqw(i,j,l)
                 qrmax(i,j)=max(qrmax(i,j),qqr(i,j,l))
+                if(qqh(i,j,l) /= spval) then
+                  cwm(i,j,l) = cwm(i,j,l)+qqh(i,j,l)
+                endif
               else
                 cwm(i,j,l) = spval
               endif
@@ -4486,6 +4653,8 @@ module post_fv3
             enddo
           enddo
         enddo
+        deallocate(ext550)
+      endif !end FV3R
 
         !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,snacc_ice,snacc_land,sndepac)
         do j=jsta,jend
@@ -4500,11 +4669,24 @@ module post_fv3
           enddo
         enddo
 
-        deallocate(ext550)
+        !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,acsnom_ice,acsnom_land,acsnom)
+        do j=jsta,jend
+          do i=ista, iend
+            if(acsnom_land(i,j)<spval) then
+              acsnom(i,j) = acsnom_land(i,j)
+            elseif(acsnom_ice(i,j)<spval) then
+              acsnom(i,j) = acsnom_ice(i,j)
+            else
+              acsnom(i,j) = spval
+            endif
+          enddo
+        enddo
+
         deallocate(snacc_ice)
         deallocate(snacc_land)
+        deallocate(acsnom_ice)
+        deallocate(acsnom_land)
 
-      endif !end FV3R
 
       ! chmical field computation
       if(gocart_on .or. gccpp_on .or. nasa_on) then
@@ -4577,6 +4759,10 @@ module post_fv3
                    no3(i,j,l,3)<spval) then
                    no3cb(i,j)=no3cb(i,j)+ (no3(i,j,l,1)+no3(i,j,l,2)+ &
                    no3(i,j,l,3) ) * dpres(i,j,l)/grav
+                else
+                   no3(i,j,l,1)=0.
+                   no3(i,j,l,2)=0.
+                   no3(i,j,l,3)=0.
                 endif
                 if(nh4(i,j,l,1)<spval)then
                    nh4cb(i,j)=nh4cb(i,j)+ nh4(i,j,l,1)* &
@@ -4609,12 +4795,18 @@ module post_fv3
           enddo
         enddo ! do loop for l
 
+        do l=1,lm
+         do j=jsta,jend
+          do i=ista,iend
+            tv = t(i,j,l) * (h1+d608*MAX(q(I,J,L),qmin))
+            rhomid(i,j,l) = pmid(i,j,l) / (rd*tv)
+          enddo
+         enddo
+        enddo
+
         l=lm
         do j=jsta,jend
           do i=ista,iend
-
-            tv = t(i,j,l) * (h1+d608*MAX(q(I,J,L),qmin))
-            rhomid(i,j,l) = pmid(i,j,l) / (rd*tv)
 
             dustcb(i,j) = MAX(dustcb(i,j), 0.0)
             dustallcb(i,j) = MAX(dustallcb(i,j), 0.0)

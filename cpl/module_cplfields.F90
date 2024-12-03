@@ -26,7 +26,7 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 120
+  integer,          public, parameter :: NexportFields = 121
   type(ESMF_Field), target, public    :: exportFields(NexportFields)
 
   type(FieldInfo), dimension(NexportFields), public, parameter :: exportFieldsInfo = [ &
@@ -64,6 +64,7 @@ module module_cplfields
     FieldInfo("mean_evap_rate                           ", "s"), &
     FieldInfo("mean_down_lw_flx                         ", "s"), &
     FieldInfo("mean_down_sw_flx                         ", "s"), &
+    FieldInfo("mean_prec_rate                           ", "s"), &
     FieldInfo("inst_prec_rate                           ", "s"), &
     FieldInfo("inst_zonal_moment_flx                    ", "s"), &
     FieldInfo("inst_merid_moment_flx                    ", "s"), &
@@ -157,7 +158,7 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 64
+  integer,          public, parameter :: NimportFields = 67
   logical,          public            :: importFieldsValid(NimportFields)
   type(ESMF_Field), target, public    :: importFields(NimportFields)
 
@@ -233,7 +234,12 @@ module module_cplfields
     FieldInfo("snwdph                                   ", "s"), &
     FieldInfo("f10m                                     ", "s"), &
     FieldInfo("zorl                                     ", "s"), &
-    FieldInfo("t2m                                      ", "s") ]
+    FieldInfo("t2m                                      ", "s"), &
+
+    ! For FIRE
+    FieldInfo("hflx_fire                                ", "s"), &
+    FieldInfo("evap_fire                                ", "s"), &
+    FieldInfo("smoke_fire                               ", "s") ]
 
 ! Fields exported exclusively for coupling with chemistry
   character(*), public, parameter :: chemistryFieldNames(*) = [ &
