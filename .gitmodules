@@ -13,4 +13,4 @@
 [submodule "upp"]
   path = upp
   url = https://github.com/hafs-community/UPP
-  branch = support/HAFS
+  branch = feature/hafsv2p1_baseline
