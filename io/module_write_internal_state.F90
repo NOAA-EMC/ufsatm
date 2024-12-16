@@ -98,6 +98,7 @@ module write_internal_state
       integer                  :: ncld !< Number of hydrometeors.
       integer                  :: nsoil !< Number of soil layers.
       integer                  :: imp_physics !< Choice of microphysics scheme.
+      integer                  :: landsfcmdl !< Choice of land surface model.
       integer                  :: dtp !< Physics timestep.
       real,dimension(:),allocatable :: ak !< a parameter for sigma pressure level calculations.
       real,dimension(:),allocatable :: bk !< b parameter for sigma pressure level calculations.
