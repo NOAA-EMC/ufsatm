@@ -241,7 +241,7 @@ module GFS_restart
       if( ndiag_idx(idx) > 0 ) then
         Restart%name2d(offset+idx) = trim(ExtDiag(ndiag_idx(idx))%name)
         do nb = 1,nblks
-          Restart%data(nb,offset+idx)%var2p => ExtDiag(ndiag_idx(idx))%data(nb)%var2
+          Restart%data(nb,offset+idx)%var2p => ExtDiag(ndiag_idx(idx))%data(1)%var2(Model%chunk_begin(nb):Model%chunk_end(nb))
         enddo
       endif
 !      print *,'in restart 2d field, Restart%name2d(',offset+idx,')=',trim(Restart%name2d(offset+idx))

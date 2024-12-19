@@ -1023,7 +1023,7 @@ subroutine update_atmos_model_state (Atmos, rc)
       call atmosphere_nggps_diag(Atmos%Time)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
                             GFS_control%levs, 1, 1, 1.0_GFS_kind_phys, time_int, time_intfull, &
-                            GFS_control%fhswr, GFS_control%fhlwr)
+                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control)
     endif
 
     !---  find current fhzero
