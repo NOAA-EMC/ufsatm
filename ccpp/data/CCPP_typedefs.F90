@@ -1620,8 +1620,8 @@ contains
     else
       Interstitial%ngas  = 0
     end if
-    allocate(Interstitial%rilist(0:Interstitial%ngas))
-    allocate(Interstitial%cpilist(0:Interstitial%ngas))
+    allocate (Interstitial%rilist(0:Interstitial%ngas))
+    allocate (Interstitial%cpilist(0:Interstitial%ngas))
     if (present(rilist)) then
       Interstitial%rilist  = rilist(0:Interstitial%ngas)
       Interstitial%cpilist = cpilist(0:Interstitial%ngas)
