@@ -547,6 +547,18 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
+    ExtDiag(idx)%name = 'csdsf'
+    ExtDiag(idx)%desc = 'Clear Sky Instantateous Downward Short Wave Flux'
+    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
+    allocate (ExtDiag(idx)%data(nblks))
+    do nb = 1,nblks
+      ExtDiag(idx)%data(nb)%var2 => IntDiag%fluxr(Model%chunk_begin(nb):Model%chunk_end(nb),32)
+    enddo
+
+    idx = idx + 1
+    ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'csulf_ave'
     ExtDiag(idx)%desc = 'Clear Sky Upward Long Wave Flux'
     ExtDiag(idx)%unit = 'W/m**2'
