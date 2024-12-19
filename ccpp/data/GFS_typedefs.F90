@@ -807,6 +807,8 @@ module GFS_typedefs
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
+    logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag 
+
 !--- radiation control parameters
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr           !< frequency for longwave radiation (secs)
@@ -1033,7 +1035,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: dt_inner        !< time step for the inner loop in s
     logical              :: sedi_semi       !< flag for semi Lagrangian sedi of rain
     integer              :: decfl           !< deformed CFL factor
-    logical              :: thpsnmp_is_init !< Local scheme initialization flag
+    logical              :: thompson_mp_is_init=.false. !< Local scheme initialization flag
 
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
@@ -3591,7 +3593,6 @@ module GFS_typedefs
     real(kind=kind_phys) :: dt_inner       = -999.0             !< time step for the inner loop
     logical              :: sedi_semi      = .false.            !< flag for semi Lagrangian sedi of rain
     integer              :: decfl          = 8                  !< deformed CFL factor
-    logical              :: thpsnmp_is_init = .false.           !< Local scheme initialization flag 
 
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
