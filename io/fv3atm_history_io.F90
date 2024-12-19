@@ -330,7 +330,7 @@ CONTAINS
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad shortwave avg, field=',trim(Diag(idx)%name),' time=',time_radsw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_swlw_min' ) then
             !lcnvfac = lcnvfac*min(max(rtime_radsw,rtime_radlw),rtime_int)
-            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)/int(time_int/dtatmos)
+            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)/int(time_int/dt_atmos)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad swlw min avg, field=',trim(Diag(idx)%name),' time=',time_radlw,time_radsw,time_int
           else
             lcnvfac = lcnvfac*rtime_int
