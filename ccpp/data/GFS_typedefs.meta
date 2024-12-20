@@ -6990,7 +6990,6 @@
   units = index
   dimensions = ()
   type = integer
-  active = (do_smoke_coupling)
 [hwp_method]
   standard_name = control_for_HWP_equation
   long_name = control for HWP equation
