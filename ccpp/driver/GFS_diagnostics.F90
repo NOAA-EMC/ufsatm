@@ -547,6 +547,18 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
+    ExtDiag(idx)%name = 'csdsf'
+    ExtDiag(idx)%desc = 'Clear Sky Instantateous Downward Short Wave Flux'
+    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
+    allocate (ExtDiag(idx)%data(nblks))
+    do nb = 1,nblks
+      ExtDiag(idx)%data(nb)%var2 => IntDiag%fluxr(Model%chunk_begin(nb):Model%chunk_end(nb),32)
+    enddo
+
+    idx = idx + 1
+    ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'csulf_ave'
     ExtDiag(idx)%desc = 'Clear Sky Upward Long Wave Flux'
     ExtDiag(idx)%unit = 'W/m**2'
@@ -2817,10 +2829,7 @@ module GFS_diagnostics
   endif
 
   if (Model%ldiag_ugwp) THEN
-!
-! VAY-2018: Momentum and Temp-re tendencies
-! du3dt_pbl dv3dt_pbl  dT3dt_pbl
-!
+
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'zmtb'
@@ -2900,67 +2909,6 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'du3dt_pbl_ugwp'
-    ExtDiag(idx)%desc = 'U-tendency due to PBL physics'
-    ExtDiag(idx)%unit = 'm/s/s'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%du3dt_pbl(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-!
-! dv3dt_pbl
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'dv3dt_pbl_ugwp'
-    ExtDiag(idx)%desc = 'V-tendency due to PBL physics'
-    ExtDiag(idx)%unit = 'm/s/s'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%dv3dt_pbl(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-!
-! dt3dt_pbl
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'dt3dt_pbl_ugwp'
-    ExtDiag(idx)%desc = 'T-tendency due to PBL physics'
-    ExtDiag(idx)%unit = 'K/s'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%dt3dt_pbl(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-!
-! uav_ugwp
-!
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'uav_ugwp'
-    ExtDiag(idx)%desc = 'U-daily mean for UGWP'
-    ExtDiag(idx)%unit = 'm/s'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%uav_ugwp(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-!
-! tav_ugwp
-!
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'tav_ugwp'
-    ExtDiag(idx)%desc = 'T-daily mean for UGWP'
-    ExtDiag(idx)%unit = 'K'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%tav_ugwp(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
     ExtDiag(idx)%name = 'du3dt_ogw'
     ExtDiag(idx)%desc = 'axz_oro averaged E-W OROGW-tendency'
     ExtDiag(idx)%unit = 'm/s/s'
@@ -3002,28 +2950,6 @@ module GFS_diagnostics
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
       ExtDiag(idx)%data(nb)%var3 => IntDiag%du3dt_tms(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'dudt_tot'
-    ExtDiag(idx)%desc = ' dudt_tot averaged E-W dycore-tendency'
-    ExtDiag(idx)%unit = 'm/s/s'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%dudt_tot(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-    enddo
-
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'dtdt_tot'
-    ExtDiag(idx)%desc = ' dtdt_tot averaged Temp dycore-tendency'
-    ExtDiag(idx)%unit = 'Ks'
-    ExtDiag(idx)%mod_name = 'gfs_phys'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var3 => IntDiag%dtdt_tot(Model%chunk_begin(nb):Model%chunk_end(nb),:)
     enddo
 
     idx = idx + 1
