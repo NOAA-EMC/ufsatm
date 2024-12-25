@@ -1,8 +1,28 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(CCPP-FV3
+project(CCPP-UFS
         LANGUAGES C CXX Fortran)
-set(PROJECT "CCPP-FV3")
+set(PROJECT "CCPP-UFS")
+
+#------------------------------------------------------------------------------
+# FV3 dynamical core
+#------------------------------------------------------------------------------
+if (FV3)
+  message(STATUS "Build CCPP interface to FV3 dynamical core")
+  set(CCPP_TARGET fv3ccpp)
+  set(CCPP_PREBUILD_CONFIG ../fv3/ccpp/config/ccpp_prebuild_config.py)
+  set(DYCORE_CCPP_SRCS
+        GFS_diagnostics.F90
+        GFS_restart.F90
+        GFS_init.F90
+        CCPP_driver.F90
+        )
+  list(TRANSFORM DYCORE_CCPP_SRCS PREPEND ../ccpp/driver/)
+
+  # Add dycore-specific preprocessor flag (needed for some physics schemes)
+  add_definitions(-DFV3)
+
+endif()
 
 #------------------------------------------------------------------------------
 # Set a default build type if none was specified
@@ -29,7 +49,7 @@ else()
 endif()
 execute_process(COMMAND ${Python_EXECUTABLE}
                         "framework/scripts/ccpp_prebuild.py"
-                        "--config=config/ccpp_prebuild_config.py"
+                        "--config=${CCPP_PREBUILD_CONFIG}"
                         "--builddir=${CMAKE_CURRENT_BINARY_DIR}" ${_ccpp_suites_arg} ${_ccpp_debug_arg} ${_ccpp_verbose_arg}
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/ccpp_prebuild.out
@@ -39,10 +59,6 @@ execute_process(COMMAND ${Python_EXECUTABLE}
 if(NOT RC EQUAL 0)
   message(FATAL_ERROR "An error occured while running ccpp_prebuild.py, check ${CMAKE_CURRENT_BINARY_DIR}/ccpp_prebuild.{out,err}")
 endif()
-
-#------------------------------------------------------------------------------
-# Add host-model specific preprocessor flag (needed for some physics schemes)
-add_definitions(-DFV3)
 
 #------------------------------------------------------------------------------
 # Set MPI flags for C/C++/Fortran preprocessor
@@ -103,43 +119,40 @@ add_subdirectory(framework)
 add_subdirectory(physics)
 
 #------------------------------------------------------------------------------
-# Build fv3ccpp
+# Build CCPP_TARGET
 
 # Can we move data/*.F90 and driver/*.F90 to this directory ???
 add_library(
-    fv3ccpp
-
-    driver/GFS_diagnostics.F90
-    driver/GFS_restart.F90
-    driver/GFS_init.F90
-    driver/CCPP_driver.F90
-
+    ${CCPP_TARGET}
+    ${DYCORE_CCPP_SRCS}
     ${CMAKE_CURRENT_BINARY_DIR}/physics/ccpp_static_api.F90
 )
 
 # Compile GFS_diagnostics.F90 without optimization, this leads to out of memory errors on wcoss_dell_p3
-set_property(SOURCE driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
-
-target_link_libraries(fv3ccpp PUBLIC ccpp_framework)
-target_link_libraries(fv3ccpp PUBLIC ccpp_physics)
-
-if(OPENMP)
-  target_link_libraries(fv3ccpp PUBLIC OpenMP::OpenMP_Fortran)
+if (FV3)
+  set_property(SOURCE ../fv3/ccpp/driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
 endif()
 
-set_target_properties(fv3ccpp PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
-target_include_directories(fv3ccpp PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>)
+target_link_libraries(${CCPP_TARGET} PUBLIC ccpp_framework)
+target_link_libraries(${CCPP_TARGET} PUBLIC ccpp_physics)
+
+if(OPENMP)
+  target_link_libraries(${CCPP_TARGET} PUBLIC OpenMP::OpenMP_Fortran)
+endif()
+
+set_target_properties(${CCPP_TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
+target_include_directories(${CCPP_TARGET} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>)
 
 ###############################################################################
 ### Install
 ###############################################################################
 install(
-  TARGETS fv3ccpp ccpp_framework ccpp_physics
-  EXPORT fv3ccpp-config
+  TARGETS ${CCPP_TARGET} ccpp_framework ccpp_physics
+  EXPORT ${CCPP_TARGET}-config
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
 
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod DESTINATION ${CMAKE_INSTALL_PREFIX})
 
-install(EXPORT fv3ccpp-config
+install(EXPORT ${CCPP_TARGET}-config
   DESTINATION lib/cmake)
