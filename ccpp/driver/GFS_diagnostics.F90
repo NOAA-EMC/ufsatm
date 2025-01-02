@@ -4897,7 +4897,17 @@ module GFS_diagnostics
       endif
 
       endif  extended_smoke_dust_diagnostics
-
+      
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'ebu_smoke'
+      ExtDiag(idx)%desc = 'smoke emission'
+      ExtDiag(idx)%unit = 'ug/m2/s'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+       ExtDiag(idx)%data(nb)%var3 => Coupling%ebu_smoke(Model%chunk_begin(nb):Model%chunk_end(nb),:)
+      enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -4959,17 +4969,6 @@ module GFS_diagnostics
       enddo
 
       endif smoke_forecast_mode
-
-      idx = idx + 1
-      ExtDiag(idx)%axes = 3
-      ExtDiag(idx)%name = 'ebu_smoke'
-      ExtDiag(idx)%desc = 'smoke emission'
-      ExtDiag(idx)%unit = 'ug/m2/s'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      allocate (ExtDiag(idx)%data(nblks))
-      do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var3 => Coupling%ebu_smoke(Model%chunk_begin(nb):Model%chunk_end(nb),:)
-      enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 3
