@@ -15,33 +15,34 @@ on:
     - develop
 
 jobs:
-  GCC:
+  build_spack:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        cmake_opts: ["-D32BIT=ON", "-D32BIT=OFF"]
-        gcc_ver: ["11"]
-        mpi: ["mpich"]
+        gcc_ver: ["12"]
+        mpi: ["mpich", "openmpi"]
 
     steps:
-
-    - name: install-doxygen
-      run: |
-        sudo apt-get install doxygen graphviz
         
     - name: checkout-fv3atm
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         path: ${{ github.workspace }}/fv3atm
         submodules: recursive
 
+    - name: install-cmake
+      run: |
+        cd ${{ github.workspace }}
+        curl -f -s -S -R -L https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-Linux-x86_64.tar.gz | tar -zx
+        echo "${{ github.workspace }}/cmake-3.29.2-linux-x86_64/bin" >> $GITHUB_PATH
+
     - name: cache-spack
       id: cache-spack
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}/spack-develop
-        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-2-${{ matrix.cmake_opts }}-${{ matrix.mpich }}
+        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
 
     # Building dependencies takes 40+ min
     - name: spack-install
@@ -58,6 +59,54 @@ jobs:
         spack config add "packages:mpi:require:'${{ matrix.mpi }}'"
         spack concretize |& tee ${SPACK_ENV}/log.concretize
         spack install -j2 --fail-fast
+        echo "spackrc=$?" >> ${GITHUB_ENV}
+        spack clean --all
+
+  build_fv3atm:
+    needs: build_spack
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        cmake_opts: ["-D32BIT=ON", "-D32BIT=OFF"]
+        gcc_ver: ["12"]
+        mpi: ["mpich", "openmpi"]
+
+    steps:
+
+    # Only do Doxygen and gcovr build for one job
+    - name: decide-doc-gcovr-build
+      run: |
+        if [[ "${{ matrix.cmake_opts }}" == "-D32BIT=ON" && "${{ matrix.gcc_ver }}" == 12 && "${{ matrix.mpi }}" == mpich ]]; then
+          echo 'devbuild=ON' | tee -a ${GITHUB_ENV}
+          echo 'gcov_cmake="-DCMAKE_Fortran_FLAGS=-fprofile-abs-path -fprofile-arcs -ftest-coverage -O0"' | tee -a ${GITHUB_ENV}
+        else
+          echo 'devbuild=OFF' | tee -a ${GITHUB_ENV}
+        fi
+
+    - name: install-utilities
+      run: |
+        sudo apt-get install doxygen graphviz
+        python3 -m pip install gcovr
+
+    - name: install-cmake
+      run: |
+        cd ${{ github.workspace }}
+        curl -f -s -S -R -L https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-Linux-x86_64.tar.gz | tar -zx
+        echo "${{ github.workspace }}/cmake-3.29.2-linux-x86_64/bin" >> $GITHUB_PATH
+
+    - name: checkout-fv3atm
+      uses: actions/checkout@v4
+      with:
+        path: ${{ github.workspace }}/fv3atm
+        submodules: recursive
+
+    - name: cache-spack
+      id: cache-spack
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ github.workspace }}/spack-develop
+        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
 
     - name: build-fv3atm
       run: |
@@ -68,22 +117,44 @@ jobs:
         git clone https://github.com/NOAA-EMC/CMakeModules
         git clone --recurse-submodules https://github.com/NOAA-PSL/stochastic_physics stochastic_physics_repo
         mkdir ${GITHUB_WORKSPACE}/build
-        sed -i 's/doc /upp_doc /' upp/docs/CMakeLists.txt
         cd ${GITHUB_WORKSPACE}/build
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_DOCS=ON
+        export CC=mpicc
+        export CXX=mpicxx
+        export FC=mpif90
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_DOCS=ON ${{ env.gcov_cmake }}
         make -j2
-        ls -l /home/runner/work/fv3atm/fv3atm/fv3atm/io
 
-    - uses: actions/upload-artifact@v3
+    - name: run-tests
+      run: |
+        cd $GITHUB_WORKSPACE/build
+        ctest -j2 --output-on-failure --rerun-failed
+
+    - name: get-test-coverage
+      if: ${{ env.devbuild == 'ON' }}
+      run: |
+        cd $GITHUB_WORKSPACE/build
+        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/fv3atm/tests --exclude $GITHUB_WORKSPACE/fv3atm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/fv3atm/build/ccpp --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/physics --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/framework --exclude $GITHUB_WORKSPACE/fv3atm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
+
+    - name: upload-test-coverage
+      uses: actions/upload-artifact@v4
+      if: ${{ env.devbuild == 'ON' }}
       with:
-        name: docs
+        name: test-coverage-fv3atm-${{ github.sha }}
+        path: |
+              ${{ github.workspace }}/build/*.html 
+              ${{ github.workspace }}/build/*.css
+
+    - name: upload-docs
+      uses: actions/upload-artifact@v4
+      if: ${{ env.devbuild == 'ON' }}
+      with:
+        name: docs-fv3atm
         path: |
           build/docs/html
-          
+
     - name: debug-artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: ${{ failure() }}
       with:
-        name: ccpp_prebuild_logs
+        name: ccpp_prebuild_logs-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}-${{ matrix.cmake_opts }}
         path: ${{ github.workspace }}/build/ccpp/ccpp_prebuild.*
-

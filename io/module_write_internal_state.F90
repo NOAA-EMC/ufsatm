@@ -93,11 +93,12 @@ module write_internal_state
       logical                  :: write_dopost !< True if inline post is requested.
       character(80)            :: post_namelist !< File name of the inline post namelist.
 !
-      integer                  :: fhzero !< Hours between clearing of diagnostic buckets.
+      real(4)                  :: fhzero !< Hours between clearing of diagnostic buckets.
       integer                  :: ntrac !< Number of tracers.
       integer                  :: ncld !< Number of hydrometeors.
       integer                  :: nsoil !< Number of soil layers.
       integer                  :: imp_physics !< Choice of microphysics scheme.
+      integer                  :: landsfcmdl !< Choice of land surface model.
       integer                  :: dtp !< Physics timestep.
       real,dimension(:),allocatable :: ak !< a parameter for sigma pressure level calculations.
       real,dimension(:),allocatable :: bk !< b parameter for sigma pressure level calculations.

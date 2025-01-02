@@ -104,6 +104,7 @@
   dimensions = (horizontal_loop_extent,adjusted_vertical_layer_dimension_for_radiation)
   type = real
   kind = kind_phys
+  active = (.not. flag_for_rrtmgp_radiation_scheme)
 [bexp1d]
   standard_name = perturbation_of_soil_type_b_parameter
   long_name = perturbation of soil type "b" parameter
@@ -344,7 +345,7 @@
   dimensions = (horizontal_loop_extent,4)
   type = real
   kind = kind_phys
-  active = (control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 33)
+  active = (control_for_drag_suite_gravity_wave_drag == 2 .or. control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 22 .or. control_for_drag_suite_gravity_wave_drag == 33)
 [cmm_water]
   standard_name = surface_drag_wind_speed_for_momentum_in_air_over_water
   long_name = momentum exchange coefficient over water
@@ -1390,22 +1391,6 @@
   type = real
   kind = kind_phys
   active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
-[ncpi]
-  standard_name = local_ice_number_concentration
-  long_name = number concentration of ice local to physics
-  units = kg-1
-  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-  active = (flag_for_shoc)
-[ncpl]
-  standard_name = local_condesed_water_number_concentration
-  long_name = number concentration of condensed water local to physics
-  units = kg-1
-  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-  active = (flag_for_shoc)
 [ncpr]
   standard_name = local_rain_number_concentration
   long_name = number concentration of rain local to physics
@@ -1526,7 +1511,7 @@
   dimensions = (horizontal_loop_extent)
   type = real
   kind = kind_phys
-  active = (control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 33)
+  active = (control_for_drag_suite_gravity_wave_drag == 2 .or. control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 22 .or. control_for_drag_suite_gravity_wave_drag == 33)
 [oa4ss]
   standard_name = asymmetry_of_subgrid_orography_small_scale
   long_name = asymmetry of subgrid height_above_mean_sea_level small scale
@@ -1534,7 +1519,7 @@
   dimensions = (horizontal_loop_extent,4)
   type = real
   kind = kind_phys
-  active = (control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 33)
+  active = (control_for_drag_suite_gravity_wave_drag == 2 .or. control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 22 .or. control_for_drag_suite_gravity_wave_drag == 33)
 [oc]
   standard_name = convexity_of_subgrid_orography
   long_name = convexity of subgrid height_above_mean_sea_level
@@ -1549,7 +1534,7 @@
   dimensions = (horizontal_loop_extent)
   type = real
   kind = kind_phys
-  active = (control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 33)
+  active = (control_for_drag_suite_gravity_wave_drag == 2 .or. control_for_drag_suite_gravity_wave_drag == 3 .or. control_for_drag_suite_gravity_wave_drag == 22 .or. control_for_drag_suite_gravity_wave_drag == 33)
 [olyr]
   standard_name = ozone_concentration_at_layer_for_radiation
   long_name = ozone concentration layer
@@ -1617,7 +1602,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [qicn]
   standard_name = mass_fraction_of_convective_cloud_ice
   long_name = mass fraction of convective cloud ice water
@@ -1648,7 +1633,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [qsnw]
   standard_name = local_snow_water_mixing_ratio
   long_name = ratio of mass of snow water to mass of dry air plus vapor (without condensates) local to physics
@@ -1656,7 +1641,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme .or. flag_for_shoc)
+  active = (control_for_microphysics_scheme == identifier_for_morrison_gettelman_microphysics_scheme)
 [prcpmp]
   standard_name = lwe_thickness_of_explicit_precipitation_amount
   long_name = explicit precipitation (rain, ice, snow, graupel, ...) on physics timestep
@@ -1952,7 +1937,7 @@
   standard_name = convective_updraft_area_fraction_at_model_interfaces
   long_name = convective updraft area fraction at model interfaces
   units = frac
-  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  dimensions = (horizontal_loop_extent,vertical_interface_dimension)
   type = real
   kind = kind_phys
 [skip_macro]
@@ -2596,6 +2581,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolslw(:,:,:,2)]
   standard_name = RRTMGP_aerosol_single_scattering_albedo_for_longwave_bands_01_16
   long_name = aerosol single scattering albedo for longwave bands 01-16
@@ -2603,6 +2589,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolslw(:,:,:,3)]
   standard_name = RRTMGP_aerosol_asymmetry_parameter_for_longwave_bands_01_16
   long_name = aerosol asymmetry parameter for longwave bands 01-16
@@ -2610,6 +2597,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_longwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw]
   standard_name = RRTMGP_aerosol_optical_properties_for_shortwave_bands_01_16
   long_name = aerosol optical properties for shortwave bands 01-16
@@ -2625,6 +2613,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw(:,:,:,2)]
   standard_name = RRTMGP_aerosol_single_scattering_albedo_for_shortwave_bands_01_16
   long_name = aerosol single scattering albedo for shortwave bands 01-16
@@ -2632,6 +2621,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [aerosolssw(:,:,:,3)]
   standard_name = RRTMGP_aerosol_asymmetry_parameter_for_shortwave_bands_01_16
   long_name = aerosol asymmetry parameter for shortwave bands 01-16
@@ -2639,6 +2629,7 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension, number_of_shortwave_bands)
   type = real
   kind = kind_phys
+  active = (flag_for_rrtmgp_radiation_scheme)
 [precip_frac]
   standard_name = precipitation_fraction_by_layer
   long_name = precipitation fraction in each layer
@@ -2964,6 +2955,30 @@
   units = count
   dimensions = ()
   type = integer
+[isc1]
+  standard_name = starting_x_direction_index_alloc1
+  long_name = starting X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[iec1]
+  standard_name = ending_x_direction_index_alloc1
+  long_name = ending X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[isc2]
+  standard_name = starting_x_direction_index_alloc2
+  long_name = starting X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[iec2]
+  standard_name = ending_x_direction_index_alloc2
+  long_name = ending X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
 [js]
   standard_name = starting_y_direction_index
   long_name = starting Y direction index
@@ -2988,25 +3003,49 @@
   units = count
   dimensions = ()
   type = integer
+[jsc1]
+  standard_name = starting_y_direction_index_alloc1
+  long_name = starting X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[jec1]
+  standard_name = ending_y_direction_index_alloc1
+  long_name = ending X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[jsc2]
+  standard_name = starting_y_direction_index_alloc2
+  long_name = starting X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
+[jec2]
+  standard_name = ending_y_direction_index_alloc2
+  long_name = ending X direction index for allocation
+  units = count
+  dimensions = ()
+  type = integer
 [delp]
   standard_name = pressure_thickness_at_Lagrangian_surface
   long_name = pressure thickness at Lagrangian surface
   units = Pa
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [delz]
   standard_name = thickness_at_Lagrangian_surface
   long_name = thickness at Lagrangian_surface
   units = m
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_thickness_at_Lagrangian_surface)
+  dimensions = (starting_x_direction_index_alloc2:ending_x_direction_index_alloc2,starting_y_direction_index_alloc2:ending_y_direction_index_alloc2,1:vertical_dimension_for_thickness_at_Lagrangian_surface)
   type = real
   kind = kind_dyn
 [area]
   standard_name = cell_area_for_fast_physics
   long_name = area of the grid cell for fast physics
   units = m2
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1)
   type = real
   kind = kind_grid
 [ng]
@@ -3049,35 +3088,35 @@
   standard_name = log_pressure_at_Lagrangian_surface
   long_name = logarithm of pressure at Lagrangian surface
   units = Pa
-  dimensions = (starting_x_direction_index:ending_x_direction_index,1:vertical_dimension_for_fast_physics_plus_one,starting_y_direction_index:ending_y_direction_index)
+  dimensions = (starting_x_direction_index_alloc2:ending_x_direction_index_alloc2,1:vertical_dimension_for_fast_physics_plus_one,starting_y_direction_index_alloc2:ending_y_direction_index_alloc2)
   type = real
   kind = kind_dyn
 [phis]
   standard_name = surface_geopotential_at_Lagrangian_surface
   long_name = surface geopotential at Lagrangian surface
   units = m2 s-2
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1)
   type = real
   kind = kind_dyn
 [pkz]
   standard_name = finite_volume_mean_edge_pressure_raised_to_the_power_of_kappa
   long_name = finite-volume mean edge pressure raised to the power of kappa
   units = 1
-  dimensions = (starting_x_direction_index:ending_x_direction_index,starting_y_direction_index:ending_y_direction_index,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc2:ending_x_direction_index_alloc2,starting_y_direction_index_alloc2:ending_y_direction_index_alloc2,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [pt]
   standard_name = virtual_temperature_at_Lagrangian_surface
   long_name = virtual temperature at Lagrangian surface
   units = K
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qvi]
   standard_name = gas_tracers_for_multi_gas_physics_at_Lagrangian_surface
   long_name = gas tracers for multi gas physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics,0:number_of_gases_for_multi_gases_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics,1:number_of_gases_for_multi_gases_physics)
   type = real
   kind = kind_dyn
   active = (number_of_gases_for_multi_gases_physics > 0)
@@ -3085,56 +3124,56 @@
   standard_name = water_vapor_specific_humidity_at_Lagrangian_surface
   long_name = water vapor specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [ql]
   standard_name = cloud_liquid_water_specific_humidity_at_Lagrangian_surface
   long_name = cloud liquid water specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qi]
   standard_name = cloud_ice_specific_humidity_at_Lagrangian_surface
   long_name = cloud ice specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qr]
   standard_name = cloud_rain_specific_humidity_at_Lagrangian_surface
   long_name = cloud rain specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qs]
   standard_name = cloud_snow_specific_humidity_at_Lagrangian_surface
   long_name = cloud snow specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qg]
   standard_name = cloud_graupel_specific_humidity_at_Lagrangian_surface
   long_name = cloud graupel specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [qc]
   standard_name = cloud_fraction_at_Lagrangian_surface
   long_name = cloud fraction at Lagrangian surface
   units = none
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_fast_physics)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics)
   type = real
   kind = kind_dyn
 [q_con]
   standard_name = cloud_condensed_water_specific_humidity_at_Lagrangian_surface
   long_name = cloud condensed water specific humidity updated by fast physics at Lagrangian surface
   units = kg kg-1
-  dimensions = (starting_x_direction_index_domain:ending_x_direction_index_domain,starting_y_direction_index_domain:ending_y_direction_index_domain,1:vertical_dimension_for_condensed_water_at_Lagrangian_surface)
+  dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_condensed_water_at_Lagrangian_surface)
   type = real
   kind = kind_dyn
 [nthreads]

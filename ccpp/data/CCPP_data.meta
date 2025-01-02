@@ -24,24 +24,66 @@
   units = DDT
   dimensions = ()
   type = GFS_control_type
-[GFS_Data(ccpp_block_number)]
-  standard_name = GFS_data_type_instance
-  long_name = instance of derived type GFS_data_type
+[GFS_Statein]
+  standard_name = GFS_statein_type_instance
+  long_name = prognostic state data in from dycore
   units = DDT
   dimensions = ()
-  type = GFS_data_type
+  type = GFS_statein_type
+[GFS_Stateout]
+  standard_name = GFS_stateout_type_instance
+  long_name = prognostic state or tendencies return to dycore
+  units = DDT
+  dimensions = ()
+  type = GFS_stateout_type
+[GFS_Grid]
+  standard_name = GFS_grid_type_instance
+  long_name = instance of derived type GFS_grid_type
+  units = DDT
+  dimensions = ()
+  type = GFS_grid_type
+[GFS_Tbd]
+  standard_name = GFS_tbd_type_instance
+  long_name = instance of derived type GFS_tbd_type
+  units = DDT
+  dimensions = ()
+  type = GFS_tbd_type
+[GFS_Cldprop]
+  standard_name = GFS_cldprop_type_instance
+  long_name = instance of derived type GFS_cldprop_type
+  units = DDT
+  dimensions = ()
+  type = GFS_cldprop_type
+[GFS_Sfcprop]
+  standard_name = GFS_sfcprop_type_instance
+  long_name = instance of derived type GFS_sfcprop_type
+  units = DDT
+  dimensions = ()
+  type = GFS_sfcprop_type
+[GFS_Radtend]
+  standard_name = GFS_radtend_type_instance
+  long_name = instance of derived type GFS_radtend_type
+  units = DDT
+  dimensions = ()
+  type = GFS_radtend_type
+[GFS_Coupling]
+  standard_name = GFS_coupling_type_instance
+  long_name = instance of derived type GFS_coupling_type
+  units = DDT
+  dimensions = ()
+  type = GFS_coupling_type
+[GFS_Intdiag]
+  standard_name = GFS_diag_type_instance
+  long_name = instance of derived type GFS_diag_type
+  units = DDT
+  dimensions = ()
+  type = GFS_diag_type
 [GFS_Interstitial(ccpp_thread_number)]
   standard_name = GFS_interstitial_type_instance
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
   dimensions = ()
   type = GFS_interstitial_type
-[GFS_Data]
-  standard_name = GFS_data_type_instance_all_blocks
-  long_name = instance of derived type GFS_data_type
-  units = DDT
-  dimensions = (ccpp_block_count)
-  type = GFS_data_type
 [GFS_Interstitial]
   standard_name = GFS_interstitial_type_instance_all_threads
   long_name = instance of derived type GFS_interstitial_type

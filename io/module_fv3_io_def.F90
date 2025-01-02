@@ -12,89 +12,91 @@ module module_fv3_io_def
   !> Number of processors used in the forecast grid component
   integer           :: num_pes_fcst
 
-  !> Number of write tasks per write group.  
+  !> Number of write tasks per write group.
   integer           :: wrttasks_per_group
 
   !> Number of the write groups
-  integer           :: write_groups 
+  integer           :: write_groups
 
-  !> Current write group 
-  integer           :: n_group 
+  !> Current write group
+  integer           :: n_group
 
   !> Number of history files
-  integer           :: num_files 
+  integer           :: num_files
 
   !> Number of the ESMF field bundles for physics fields
-  integer           :: nbdlphys 
+  integer           :: nbdlphys
 
   !> IAU running window length
-  integer           :: iau_offset 
+  integer           :: iau_offset
 
   !> Logical variable to decide if full time (HH.MM.SS) is used in the history
   !! file names
-  logical           :: lflname_fulltime 
+  logical           :: lflname_fulltime
 
   !> Logical variable to decide if unlimited time dimension is used
-  logical           :: time_unlimited 
+  logical           :: time_unlimited
 
+  !> Directory name for model history output files
+  character(len=esmf_maxstr) :: fv3atm_output_dir
 
   !> Base names for model history output files
-  character(len=esmf_maxstr),dimension(:),allocatable :: filename_base  
+  character(len=esmf_maxstr),dimension(:),allocatable :: filename_base
 
-  !> Output file format 
-  character(len=esmf_maxstr),dimension(:),allocatable :: output_file 
+  !> Output file format
+  character(len=esmf_maxstr),dimension(:),allocatable :: output_file
 
 
   !> The first write task in a write group
-  integer,dimension(:),allocatable     :: lead_wrttask 
+  integer,dimension(:),allocatable     :: lead_wrttask
 
   !> The last write task in a write group
-  integer,dimension(:),allocatable     :: last_wrttask 
+  integer,dimension(:),allocatable     :: last_wrttask
 
   !> Output grid type, e.g. "gaussian_grid"
-  character(len=esmf_maxstr),dimension(:),allocatable :: output_grid 
+  character(len=esmf_maxstr),dimension(:),allocatable :: output_grid
 
   !> The i-dimension in the output grid
-  integer,dimension(:),allocatable  :: imo 
+  integer,dimension(:),allocatable  :: imo
 
   !> The j-dimension in the output grid
-  integer,dimension(:),allocatable  :: jmo 
+  integer,dimension(:),allocatable  :: jmo
 
   !> Longitude of the center point in the output grid
-  real,dimension(:),allocatable     :: cen_lon 
+  real,dimension(:),allocatable     :: cen_lon
 
   !> Latitude of the center pointer in the output grid
-  real,dimension(:),allocatable     :: cen_lat 
+  real,dimension(:),allocatable     :: cen_lat
 
   !> Longitude of the first grid point in the output grid
-  real,dimension(:),allocatable     :: lon1 
+  real,dimension(:),allocatable     :: lon1
 
   !> Latitude of the first pointer in the output grid
-  real,dimension(:),allocatable     :: lat1 
+  real,dimension(:),allocatable     :: lat1
 
   !> Longitude of the last grid point in the output grid
-  real,dimension(:),allocatable     :: lon2 
+  real,dimension(:),allocatable     :: lon2
 
   !> Latitude of the last pointer in the output grid
-  real,dimension(:),allocatable     :: lat2 
+  real,dimension(:),allocatable     :: lat2
 
   !> Longitude increment
-  real,dimension(:),allocatable     :: dlon 
+  real,dimension(:),allocatable     :: dlon
 
   !> Latitude increment
-  real,dimension(:),allocatable     :: dlat 
+  real,dimension(:),allocatable     :: dlat
 
   !> The first latitude from the pole at which the secant cone cuts the sphere
-  real,dimension(:),allocatable     :: stdlat1 
+  real,dimension(:),allocatable     :: stdlat1
 
   !> The second latitude from the pole at which the secant cone cuts the sphere
-  real,dimension(:),allocatable     :: stdlat2 
+  real,dimension(:),allocatable     :: stdlat2
 
   !> x-direction grid length
-  real,dimension(:),allocatable     :: dx 
+  real,dimension(:),allocatable     :: dx
 
   !> y-direction grid length
-  real,dimension(:),allocatable     :: dy 
+  real,dimension(:),allocatable     :: dy
 
   !> Deflate level to use, 0 means no deflate.
   integer,dimension(:),allocatable  :: ideflate

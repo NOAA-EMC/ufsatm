@@ -21,7 +21,8 @@ module fv3atm_sfc_io
   private
 
   public :: Sfc_io_data_type
-  public :: Sfc_io_fill_2d_names, Sfc_io_fill_3d_names, Sfc_io_allocate_arrays, &
+  public :: Sfc_io_fill_2d_names, Sfc_io_fill_2d_names_v2, &
+       Sfc_io_fill_3d_names, Sfc_io_allocate_arrays, &
        Sfc_io_register_axes, Sfc_io_write_axes, Sfc_io_register_2d_fields, &
        Sfc_io_register_3d_fields, Sfc_io_copy_to_grid, Sfc_io_copy_from_grid, &
        Sfc_io_apply_safeguards, Sfc_io_transfer, Sfc_io_final
@@ -48,6 +49,8 @@ module fv3atm_sfc_io
 
     ! The lsoil flag is only meaningful when reading:;
     logical, public :: is_lsoil = .false.
+
+    logical, public :: is_v2_file = .false.
 
     ! SYNONYMS: Some nvar variables had two names in fv3atm_io.F90. They have
     ! only one name here. The "_s" is redundant because this file only has
@@ -79,6 +82,7 @@ module fv3atm_sfc_io
     procedure, public :: bundle_2d_fields => Sfc_io_bundle_2d_fields
     procedure, public :: bundle_3d_fields => Sfc_io_bundle_3d_fields
     procedure, public :: fill_2d_names => Sfc_io_fill_2d_names
+    procedure, public :: fill_2d_names_v2 => Sfc_io_fill_2d_names_v2
     procedure, public :: fill_3d_names => Sfc_io_fill_3d_names
     procedure, public :: init_fields => Sfc_io_init_fields
     procedure, public :: transfer => Sfc_io_transfer
@@ -558,6 +562,174 @@ contains
     endif
   end subroutine Sfc_io_fill_2d_names
 
+  !>@ Fills the name2d array with all surface 2D field names. Updates nvar2m if needed.
+  !!  This routine is for v2 coldstart files.
+  subroutine Sfc_io_fill_2d_names_v2(sfc,Model,warm_start)
+    implicit none
+    class(Sfc_io_data_type)           :: sfc
+    type(GFS_control_type),    intent(in) :: Model
+    logical, intent(in) :: warm_start
+    integer :: nt
+
+    !--- names of the 2D variables to save
+    nt=0
+    nt=nt+1 ; sfc%name2(nt) = 'slmsk'
+    nt=nt+1 ; sfc%name2(nt) = 'tsea'    ! tsfc
+    nt=nt+1 ; sfc%name2(nt) = 'sheleg'  ! weasd in file. Optional for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'tg3'
+    nt=nt+1 ; sfc%name2(nt) = 'zorl'    ! Optional for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'alvsf'
+    nt=nt+1 ; sfc%name2(nt) = 'alvwf'
+    nt=nt+1 ; sfc%name2(nt) = 'alnsf'
+    nt=nt+1 ; sfc%name2(nt) = 'alnwf'
+    nt=nt+1 ; sfc%name2(nt) = 'facsf'
+    nt=nt+1 ; sfc%name2(nt) = 'facwf'
+    nt=nt+1 ; sfc%name2(nt) = 'vfrac'
+    nt=nt+1 ; sfc%name2(nt) = 'canopy'
+    nt=nt+1 ; sfc%name2(nt) = 'f10m'
+    nt=nt+1 ; sfc%name2(nt) = 't2m'
+    nt=nt+1 ; sfc%name2(nt) = 'q2m'
+    nt=nt+1 ; sfc%name2(nt) = 'vtype'
+    nt=nt+1 ; sfc%name2(nt) = 'stype'
+    nt=nt+1 ; sfc%name2(nt) = 'uustar'
+    nt=nt+1 ; sfc%name2(nt) = 'ffmm'
+    nt=nt+1 ; sfc%name2(nt) = 'ffhh'
+    nt=nt+1 ; sfc%name2(nt) = 'hice'
+    nt=nt+1 ; sfc%name2(nt) = 'fice'
+    nt=nt+1 ; sfc%name2(nt) = 'tisfc'
+    nt=nt+1 ; sfc%name2(nt) = 'tprcp'
+    nt=nt+1 ; sfc%name2(nt) = 'srflag'
+    nt=nt+1 ; sfc%name2(nt) = 'snwdph'  ! snowd in file. Optional for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'shdmin'
+    nt=nt+1 ; sfc%name2(nt) = 'shdmax'
+    nt=nt+1 ; sfc%name2(nt) = 'slope'
+    nt=nt+1 ; sfc%name2(nt) = 'snoalb'
+    !--- variables below here are optional, unless indicated.
+    nt=nt+1 ; sfc%name2(nt) = 'scolor'
+    nt=nt+1 ; sfc%name2(nt) = 'sncovr'
+    nt=nt+1 ; sfc%name2(nt) = 'snodl' ! snowd on land portion of a cell.
+                                      ! Mandatory for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'weasdl'! weasd on land portion of a cell.
+                                      ! Mandatory for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'tsfc'  ! tsfc composite
+    nt=nt+1 ; sfc%name2(nt) = 'tsfcl' ! temp on land portion of a cell
+    nt=nt+1 ; sfc%name2(nt) = 'zorlw' ! zorl on water portion of a cell
+                                      ! Mandatory for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'zorll' ! zorl on land portion of a cell
+    nt=nt+1 ; sfc%name2(nt) = 'zorli' ! zorl on ice portion of a cell
+                                      ! Mandatory for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'albdirvis_lnd'
+    nt=nt+1 ; sfc%name2(nt) = 'albdirnir_lnd'
+    nt=nt+1 ; sfc%name2(nt) = 'albdifvis_lnd'
+    nt=nt+1 ; sfc%name2(nt) = 'albdifnir_lnd'
+    nt=nt+1 ; sfc%name2(nt) = 'emis_lnd'
+    nt=nt+1 ; sfc%name2(nt) = 'emis_ice'
+    nt=nt+1 ; sfc%name2(nt) = 'sncovr_ice'
+    nt=nt+1 ; sfc%name2(nt) = 'snodi' ! snowd on ice portion of a cell.
+                                      ! Mandatory for cold starts.
+    nt=nt+1 ; sfc%name2(nt) = 'weasdi'! weasd on ice portion of a cell
+                                      ! Mandatory for cold starts.
+
+    if (Model%use_cice_alb .or. Model%lsm == Model%lsm_ruc) then
+      nt=nt+1 ; sfc%name2(nt) = 'albdirvis_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'albdifvis_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'albdirnir_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'albdifnir_ice'
+    endif
+
+    if(Model%cplwav) then
+      nt=nt+1 ; sfc%name2(nt) = 'zorlwav' !zorl from wave component
+      sfc%nvar2m = nt
+    endif
+
+    if (Model%nstf_name(1) > 0) then
+      !--- NSSTM inputs only needed when (nstf_name(1) > 0) .and. (nstf_name(2)) == 0)
+      nt=nt+1 ; sfc%name2(nt) = 'tref'
+      nt=nt+1 ; sfc%name2(nt) = 'z_c'
+      nt=nt+1 ; sfc%name2(nt) = 'c_0'
+      nt=nt+1 ; sfc%name2(nt) = 'c_d'
+      nt=nt+1 ; sfc%name2(nt) = 'w_0'
+      nt=nt+1 ; sfc%name2(nt) = 'w_d'
+      nt=nt+1 ; sfc%name2(nt) = 'xt'
+      nt=nt+1 ; sfc%name2(nt) = 'xs'
+      nt=nt+1 ; sfc%name2(nt) = 'xu'
+      nt=nt+1 ; sfc%name2(nt) = 'xv'
+      nt=nt+1 ; sfc%name2(nt) = 'xz'
+      nt=nt+1 ; sfc%name2(nt) = 'zm'
+      nt=nt+1 ; sfc%name2(nt) = 'xtts'
+      nt=nt+1 ; sfc%name2(nt) = 'xzts'
+      nt=nt+1 ; sfc%name2(nt) = 'd_conv'
+      nt=nt+1 ; sfc%name2(nt) = 'ifd'
+      nt=nt+1 ; sfc%name2(nt) = 'dt_cool'
+      nt=nt+1 ; sfc%name2(nt) = 'qrain'
+    endif
+    !
+    ! Only needed when Noah MP LSM is used - 29 2D
+    !
+    if (Model%lsm == Model%lsm_noahmp) then
+      nt=nt+1 ; sfc%name2(nt) = 'snowxy'
+      nt=nt+1 ; sfc%name2(nt) = 'tvxy'
+      nt=nt+1 ; sfc%name2(nt) = 'tgxy'
+      nt=nt+1 ; sfc%name2(nt) = 'canicexy'
+      nt=nt+1 ; sfc%name2(nt) = 'canliqxy'
+      nt=nt+1 ; sfc%name2(nt) = 'eahxy'
+      nt=nt+1 ; sfc%name2(nt) = 'tahxy'
+      nt=nt+1 ; sfc%name2(nt) = 'cmxy'
+      nt=nt+1 ; sfc%name2(nt) = 'chxy'
+      nt=nt+1 ; sfc%name2(nt) = 'fwetxy'
+      nt=nt+1 ; sfc%name2(nt) = 'sneqvoxy'
+      nt=nt+1 ; sfc%name2(nt) = 'alboldxy'
+      nt=nt+1 ; sfc%name2(nt) = 'qsnowxy'
+      nt=nt+1 ; sfc%name2(nt) = 'wslakexy'
+      nt=nt+1 ; sfc%name2(nt) = 'zwtxy'
+      nt=nt+1 ; sfc%name2(nt) = 'waxy'
+      nt=nt+1 ; sfc%name2(nt) = 'wtxy'
+      nt=nt+1 ; sfc%name2(nt) = 'lfmassxy'
+      nt=nt+1 ; sfc%name2(nt) = 'rtmassxy'
+      nt=nt+1 ; sfc%name2(nt) = 'stmassxy'
+      nt=nt+1 ; sfc%name2(nt) = 'woodxy'
+      nt=nt+1 ; sfc%name2(nt) = 'stblcpxy'
+      nt=nt+1 ; sfc%name2(nt) = 'fastcpxy'
+      nt=nt+1 ; sfc%name2(nt) = 'xsaixy'
+      nt=nt+1 ; sfc%name2(nt) = 'xlaixy'
+      nt=nt+1 ; sfc%name2(nt) = 'taussxy'
+      nt=nt+1 ; sfc%name2(nt) = 'smcwtdxy'
+      nt=nt+1 ; sfc%name2(nt) = 'deeprechxy'
+      nt=nt+1 ; sfc%name2(nt) = 'rechxy'
+    else if (Model%lsm == Model%lsm_ruc .and. warm_start) then
+      nt=nt+1 ; sfc%name2(nt) = 'wetness'
+      nt=nt+1 ; sfc%name2(nt) = 'clw_surf_land'
+      nt=nt+1 ; sfc%name2(nt) = 'clw_surf_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'qwv_surf_land'
+      nt=nt+1 ; sfc%name2(nt) = 'qwv_surf_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'tsnow_land'
+      nt=nt+1 ; sfc%name2(nt) = 'tsnow_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'snowfall_acc_land'
+      nt=nt+1 ; sfc%name2(nt) = 'snowfall_acc_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'sfalb_lnd'
+      nt=nt+1 ; sfc%name2(nt) = 'sfalb_lnd_bck'
+      nt=nt+1 ; sfc%name2(nt) = 'sfalb_ice'
+      if (Model%rdlai) then
+        nt=nt+1 ; sfc%name2(nt) = 'lai'
+      endif
+    else if (Model%lsm == Model%lsm_ruc .and. Model%rdlai) then
+      nt=nt+1 ; sfc%name2(nt) = 'lai'
+    endif
+
+    if (Model%lkm > 0 .and. Model%iopt_lake==Model%iopt_lake_flake) then
+      nt=nt+1 ; sfc%name2(nt) = 'T_snow'
+      nt=nt+1 ; sfc%name2(nt) = 'T_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'h_ML'
+      nt=nt+1 ; sfc%name2(nt) = 't_ML'
+      nt=nt+1 ; sfc%name2(nt) = 't_mnw'
+      nt=nt+1 ; sfc%name2(nt) = 'h_talb'
+      nt=nt+1 ; sfc%name2(nt) = 't_talb'
+      nt=nt+1 ; sfc%name2(nt) = 't_bot1'
+      nt=nt+1 ; sfc%name2(nt) = 't_bot2'
+      nt=nt+1 ; sfc%name2(nt) = 'c_t'
+    endif
+  end subroutine Sfc_io_fill_2d_names_v2
+
   !>@ Registers 2D fields with FMS for reading or writing non-quilt restart files
   subroutine Sfc_io_register_2d_fields(sfc,Model,Sfc_restart,reading,warm_start)
     implicit none
@@ -590,33 +762,62 @@ contains
     endif
 
     !--- register the 2D fields
-    do num = 1,sfc%nvar2m
-      var2_p => sfc%var2(:,:,num)
-      if (trim(sfc%name2(num)) == 'sncovr' .or. trim(sfc%name2(num)) == 'tsfcl' .or. trim(sfc%name2(num)) == 'zorll' &
-           .or. trim(sfc%name2(num)) == 'zorli' .or. trim(sfc%name2(num)) == 'zorlwav' &
-           .or. trim(sfc%name2(num)) == 'snodl' .or. trim(sfc%name2(num)) == 'weasdl'  &
-           .or. trim(sfc%name2(num)) == 'snodi' .or. trim(sfc%name2(num)) == 'weasdi'  &
-           .or. trim(sfc%name2(num)) == 'tsfc'  .or. trim(sfc%name2(num)) ==  'zorlw'  &
+    if (sfc%is_v2_file) then
+      do num = 1,sfc%nvar2m
+        var2_p => sfc%var2(:,:,num)
+        if (trim(sfc%name2(num)) == 'sncovr' .or. trim(sfc%name2(num)) == 'zorll' &
+           .or. trim(sfc%name2(num)) == 'zorl' .or. trim(sfc%name2(num)) == 'zorlwav' &
+           .or. trim(sfc%name2(num)) == 'snwdph' .or. trim(sfc%name2(num)) == 'sheleg'  &
+           .or. trim(sfc%name2(num)) == 'tsfc' &
            .or. trim(sfc%name2(num)) == 'albdirvis_lnd' .or. trim(sfc%name2(num)) == 'albdirnir_lnd' &
            .or. trim(sfc%name2(num)) == 'albdifvis_lnd' .or. trim(sfc%name2(num)) == 'albdifnir_lnd' &
            .or. trim(sfc%name2(num)) == 'albdirvis_ice' .or. trim(sfc%name2(num)) == 'albdirnir_ice' &
            .or. trim(sfc%name2(num)) == 'albdifvis_ice' .or. trim(sfc%name2(num)) == 'albdifnir_ice' &
            .or. trim(sfc%name2(num)) == 'emis_lnd'      .or. trim(sfc%name2(num)) == 'emis_ice'      &
            .or. trim(sfc%name2(num)) == 'sncovr_ice'    .or. trim(sfc%name2(num)) == 'scolor') then
-        if(reading .and. sfc%is_lsoil) then
-          call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=(/'lat','lon'/), is_optional=.true.)
-        else
-          call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=time2d,&
+          if(reading .and. sfc%is_lsoil) then
+            call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=(/'lat','lon'/), is_optional=.true.)
+          else
+            call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=time2d,&
                & chunksizes=chunksizes2d, is_optional=.true.)
-        end if
-      else
-        if(reading .and. sfc%is_lsoil) then
-          call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=(/'lat','lon'/))
+          end if
         else
-          call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=time2d, chunksizes=chunksizes2d)
-        end if
-      endif
-    enddo
+          if(reading .and. sfc%is_lsoil) then
+            call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=(/'lat','lon'/))
+          else
+            call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=time2d, chunksizes=chunksizes2d)
+          end if
+        endif
+      enddo
+    else
+      do num = 1,sfc%nvar2m
+        var2_p => sfc%var2(:,:,num)
+        if (trim(sfc%name2(num)) == 'sncovr' .or. trim(sfc%name2(num)) == 'tsfcl' .or. trim(sfc%name2(num)) == 'zorll' &
+             .or. trim(sfc%name2(num)) == 'zorli' .or. trim(sfc%name2(num)) == 'zorlwav' &
+             .or. trim(sfc%name2(num)) == 'snodl' .or. trim(sfc%name2(num)) == 'weasdl'  &
+             .or. trim(sfc%name2(num)) == 'snodi' .or. trim(sfc%name2(num)) == 'weasdi'  &
+             .or. trim(sfc%name2(num)) == 'tsfc'  .or. trim(sfc%name2(num)) ==  'zorlw'  &
+             .or. trim(sfc%name2(num)) == 'albdirvis_lnd' .or. trim(sfc%name2(num)) == 'albdirnir_lnd' &
+             .or. trim(sfc%name2(num)) == 'albdifvis_lnd' .or. trim(sfc%name2(num)) == 'albdifnir_lnd' &
+             .or. trim(sfc%name2(num)) == 'albdirvis_ice' .or. trim(sfc%name2(num)) == 'albdirnir_ice' &
+             .or. trim(sfc%name2(num)) == 'albdifvis_ice' .or. trim(sfc%name2(num)) == 'albdifnir_ice' &
+             .or. trim(sfc%name2(num)) == 'emis_lnd'      .or. trim(sfc%name2(num)) == 'emis_ice'      &
+             .or. trim(sfc%name2(num)) == 'sncovr_ice'    .or. trim(sfc%name2(num)) == 'scolor') then
+          if(reading .and. sfc%is_lsoil) then
+            call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=(/'lat','lon'/), is_optional=.true.)
+          else
+            call register_restart_field(Sfc_restart, sfc%name2(num), var2_p, dimensions=time2d,&
+               & chunksizes=chunksizes2d, is_optional=.true.)
+          end if
+        else
+          if(reading .and. sfc%is_lsoil) then
+            call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=(/'lat','lon'/))
+          else
+            call register_restart_field(Sfc_restart,sfc%name2(num),var2_p, dimensions=time2d, chunksizes=chunksizes2d)
+          end if
+        endif
+      enddo
+    endif
 
     if (Model%nstf_name(1) > 0) then
       mand = .false.
@@ -702,7 +903,11 @@ contains
 
     !--- register the 3D fields
     var3_p => sfc%var3ice(:,:,:)
-    call register_restart_field(Sfc_restart, sfc%name3(0), var3_p, dimensions=xyz1_time, chunksizes=chunksizes3d, is_optional=.true.)
+    if (sfc%is_v2_file) then
+      call register_restart_field(Sfc_restart, sfc%name3(0), var3_p, dimensions=xyz1_time, chunksizes=chunksizes3d, is_optional=.false.)
+    else
+      call register_restart_field(Sfc_restart, sfc%name3(0), var3_p, dimensions=xyz1_time, chunksizes=chunksizes3d, is_optional=.true.)
+    endif
 
     if(reading) then
       do num = 1,sfc%nvar3
@@ -777,13 +982,13 @@ contains
 
     class(Sfc_io_data_type)                 :: sfc
     logical, intent(in)                     :: reading
-    type(GFS_sfcprop_type)                  :: Sfcprop(:)
+    type(GFS_sfcprop_type)                  :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     logical, intent(in) :: warm_start
     logical, intent(out), optional :: override_frac_grid
 
-    integer :: i, j, k, nb, ix, lsoil, num, nt
+    integer :: i, j, k, nb, ix, lsoil, num, nt, ixs, ixe, im
     integer :: isc, iec, jsc, jec, npz, nx, ny
     integer, allocatable :: ii1(:), jj1(:)
     real(kind_phys) :: ice
@@ -804,79 +1009,81 @@ contains
     !   write(0,*)' stype read in min,max=',minval(sfc_var2(:,:,18)),maxval(sfc_var2(:,:,18))
     !   write(0,*)' sfc_var2=',sfc_var2(:,:,12)
 
-    !$omp parallel do default(shared) private(i, j, nb, ix, nt, ii1, jj1, lsoil)
+    !$omp parallel do default(shared) private(i, j, nb, ix, nt, ii1, jj1, lsoil, ixs, ixe, im)
     block_loop: do nb = 1, Atm_block%nblks
       allocate(ii1(Atm_block%blksz(nb)))
       allocate(jj1(Atm_block%blksz(nb)))
       ii1=Atm_block%index(nb)%ii - isc + 1
       jj1=Atm_block%index(nb)%jj - jsc + 1
+      ixs = Model%chunk_begin(nb)
+      ixe = Model%chunk_end(nb)
 
       nt=0
 
       !--- 2D variables
       !    ------------
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%slmsk)   !--- slmsk
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsfco)   !--- tsfc (tsea in sfc file)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%weasd)   !--- weasd (sheleg in sfc file)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tg3)     !--- tg3
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zorl)    !--- zorl composite
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%alvsf)   !--- alvsf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%alvwf)   !--- alvwf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%alnsf)   !--- alnsf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%alnwf)   !--- alnwf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%facsf)   !--- facsf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%facwf)   !--- facwf
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%vfrac)   !--- vfrac
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%canopy)  !--- canopy
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%f10m)    !--- f10m
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t2m)     !--- t2m
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%q2m)     !--- q2m
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%vtype)   !--- vtype
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%stype)   !--- stype
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%uustar)  !--- uustar
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%ffmm)    !--- ffmm
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%ffhh)    !--- ffhh
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%hice)    !--- hice
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%fice)    !--- fice
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tisfc)   !--- tisfc
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tprcp)   !--- tprcp
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%srflag)  !--- srflag
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowd)   !--- snowd (snwdph in the file)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%shdmin)  !--- shdmin
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%shdmax)  !--- shdmax
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%slope)   !--- slope
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snoalb)  !--- snoalb
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%scolor)  !--- scolor
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sncovr)  !--- sncovr
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snodl)   !--- snodl (snowd on land  portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%weasdl)  !--- weasdl (weasd on land  portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsfc)    !--- tsfc composite
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsfcl)   !--- tsfcl  (temp on land portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zorlw)   !--- zorlw (zorl on water portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zorll)   !--- zorll (zorl on land portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zorli)   !--- zorli (zorl on ice  portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdirvis_lnd)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdirnir_lnd)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdifvis_lnd)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdifnir_lnd)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%emis_lnd)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%emis_ice)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sncovr_ice)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snodi)   !--- snodi (snowd on ice  portion of a cell)
-      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%weasdi)  !--- weasdi (weasd on ice  portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%slmsk(ixs:ixe))   !--- slmsk
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tsfco(ixs:ixe))   !--- tsfc (tsea in sfc file)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%weasd(ixs:ixe))   !--- weasd (sheleg in sfc file)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tg3(ixs:ixe))     !--- tg3
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zorl(ixs:ixe))    !--- zorl composite
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%alvsf(ixs:ixe))   !--- alvsf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%alvwf(ixs:ixe))   !--- alvwf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%alnsf(ixs:ixe))   !--- alnsf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%alnwf(ixs:ixe))   !--- alnwf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%facsf(ixs:ixe))   !--- facsf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%facwf(ixs:ixe))   !--- facwf
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%vfrac(ixs:ixe))   !--- vfrac
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%canopy(ixs:ixe))  !--- canopy
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%f10m(ixs:ixe))    !--- f10m
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t2m(ixs:ixe))     !--- t2m
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%q2m(ixs:ixe))     !--- q2m
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%vtype(ixs:ixe))   !--- vtype
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%stype(ixs:ixe))   !--- stype
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%uustar(ixs:ixe))  !--- uustar
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%ffmm(ixs:ixe))    !--- ffmm
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%ffhh(ixs:ixe))    !--- ffhh
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%hice(ixs:ixe))    !--- hice
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%fice(ixs:ixe))    !--- fice
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tisfc(ixs:ixe))   !--- tisfc
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tprcp(ixs:ixe))   !--- tprcp
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%srflag(ixs:ixe))  !--- srflag
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snowd(ixs:ixe))   !--- snowd (snwdph in the file)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%shdmin(ixs:ixe))  !--- shdmin
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%shdmax(ixs:ixe))  !--- shdmax
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%slope(ixs:ixe))   !--- slope
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snoalb(ixs:ixe))  !--- snoalb
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%scolor(ixs:ixe))  !--- scolor
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sncovr(ixs:ixe))  !--- sncovr
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snodl(ixs:ixe))   !--- snodl (snowd on land  portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%weasdl(ixs:ixe))  !--- weasdl (weasd on land  portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tsfc(ixs:ixe))    !--- tsfc composite
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tsfcl(ixs:ixe))   !--- tsfcl  (temp on land portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zorlw(ixs:ixe))   !--- zorlw (zorl on water portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zorll(ixs:ixe))   !--- zorll (zorl on land portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zorli(ixs:ixe))   !--- zorli (zorl on ice  portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdirvis_lnd(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdirnir_lnd(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdifvis_lnd(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdifnir_lnd(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%emis_lnd(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%emis_ice(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sncovr_ice(ixs:ixe))
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snodi(ixs:ixe))   !--- snodi (snowd on ice  portion of a cell)
+      call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%weasdi(ixs:ixe))  !--- weasdi (weasd on ice  portion of a cell)
       if (Model%use_cice_alb .or. Model%lsm == Model%lsm_ruc) then
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdirvis_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdifvis_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdirnir_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%albdifnir_ice)
-        !         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_ice)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdirvis_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdifvis_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdirnir_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%albdifnir_ice(ixs:ixe))
+        !         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sfalb_ice(ixs:ixe))
       endif
       if(Model%cplwav) then
         !tgs - the following line is a bug. It should be nt = nt
         !nt = sfc%nvar2m-1 ! Next item will be at sfc%nvar2m
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zorlwav) !--- (zorl from wave model)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zorlwav(ixs:ixe)) !--- (zorl from wave model)
       else if(reading) then
-        Sfcprop(nb)%zorlwav  = Sfcprop(nb)%zorlw
+        Sfcprop%zorlwav(ixs:ixe)  = Sfcprop%zorlw(ixs:ixe)
       endif
 
       if(present(override_frac_grid)) then
@@ -885,36 +1092,37 @@ contains
 
       if(reading) then
         do_lsi_fractions: do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%stype(ix) == 14 .or. Sfcprop(nb)%stype(ix) <= 0) then
-            Sfcprop(nb)%landfrac(ix) = zero
-            Sfcprop(nb)%stype(ix) = 0
-            if (Sfcprop(nb)%lakefrac(ix) > zero) then
-              Sfcprop(nb)%lakefrac(ix) = one
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%stype(im) == 14 .or. Sfcprop%stype(im) <= 0) then
+            Sfcprop%landfrac(im) = zero
+            Sfcprop%stype(im) = 0
+            if (Sfcprop%lakefrac(im) > zero) then
+              Sfcprop%lakefrac(im) = one
             endif
           endif
 
           if_frac_grid: if (Model%frac_grid) then
-            if (Sfcprop(nb)%landfrac(ix) > -999.0_kind_phys) then
-              Sfcprop(nb)%slmsk(ix) = ceiling(Sfcprop(nb)%landfrac(ix)-1.0e-6)
-              if (Sfcprop(nb)%slmsk(ix) == 1 .and. Sfcprop(nb)%stype(ix) == 14) &
-                   Sfcprop(nb)%slmsk(ix) = 0
-              if (Sfcprop(nb)%lakefrac(ix) > zero) then
-                Sfcprop(nb)%oceanfrac(ix) = zero ! lake & ocean don't coexist in a cell
-                if (nint(Sfcprop(nb)%slmsk(ix)) /= 1) then
-                  if(Sfcprop(nb)%fice(ix) >= Model%min_lakeice) then
-                    Sfcprop(nb)%slmsk(ix) = 2
+            if (Sfcprop%landfrac(im) > -999.0_kind_phys) then
+              Sfcprop%slmsk(im) = ceiling(Sfcprop%landfrac(im)-1.0e-6)
+              if (Sfcprop%slmsk(im) == 1 .and. Sfcprop%stype(im) == 14) &
+                   Sfcprop%slmsk(im) = 0
+              if (Sfcprop%lakefrac(im) > zero) then
+                Sfcprop%oceanfrac(im) = zero ! lake & ocean don't coexist in a cell
+                if (nint(Sfcprop%slmsk(im)) /= 1) then
+                  if(Sfcprop%fice(im) >= Model%min_lakeice) then
+                    Sfcprop%slmsk(im) = 2
                   else
-                    Sfcprop(nb)%slmsk(ix) = 0
+                    Sfcprop%slmsk(im) = 0
                   endif
                 endif
               else
-                Sfcprop(nb)%lakefrac(ix)  = zero
-                Sfcprop(nb)%oceanfrac(ix) = one - Sfcprop(nb)%landfrac(ix)
-                if (nint(Sfcprop(nb)%slmsk(ix)) /= 1) then
-                  if (Sfcprop(nb)%fice(ix) >= Model%min_seaice) then
-                    Sfcprop(nb)%slmsk(ix) = 2
+                Sfcprop%lakefrac(im)  = zero
+                Sfcprop%oceanfrac(im) = one - Sfcprop%landfrac(im)
+                if (nint(Sfcprop%slmsk(im)) /= 1) then
+                  if (Sfcprop%fice(im) >= Model%min_seaice) then
+                    Sfcprop%slmsk(im) = 2
                   else
-                    Sfcprop(nb)%slmsk(ix) = 0
+                    Sfcprop%slmsk(im) = 0
                   endif
                 endif
               endif
@@ -922,63 +1130,63 @@ contains
               if(present(override_frac_grid)) then
                 override_frac_grid = .false.
               endif
-              if (nint(Sfcprop(nb)%slmsk(ix)) == 1) then
-                Sfcprop(nb)%landfrac(ix)  = one
-                Sfcprop(nb)%lakefrac(ix)  = zero
-                Sfcprop(nb)%oceanfrac(ix) = zero
+              if (nint(Sfcprop%slmsk(im)) == 1) then
+                Sfcprop%landfrac(im)  = one
+                Sfcprop%lakefrac(im)  = zero
+                Sfcprop%oceanfrac(im) = zero
               else
-                if (Sfcprop(nb)%slmsk(ix) < 0.1_kind_phys .or. Sfcprop(nb)%slmsk(ix) > 1.9_kind_phys) then
-                  Sfcprop(nb)%landfrac(ix) = zero
-                  if (Sfcprop(nb)%oro_uf(ix) > min_lake_orog) then   ! lakes
-                    Sfcprop(nb)%lakefrac(ix)  = one
-                    Sfcprop(nb)%oceanfrac(ix) = zero
+                if (Sfcprop%slmsk(im) < 0.1_kind_phys .or. Sfcprop%slmsk(im) > 1.9_kind_phys) then
+                  Sfcprop%landfrac(im) = zero
+                  if (Sfcprop%oro_uf(im) > min_lake_orog) then   ! lakes
+                    Sfcprop%lakefrac(im)  = one
+                    Sfcprop%oceanfrac(im) = zero
                   else                                               ! ocean
-                    Sfcprop(nb)%lakefrac(ix)  = zero
-                    Sfcprop(nb)%oceanfrac(ix) = one
+                    Sfcprop%lakefrac(im)  = zero
+                    Sfcprop%oceanfrac(im) = one
                   endif
                 endif
               endif
             endif
           else                                             ! not a fractional grid
-            if (Sfcprop(nb)%landfrac(ix) > -999.0_kind_phys) then
-              if (Sfcprop(nb)%lakefrac(ix) > zero) then
-                Sfcprop(nb)%oceanfrac(ix) = zero
-                Sfcprop(nb)%landfrac(ix)  = zero
-                Sfcprop(nb)%lakefrac(ix)  = one
-                Sfcprop(nb)%slmsk(ix)     = zero
-                if (Sfcprop(nb)%fice(ix) >= Model%min_lakeice) Sfcprop(nb)%slmsk(ix) = 2.0
+            if (Sfcprop%landfrac(im) > -999.0_kind_phys) then
+              if (Sfcprop%lakefrac(im) > zero) then
+                Sfcprop%oceanfrac(im) = zero
+                Sfcprop%landfrac(im)  = zero
+                Sfcprop%lakefrac(im)  = one
+                Sfcprop%slmsk(im)     = zero
+                if (Sfcprop%fice(im) >= Model%min_lakeice) Sfcprop%slmsk(im) = 2.0
               else
-                Sfcprop(nb)%slmsk(ix) = nint(Sfcprop(nb)%landfrac(ix))
-                if (Sfcprop(nb)%stype(ix) <= 0 .or. Sfcprop(nb)%stype(ix) == 14) &
-                     Sfcprop(nb)%slmsk(ix) = zero
-                if (nint(Sfcprop(nb)%slmsk(ix)) == 0) then
-                  Sfcprop(nb)%oceanfrac(ix) = one
-                  Sfcprop(nb)%landfrac(ix)  = zero
-                  Sfcprop(nb)%lakefrac(ix)  = zero
-                  if (Sfcprop(nb)%fice(ix) >= Model%min_seaice) Sfcprop(nb)%slmsk(ix) = 2.0
+                Sfcprop%slmsk(im) = nint(Sfcprop%landfrac(im))
+                if (Sfcprop%stype(im) <= 0 .or. Sfcprop%stype(im) == 14) &
+                     Sfcprop%slmsk(im) = zero
+                if (nint(Sfcprop%slmsk(im)) == 0) then
+                  Sfcprop%oceanfrac(im) = one
+                  Sfcprop%landfrac(im)  = zero
+                  Sfcprop%lakefrac(im)  = zero
+                  if (Sfcprop%fice(im) >= Model%min_seaice) Sfcprop%slmsk(im) = 2.0
                 else
-                  Sfcprop(nb)%landfrac(ix)  = one
-                  Sfcprop(nb)%lakefrac(ix)  = zero
-                  Sfcprop(nb)%oceanfrac(ix) = zero
+                  Sfcprop%landfrac(im)  = one
+                  Sfcprop%lakefrac(im)  = zero
+                  Sfcprop%oceanfrac(im) = zero
                 endif
               endif
             else
-              if (nint(Sfcprop(nb)%slmsk(ix)) == 1 .and. Sfcprop(nb)%stype(ix) > 0      &
-                   .and. Sfcprop(nb)%stype(ix) /= 14) then
-                Sfcprop(nb)%landfrac(ix)  = one
-                Sfcprop(nb)%lakefrac(ix)  = zero
-                Sfcprop(nb)%oceanfrac(ix) = zero
+              if (nint(Sfcprop%slmsk(im)) == 1 .and. Sfcprop%stype(im) > 0      &
+                   .and. Sfcprop%stype(im) /= 14) then
+                Sfcprop%landfrac(im)  = one
+                Sfcprop%lakefrac(im)  = zero
+                Sfcprop%oceanfrac(im) = zero
               else
-                Sfcprop(nb)%slmsk(ix)    = zero
-                Sfcprop(nb)%landfrac(ix) = zero
-                if (Sfcprop(nb)%oro_uf(ix) > min_lake_orog) then   ! lakes
-                  Sfcprop(nb)%lakefrac(ix) = one
-                  Sfcprop(nb)%oceanfrac(ix) = zero
-                  if (Sfcprop(nb)%fice(ix) > Model%min_lakeice) Sfcprop(nb)%slmsk(ix) = 2.0
+                Sfcprop%slmsk(im)    = zero
+                Sfcprop%landfrac(im) = zero
+                if (Sfcprop%oro_uf(im) > min_lake_orog) then   ! lakes
+                  Sfcprop%lakefrac(im) = one
+                  Sfcprop%oceanfrac(im) = zero
+                  if (Sfcprop%fice(im) > Model%min_lakeice) Sfcprop%slmsk(im) = 2.0
                 else                                       ! ocean
-                  Sfcprop(nb)%lakefrac(ix)  = zero
-                  Sfcprop(nb)%oceanfrac(ix) = one
-                  if (Sfcprop(nb)%fice(ix) > Model%min_seaice) Sfcprop(nb)%slmsk(ix) = 2.0
+                  Sfcprop%lakefrac(im)  = zero
+                  Sfcprop%oceanfrac(im) = one
+                  if (Sfcprop%fice(im) > Model%min_seaice) Sfcprop%slmsk(im) = 2.0
                 endif
               endif
             endif
@@ -988,7 +1196,8 @@ contains
 
       if (reading .and. warm_start .and. Model%kdt > 1) then
         do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%slmsk(ix)  = sfc%var2(ii1(ix),jj1(ix),1)    !--- slmsk
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%slmsk(im)  = sfc%var2(ii1(ix),jj1(ix),1)    !--- slmsk
         enddo
       endif
 
@@ -1000,117 +1209,118 @@ contains
         if (reading .and. Model%nstf_name(2) == 1) then             ! nsst spinup
           !--- nsstm tref
           nt = nt + 18
-          Sfcprop(nb)%tref    = Sfcprop(nb)%tsfco
-          Sfcprop(nb)%z_c     = zero
-          Sfcprop(nb)%c_0     = zero
-          Sfcprop(nb)%c_d     = zero
-          Sfcprop(nb)%w_0     = zero
-          Sfcprop(nb)%w_d     = zero
-          Sfcprop(nb)%xt      = zero
-          Sfcprop(nb)%xs      = zero
-          Sfcprop(nb)%xu      = zero
-          Sfcprop(nb)%xv      = zero
-          Sfcprop(nb)%xz      = 20.0_kind_phys
-          Sfcprop(nb)%zm      = zero
-          Sfcprop(nb)%xtts    = zero
-          Sfcprop(nb)%xzts    = zero
-          Sfcprop(nb)%d_conv  = zero
-          Sfcprop(nb)%ifd     = zero
-          Sfcprop(nb)%dt_cool = zero
-          Sfcprop(nb)%qrain   = zero
+          Sfcprop%tref(ixs:ixe)    = Sfcprop%tsfco(ixs:ixe)
+          Sfcprop%z_c(ixs:ixe)     = zero
+          Sfcprop%c_0(ixs:ixe)     = zero
+          Sfcprop%c_d(ixs:ixe)     = zero
+          Sfcprop%w_0(ixs:ixe)     = zero
+          Sfcprop%w_d(ixs:ixe)     = zero
+          Sfcprop%xt(ixs:ixe)      = zero
+          Sfcprop%xs(ixs:ixe)      = zero
+          Sfcprop%xu(ixs:ixe)      = zero
+          Sfcprop%xv(ixs:ixe)      = zero
+          Sfcprop%xz(ixs:ixe)      = 20.0_kind_phys
+          Sfcprop%zm(ixs:ixe)      = zero
+          Sfcprop%xtts(ixs:ixe)    = zero
+          Sfcprop%xzts(ixs:ixe)    = zero
+          Sfcprop%d_conv(ixs:ixe)  = zero
+          Sfcprop%ifd(ixs:ixe)     = zero
+          Sfcprop%dt_cool(ixs:ixe) = zero
+          Sfcprop%qrain(ixs:ixe)   = zero
         elseif (.not.reading .or. Model%nstf_name(2) == 0) then         ! nsst restart
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tref)  !--- nsstm tref
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%z_c)  !--- nsstm z_c
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%c_0)  !--- nsstm c_0
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%c_d)  !--- nsstm c_d
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%w_0)  !--- nsstm w_0
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%w_d)  !--- nsstm w_d
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xt)  !--- nsstm xt
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xs)  !--- nsstm xs
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xu)  !--- nsstm xu
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xv) !--- nsstm xv
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xz) !--- nsstm xz
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zm) !--- nsstm zm
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xtts) !--- nsstm xtts
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xzts) !--- nsstm xzts
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%d_conv) !--- nsstm d_conv
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%ifd) !--- nsstm ifd
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%dt_cool) !--- nsstm dt_cool
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%qrain) !--- nsstm qrain
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tref(ixs:ixe))  !--- nsstm tref
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%z_c(ixs:ixe))  !--- nsstm z_c
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%c_0(ixs:ixe))  !--- nsstm c_0
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%c_d(ixs:ixe))  !--- nsstm c_d
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%w_0(ixs:ixe))  !--- nsstm w_0
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%w_d(ixs:ixe))  !--- nsstm w_d
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xt(ixs:ixe))  !--- nsstm xt
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xs(ixs:ixe))  !--- nsstm xs
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xu(ixs:ixe))  !--- nsstm xu
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xv(ixs:ixe)) !--- nsstm xv
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xz(ixs:ixe)) !--- nsstm xz
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zm(ixs:ixe)) !--- nsstm zm
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xtts(ixs:ixe)) !--- nsstm xtts
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xzts(ixs:ixe)) !--- nsstm xzts
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%d_conv(ixs:ixe)) !--- nsstm d_conv
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%ifd(ixs:ixe)) !--- nsstm ifd
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%dt_cool(ixs:ixe)) !--- nsstm dt_cool
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%qrain(ixs:ixe)) !--- nsstm qrain
         endif
       endif
 
       if (Model%lsm == Model%lsm_ruc .and. (warm_start .or. .not. reading)) then
         !--- Extra RUC variables
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%wetness)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%clw_surf_land)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%clw_surf_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%qwv_surf_land)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%qwv_surf_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsnow_land)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsnow_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowfallac_land)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowfallac_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_lnd)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_lnd_bck)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_ice)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%wetness(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%clw_surf_land(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%clw_surf_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%qwv_surf_land(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%qwv_surf_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tsnow_land(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tsnow_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snowfallac_land(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snowfallac_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sfalb_lnd(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sfalb_lnd_bck(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sfalb_ice(ixs:ixe))
         if (Model%rdlai) then
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xlaixy)
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xlaixy(ixs:ixe))
         endif
       else if (reading .and. Model%lsm == Model%lsm_ruc) then
         ! Initialize RUC snow cover on ice from snow cover
-        Sfcprop(nb)%sncovr_ice = Sfcprop(nb)%sncovr
+        Sfcprop%sncovr_ice(ixs:ixe) = Sfcprop%sncovr(ixs:ixe)
         if (Model%rdlai) then
-          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xlaixy)
+          call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xlaixy(ixs:ixe))
         end if
       elseif (Model%lsm == Model%lsm_noahmp) then
         !--- Extra Noah MP variables
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tvxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tgxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%canicexy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%canliqxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%eahxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tahxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%cmxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%chxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%fwetxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sneqvoxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%alboldxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%qsnowxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%wslakexy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%zwtxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%waxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%wtxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%lfmassxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%rtmassxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%stmassxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%woodxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%stblcpxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%fastcpxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xsaixy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%xlaixy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%taussxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%smcwtdxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%deeprechxy)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%rechxy)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%snowxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tvxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tgxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%canicexy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%canliqxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%eahxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%tahxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%cmxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%chxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%fwetxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%sneqvoxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%alboldxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%qsnowxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%wslakexy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%zwtxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%waxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%wtxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%lfmassxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%rtmassxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%stmassxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%woodxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%stblcpxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%fastcpxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xsaixy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%xlaixy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%taussxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%smcwtdxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%deeprechxy(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%rechxy(ixs:ixe))
       endif
       if (Model%lkm > 0 .and. Model%iopt_lake==Model%iopt_lake_flake) then
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%T_snow)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%T_ice)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%h_ML)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t_ML)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t_mnw)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%h_talb)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t_talb)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t_bot1)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%t_bot2)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%c_t)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%T_snow(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%T_ice(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%h_ML(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t_ML(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t_mnw(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%h_talb(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t_talb(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t_bot1(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%t_bot2(ixs:ixe))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop%c_t(ixs:ixe))
       endif
       if(.not.reading) then
         do k = 1,Model%kice
           do ix = 1, Atm_block%blksz(nb)
-            ice=Sfcprop(nb)%tiice(ix,k)
+            im = Model%chunk_begin(nb)+ix-1
+            ice=Sfcprop%tiice(im,k)
             if(ice<one) then
               sfc%var3ice(ii1(ix),jj1(ix),k) = zero
             else
@@ -1123,9 +1333,9 @@ contains
       if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp .or. (reading .and. .not.warm_start)) then
         !--- 3D variables
         nt=0
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop(nb)%stc)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop(nb)%smc)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop(nb)%slc)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop%stc(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop%smc(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil,sfc%var3,Sfcprop%slc(ixs:ixe,:))
 
         if (Model%lsm == Model%lsm_noahmp) then
 
@@ -1136,35 +1346,40 @@ contains
             nt=nt+1
             do lsoil = -2, 0
               do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%snicexy(ix,lsoil) = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
+                im = Model%chunk_begin(nb)+ix-1
+                Sfcprop%snicexy(im,lsoil) = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2, 0
               do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%snliqxy(ix,lsoil) = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
+                im = Model%chunk_begin(nb)+ix-1
+                Sfcprop%snliqxy(im,lsoil) = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2, 0
               do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%tsnoxy(ix,lsoil)  = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
+                im = Model%chunk_begin(nb)+ix-1
+                Sfcprop%tsnoxy(im,lsoil)  = sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = 1, 4
               do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%smoiseq(ix,lsoil)  = sfc%var3eq(ii1(ix),jj1(ix),lsoil,nt)
+                im = Model%chunk_begin(nb)+ix-1
+                Sfcprop%smoiseq(im,lsoil)  = sfc%var3eq(ii1(ix),jj1(ix),lsoil,nt)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2, 4
               do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%zsnsoxy(ix,lsoil)  = sfc%var3zn(ii1(ix),jj1(ix),lsoil,nt)
+                im = Model%chunk_begin(nb)+ix-1
+                Sfcprop%zsnsoxy(im,lsoil)  = sfc%var3zn(ii1(ix),jj1(ix),lsoil,nt)
               enddo
             enddo
 
@@ -1173,35 +1388,40 @@ contains
             nt=nt+1
             do lsoil = -2,0
               do ix = 1, Atm_block%blksz(nb)
-                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop(nb)%snicexy(ix,lsoil)
+                im = Model%chunk_begin(nb)+ix-1
+                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop%snicexy(im,lsoil)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2,0
               do ix = 1, Atm_block%blksz(nb)
-                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop(nb)%snliqxy(ix,lsoil)
+                im = Model%chunk_begin(nb)+ix-1
+                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop%snliqxy(im,lsoil)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2,0
               do ix = 1, Atm_block%blksz(nb)
-                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop(nb)%tsnoxy(ix,lsoil)
+                im = Model%chunk_begin(nb)+ix-1
+                sfc%var3sn(ii1(ix),jj1(ix),lsoil,nt) = Sfcprop%tsnoxy(im,lsoil)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = 1,Model%lsoil
               do ix = 1, Atm_block%blksz(nb)
-                sfc%var3eq(ii1(ix),jj1(ix),lsoil,nt)  = Sfcprop(nb)%smoiseq(ix,lsoil)
+                im = Model%chunk_begin(nb)+ix-1
+                sfc%var3eq(ii1(ix),jj1(ix),lsoil,nt)  = Sfcprop%smoiseq(im,lsoil)
               enddo
             enddo
 
             nt=nt+1
             do lsoil = -2,4
               do ix = 1, Atm_block%blksz(nb)
-                sfc%var3zn(ii1(ix),jj1(ix),lsoil,nt)  = Sfcprop(nb)%zsnsoxy(ix,lsoil)
+                im = Model%chunk_begin(nb)+ix-1
+                sfc%var3zn(ii1(ix),jj1(ix),lsoil,nt)  = Sfcprop%zsnsoxy(im,lsoil)
               enddo
             enddo
           endif
@@ -1209,17 +1429,18 @@ contains
       else if (Model%lsm == Model%lsm_ruc) then
         !--- 3D variables
         nt=0
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop(nb)%tslb)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop(nb)%smois)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop(nb)%sh2o)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop(nb)%keepsmfr)
-        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop(nb)%flag_frsoil)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop%tslb(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop%smois(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop%sh2o(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop%keepsmfr(ixs:ixe,:))
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,1,Model%lsoil_lsm,sfc%var3,Sfcprop%flag_frsoil(ixs:ixe,:))
       endif
 
       if(reading) then
         do k = 1,Model%kice
           do ix = 1, Atm_block%blksz(nb)
-            Sfcprop(nb)%tiice(ix,k) = sfc%var3ice(ii1(ix),jj1(ix),k)   !--- internal ice temp
+            im = Model%chunk_begin(nb)+ix-1
+            Sfcprop%tiice(im,k) = sfc%var3ice(ii1(ix),jj1(ix),k)   !--- internal ice temp
           enddo
         enddo
       endif
@@ -1235,7 +1456,7 @@ contains
     implicit none
 
     class(Sfc_io_data_type)             :: sfc
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     logical, intent(in) :: warm_start
@@ -1251,7 +1472,7 @@ contains
     implicit none
 
     class(Sfc_io_data_type)             :: sfc
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
 
@@ -1265,11 +1486,11 @@ contains
     implicit none
 
     class(Sfc_io_data_type)             :: sfc
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
 
-    integer :: i, j, k, nb, ix, lsoil, num, nt
+    integer :: i, j, k, nb, ix, lsoil, num, nt, im
     integer :: isc, iec, jsc, jec, npz, nx, ny
     real(kind_phys) :: ice, tem, tem1
 
@@ -1297,87 +1518,82 @@ contains
 
     if (sfc%var2(i,j,32) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - set init soil color')
-      !$omp parallel do default(shared) private(nb, ix)
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if ( nint (Sfcprop(nb)%slmsk(ix)) == 1 ) then  !including glacier
-            Sfcprop(nb)%scolor(ix)  = 4
+          im = Model%chunk_begin(nb)+ix-1
+          if ( nint (Sfcprop%slmsk(im)) == 1 ) then  !including glacier
+            Sfcprop%scolor(im)  = 4
           else
-            Sfcprop(nb)%scolor(ix)  = zero
+            Sfcprop%scolor(im)  = zero
           endif
         enddo
       enddo
     endif
 
-    if (sfc%var2(i,j,34) < -9990.0_kind_phys) then
-      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing snodl')
-      !$omp parallel do default(shared) private(nb, ix, tem)
+    if (sfc%is_v2_file) then
+
+    if (sfc%var2(i,j,27) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing snowd')
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%landfrac(ix) > zero) then
-            tem = one / (Sfcprop(nb)%fice(ix)*(one-Sfcprop(nb)%landfrac(ix))+Sfcprop(nb)%landfrac(ix))
-            Sfcprop(nb)%snodl(ix)  = Sfcprop(nb)%snowd(ix) * tem
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im) > zero) then
+            Sfcprop%snowd(im)  = Sfcprop%snodi(im)
+          elseif (Sfcprop%landfrac(im) > zero) then
+            Sfcprop%snowd(im)  = Sfcprop%snodl(im)
           else
-            Sfcprop(nb)%snodl(ix)  = zero
+            Sfcprop%snowd(im)  = zero
           endif
         enddo
       enddo
     endif
 
-    if (sfc%var2(i,j,35) < -9990.0_kind_phys) then
-      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing weasdl')
-      !$omp parallel do default(shared) private(nb, ix, tem)
+    if (sfc%var2(i,j,3) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing weasd')
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%landfrac(ix) > zero) then
-            tem = one / (Sfcprop(nb)%fice(ix)*(one-Sfcprop(nb)%landfrac(ix))+Sfcprop(nb)%landfrac(ix))
-            Sfcprop(nb)%weasdl(ix) = Sfcprop(nb)%weasd(ix) * tem
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im) > zero) then
+            Sfcprop%weasd(im) = Sfcprop%weasdi(im)
+          elseif (Sfcprop%landfrac(im) > zero) then
+            Sfcprop%weasd(im) = Sfcprop%weasdl(im)
           else
-            Sfcprop(nb)%weasdl(ix) = zero
+            Sfcprop%weasd(im) = zero
           endif
         enddo
       enddo
     endif
 
-    if (sfc%var2(i,j,37) < -9990.0_kind_phys) then
-      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing tsfcl')
-      !$omp parallel do default(shared) private(nb, ix)
-      do nb = 1, Atm_block%nblks
-        do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%tsfcl(ix) = Sfcprop(nb)%tsfco(ix) !--- compute tsfcl from existing variables
-        enddo
-      enddo
-    endif
-
-    if (sfc%var2(i,j,38) < -9990.0_kind_phys) then
-      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorlw')
-      !$omp parallel do default(shared) private(nb, ix)
-      do nb = 1, Atm_block%nblks
-        do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%landfrac(ix) < one .and. Sfcprop(nb)%fice(ix) < one) then
-            Sfcprop(nb)%zorlw(ix) = min(Sfcprop(nb)%zorl(ix), 0.317)
-          endif
-        enddo
-      enddo
-    endif
-
+! Needed for first time step in radiation before Noah/NoahMP sets it from look up table.
+! Just use a nominal value.
     if (sfc%var2(i,j,39) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorll')
-      !$omp parallel do default(shared) private(nb, ix)
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%zorll(ix) = Sfcprop(nb)%zorl(ix) !--- compute zorll from existing variables
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%landfrac(im) > zero) then
+            Sfcprop%zorll(im) = 25.0
+          endif
         enddo
       enddo
     endif
 
-    if (sfc%var2(i,j,40) < -9990.0_kind_phys) then
-      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorli')
-      !$omp parallel do default(shared) private(nb, ix)
+    if (sfc%var2(i,j,5) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorl')
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%fice(ix)*(one-Sfcprop(nb)%landfrac(ix)) > zero) then
-            Sfcprop(nb)%zorli(ix) = one
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im) > zero) then
+            Sfcprop%zorl(im) = Sfcprop%zorli(im)
+          elseif (Sfcprop%landfrac(im) > zero) then
+            Sfcprop%zorl(im) = Sfcprop%zorll(im)
+          else
+            Sfcprop%zorl(im) = Sfcprop%zorlw(im)
           endif
         enddo
       enddo
@@ -1385,35 +1601,211 @@ contains
 
     if (sfc%var2(i,j,46) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing emis_ice')
-      !$omp parallel do default(shared) private(nb, ix)
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%emis_ice(ix) = 0.96
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%emis_ice(im) = 0.96
         enddo
       enddo
     endif
 
     if (sfc%var2(i,j,47) < -9990.0_kind_phys .and. Model%lsm /= Model%lsm_ruc) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing sncovr_ice')
-      !$omp parallel do default(shared) private(nb, ix)
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          !         Sfcprop(nb)%sncovr_ice(ix) = Sfcprop(nb)%sncovr(ix)
-          Sfcprop(nb)%sncovr_ice(ix) = zero
+          im = Model%chunk_begin(nb)+ix-1
+          !Sfcprop%sncovr_ice(im) = Sfcprop%sncovr(im)
+          Sfcprop%sncovr_ice(im) = zero
+        enddo
+      enddo
+    endif
+
+    if (Model%use_cice_alb) then
+      if (sfc%var2(i,j,50) < -9990.0_kind_phys) then
+        !$omp parallel do default(shared) private(nb, ix, im)
+        do nb = 1, Atm_block%nblks
+          do ix = 1, Atm_block%blksz(nb)
+            im = Model%chunk_begin(nb)+ix-1
+            if (Sfcprop%oceanfrac(im) > zero .and. &
+                 Sfcprop%fice(im) >= Model%min_seaice) then
+              Sfcprop%albdirvis_ice(im) = 0.6_kind_phys
+              Sfcprop%albdifvis_ice(im) = 0.6_kind_phys
+              Sfcprop%albdirnir_ice(im) = 0.6_kind_phys
+              Sfcprop%albdifnir_ice(im) = 0.6_kind_phys
+            endif
+          enddo
+        enddo
+      endif
+
+    endif
+
+    ! Fill in composite tsfc for coldstart runs - must happen after tsfcl is computed
+    compute_tsfc_for_coldstart: if (sfc%var2(i,j,36) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing composite tsfc')
+      if(Model%frac_grid) then ! 3-way composite
+        !$omp parallel do default(shared) private(nb, ix, im, tem, tem1)
+        do nb = 1, Atm_block%nblks
+          do ix = 1, Atm_block%blksz(nb)
+            im = Model%chunk_begin(nb)+ix-1
+            Sfcprop%tsfco(im) = max(con_tice, Sfcprop%tsfco(im)) ! this may break restart reproducibility
+            tem1 = one - Sfcprop%landfrac(im)
+            tem  = tem1 * Sfcprop%fice(im) ! tem = ice fraction wrt whole cell
+            Sfcprop%tsfc(im) = Sfcprop%tsfcl(im) * Sfcprop%landfrac(im) &
+                 + Sfcprop%tisfc(im) * tem                      &
+                 + Sfcprop%tsfco(im) * (tem1-tem)
+          enddo
+        enddo
+      else
+        !$omp parallel do default(shared) private(nb, ix, im, tem)
+        do nb = 1, Atm_block%nblks
+          do ix = 1, Atm_block%blksz(nb)
+            im = Model%chunk_begin(nb)+ix-1
+            if (Sfcprop%slmsk(im) == 1) then
+              Sfcprop%tsfc(im) = Sfcprop%tsfcl(im)
+              if (Sfcprop%tsfc(im) < -99 .or. Sfcprop%tsfc(im) > 999.) print*,'bad tsfc land ',nb,ix,Sfcprop%tsfcl(im)
+            elseif(Sfcprop%fice(im) > 0.0)then
+              Sfcprop%tsfc(im) = Sfcprop%tisfc(im)
+              if (Sfcprop%tsfc(im) < -99 .or. Sfcprop%tsfc(im) > 999.) print*,'bad tsfc ice  ',nb,ix,Sfcprop%tisfc(im)
+            else
+              Sfcprop%tsfc(im) = Sfcprop%tsfco(im)
+              if (Sfcprop%tsfc(im) < -99 .or. Sfcprop%tsfc(im) > 999.) print*,'bad tsfc water ',nb,ix,Sfcprop%tsfco(im)
+            endif
+          enddo
+        enddo
+      endif
+    endif compute_tsfc_for_coldstart
+
+    if (sfc%var2(i,j,sfc%nvar2m) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorlwav')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%zorlwav(im) = Sfcprop%zorl(im) !--- compute zorlwav from existing variables
+        enddo
+      enddo
+    endif
+
+
+    else ! old verion of coldstart file
+
+
+    if (sfc%var2(i,j,34) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing snodl')
+      !$omp parallel do default(shared) private(nb, ix, im, tem)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%landfrac(im) > zero) then
+            tem = one / (Sfcprop%fice(im)*(one-Sfcprop%landfrac(im))+Sfcprop%landfrac(im))
+            Sfcprop%snodl(im)  = Sfcprop%snowd(im) * tem
+          else
+            Sfcprop%snodl(im)  = zero
+          endif
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,35) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing weasdl')
+      !$omp parallel do default(shared) private(nb, ix, im, tem)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%landfrac(im) > zero) then
+            tem = one / (Sfcprop%fice(im)*(one-Sfcprop%landfrac(im))+Sfcprop%landfrac(im))
+            Sfcprop%weasdl(im) = Sfcprop%weasd(im) * tem
+          else
+            Sfcprop%weasdl(im) = zero
+          endif
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,37) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing tsfcl')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%tsfcl(im) = Sfcprop%tsfco(im) !--- compute tsfcl from existing variables
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,38) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorlw')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%landfrac(im) < one .and. Sfcprop%fice(im) < one) then
+            Sfcprop%zorlw(im) = min(Sfcprop%zorl(im), 0.317)
+          endif
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,39) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorll')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%zorll(im) = Sfcprop%zorl(im) !--- compute zorll from existing variables
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,40) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorli')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im)*(one-Sfcprop%landfrac(im)) > zero) then
+            Sfcprop%zorli(im) = one
+          endif
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,46) < -9990.0_kind_phys) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing emis_ice')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%emis_ice(im) = 0.96
+        enddo
+      enddo
+    endif
+
+    if (sfc%var2(i,j,47) < -9990.0_kind_phys .and. Model%lsm /= Model%lsm_ruc) then
+      if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing sncovr_ice')
+      !$omp parallel do default(shared) private(nb, ix, im)
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          im = Model%chunk_begin(nb)+ix-1
+          !Sfcprop%sncovr_ice(im) = Sfcprop%sncovr(im)
+          Sfcprop%sncovr_ice(im) = zero
         enddo
       enddo
     endif
 
     if (sfc%var2(i,j,48) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing snodi')
-      !$omp parallel do default(shared) private(nb, ix, tem)
+      !$omp parallel do default(shared) private(nb, ix, im, tem)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%fice(ix) > zero) then
-            tem = one / (Sfcprop(nb)%fice(ix)*(one-Sfcprop(nb)%landfrac(ix))+Sfcprop(nb)%landfrac(ix))
-            Sfcprop(nb)%snodi(ix)  = min(Sfcprop(nb)%snowd(ix) * tem, 3.0)
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im) > zero) then
+            tem = one / (Sfcprop%fice(im)*(one-Sfcprop%landfrac(im))+Sfcprop%landfrac(im))
+            Sfcprop%snodi(im)  = min(Sfcprop%snowd(im) * tem, 3.0)
           else
-            Sfcprop(nb)%snodi(ix)  = zero
+            Sfcprop%snodi(im)  = zero
           endif
         enddo
       enddo
@@ -1421,14 +1813,15 @@ contains
 
     if (sfc%var2(i,j,49) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing weasdi')
-      !$omp parallel do default(shared) private(nb, ix, tem)
+      !$omp parallel do default(shared) private(nb, ix, im, tem)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          if (Sfcprop(nb)%fice(ix) > zero) then
-            tem = one / (Sfcprop(nb)%fice(ix)*(one-Sfcprop(nb)%landfrac(ix))+Sfcprop(nb)%landfrac(ix))
-            Sfcprop(nb)%weasdi(ix)  = Sfcprop(nb)%weasd(ix)*tem
+          im = Model%chunk_begin(nb)+ix-1
+          if (Sfcprop%fice(im) > zero) then
+            tem = one / (Sfcprop%fice(im)*(one-Sfcprop%landfrac(im))+Sfcprop%landfrac(im))
+            Sfcprop%weasdi(im)  = Sfcprop%weasd(im)*tem
           else
-            Sfcprop(nb)%weasdi(ix)  = zero
+            Sfcprop%weasdi(im)  = zero
           endif
         enddo
       enddo
@@ -1436,15 +1829,16 @@ contains
 
     if (Model%use_cice_alb) then
       if (sfc%var2(i,j,50) < -9990.0_kind_phys) then
-        !$omp parallel do default(shared) private(nb, ix)
+        !$omp parallel do default(shared) private(nb, ix, im)
         do nb = 1, Atm_block%nblks
           do ix = 1, Atm_block%blksz(nb)
-            if (Sfcprop(nb)%oceanfrac(ix) > zero .and. &
-                 Sfcprop(nb)%fice(ix) >= Model%min_seaice) then
-              Sfcprop(nb)%albdirvis_ice(ix) = 0.6_kind_phys
-              Sfcprop(nb)%albdifvis_ice(ix) = 0.6_kind_phys
-              Sfcprop(nb)%albdirnir_ice(ix) = 0.6_kind_phys
-              Sfcprop(nb)%albdifnir_ice(ix) = 0.6_kind_phys
+            im = Model%chunk_begin(nb)+ix-1
+            if (Sfcprop%oceanfrac(im) > zero .and. &
+                 Sfcprop%fice(im) >= Model%min_seaice) then
+              Sfcprop%albdirvis_ice(im) = 0.6_kind_phys
+              Sfcprop%albdifvis_ice(im) = 0.6_kind_phys
+              Sfcprop%albdirnir_ice(im) = 0.6_kind_phys
+              Sfcprop%albdifnir_ice(im) = 0.6_kind_phys
             endif
           enddo
         enddo
@@ -1456,27 +1850,29 @@ contains
     compute_tsfc_for_colstart: if (sfc%var2(i,j,35) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing composite tsfc')
       if(Model%frac_grid) then ! 3-way composite
-        !$omp parallel do default(shared) private(nb, ix, tem, tem1)
+        !$omp parallel do default(shared) private(nb, ix, im, tem, tem1)
         do nb = 1, Atm_block%nblks
           do ix = 1, Atm_block%blksz(nb)
-            Sfcprop(nb)%tsfco(ix) = max(con_tice, Sfcprop(nb)%tsfco(ix)) ! this may break restart reproducibility
-            tem1 = one - Sfcprop(nb)%landfrac(ix)
-            tem  = tem1 * Sfcprop(nb)%fice(ix) ! tem = ice fraction wrt whole cell
-            Sfcprop(nb)%tsfc(ix) = Sfcprop(nb)%tsfcl(ix) * Sfcprop(nb)%landfrac(ix) &
-                 + Sfcprop(nb)%tisfc(ix) * tem                      &
-                 + Sfcprop(nb)%tsfco(ix) * (tem1-tem)
+            im = Model%chunk_begin(nb)+ix-1
+            Sfcprop%tsfco(im) = max(con_tice, Sfcprop%tsfco(im)) ! this may break restart reproducibility
+            tem1 = one - Sfcprop%landfrac(im)
+            tem  = tem1 * Sfcprop%fice(im) ! tem = ice fraction wrt whole cell
+            Sfcprop%tsfc(im) = Sfcprop%tsfcl(im) * Sfcprop%landfrac(im) &
+                 + Sfcprop%tisfc(im) * tem                      &
+                 + Sfcprop%tsfco(im) * (tem1-tem)
           enddo
         enddo
       else
-        !$omp parallel do default(shared) private(nb, ix, tem)
+        !$omp parallel do default(shared) private(nb, ix, im, tem)
         do nb = 1, Atm_block%nblks
           do ix = 1, Atm_block%blksz(nb)
-            if (Sfcprop(nb)%slmsk(ix) == 1) then
-              Sfcprop(nb)%tsfc(ix) = Sfcprop(nb)%tsfcl(ix)
+            im = Model%chunk_begin(nb)+ix-1
+            if (Sfcprop%slmsk(im) == 1) then
+              Sfcprop%tsfc(im) = Sfcprop%tsfcl(im)
             else
-              tem = one - Sfcprop(nb)%fice(ix)
-              Sfcprop(nb)%tsfc(ix) = Sfcprop(nb)%tisfc(ix) * Sfcprop(nb)%fice(ix) &
-                   + Sfcprop(nb)%tsfco(ix) * tem
+              tem = one - Sfcprop%fice(im)
+              Sfcprop%tsfc(im) = Sfcprop%tisfc(im) * Sfcprop%fice(im) &
+                   + Sfcprop%tsfco(im) * tem
             endif
           enddo
         enddo
@@ -1485,10 +1881,11 @@ contains
 
     if (sfc%var2(i,j,sfc%nvar2m) < -9990.0_kind_phys) then
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing zorlwav')
-      !$omp parallel do default(shared) private(nb, ix)
+      !$omp parallel do default(shared) private(nb, ix, im)
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%zorlwav(ix) = Sfcprop(nb)%zorl(ix) !--- compute zorlwav from existing variables
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%zorlwav(im) = Sfcprop%zorl(im) !--- compute zorlwav from existing variables
         enddo
       enddo
     endif
@@ -1497,11 +1894,14 @@ contains
       if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing tiice')
       do nb = 1, Atm_block%nblks
         do ix = 1, Atm_block%blksz(nb)
-          Sfcprop(nb)%tiice(ix,1) = max(timin, min(con_tice, Sfcprop(nb)%stc(ix,1)))
-          Sfcprop(nb)%tiice(ix,2) = max(timin, min(con_tice, Sfcprop(nb)%stc(ix,2)))
+          im = Model%chunk_begin(nb)+ix-1
+          Sfcprop%tiice(im,1) = max(timin, min(con_tice, Sfcprop%stc(im,1)))
+          Sfcprop%tiice(im,2) = max(timin, min(con_tice, Sfcprop%stc(im,2)))
         enddo
       enddo
     endif
+
+    endif ! check on which version of the surface file.
 
   end subroutine Sfc_io_apply_safeguards
 

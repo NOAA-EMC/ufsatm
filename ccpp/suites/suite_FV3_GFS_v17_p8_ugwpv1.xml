@@ -60,7 +60,7 @@
       <scheme>ugwpv1_gsldrag_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
-      <scheme>h2ophys</scheme>
+      <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>GFS_DCNV_generic_pre</scheme>

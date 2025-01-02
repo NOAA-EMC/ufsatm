@@ -6,6 +6,8 @@
 !>
 !> @author Jun Wang @date 01/2017
   module module_fv3_config
+
+  use mpi_f08
   use esmf
 
   implicit none
@@ -18,11 +20,10 @@
   integer                  :: first_kdt
 
   !> MPI communicator for the forecast grid component
-  integer                  :: fcst_mpi_comm
+  type(MPI_Comm)           :: fcst_mpi_comm
 
   !> Total number of mpi tasks for the forecast grid components
   integer                  :: fcst_ntasks
-
 
   !> ID number for the coupled grids
   integer                  :: cpl_grid_id

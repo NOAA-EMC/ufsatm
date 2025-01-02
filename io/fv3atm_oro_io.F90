@@ -141,63 +141,64 @@ contains
     implicit none
     class(Oro_io_data_type) :: oro
     type(GFS_control_type),      intent(in) :: Model
-    type(GFS_sfcprop_type)                  :: Sfcprop(:)
+    type(GFS_sfcprop_type)                  :: Sfcprop
     type(FmsNetcdfDomainFile_t) :: Oro_restart
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: i,j,nb,ix,num
+    integer :: i,j,nb,ix,num,im
 
-    !$omp parallel do default(shared) private(i, j, nb, ix, num)
+    !$omp parallel do default(shared) private(i, j, nb, ix, num, im)
     do nb = 1, Atm_block%nblks
       !--- 2D variables
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
         !--- stddev
         !       Sfcprop(nb)%hprim(ix)     = oro%var2(i,j,1)
         !--- hprime(1:14)
-        num = 1       ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num)  = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num) = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num) = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num) = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num) = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%hprime(ix,num) = oro%var2(i,j,num)
+        num = 1       ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num)  = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num) = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num) = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num) = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num) = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%hprime(im,num) = oro%var2(i,j,num)
         !--- oro
-        num = num + 1 ; Sfcprop(nb)%oro(ix)       = oro%var2(i,j,num)
-        num = num + 1 ; Sfcprop(nb)%oro_uf(ix)    = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%oro(im)       = oro%var2(i,j,num)
+        num = num + 1 ; Sfcprop%oro_uf(im)    = oro%var2(i,j,num)
 
-        Sfcprop(nb)%landfrac(ix)  = -9999.0
-        Sfcprop(nb)%lakefrac(ix)  = -9999.0
+        Sfcprop%landfrac(im)  = -9999.0
+        Sfcprop%lakefrac(im)  = -9999.0
 
-        num = num + 1 ; Sfcprop(nb)%landfrac(ix)  = oro%var2(i,j,num) !land frac [0:1]
+        num = num + 1 ; Sfcprop%landfrac(im)  = oro%var2(i,j,num) !land frac [0:1]
         if (Model%lkm > 0  ) then
           if(oro%var2(i,j,num+1)>Model%lakefrac_threshold .and. &
                oro%var2(i,j,num+2)>Model%lakedepth_threshold) then
-            Sfcprop(nb)%lakefrac(ix)  = oro%var2(i,j,num+1) !lake frac [0:1]
-            Sfcprop(nb)%lakedepth(ix) = oro%var2(i,j,num+2) !lake depth [m]    !YWu
+            Sfcprop%lakefrac(im)  = oro%var2(i,j,num+1) !lake frac [0:1]
+            Sfcprop%lakedepth(im) = oro%var2(i,j,num+2) !lake depth [m]    !YWu
           else
-            Sfcprop(nb)%lakefrac(ix)  = 0
-            Sfcprop(nb)%lakedepth(ix) = -9999
+            Sfcprop%lakefrac(im)  = 0
+            Sfcprop%lakedepth(im) = -9999
           endif
         else
-          Sfcprop(nb)%lakefrac(ix)  = oro%var2(i,j,num+1) !lake frac [0:1]
-          Sfcprop(nb)%lakedepth(ix) = oro%var2(i,j,num+2) !lake depth [m]    !YWu
+          Sfcprop%lakefrac(im)  = oro%var2(i,j,num+1) !lake frac [0:1]
+          Sfcprop%lakedepth(im) = oro%var2(i,j,num+2) !lake depth [m]    !YWu
         endif
         num = num + 2 ! To account for lakefrac and lakedepth
 
-        Sfcprop(nb)%vegtype_frac(ix,:)  =  -9999.0
-        Sfcprop(nb)%soiltype_frac(ix,:) =  -9999.0
+        Sfcprop%vegtype_frac(im,:)  =  -9999.0
+        Sfcprop%soiltype_frac(im,:) =  -9999.0
 
-        Sfcprop(nb)%vegtype_frac(ix,:)  = oro%var3v(i,j,:) ! vegetation type fractions, [0:1]
-        Sfcprop(nb)%soiltype_frac(ix,:) = oro%var3s(i,j,:) ! soil type fractions, [0:1]
+        Sfcprop%vegtype_frac(im,:)  = oro%var3v(i,j,:) ! vegetation type fractions, [0:1]
+        Sfcprop%soiltype_frac(im,:) = oro%var3s(i,j,:) ! soil type fractions, [0:1]
 
       enddo
     enddo
@@ -291,23 +292,25 @@ contains
   !> \section Oro_scale_io_data_type%copy procedure
   !! After reading the restart, data is on temporary arrays with x-y data storage.
   !! This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
-  subroutine Oro_scale_io_copy(oro_scale, Sfcprop, Atm_block, first_index)
+  subroutine Oro_scale_io_copy(oro_scale, Model, Sfcprop, Atm_block, first_index)
     implicit none
     class(Oro_scale_io_data_type) :: oro_scale
-    type(GFS_sfcprop_type)                  :: Sfcprop(:)
+    type(GFS_control_type),   intent(in) :: Model
+    type(GFS_sfcprop_type)               :: Sfcprop
     type(block_control_type), intent(in) :: Atm_block
     integer, intent(in) :: first_index
 
-    integer :: i,j,nb,ix,num,v
+    integer :: i,j,nb,ix,num,v,im
 
-    !$OMP PARALLEL DO PRIVATE(nb,ix,i,j,v)
+    !$OMP PARALLEL DO PRIVATE(nb,ix,i,j,v,im)
     do nb = 1, Atm_block%nblks
       !--- 2D variables
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
         do v=1,nvar_oro_scale
-          Sfcprop(nb)%hprime(ix,first_index-1+v)  = oro_scale%var(i,j,v)
+          Sfcprop%hprime(im,first_index-1+v)  = oro_scale%var(i,j,v)
         enddo
       enddo
     enddo

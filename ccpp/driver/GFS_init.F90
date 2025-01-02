@@ -36,15 +36,15 @@ module GFS_init
 
     !--- interface variables
     type(GFS_control_type),      intent(inout) :: Model
-    type(GFS_statein_type),      intent(inout) :: Statein(:)
-    type(GFS_stateout_type),     intent(inout) :: Stateout(:)
-    type(GFS_sfcprop_type),      intent(inout) :: Sfcprop(:)
-    type(GFS_coupling_type),     intent(inout) :: Coupling(:)
-    type(GFS_grid_type),         intent(inout) :: Grid(:)
-    type(GFS_tbd_type),          intent(inout) :: Tbd(:)
-    type(GFS_cldprop_type),      intent(inout) :: Cldprop(:)
-    type(GFS_radtend_type),      intent(inout) :: Radtend(:)
-    type(GFS_diag_type),         intent(inout) :: Diag(:)
+    type(GFS_statein_type),      intent(inout) :: Statein
+    type(GFS_stateout_type),     intent(inout) :: Stateout
+    type(GFS_sfcprop_type),      intent(inout) :: Sfcprop
+    type(GFS_coupling_type),     intent(inout) :: Coupling
+    type(GFS_grid_type),         intent(inout) :: Grid
+    type(GFS_tbd_type),          intent(inout) :: Tbd
+    type(GFS_cldprop_type),      intent(inout) :: Cldprop
+    type(GFS_radtend_type),      intent(inout) :: Radtend
+    type(GFS_diag_type),         intent(inout) :: Diag
     type(GFS_interstitial_type), intent(inout) :: Interstitial(:)
     type(GFS_init_type),         intent(in)    :: Init_parm
 
@@ -82,19 +82,15 @@ module GFS_init
                      Init_parm%fcst_mpi_comm,                      &
                      Init_parm%fcst_ntasks, nthrds)
 
-    do nb = 1,nblks
-      ix = Init_parm%blksz(nb)
-      call Statein  (nb)%create (ix, Model)
-      call Stateout (nb)%create (ix, Model)
-      call Sfcprop  (nb)%create (ix, Model)
-      call Coupling (nb)%create (ix, Model)
-      call Grid     (nb)%create (ix, Model)
-      call Tbd      (nb)%create (ix, Model)
-      call Cldprop  (nb)%create (ix, Model)
-      call Radtend  (nb)%create (ix, Model)
-!--- internal representation of diagnostics
-      call Diag     (nb)%create (ix, Model)
-    enddo
+    call Statein%create(Model)
+    call Stateout%create(Model)
+    call Grid%create(Model)
+    call Tbd%create(Model)
+    call Cldprop%create(Model)
+    call Sfcprop%create(Model)
+    call Radtend%create(Model)
+    call Coupling%create(Model)
+    call Diag%create(Model)
 
 ! This logic deals with non-uniform block sizes for CCPP. When non-uniform block sizes
 ! are used, it is required that only the last block has a different (smaller) size than
@@ -138,34 +134,27 @@ module GFS_init
 
     implicit none
 
-    type(GFS_grid_type)              :: Grid(:)
+    type(GFS_grid_type)              :: Grid
     real(kind=kind_phys), intent(in) :: xlon(:,:)
     real(kind=kind_phys), intent(in) :: xlat(:,:)
     real(kind=kind_phys), intent(in) :: area(:,:)
     real(kind=kind_phys), parameter  :: rad2deg = 180.0_kind_phys/pi
 
     !--- local variables
-    integer :: nb, ix, blksz, i, j
+    integer :: ix, i, j
 
-    blksz = size(Grid(1)%xlon)
-
-    nb = 1
     ix = 0
     do j = 1,size(xlon,2)
       do i = 1,size(xlon,1)
         ix=ix+1
-        if (ix > blksz) then
-          nb = nb + 1
-          ix = 1
-        endif
-        Grid(nb)%xlon(ix)   = xlon(i,j)
-        Grid(nb)%xlat(ix)   = xlat(i,j)
-        Grid(nb)%xlat_d(ix) = xlat(i,j) * rad2deg
-        Grid(nb)%xlon_d(ix) = xlon(i,j) * rad2deg
-        Grid(nb)%sinlat(ix) = sin(Grid(nb)%xlat(ix))
-        Grid(nb)%coslat(ix) = sqrt(1.0_kind_phys - Grid(nb)%sinlat(ix)*Grid(nb)%sinlat(ix))
-        Grid(nb)%area(ix)   = area(i,j)
-        Grid(nb)%dx(ix)     = sqrt(area(i,j))
+        Grid%xlon(ix)   = xlon(i,j)
+        Grid%xlat(ix)   = xlat(i,j)
+        Grid%xlat_d(ix) = xlat(i,j) * rad2deg
+        Grid%xlon_d(ix) = xlon(i,j) * rad2deg
+        Grid%sinlat(ix) = sin(Grid%xlat(ix))
+        Grid%coslat(ix) = sqrt(1.0_kind_phys - Grid%sinlat(ix)*Grid%sinlat(ix))
+        Grid%area(ix)   = area(i,j)
+        Grid%dx(ix)     = sqrt(area(i,j))
       enddo
     enddo
 

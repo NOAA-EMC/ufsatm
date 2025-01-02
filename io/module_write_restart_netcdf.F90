@@ -7,7 +7,7 @@
 
 module module_write_restart_netcdf
 
-  use mpi
+  use mpi_f08
   use esmf
   use fms
   use mpp_mod, only : mpp_chksum   ! needed for fms 2023.02
@@ -24,13 +24,13 @@ module module_write_restart_netcdf
 
 !----------------------------------------------------------------------------------------
   subroutine write_restart_netcdf(wrtfb, filename, &
-                                  use_parallel_netcdf, mpi_comm, mype, &
+                                  use_parallel_netcdf, comm, mype, &
                                   rc)
 !
     type(ESMF_FieldBundle), intent(in) :: wrtfb
     character(*), intent(in)           :: filename
     logical, intent(in)                :: use_parallel_netcdf
-    integer, intent(in)                :: mpi_comm
+    type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, optional,intent(out)      :: rc
 !
@@ -223,7 +223,7 @@ module module_write_restart_netcdf
        if (par) then
           ncerr = nf90_create(trim(filename),&
                   cmode=IOR(NF90_CLOBBER,NF90_NETCDF4),&
-                  comm=mpi_comm, info = MPI_INFO_NULL, ncid=ncid); NC_ERR_STOP(ncerr)
+                  comm=comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
        else
           ncerr = nf90_create(trim(filename),&
                   ! cmode=IOR(NF90_CLOBBER,NF90_64BIT_OFFSET),&
