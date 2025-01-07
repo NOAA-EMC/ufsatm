@@ -429,6 +429,8 @@ contains
       if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
       if (.not. associated(IPD_Data(nb)%Sfcprop%zsnsoxy))  err_field = 35
       if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
+      if (.not. associated(IPD_Data(nb)%Sfcprop%smoiseq))  err_field = 36
+      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
 
       if (err_field .gt. 0) then
         print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
@@ -566,6 +568,10 @@ contains
           mn_phys%smcwtdxy(i,j)   = IPD_Data(nb)%Sfcprop%smcwtdxy(ix)
           mn_phys%deeprechxy(i,j) = IPD_Data(nb)%Sfcprop%deeprechxy(ix)
           mn_phys%rechxy(i,j)     = IPD_Data(nb)%Sfcprop%rechxy(ix)
+
+          do k = 1, IPD_Control%lsoil
+             mn_phys%smoiseq(i,j,k) = IPD_Data(nb)%Sfcprop%smoiseq(ix,k)
+          enddo
 
           ! lsnow_lsm_lbound is a negative value, lsnow_ubound is usually 0
           do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound
@@ -814,6 +820,11 @@ contains
             IPD_Data(nb)%Sfcprop%deeprechxy(ix) = mn_phys%deeprechxy(i,j)
             IPD_Data(nb)%Sfcprop%rechxy(ix)     = mn_phys%rechxy(i,j)
 
+            do k = 1, IPD_Control%lsoil
+               IPD_Data(nb)%Sfcprop%smoiseq(ix,k)    = mn_phys%smoiseq(i,j,k)
+            enddo
+
+
             do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound
               IPD_Data(nb)%Sfcprop%snicexy(ix,k)    = mn_phys%snicexy(i,j,k)
               IPD_Data(nb)%Sfcprop%snliqxy(ix,k)    = mn_phys%snliqxy(i,j,k)
@@ -880,7 +891,7 @@ contains
     real(kind=kind_phys) :: zsns_default(-2:4)
 
     if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
-      zsns_default = [0.0, 0.0, 0.0,  0.1,0.4,1.0,2.0 ]
+      zsns_default = [0.0, 0.0, 0.0,  -0.1,-0.4,-1.0,-2.0 ]
     else
       ! Expect that zsns_default is not used in this case, but just to be safe, set to 0
       zsns_default = 0.0
@@ -1352,6 +1363,12 @@ contains
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
 
+      call fill_nest_halos_from_parent_masked("smoiseq", mn_phys%smoiseq, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+          Atm(child_grid_num)%neststruct%ind_h, & 
+          x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, 1, IPD_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
+
+
       call fill_nest_halos_from_parent_masked("zsnsoxy", mn_phys%zsnsoxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil, &
@@ -1484,6 +1501,7 @@ contains
       call mn_var_fill_intern_nest_halos(mn_phys%snowd, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%tsnoxy, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%weasd, domain_fine, is_fine_pe)
+      call mn_var_fill_intern_nest_halos(mn_phys%smoiseq, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%zsnsoxy, domain_fine, is_fine_pe)
 
     endif
@@ -1711,6 +1729,9 @@ contains
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%rechxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
+      call mn_var_shift_data(mn_phys%smoiseq, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsoil)
+
 
       call mn_var_shift_data(mn_phys%snicexy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound)
