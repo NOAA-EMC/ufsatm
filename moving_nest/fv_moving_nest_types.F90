@@ -261,6 +261,7 @@ module fv_moving_nest_types_mod
     real (kind=kind_phys), _ALLOCATABLE :: deeprechxy (:,:) _NULL   !< recharge to the water table when deep
     real (kind=kind_phys), _ALLOCATABLE :: rechxy (:,:)     _NULL   !< recharge to the water table
 
+    real (kind=kind_phys), _ALLOCATABLE :: smoiseq (:,:,:)  _NULL   !< equvi. soil moisture
     real (kind=kind_phys), _ALLOCATABLE :: snicexy (:,:,:)  _NULL   !< liq water equiv thickness of ice in surface snow
     real (kind=kind_phys), _ALLOCATABLE :: snliqxy (:,:,:)  _NULL   !< liq water equiv thickness of liquid water in surface snow
     real (kind=kind_phys), _ALLOCATABLE :: snowd (:,:)      _NULL   !< surface snow thickness water equivalent over land
@@ -709,6 +710,7 @@ contains
 
       allocate ( mn_phys%snicexy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
       allocate ( mn_phys%snliqxy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
+      allocate ( mn_phys%smoiseq(isd:ied, jsd:jed, lsoil) )
       allocate ( mn_phys%snowd(isd:ied, jsd:jed) )
       allocate ( mn_phys%tsnoxy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
       allocate ( mn_phys%weasd(isd:ied, jsd:jed) )
@@ -839,6 +841,7 @@ contains
 
       mn_phys%snicexy = +99999.9
       mn_phys%snliqxy = +99999.9
+      mn_phys%smoiseq = +99999.9
       mn_phys%snowd = +99999.9
       mn_phys%tsnoxy = +99999.9
       mn_phys%weasd = +99999.9
@@ -982,6 +985,7 @@ contains
 
       deallocate ( mn_phys%snicexy )
       deallocate ( mn_phys%snliqxy )
+      deallocate ( mn_phys%smoiseq )
       deallocate ( mn_phys%snowd )
       deallocate ( mn_phys%tsnoxy )
       deallocate ( mn_phys%weasd )
