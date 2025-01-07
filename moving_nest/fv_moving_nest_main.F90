@@ -813,7 +813,7 @@ contains
     !! For NOAHMP
     ! (/0.0, 0.0, 0.0,  0.1,0.4,1.0,2.0/) -- 3 snow levels, 4 soil levels
     real :: zsns_default(-2:4)
-    zsns_default = [0.0, 0.0, 0.0,  0.1,0.4,1.0,2.0 ]
+    zsns_default = [0.0, 0.0, 0.0,  -0.1,-0.4,-1.0,-2.0 ]
 
     rad2deg = 180.0 / pi
 
@@ -1309,149 +1309,169 @@ contains
             ! Regular physics variables
             do k=lbound(Moving_nest(n)%mn_phys%stc,3),ubound(Moving_nest(n)%mn_phys%stc,3)
               if (Moving_nest(n)%mn_phys%stc(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%stc(i,j,k) .gt. maxSkinTempK ) then
-                print '("[INFO] WDR NOAHMP reset soil temp values npe=",I0," i=",I0," j=",I0," stc=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%stc(i,j,k)
                 Moving_nest(n)%mn_phys%stc(i,j,k) = 298.0
               endif
               if (Moving_nest(n)%mn_phys%smc(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%smc(i,j,k) .gt.  1000.0 ) then
-                print '("[INFO] WDR NOAHMP reset soil moisture values npe=",I0," i=",I0," j=",I0," smc=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%smc(i,j,k)
                 Moving_nest(n)%mn_phys%smc(i,j,k) = 0.3
               endif
               if (Moving_nest(n)%mn_phys%slc(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%slc(i,j,k) .gt.  1000.0 ) then
-                print '("[INFO] WDR NOAHMP reset soil liquid values npe=",I0," i=",I0," j=",I0," slc=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%slc(i,j,k)
                 Moving_nest(n)%mn_phys%slc(i,j,k) = 0.3
               endif
             enddo
 
 
             if (Moving_nest(n)%mn_phys%canopy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%canopy(i,j) .gt. 100.0 ) then
-              print '("[INFO] WDR NOAHMP reset canopy water values npe=",I0," i=",I0," j=",I0," canopy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%canopy(i,j)
               Moving_nest(n)%mn_phys%canopy(i,j) = 0.0  ! Zero out if no other information
             endif
             if (Moving_nest(n)%mn_phys%vegfrac(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%vegfrac(i,j) .gt. 100.0 ) then
-              print '("[INFO] WDR NOAHMP reset vegfrac values npe=",I0," i=",I0," j=",I0," vegfrac=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%vegfrac(i,j)
               Moving_nest(n)%mn_phys%vegfrac(i,j) = 0.5  ! Default to half.  Confirmed that values are fractions.
             endif
 
 
-
-
             if (move_noahmp) then
-
-              !! Patch to reset slmsk
-              !if (Moving_nest(n)%mn_phys%slmsk(i,j) .eq. 1 .and. Moving_nest(n)%mn_phys%tgxy(i,j) .gt. 1e+10) then
-              !  print '("[INFO] WDR NOAHMP reset land to water for lake npe=",I0," i=",I0," j=",I0," tgxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tgxy(i,j)
-              !  Moving_nest(n)%mn_phys%slmsk(i,j) = 0
-              !endif
-
-              ! slmsk(:,:)   !< land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
-
-              !if (this_pe .eq. 89) then
-              !  print '("[INFO] WDR NOAHMP debug npe=",I0," i=",I0," j=",I0," shdmax=",E12.5," shdmin=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%shdmax(i,j), Moving_nest(n)%mn_phys%shdmin(i,j)
-              !  print '("[INFO] WDR NOAHMP debug npe=",I0," i=",I0," j=",I0," tsfc=",E12.5," tsfcl=",E12.5," tsfco=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tsfc(i,j), Moving_nest(n)%mn_phys%tsfcl(i,j), Moving_nest(n)%mn_phys%tsfco(i,j)
-              !endif
-
 
               if (Moving_nest(n)%mn_phys%slmsk(i,j) .eq. 1) then
                 ! NOAH MP Variables
-                ! This is normally a negative number
-                if (Moving_nest(n)%mn_phys%snowxy(i,j) .lt. -9.0 .or. Moving_nest(n)%mn_phys%snowxy(i,j) .gt. 9.0 ) then
-                  print '("[INFO] WDR NOAHMP reset negative values npe=",I0," i=",I0," j=",I0," snowxy=",E12.5," alboldoxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%snowxy(i,j), Moving_nest(n)%mn_phys%alboldxy(i,j)
-                  print '("[INFO] WDR NOAHMP reset snowxy npe=",I0," i=",I0," j=",I0," land_frac=",E19.12," nint(land_frac)=",I0)', mpp_pe(), i, j, mn_static%fp_ls%land_frac_grid((ioffset-1)*x_refine+i, (joffset-1)*y_refine+j), nint(mn_static%fp_ls%land_frac_grid((ioffset-1)*x_refine+i, (joffset-1)*y_refine+j))
 
-
-                do k=lbound(Moving_nest(n)%mn_phys%hprime,3),ubound(Moving_nest(n)%mn_phys%hprime,3)
-                  print '("[INFO] WDR NOAHMP reset show hprime values npe=",I0," i=",I0," j=",I0," k=",I0," hprime=",E12.5)', mpp_pe(), i, j, k, Moving_nest(n)%mn_phys%hprime(i,j,k)
-                enddo
-
-
-                  Moving_nest(n)%mn_phys%snowxy(i,j) = 0.0
+                if (Moving_nest(n)%mn_phys%snowd(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%snowd(i,j) .gt. 1000.0 ) then
+                  Moving_nest(n)%mn_phys%snowd(i,j) = 0.0  ! Cold start value in meters
                 endif
 
+                if (Moving_nest(n)%mn_phys%weasd(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%weasd(i,j) .gt. 1000.0 ) then
+                  Moving_nest(n)%mn_phys%weasd(i,j) = 0.0  ! Cold start value in mm
+                endif
+
+                    Moving_nest(n)%mn_phys%snowxy(i,j) = 0.0          ! init all 5 to 0 first and snowd <=0.025
+
+                  do k=lbound(Moving_nest(n)%mn_phys%zsnsoxy,3), ubound(Moving_nest(n)%mn_phys%zsnsoxy,3)
+                      Moving_nest(n)%mn_phys%zsnsoxy(i,j,k) =  0.0
+                  enddo
+ 
+                  do k=lbound(Moving_nest(n)%mn_phys%tsnoxy,3),ubound(Moving_nest(n)%mn_phys%tsnoxy,3)
+                     Moving_nest(n)%mn_phys%tsnoxy(i,j,k)  =  0.0
+                     Moving_nest(n)%mn_phys%snicexy(i,j,k) =  0.0
+                     Moving_nest(n)%mn_phys%snliqxy(i,j,k) =  0.0
+                   enddo
+
+                if (Moving_nest(n)%mn_phys%snowd(i,j) .gt. 0.025 .and. Moving_nest(n)%mn_phys%snowd(i,j) .le. 0.05) then 
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,0)  = Moving_nest(n)%mn_phys%ts(i,j)
+
+                  Moving_nest(n)%mn_phys%snowxy(i,j)     = -1.0
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,0) =  Moving_nest(n)%mn_phys%snowd(i,j)
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,0) =  Moving_nest(n)%mn_phys%weasd(i,j) 
+
+               else if (Moving_nest(n)%mn_phys%snowd(i,j) .gt. 0.05 .and. Moving_nest(n)%mn_phys%snowd(i,j) .le. 0.1) then
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-1)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,0)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%snowxy(i,j) = -2.0
+
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-1) = Moving_nest(n)%mn_phys%snowd(i,j) 
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,0) =  Moving_nest(n)%mn_phys%snowd(i,j) /2.0
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-1) = Moving_nest(n)%mn_phys%weasd(i,j)/2.0 
+                  Moving_nest(n)%mn_phys%snicexy(i,j,0)  = Moving_nest(n)%mn_phys%weasd(i,j)/2.0 
+
+               else if (Moving_nest(n)%mn_phys%snowd(i,j) .gt. 0.1 .and. Moving_nest(n)%mn_phys%snowd(i,j) .le. 0.25) then
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-1)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,0)  = Moving_nest(n)%mn_phys%ts(i,j)
+
+                  Moving_nest(n)%mn_phys%snowxy(i,j) = -2.0
+
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-1) =  Moving_nest(n)%mn_phys%snowd(i,j)           ! dzsn(-1) = 0.05
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,0)  =  Moving_nest(n)%mn_phys%snowd(i,j) - 0.05
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-1) =  0.05*                                       &
+                                                          Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,0) = (Moving_nest(n)%mn_phys%snowd(i,j)-0.05)*      &
+                                                          Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+               else if (Moving_nest(n)%mn_phys%snowd(i,j) .gt. 0.25 .and. Moving_nest(n)%mn_phys%snowd(i,j) .le. 0.35) then
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-2)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-1)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,0)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%snowxy(i,j) = -3.0
+
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-2) =  Moving_nest(n)%mn_phys%snowd(i,j)           !dzsn(-2) = 0.05
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-1) =  Moving_nest(n)%mn_phys%snowd(i,j) -0.05
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j, 0) = (Moving_nest(n)%mn_phys%snowd(i,j) -0.05)/2.0
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-2) =  0.05*                                 &
+                                                            Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-1) = (Moving_nest(n)%mn_phys%snowd(i,j)-0.05)/2.0*      &
+                                                            Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+                  Moving_nest(n)%mn_phys%snicexy(i,j,0) =   (Moving_nest(n)%mn_phys%snowd(i,j)-0.05)/2.0*      &
+                                                            Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+               else if (Moving_nest(n)%mn_phys%snowd(i,j) .gt. 0.35 ) then
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-2)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,-1)  = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%tsnoxy(i,j,0)   = Moving_nest(n)%mn_phys%ts(i,j)
+                  Moving_nest(n)%mn_phys%snowxy(i,j)     = -3.0
+
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-2) = Moving_nest(n)%mn_phys%snowd(i,j)            !dzsn(-2)=0.05
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,-1) = Moving_nest(n)%mn_phys%snowd(i,j) - 0.05     !dzsno(-1) = 0.10
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j, 0) = Moving_nest(n)%mn_phys%snowd(i,j) - 0.05 - 0.10
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-2) =  0.05*                                 &
+                                                           Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,-1) = 0.10*                                  &
+                                                           Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+
+                  Moving_nest(n)%mn_phys%snicexy(i,j,0) =  (Moving_nest(n)%mn_phys%snowd(i,j)-0.05 - 0.10)*      &
+                                                           Moving_nest(n)%mn_phys%weasd(i,j)/Moving_nest(n)%mn_phys%snowd(i,j) 
+              endif
+
+
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,1) = -0.10
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,2) = -0.40
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,3) = -1.00
+                  Moving_nest(n)%mn_phys%zsnsoxy(i,j,4) = -2.00
+
+
                 if (Moving_nest(n)%mn_phys%soilcolor(i,j) .lt. 1.0 .or. Moving_nest(n)%mn_phys%soilcolor(i,j) .gt. 19.0 ) then
-                  print '("[INFO] WDR NOAHMP reset soilcolor values npe=",I0," i=",I0," j=",I0," soilcolor=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%soilcolor(i,j)
                   !  Default changed to 10 based on suggestion from Mike Barlage; more middle of the spectrum value.
                   Moving_nest(n)%mn_phys%soilcolor(i,j) = 10.0
                 endif
 
                 if (Moving_nest(n)%mn_phys%alboldxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%alboldxy(i,j) .gt. 1.0 ) then
-                  print '("[INFO] WDR NOAHMP reset old albedo alboldxy values npe=",I0," i=",I0," j=",I0," alboldxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%alboldxy(i,j)
                   Moving_nest(n)%mn_phys%alboldxy(i,j) = 0.65  ! Cold start value
                 endif
 
-                do k=lbound(Moving_nest(n)%mn_phys%snicexy,3),ubound(Moving_nest(n)%mn_phys%snicexy,3)
-                  if (Moving_nest(n)%mn_phys%snicexy(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%snicexy(i,j,k) .gt. 100.0 ) then
-                    print '("[INFO] WDR NOAHMP reset ice thickness values npe=",I0," a_step=",I0," i=",I0," j=",I0," k=",I0," lat,lon=",F9.5,",",F10.5," snicexy=",E12.5," lsnow=",I0,"-",I0)', mpp_pe(), a_step, i, j, k, Atm(n)%gridstruct%agrid(i,j,2)*rad2deg, Atm(n)%gridstruct%agrid(i,j,1)*rad2deg - 360.0, Moving_nest(n)%mn_phys%snicexy(i,j,k), IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound
+               do k=lbound(Moving_nest(n)%mn_phys%stc,3),ubound(Moving_nest(n)%mn_phys%stc,3)
+                   if (Moving_nest(n)%mn_phys%smoiseq(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%smoiseq(i,j,k) .gt.  1000.0) then
+                         Moving_nest(n)%mn_phys%smoiseq(i,j,k) = 0.3
 
-                    !print '("[INFO] WDR NOAHMP snicexy reset ice thickness values npe=",I0," isd-ied=",I0,"-",I0," jsd-jed",I0,"-",I0," k=",I0,"-",I0)', mpp_pe(), isd, ied, jsd, jed, lbound(Moving_nest(n)%mn_phys%snicexy,3), ubound(Moving_nest(n)%mn_phys%snicexy,3)
+                   endif
+                 enddo
 
-
-                    Moving_nest(n)%mn_phys%snicexy(i,j,k) = 0.0  ! Cold start value
-                  endif
-                enddo
-
-                do k=lbound(Moving_nest(n)%mn_phys%snliqxy,3),ubound(Moving_nest(n)%mn_phys%snliqxy,3)
-                  if (Moving_nest(n)%mn_phys%snliqxy(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%snliqxy(i,j,k) .gt. 100.0 ) then
-                    print '("[INFO] WDR NOAHMP reset liq thickness values npe=",I0," i=",I0," j=",I0," snliqxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%snliqxy(i,j,k)
-                    Moving_nest(n)%mn_phys%snliqxy(i,j,k) = 0.0  ! Cold start value
-                  endif
-                enddo
-
-                ! (/0.0, 0.0, 0.0,  0.1,0.4,1.0,2.0/) -- 3 snow levels, 4 soil levels
-                do k=lbound(Moving_nest(n)%mn_phys%zsnsoxy,3),ubound(Moving_nest(n)%mn_phys%zsnsoxy,3)
-                  if (Moving_nest(n)%mn_phys%zsnsoxy(i,j,k) .lt. -80.0 .or. Moving_nest(n)%mn_phys%zsnsoxy(i,j,k) .gt. 100.0 ) then
-                    print '("[INFO] WDR NOAHMP reset snow surface depth values npe=",I0," i=",I0," j=",I0," k=",I0," zsnsoxy=",E12.5)', mpp_pe(), i, j, k, Moving_nest(n)%mn_phys%zsnsoxy(i,j,k)
-                    !Moving_nest(n)%mn_phys%zsnsoxy(i,j,k) = 0.0  ! Cold start value
-                    Moving_nest(n)%mn_phys%zsnsoxy(i,j,k) = zsns_default(k)  ! Cold start value
-                  endif
-                enddo
-
-                if (Moving_nest(n)%mn_phys%snowd(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%snowd(i,j) .gt. 1000.0 ) then
-                  print '("[INFO] WDR NOAHMP reset snow thickness values npe=",I0," i=",I0," j=",I0," snowd=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%snowd(i,j)
-                  Moving_nest(n)%mn_phys%snowd(i,j) = 0.0  ! Cold start value
-                endif
-
-                if (Moving_nest(n)%mn_phys%weasd(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%weasd(i,j) .gt. 1000.0 ) then
-                  print '("[INFO] WDR NOAHMP reset snow thickness values npe=",I0," i=",I0," j=",I0," weasd=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%weasd(i,j)
-                  Moving_nest(n)%mn_phys%weasd(i,j) = 0.0  ! Cold start value
-                endif
-
-                do k=lbound(Moving_nest(n)%mn_phys%tsnoxy,3),ubound(Moving_nest(n)%mn_phys%tsnoxy,3)
-                  if (Moving_nest(n)%mn_phys%tsnoxy(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%tsnoxy(i,j,k) .gt. maxSkinTempK ) then
-                    print '("[INFO] WDR NOAHMP reset snow temp values npe=",I0," i=",I0," j=",I0," tsnoxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tsnoxy(i,j,k)
-                    Moving_nest(n)%mn_phys%tsnoxy(i,j,k) = 0.0  ! Cold start value
-                  endif
-                enddo
 
                 if (Moving_nest(n)%mn_phys%tvxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%tvxy(i,j) .gt. maxSkinTempK ) then
                   print '("[INFO] WDR NOAHMP reset vegetation canopy temp values npe=",I0," i=",I0," j=",I0," tvxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tvxy(i,j)
-                  Moving_nest(n)%mn_phys%tvxy(i,j) = 298.0  ! skin temperature
+                  Moving_nest(n)%mn_phys%tvxy(i,j) = Moving_nest(n)%mn_phys%ts(i,j)  ! skin temperature
                 endif
 
                 if (Moving_nest(n)%mn_phys%tgxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%tgxy(i,j) .gt. maxSkinTempK ) then
                   print '("[INFO] WDR NOAHMP reset ground temp values npe=",I0," i=",I0," j=",I0," tgxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tgxy(i,j)
-                  Moving_nest(n)%mn_phys%tgxy(i,j) = 298.0  ! skin temperature
+                  Moving_nest(n)%mn_phys%tgxy(i,j) =  Moving_nest(n)%mn_phys%ts(i,j)  ! skin temperature
                 endif
 
                 if (Moving_nest(n)%mn_phys%tahxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%tahxy(i,j) .gt. maxSkinTempK ) then
                   print '("[INFO] WDR NOAHMP reset air temp in canopy values npe=",I0," i=",I0," j=",I0," tahxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%tahxy(i,j)
-                  Moving_nest(n)%mn_phys%tahxy(i,j) = 298.0  ! skin temperature
+                  Moving_nest(n)%mn_phys%tahxy(i,j) = Moving_nest(n)%mn_phys%ts(i,j)  ! skin temperature
                 endif
 
-
-                do k=lbound(Moving_nest(n)%mn_phys%stc,3),ubound(Moving_nest(n)%mn_phys%stc,3)
-                  if (Moving_nest(n)%mn_phys%stc(i,j,k) .lt. 0.0 .or. Moving_nest(n)%mn_phys%stc(i,j,k) .gt. maxSkinTempK ) then
-                    print '("[INFO] WDR NOAHMP reset air temp in canopy values npe=",I0," i=",I0," j=",I0," stc=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%stc(i,j,k)
-                    Moving_nest(n)%mn_phys%stc(i,j,k) = 298.0  ! skin temperature
-                  endif
-                enddo
 
                 if (Moving_nest(n)%mn_phys%cmxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%cmxy(i,j) .gt. 100 ) then
                   print '("[INFO] WDR NOAHMP reset drag coeff values npe=",I0," i=",I0," j=",I0," cmxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%cmxy(i,j)
-                  Moving_nest(n)%mn_phys%cmxy(i,j) = 2.4D-3
+                  Moving_nest(n)%mn_phys%cmxy(i,j) = 0.0
                 endif
                 if (Moving_nest(n)%mn_phys%chxy(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%chxy(i,j) .gt. 100 ) then
                   print '("[INFO] WDR NOAHMP reset drag coeff values npe=",I0," i=",I0," j=",I0," chxy=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%chxy(i,j)
-                  Moving_nest(n)%mn_phys%chxy(i,j) = 2.4D-3
+                  Moving_nest(n)%mn_phys%chxy(i,j) = 0.0
                 endif
 
                 if (Moving_nest(n)%mn_phys%lakefrac(i,j) .lt. 0.0 .or. Moving_nest(n)%mn_phys%lakefrac(i,j) .gt. 100 ) then
@@ -1463,8 +1483,6 @@ contains
                   print '("[INFO] WDR NOAHMP reset lake depth values npe=",I0," i=",I0," j=",I0," lakedepth=",E12.5)', mpp_pe(), i, j, Moving_nest(n)%mn_phys%lakedepth(i,j)
                   Moving_nest(n)%mn_phys%lakedepth(i,j) = 0.0
                 endif
-
-
 
 
               endif  ! if slmsk=1
