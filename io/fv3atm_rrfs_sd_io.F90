@@ -63,7 +63,7 @@ module fv3atm_rrfs_sd_io
     integer, private :: nvar_dust12m = 5
     integer, private :: nvar_emi = 1
     integer, private :: nvar_fire = 2
-    integer, private :: nvar_fire2d = 4
+    integer, private :: nvar_fire2d = 5
 
     character(len=32), pointer, dimension(:), private :: dust12m_name => null()
     character(len=32), pointer, dimension(:), private :: emi_name => null()
@@ -578,6 +578,7 @@ contains
     data%fire_name2d(2)  = 'frp_davg'
     data%fire_name2d(3)  = 'fire_end_hr'
     data%fire_name2d(4)  = 'hwp_davg'
+    data%fire_name2d(5)  = 'totprcp_24hrs'
 
     !--- register axis
     call register_axis(restart, 'lon', 'X')
@@ -637,6 +638,7 @@ contains
           Sfcprop%smoke2d_RRFS(im,2)  = data%fire_var2d(i,j,2)
           Sfcprop%smoke2d_RRFS(im,3)  = data%fire_var2d(i,j,3)
           Sfcprop%smoke2d_RRFS(im,4)  = data%fire_var2d(i,j,4)
+          Sfcprop%smoke2d_RRFS(im,5)  = data%fire_var2d(i,j,5)
         else
          ! -- user define their own fire emission
         endif
