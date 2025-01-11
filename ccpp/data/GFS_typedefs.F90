@@ -1582,8 +1582,9 @@ module GFS_typedefs
     integer              :: addsmoke_flag
     integer              :: plumerisefire_frq
     integer              :: n_dbg_lines
-    integer              :: smoke_forecast
+    integer              :: hwp_method
     logical              :: add_fire_moist_flux ! Flag to add moisture fluxes based on PM2.5 emissions
+    real(kind=kind_phys) :: sc_factor
     logical              :: aero_ind_fdb    ! WFA/IFA indirect
     logical              :: aero_dir_fdb    ! smoke/dust direct
     logical              :: rrfs_smoke_debug
@@ -4004,10 +4005,11 @@ module GFS_typedefs
     integer :: wetdep_ls_opt  = 1
     logical :: do_plumerise   = .false.
     logical :: add_fire_moist_flux = .false.
+    real(kind=kind_phys) :: sc_factor = 1.0
     integer :: addsmoke_flag  = 1
     integer :: plumerisefire_frq = 60
     integer :: n_dbg_lines = 3
-    integer :: smoke_forecast = 2         ! RRFS-sd read in ebb_smoke
+    integer :: hwp_method = 2         ! RRFS-sd read in ebb_smoke
     logical :: aero_ind_fdb = .false.     ! RRFS-sd wfa/ifa emission
     logical :: aero_dir_fdb = .false.     ! RRFS-sd smoke/dust radiation feedback
     logical :: rrfs_smoke_debug = .false. ! RRFS-sd plumerise debug
@@ -4194,11 +4196,11 @@ module GFS_typedefs
                                dust_alpha, dust_gamma, wetdep_ls_alpha,                     &
                                seas_opt, dust_opt, drydep_opt, coarsepm_settling,           &
                                plume_wind_eff,ebb_dcycle, extended_sd_diags,                &
-                               wetdep_ls_opt, smoke_forecast, aero_ind_fdb, aero_dir_fdb,   &
+                               wetdep_ls_opt, hwp_method, aero_ind_fdb, aero_dir_fdb,       &
                                rrfs_smoke_debug, do_plumerise, plumerisefire_frq,           &
                                addsmoke_flag, enh_mix, mix_chem, smoke_dir_fdb_coef,        &
                                do_smoke_transport,smoke_conv_wet_coef,n_dbg_lines,          &
-                               add_fire_moist_flux, plume_alpha,                            &
+                               add_fire_moist_flux, sc_factor,                              &
                           !--- C3/GF closures
                                ichoice,ichoicem,ichoice_s,                                  &
                           !--- (DFI) time ranges with radar-prescribed microphysics tendencies
@@ -4459,7 +4461,8 @@ module GFS_typedefs
     Model%plumerisefire_frq = plumerisefire_frq
     Model%addsmoke_flag     = addsmoke_flag
     Model%add_fire_moist_flux = add_fire_moist_flux
-    Model%smoke_forecast    = smoke_forecast
+    Model%sc_factor         = sc_factor
+    Model%hwp_method        = hwp_method
     Model%aero_ind_fdb      = aero_ind_fdb
     Model%aero_dir_fdb      = aero_dir_fdb
     Model%rrfs_smoke_debug  = rrfs_smoke_debug
@@ -6608,8 +6611,9 @@ module GFS_typedefs
         print *, 'do_plumerise     : ',Model%do_plumerise
         print *, 'plumerisefire_frq: ',Model%plumerisefire_frq
         print *, 'add_fire_moist_flux: ',Model%add_fire_moist_flux
+        print *, 'sc_factor        : ',Model%sc_factor
         print *, 'addsmoke_flag    : ',Model%addsmoke_flag
-        print *, 'smoke_forecast   : ',Model%smoke_forecast
+        print *, 'hwp_method       : ',Model%hwp_method
         print *, 'aero_ind_fdb     : ',Model%aero_ind_fdb
         print *, 'aero_dir_fdb     : ',Model%aero_dir_fdb
         print *, 'rrfs_smoke_debug : ',Model%rrfs_smoke_debug
