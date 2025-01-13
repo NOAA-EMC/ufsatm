@@ -290,7 +290,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !                             filename='fv3cap_fv3Grid', rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !    endif
-!
+                                !
 ! Write grid to netcdf file
     if( cplprint_flag ) then
       write (myGridStr,"(I0)") mygrid
