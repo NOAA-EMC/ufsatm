@@ -808,7 +808,6 @@ module GFS_typedefs
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
 !--- radiation control parameters
-    logical              :: do_radiation    !< do LW/SW radiation
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr           !< frequency for longwave radiation (secs)
     integer              :: nsswr           !< integer trigger for shortwave radiation
@@ -3407,7 +3406,6 @@ module GFS_typedefs
     logical              :: lsidea         = .false.
 
 !--- radiation parameters
-    logical              :: do_radiation   = .true.          !< do LW/SW radiation
     real(kind=kind_phys) :: fhswr          = 3600.           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr          = 3600.           !< frequency for longwave radiation (secs)
     integer              :: nhfrad         = 0               !< number of timesteps for which to call radiation on physics timestep (coldstarts)
@@ -4071,7 +4069,6 @@ module GFS_typedefs
                                lsidea, use_med_flux,                                        &
 #endif
                           !--- radiation parameters
-                               do_radiation,                                                &
                                fhswr, fhlwr, levr, nfxr, iaerclm, iflip, isol, ico2, ialb,  &
                                isot, iems, iaer, icliq_sw, iovr, ictm, isubc_sw,            &
                                isubc_lw, lcrick, lcnorm, lwhtr, swhtr,                      &
@@ -4508,15 +4505,9 @@ module GFS_typedefs
 !--- radiation control parameters
     Model%fhswr            = fhswr
     Model%fhlwr            = fhlwr
-    if ( do_radiation ) then
-      Model%nsswr            = nint(fhswr/Model%dtp)
-      if ( fhswr <= 0 ) Model%nsswr  = -1
-      Model%nslwr            = nint(fhlwr/Model%dtp)
-      if ( fhlwr <= 0 ) Model%nslwr  = -1
-    else
-      Model%nsswr            = -1
-      Model%nslwr            = -1
-    endif
+    Model%nsswr            = nint(fhswr/Model%dtp)
+    Model%nslwr            = nint(fhlwr/Model%dtp)
+
     if (restart) then
       Model%nhfrad         = 0
       if (Model%me == Model%master .and. nhfrad>0) &
