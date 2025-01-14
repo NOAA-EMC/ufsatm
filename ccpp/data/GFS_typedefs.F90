@@ -4507,7 +4507,6 @@ module GFS_typedefs
     Model%fhlwr            = fhlwr
     Model%nsswr            = nint(fhswr/Model%dtp)
     Model%nslwr            = nint(fhlwr/Model%dtp)
-
     if (restart) then
       Model%nhfrad         = 0
       if (Model%me == Model%master .and. nhfrad>0) &
