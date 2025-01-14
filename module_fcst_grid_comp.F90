@@ -165,7 +165,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     type(ESMF_Grid)       :: grid
     type(ESMF_Info)       :: info
     integer               :: layout(2), tilesize
-    integer               :: tl, nx, ny, mype, clb(2), cub(2)
+    integer               :: tl, nx, ny, mype
     integer,dimension(2,6):: decomptile                  !define delayout for the 6 cubed-sphere tiles
     integer,dimension(2)  :: regdecomp                   !define delayout for the nest grid
     type(ESMF_Decomp_Flag):: decompflagPTile(2,6)
@@ -173,7 +173,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     character(3)          :: myGridStr
     type(ESMF_DistGrid)   :: distgrid
     type(ESMF_Array)      :: array
-    real(esmf_kind_r8), pointer :: ptr(:,:)
     character(256)        :: gridfile
     rc = ESMF_SUCCESS
 
@@ -228,7 +227,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
         
     elseif (trim(name)=="global") then
-      print*, "GLOBAL DOMAIN"
       ! global domain
       call ESMF_InfoGet(info, key="tilesize", value=tilesize, rc=rc); ESMF_ERR_ABORT(rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -239,7 +237,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         decompflagPTile(:,tl) = (/ESMF_DECOMP_SYMMEDGEMAX,ESMF_DECOMP_SYMMEDGEMAX/)
       enddo
 
-      print*, "demptile(1), decomptil(2) = ", decomptile(1,:), decomptile(2,:)
       grid = ESMF_GridCreateCubedSphere(tileSize=tilesize, &
                                         coordSys=ESMF_COORDSYS_SPH_RAD, &
                                         coordTypeKind=grid_typekind, &
@@ -248,7 +245,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                         name="fcst_grid", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     else
-      print*, "NEST DOMAIN"
       ! nest domain
       call ESMF_InfoGet(info, key="nx", value=nx, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -273,12 +269,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
     call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, distgrid=distgrid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    !call MPI_COMM_RANK(MPI_COMM_WORLD, mype, rc)
-    !call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDE=mype, computationalCount=clb,rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    !print*, "local size of Atmos%lon = ", shape(Atmos%lon)
-    !print*, "local comp size ", clb(1), clb(2)
-    !call MPI_Barrier(MPI_COMM_WORLD,rc)
 
     array = ESMF_ArrayCreate(distgrid, farray=Atmos%lon, indexflag=ESMF_INDEX_DELOCAL, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -927,7 +917,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
           call ESMF_InfoGetFromHost(fcstGridComp(n), info=info, rc=rc); ESMF_ERR_ABORT(rc)
           call ESMF_InfoSet(info, key="layout", values=layout, rc=rc); ESMF_ERR_ABORT(rc)
           call ESMF_InfoSet(info, key="tilesize", value=Atmos%mlon, rc=rc); ESMF_ERR_ABORT(rc)
-          print*, "layout, Atmos%mlon = ", layout, Atmos%mlon
           call ESMF_GridCompSetServices(fcstGridComp(n), SetServicesNest, userrc=urc, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
