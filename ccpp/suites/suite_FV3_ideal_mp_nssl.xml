@@ -17,7 +17,6 @@
     <!-- Surface iteration loop -->
     <!-- End of surface iteration loop -->
     <subcycle loop="1">
-      <scheme>rayleigh_damp</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
       <!-- <scheme>h2ophys</scheme> -->
       <scheme>get_prs_fv3</scheme>
