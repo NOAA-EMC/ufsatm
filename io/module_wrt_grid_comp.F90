@@ -87,6 +87,7 @@
       logical                                   :: top_parent_is_global   !< Flag, .true. when the top partent domain is global
 !
 !-----------------------------------------------------------------------
+      REAL(KIND=8)             :: btim                                    !< Begining time
       REAL(KIND=8)             :: btim0                                   !< Begining time
       REAL(KIND=8),PUBLIC,SAVE :: write_init_tim                          !< Write grid component initialization time
       REAL(KIND=8),PUBLIC,SAVE :: write_run_tim                           !< Write grid component run time
