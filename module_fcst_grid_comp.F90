@@ -63,7 +63,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
   use fms2_io_mod,        only: FmsNetcdfFile_t, open_file, close_file, variable_exists, & 
                                 read_data
-  use fms_io_mod,         only: field_exist, read_data_old=>read_data
 
   use atmosphere_mod,     only: atmosphere_control_data
 
@@ -174,6 +173,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     type(ESMF_DistGrid)   :: distgrid
     type(ESMF_Array)      :: array
     character(256)        :: gridfile
+    type(FmsNetcdfFile_t) :: fileobj
     rc = ESMF_SUCCESS
 
     call ESMF_GridCompSetEntryPoint(nest, ESMF_METHOD_INITIALIZE, userRoutine=init_dyn_fb, phase=1, rc=rc)
@@ -206,9 +206,12 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     if (Atmos%grid_type==4) then
        gridfile = "grid_spec.nc" ! default
 
-      if (field_exist("INPUT/grid_spec.nc", "atm_mosaic_file")) then
-        call read_data_old("INPUT/grid_spec.nc", "atm_mosaic_file", gridfile)
-      endif
+       if (open_file(fileobj, "INPUT/grid_spec.nc", "read")) then
+         if (variable_exists(fileobj, "atm_mosaic_file")) then
+           call read_data(fileobj, "atm_mosaic_file", gridfile)
+         endif
+         call close_file(fileobj)
+       endif
 
        do tl=1,6
           decomptile(1,tl) = layout(1)
