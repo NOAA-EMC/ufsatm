@@ -172,8 +172,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     character(3)          :: myGridStr
     type(ESMF_DistGrid)   :: distgrid
     type(ESMF_Array)      :: array
-    character(256)        :: gridfile
-    type(FmsNetcdfFile_t) :: fileobj
     rc = ESMF_SUCCESS
 
     call ESMF_GridCompSetEntryPoint(nest, ESMF_METHOD_INITIALIZE, userRoutine=init_dyn_fb, phase=1, rc=rc)
@@ -203,37 +201,38 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       grid_typekind = ESMF_TYPEKIND_R8
     endif
 
-    if (Atmos%grid_type==4) then
-       gridfile = "grid_spec.nc" ! default
-
-       if (open_file(fileobj, "INPUT/grid_spec.nc", "read")) then
-         if (variable_exists(fileobj, "atm_mosaic_file")) then
-           call read_data(fileobj, "atm_mosaic_file", gridfile)
-         endif
-         call close_file(fileobj)
-       endif
-
-      call ESMF_InfoGet(info, key="nx", value=nx, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_InfoGet(info, key="ny", value=ny, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      grid = ESMF_GridCreateNoPeriDim( regDecomp=(/layout(1),layout(2)/), &
-                                      minIndex=(/1,1/), &
-                                      maxIndex=(/nx,ny/), &
-                                      gridAlign=(/-1,-1/), &
-                                      coordSys=ESMF_COORDSYS_SPH_RAD, &
-                                      coordTypeKind=grid_typekind, &
-                                      decompflag=(/ESMF_DECOMP_SYMMEDGEMAX,ESMF_DECOMP_SYMMEDGEMAX/), &
-                                      name="fcst_grid", &
-                                      indexflag=ESMF_INDEX_DELOCAL, &  
-                                      rc=rc) 
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-      call mpp_error(NOTE, 'after create fcst grid for doubly periodic with INPUT/'//trim(gridfile))
-
-      call addLsmask2grid(grid, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-        
-    elseif (trim(name)=="global") then
+!    if (Atmos%grid_type==4) then
+!       gridfile = "grid_spec.nc" ! default
+!
+!       if (open_file(fileobj, "INPUT/grid_spec.nc", "read")) then
+!         if (variable_exists(fileobj, "atm_mosaic_file")) then
+!           call read_data(fileobj, "atm_mosaic_file", gridfile)
+!         endif
+!         call close_file(fileobj)
+!       endif
+!
+!      call ESMF_InfoGet(info, key="nx", value=nx, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!      call ESMF_InfoGet(info, key="ny", value=ny, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!      grid = ESMF_GridCreateNoPeriDim( regDecomp=(/layout(1),layout(2)/), &
+!                                      minIndex=(/1,1/), &
+!                                      maxIndex=(/nx,ny/), &
+!                                      gridAlign=(/-1,-1/), &
+!                                      coordSys=ESMF_COORDSYS_SPH_RAD, &
+!                                      coordTypeKind=grid_typekind, &
+!                                      decompflag=(/ESMF_DECOMP_SYMMEDGEMAX,ESMF_DECOMP_SYMMEDGEMAX/), &
+!                                      name="fcst_grid", &
+!                                      indexflag=ESMF_INDEX_DELOCAL, &  
+!                                      rc=rc) 
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+!      call mpp_error(NOTE, 'after create fcst grid for doubly periodic with INPUT/'//trim(gridfile))
+!
+!      call addLsmask2grid(grid, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+!        
+!    elseif (trim(name)=="global") then
+    if (trim(name) == "global" .and. Atmos%grid_type /= 4) then
       ! global domain
       call ESMF_InfoGet(info, key="tilesize", value=tilesize, rc=rc); ESMF_ERR_ABORT(rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -251,7 +250,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                         name="fcst_grid", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     else
-      ! nest domain
+      ! nest and doubly periodic domain
       call ESMF_InfoGet(info, key="nx", value=nx, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call ESMF_InfoGet(info, key="ny", value=ny, rc=rc)
