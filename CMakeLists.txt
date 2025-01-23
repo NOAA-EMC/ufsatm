@@ -14,7 +14,7 @@ if(ENABLE_FV3ATM_DOCS)
 endif()
 
 # Enable CI build & unit testing:
-if(BUILD_TESTING)
+if(BUILD_CI_TESTING)
   project(fv3atm VERSION 1.0 LANGUAGES C CXX Fortran)
   include(ci/CMakeLists.txt)
 endif()
@@ -165,7 +165,7 @@ if(OPENMP)
   target_link_libraries(fv3atm PUBLIC OpenMP::OpenMP_Fortran)
 endif()
 
-if(BUILD_TESTING)
+if(BUILD_CI_TESTING)
   include(CTest)
   add_subdirectory(tests)
 endif()
