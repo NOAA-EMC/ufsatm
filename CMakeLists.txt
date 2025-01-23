@@ -83,7 +83,7 @@ if (FV3)
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
     add_subdirectory(upp)
-    set(POST_SRC io/post_nems_routines.F90 io/post_fv3.F90)
+    set(POST_SRC fv3/io/post_nems_routines.F90 fv3/io/post_fv3.F90)
     list(APPEND _ufsatm_defs_private INLINE_POST)
   endif()
 
@@ -116,13 +116,13 @@ if (FV3)
     endif()
 
     list(APPEND moving_nest_srcs
-      moving_nest/bounding_box.F90
-      moving_nest/fv_tracker.F90
-      moving_nest/fv_moving_nest.F90
-      moving_nest/fv_moving_nest_main.F90
-      moving_nest/fv_moving_nest_physics.F90
-      moving_nest/fv_moving_nest_types.F90
-      moving_nest/fv_moving_nest_utils.F90
+      fv3/moving_nest/bounding_box.F90
+      fv3/moving_nest/fv_tracker.F90
+      fv3/moving_nest/fv_moving_nest.F90
+      fv3/moving_nest/fv_moving_nest_main.F90
+      fv3/moving_nest/fv_moving_nest_physics.F90
+      fv3/moving_nest/fv_moving_nest_types.F90
+      fv3/moving_nest/fv_moving_nest_utils.F90
       )
   else()
     list(APPEND moving_nest_srcs "")
@@ -134,23 +134,23 @@ if (FV3)
     fv3/fv3_cap.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
-    stochastic_physics/stochastic_physics_wrapper.F90
+    fv3/stochastic_physics/stochastic_physics_wrapper.F90
     cpl/module_block_data.F90
     cpl/module_cplfields.F90
     cpl/module_cap_cpl.F90
     cpl/module_cplscalars.F90
-    io/fv3atm_common_io.F90
-    io/fv3atm_clm_lake_io.F90
-    io/fv3atm_rrfs_sd_io.F90
-    io/fv3atm_sfc_io.F90
-    io/fv3atm_oro_io.F90
-    io/fv3atm_history_io.F90
-    io/fv3atm_restart_io.F90
-    io/module_write_netcdf.F90
-    io/module_write_restart_netcdf.F90
-    io/module_fv3_io_def.F90
-    io/module_write_internal_state.F90
-    io/module_wrt_grid_comp.F90
+    fv3/io/fv3atm_common_io.F90
+    fv3/io/fv3atm_clm_lake_io.F90
+    fv3/io/fv3atm_rrfs_sd_io.F90
+    fv3/io/fv3atm_sfc_io.F90
+    fv3/io/fv3atm_oro_io.F90
+    fv3/io/fv3atm_history_io.F90
+    fv3/io/fv3atm_restart_io.F90
+    fv3/io/module_write_netcdf.F90
+    fv3/io/module_write_restart_netcdf.F90
+    fv3/io/module_fv3_io_def.F90
+    fv3/io/module_write_internal_state.F90
+    fv3/io/module_wrt_grid_comp.F90
     ${moving_nest_srcs}
     ${POST_SRC}
     )
