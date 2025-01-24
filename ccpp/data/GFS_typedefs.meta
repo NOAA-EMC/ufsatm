@@ -10513,3 +10513,24 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[con_one]
+  standard_name = constant_one
+  long_name = mathematical constant of one
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[con_p001]
+  standard_name = constant_one_hundredth
+  long_name = mathematical constant for one hundredth
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[con_secinday]
+  standard_name = seconds_in_a_day
+  long_name = number of seconds in a day
+  units = s
+  dimensions = ()
+  type = real
+  kind = kind_phys
