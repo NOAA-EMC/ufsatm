@@ -807,6 +807,8 @@ module GFS_typedefs
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
+    logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag 
+
 !--- radiation control parameters
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr           !< frequency for longwave radiation (secs)
@@ -1033,7 +1035,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: dt_inner        !< time step for the inner loop in s
     logical              :: sedi_semi       !< flag for semi Lagrangian sedi of rain
     integer              :: decfl           !< deformed CFL factor
-    logical              :: thpsnmp_is_init !< Local scheme initialization flag
+    logical              :: thompson_mp_is_init=.false. !< Local scheme initialization flag
 
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
@@ -1222,6 +1224,7 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
+    logical              :: gf_coldstart     !< flag for cold start GF 
     integer              :: conv_cf_opt      !< option for convection scheme cloud fraction computation
                                              !< 0: Chaboureau-Bechtold
                                              !< 1: Xu-Randall
@@ -1582,8 +1585,9 @@ module GFS_typedefs
     integer              :: addsmoke_flag
     integer              :: plumerisefire_frq
     integer              :: n_dbg_lines
-    integer              :: smoke_forecast
+    integer              :: hwp_method
     logical              :: add_fire_moist_flux ! Flag to add moisture fluxes based on PM2.5 emissions
+    real(kind=kind_phys) :: sc_factor
     logical              :: aero_ind_fdb    ! WFA/IFA indirect
     logical              :: aero_dir_fdb    ! smoke/dust direct
     logical              :: rrfs_smoke_debug
@@ -3591,7 +3595,6 @@ module GFS_typedefs
     real(kind=kind_phys) :: dt_inner       = -999.0             !< time step for the inner loop
     logical              :: sedi_semi      = .false.            !< flag for semi Lagrangian sedi of rain
     integer              :: decfl          = 8                  !< deformed CFL factor
-    logical              :: thpsnmp_is_init = .false.           !< Local scheme initialization flag 
 
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
@@ -3985,6 +3988,7 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
+    logical              :: gf_coldstart  = .false.   !< flag for cold start GF 
 
 !-- chem nml variables for RRFS-SD
     real(kind=kind_phys) :: dust_drylimit_factor  = 1.0
@@ -4004,10 +4008,11 @@ module GFS_typedefs
     integer :: wetdep_ls_opt  = 1
     logical :: do_plumerise   = .false.
     logical :: add_fire_moist_flux = .false.
+    real(kind=kind_phys) :: sc_factor = 1.0
     integer :: addsmoke_flag  = 1
     integer :: plumerisefire_frq = 60
     integer :: n_dbg_lines = 3
-    integer :: smoke_forecast = 2         ! RRFS-sd read in ebb_smoke
+    integer :: hwp_method = 2         ! RRFS-sd read in ebb_smoke
     logical :: aero_ind_fdb = .false.     ! RRFS-sd wfa/ifa emission
     logical :: aero_dir_fdb = .false.     ! RRFS-sd smoke/dust radiation feedback
     logical :: rrfs_smoke_debug = .false. ! RRFS-sd plumerise debug
@@ -4194,13 +4199,13 @@ module GFS_typedefs
                                dust_alpha, dust_gamma, wetdep_ls_alpha,                     &
                                seas_opt, dust_opt, drydep_opt, coarsepm_settling,           &
                                plume_wind_eff,ebb_dcycle, extended_sd_diags,                &
-                               wetdep_ls_opt, smoke_forecast, aero_ind_fdb, aero_dir_fdb,   &
+                               wetdep_ls_opt, hwp_method, aero_ind_fdb, aero_dir_fdb,       &
                                rrfs_smoke_debug, do_plumerise, plumerisefire_frq,           &
                                addsmoke_flag, enh_mix, mix_chem, smoke_dir_fdb_coef,        &
                                do_smoke_transport,smoke_conv_wet_coef,n_dbg_lines,          &
-                               add_fire_moist_flux, plume_alpha,                            &
+                               add_fire_moist_flux, sc_factor,                              &
                           !--- C3/GF closures
-                               ichoice,ichoicem,ichoice_s,                                  &
+                               ichoice,ichoicem,ichoice_s,gf_coldstart,                     &
                           !--- (DFI) time ranges with radar-prescribed microphysics tendencies
                           !          and (maybe) convection suppression
                                fh_dfi_radar, radar_tten_limits, do_cap_suppress,            &
@@ -4459,7 +4464,8 @@ module GFS_typedefs
     Model%plumerisefire_frq = plumerisefire_frq
     Model%addsmoke_flag     = addsmoke_flag
     Model%add_fire_moist_flux = add_fire_moist_flux
-    Model%smoke_forecast    = smoke_forecast
+    Model%sc_factor         = sc_factor
+    Model%hwp_method        = hwp_method
     Model%aero_ind_fdb      = aero_ind_fdb
     Model%aero_dir_fdb      = aero_dir_fdb
     Model%rrfs_smoke_debug  = rrfs_smoke_debug
@@ -4474,6 +4480,7 @@ module GFS_typedefs
     Model%ichoice_s = ichoice_s
     Model%ichoicem  = ichoicem
     Model%ichoice   = ichoice
+    Model%gf_coldstart  = gf_coldstart
 
 !--- integrated dynamics through earth's atmosphere
     Model%lsidea           = lsidea
@@ -6586,6 +6593,7 @@ module GFS_typedefs
         print*,'ichoice_s          : ', Model%ichoice_s
         print*,'ichoicem           : ', Model%ichoicem
         print*,'ichoice            : ', Model%ichoice
+        print*,'gf_coldstart       : ', Model%gf_coldstart
       endif
       if(model%rrfs_sd) then
         print *, ' '
@@ -6608,8 +6616,9 @@ module GFS_typedefs
         print *, 'do_plumerise     : ',Model%do_plumerise
         print *, 'plumerisefire_frq: ',Model%plumerisefire_frq
         print *, 'add_fire_moist_flux: ',Model%add_fire_moist_flux
+        print *, 'sc_factor        : ',Model%sc_factor
         print *, 'addsmoke_flag    : ',Model%addsmoke_flag
-        print *, 'smoke_forecast   : ',Model%smoke_forecast
+        print *, 'hwp_method       : ',Model%hwp_method
         print *, 'aero_ind_fdb     : ',Model%aero_ind_fdb
         print *, 'aero_dir_fdb     : ',Model%aero_dir_fdb
         print *, 'rrfs_smoke_debug : ',Model%rrfs_smoke_debug
