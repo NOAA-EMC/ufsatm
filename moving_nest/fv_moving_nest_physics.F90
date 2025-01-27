@@ -1,3 +1,27 @@
+!> @file
+!> @brief Provides data structures for moving nest functionality
+!> @author W. Ramstrom.  Collaboration with Bin Liu and Chunxi Zhang, EMC
+!> @email William.Ramstrom@noaa.gov
+
+!> Moving Nest Subroutine Naming Convention
+!>
+!> - mn_meta_* subroutines perform moving nest operations for FV3
+!> metadata. These routines will run only once per nest move.
+!>
+!> - mn_var_* subroutines perform moving nest operations for an
+!> individual FV3 variable.  These routines will run many times per
+!> nest move.
+!>
+!> - mn_prog_* subroutines perform moving nest operations for the list
+!> of prognostic fields.  These routines will run only once per nest
+!> move.
+!>
+!> - mn_phys_* subroutines perform moving nest operations for the list
+!> of physics fields.  These routines will run only once per nest
+!> move.
+!>
+!> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -17,36 +41,6 @@
 !*           675 Mass Ave, Cambridge, MA 02139, USA.                   *
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
-
-!***********************************************************************
-!> @file
-!! @brief Provides Moving Nest functionality for physics and surface variables
-!! @author W. Ramstrom.  Collaboration with Bin Liu and Chunxi Zhang, EMC
-!! @email William.Ramstrom@noaa.gov
-! =======================================================================!
-
-
-! =======================================================================!
-!
-! Notes
-!
-!------------------------------------------------------------------------
-! Moving Nest Subroutine Naming Convention
-!-----------------------------------------------------------------------
-!
-! mn_meta_* subroutines perform moving nest operations for FV3 metadata.
-!               These routines will run only once per nest move.
-!
-! mn_var_*  subroutines perform moving nest operations for an individual FV3 variable.
-!               These routines will run many times per nest move.
-!
-! mn_prog_* subroutines perform moving nest operations for the list of prognostic fields.
-!               These routines will run only once per nest move.
-!
-! mn_phys_* subroutines perform moving nest operations for the list of physics fields.
-!               These routines will run only once per nest move.
-!
-! =======================================================================!
 
 module fv_moving_nest_physics_mod
 
@@ -93,21 +87,21 @@ module fv_moving_nest_physics_mod
 
 #ifdef NO_QUAD_PRECISION
   ! 64-bit precision (kind=8)
-  integer, parameter:: f_p = selected_real_kind(15)
+  integer, parameter:: f_p = selected_real_kind(15) !> ???
 #else
   ! Higher precision (kind=16) for grid geometrical factors:
-  integer, parameter:: f_p = selected_real_kind(20)
+  integer, parameter:: f_p = selected_real_kind(20) !> ???
 #endif
 
 #ifdef OVERLOAD_R4
-  real, parameter:: real_snan=x'FFBFFFFF'
+  real, parameter:: real_snan=x'FFBFFFFF' !> ???
 #else
-  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF'
+  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !> ???
 #endif
 
-  logical :: debug_log = .false.
-  logical :: move_physics = .true.       ! Always true, unless developer sets move_physics to .False. here for debugging.
-  logical :: move_nsst = .true.          ! Value is reset in fv_moving_nest_main.F90 from namelist options
+  logical :: debug_log = .false. !> ???
+  logical :: move_physics = .true.       !> Always true, unless developer sets move_physics to .False. here for debugging.
+  logical :: move_nsst = .true.          !> Value is reset in fv_moving_nest_main.F90 from namelist options
 
   !! Persistent variables to enable debug printing after range warnings.
   !type (fv_atmos_type), pointer                 :: save_Atm_n
@@ -119,9 +113,22 @@ module fv_moving_nest_physics_mod
 
 contains
 
-  !>@brief The subroutine 'mn_phys_reset_sfc_props' sets the static surface parameters from the high-resolution input file data
-  !>@details This subroutine relies on earlier code reading the data from files into the mn_static data structure
-  !!  This subroutine does not yet handle ice points or frac_grid - fractional landfrac/oceanfrac values
+  !> The subroutine 'mn_phys_reset_sfc_props' sets the static surface parameters 
+  !> from the high-resolution input file data
+  !>
+  !> This subroutine relies on earlier code reading the data from files into the mn_static data structure
+  !> This subroutine does not yet handle ice points or frac_grid - fractional landfrac/oceanfrac values
+  !>
+  !> @param[inout] Atm Array of atmospheric data
+  !> @param[in] n Current grid number
+  !> @param[in] mn_static Static surface data
+  !> @param[in] Atm_block Physics block layout
+  !> @param[inout] GFS_Sfcprop Physics variable data
+  !> @param[in] ioffset Current nest offset in i direction
+  !> @param[in] joffset Current nest offset in j direction
+  !> @param[in] refine Nest refinement ratio
+  !>
+  !> @author
   subroutine mn_phys_reset_sfc_props(Atm, n, mn_static, Atm_block, GFS_Sfcprop, ioffset, joffset, refine)
     type(fv_atmos_type), intent(inout),allocatable   :: Atm(:)              !< Array of atmospheric data
     integer, intent(in)                              :: n                   !< Current grid number
@@ -220,8 +227,19 @@ contains
 
   end subroutine mn_phys_reset_sfc_props
 
-  !>@brief The subroutine 'mn_phys_reset_phys_latlon' sets the lat/lons from the high-resolution input file data
-  !>@details This subroutine sets lat/lons of the moved nest, then recalculates all the derived quantities (dx,dy,etc.)
+  !> The subroutine 'mn_phys_reset_phys_latlon' sets the lat/lons from the high-resolution input file data
+  !>
+  !> This subroutine sets lat/lons of the moved nest, then recalculates all the derived quantities (dx,dy,etc.)
+  !>
+  !> @param[in] Atm Array of atmospheric data
+  !> @param[in] n Current grid number
+  !> @param[in] tile_geo Bounds of this grid
+  !> @param[in] fp_super_tile_geo Bounds of high-resolution parent grid
+  !> @param[in] Atm_block Physics block layout
+  !> @param[in] GFS_control Physics metadata
+  !> @param[inout] GFS_grid Physics variable data
+  !>
+  !> @author
   subroutine mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, GFS_control, GFS_grid)
     type(fv_atmos_type), allocatable, intent(in)      :: Atm(:)               !< Array of atmospheric data
     integer, intent(in)                  :: n                    !< Current grid number
@@ -294,9 +312,24 @@ contains
 
   end subroutine mn_reset_phys_latlon
 
-  !>@brief The subroutine 'mn_phys_fill_temp_variables' extracts 1D physics data into a 2D array for nest motion
-  !>@details This subroutine fills in the mn_phys structure on the Atm object with 2D arrays of physics/surface variables.
-  !!  Note that ice variables are not yet handled.
+  !> The subroutine 'mn_phys_fill_temp_variables' extracts 1D physics data into a 2D array for nest motion
+  !>
+  !> This subroutine fills in the mn_phys structure on the Atm object with 2D arrays of physics/surface variables.
+  !> Note that ice variables are not yet handled.
+  !>
+  !> @param[inout] Atm Array of atmospheric data
+  !> @param[in] Atm_block Physics block layout
+  !> @param[in] GFS_control Physics metadata
+  !> @param[in] GFS_sfcprop Physics variable data (surface)
+  !> @param[in] GFS_tbd Physics variable data (tbd)
+  !> @param[in] GFS_cldprop Physics variable data (clouds)
+  !> @param[in] GFS_intdiag Physics variable data (clouds)
+  !> @param[in] n Current grid number
+  !> @param[in] child_grid_num Child grid number
+  !> @param[in] is_fine_pe Is this a nest PE?
+  !> @param[in] npz Number of vertical levels
+  !>
+  !> @author
   subroutine mn_phys_fill_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
     type (block_control_type), target, intent(in)            :: Atm_block         !< Physics block layout
@@ -441,9 +474,24 @@ contains
 
   end subroutine mn_phys_fill_temp_variables
 
-  !>@brief The subroutine 'mn_phys_apply_temp_variables' copies moved 2D data back into 1D physics arryas for nest motion
-  !>@details This subroutine fills the 1D physics arrays from the mn_phys structure on the Atm object
-  !!  Note that ice variables are not yet handled.
+  !> The subroutine 'mn_phys_apply_temp_variables' copies moved 2D data back into 1D physics arryas for nest motion
+  !>
+  !> This subroutine fills the 1D physics arrays from the mn_phys structure on the Atm object
+  !> Note that ice variables are not yet handled.
+  !>
+  !> @param[inout] Atm Array of atmospheric data
+  !> @param[in] Atm_block Physics block layout
+  !> @param[in] GFS_control Physics metadata
+  !> @param[inout] GFS_sfcprop Physics variable data (surface)
+  !> @param[inout] GFS_tbd Physics variable data (tbd)
+  !> @param[inout] GFS_cldprop Physics variable data (clouds)
+  !> @param[inout] GFS_intdiag Physics variable data (clouds)
+  !> @param[in] n Current grid number
+  !> @param[in] child_grid_num Child grid number
+  !> @param[in] is_fine_pe Is this a nest PE?
+  !> @param[in] npz Number of vertical levels
+  !>
+  !> @author
   subroutine mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
     type (block_control_type), intent(in)                    :: Atm_block         !< Physics block layout
@@ -658,9 +706,20 @@ contains
 
   end subroutine mn_phys_apply_temp_variables
 
-
-  !>@brief The subroutine 'mn_physfill_nest_halos_from_parent' transfers data from the coarse grid to the nest edge
-  !>@details This subroutine must run on parent and nest PEs to complete the data transfers
+  !> The subroutine 'mn_physfill_nest_halos_from_parent' transfers data from the coarse grid to the nest edge
+  !>
+  !> This subroutine must run on parent and nest PEs to complete the data transfers
+  !>
+  !> @param[inout] Atm Array of atmospheric data
+  !> @param[in] GFS_control Physics metadata
+  !> @param[in] mn_static Static data
+  !> @param[in] n Current grid number
+  !> @param[in] child_grid_num Child grid number
+  !> @param[in] is_fine_pe Is this a nest PE?
+  !> @param[inout] nest_domain Nest domain for FMS
+  !> @param[in] nz Number of vertical levels
+  !>
+  !> @author
   subroutine mn_phys_fill_nest_halos_from_parent(Atm, GFS_control, mn_static, n, child_grid_num, is_fine_pe, nest_domain, nz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
     type(GFS_control_type), intent(in)                       :: GFS_control       !< Physics metadata
@@ -959,8 +1018,16 @@ contains
 
   end subroutine mn_phys_fill_nest_halos_from_parent
 
-  !>@brief The subroutine 'mn_phys_fill_intern_nest_halos' fills the intenal nest halos for the physics variables
-  !>@details This subroutine is only called for the nest PEs.
+  !> The subroutine 'mn_phys_fill_intern_nest_halos' fills the intenal nest halos for the physics variables
+  !>
+  !> This subroutine is only called for the nest PEs.
+  !>
+  !> @param[inout] moving_nest Single instance of moving nest data
+  !> @param[in] GFS_control Physics metadata
+  !> @param[in] domain_fine Domain structure for this nest
+  !> @param[in] is_fine_pe Is nest PE - should be True.  Argument is redundant.
+  !>
+  !> @author
   subroutine mn_phys_fill_intern_nest_halos(moving_nest, GFS_control, domain_fine, is_fine_pe)
     type(fv_moving_nest_type), target, intent(inout) :: moving_nest         !< Single instance of moving nest data
     type(GFS_control_type), intent(in)               :: GFS_control         !< Physics metadata
@@ -1046,8 +1113,25 @@ contains
 
   end subroutine mn_phys_fill_intern_nest_halos
 
-  !>@brief The subroutine 'mn_phys_shift_data' shifts the variable in the nest, including interpolating at the leading edge
-  !>@details This subroutine is called for the nest and parent PEs.
+  !> The subroutine 'mn_phys_shift_data' shifts the variable in the nest, including interpolating at the leading edge
+  !>
+  !> This subroutine is called for the nest and parent PEs.
+  !>
+  !> @param[inout] Atm Array of atmospheric data
+  !> @param[in] GFS_control Physics metadata
+  !> @param[in] n Current grid number
+  !> @param[in] child_grid_num Child grid number
+  !> @param[in] wt_h Interpolation weights ???
+  !> @param[in] wt_u Interpolation weights ???
+  !> @param[in] wt_v Interpolation weights ???
+  !> @param[in] delta_i_c Nest motion in i direction
+  !> @param[in] delta_j_c Nest motion in j direction
+  !> @param[in] x_refine Nest refinement in x direction
+  !> @param[in] y_refine Nest refinement in y direction
+  !> @param[inout] nest_domain Nest domain structure
+  !> @param[in] nz Number of vertical levels
+  !>
+  !> @author
   subroutine mn_phys_shift_data(Atm, GFS_control, n, child_grid_num, wt_h, wt_u, wt_v, &
       delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, nz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)                  !< Array of atmospheric data
@@ -1207,8 +1291,23 @@ contains
 
   end subroutine mn_phys_shift_data
 
-  !>@brief The subroutine 'mn_phys_dump_to_netcdf' dumps physics variables to debugging netCDF files
-  !>@details This subroutine is called for the nest and parent PEs.
+  !> The subroutine 'mn_phys_dump_to_netcdf' dumps physics variables to debugging netCDF files
+  !>
+  !> This subroutine is called for the nest and parent PEs.
+  !>
+  !> @param[in] Atm Array of atmospheric data
+  !> @param[in] Atm_block Physics block layout
+  !> @param[in] GFS_control Physics metadata
+  !> @param[in] GFS_sfcprop Physics variable data (surface)
+  !> @param[in] GFS_tbd Physics variable data (tbd)
+  !> @param[in] time_val Timestep number for filename
+  !> @param[in] file_prefix Prefix for output netCDF filenames
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !> @param[in] domain_coarse Domain structure for parent
+  !> @param[in] domain_fine Domain structure for nest
+  !> @param[in] nz Number of vertical levels
+  !>
+  !> @author
   subroutine mn_phys_dump_to_netcdf(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, time_val, file_prefix, is_fine_pe, domain_coarse, domain_fine, nz)
     type(fv_atmos_type), intent(in)            :: Atm                           !< Single instance of atmospheric data
     type (block_control_type), intent(in)      :: Atm_block                     !< Physics block layout
