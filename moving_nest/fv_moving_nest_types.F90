@@ -76,7 +76,7 @@ module fv_moving_nest_types_mod
 
   !> ???
   type fv_moving_nest_prog_type
-    real, _ALLOCATABLE                  :: delz(:,:,:)      _NULL   !< layer thickness (meters)
+    real, _ALLOCATABLE                  :: delz(:,:,:)      _NULL   !> layer thickness (meters)
   end type fv_moving_nest_prog_type
 
   ! TODO deallocate these at end of model run.  They are only allocated once, at first nest move, inside mn_static_read_hires().
@@ -114,10 +114,10 @@ module fv_moving_nest_types_mod
     !   strong cosz angle dependence = black sky
     !   weak cosz angle dependence = white sky
     !  From the chgres code in static_data.F90, we see the linkage of variable names:
-    !   type(esmf_field), public           :: alvsf_target_grid !< visible black sky albedo
-    !   type(esmf_field), public           :: alvwf_target_grid !< visible white sky albedo
-    !   type(esmf_field), public           :: alnsf_target_grid !< near ir black sky albedo
-    !   type(esmf_field), public           :: alnwf_target_grid !< near ir white sky albedo
+    !   type(esmf_field), public           :: alvsf_target_grid !> visible black sky albedo
+    !   type(esmf_field), public           :: alvwf_target_grid !> visible white sky albedo
+    !   type(esmf_field), public           :: alnsf_target_grid !> near ir black sky albedo
+    !   type(esmf_field), public           :: alnwf_target_grid !> near ir white sky albedo
 
     real, allocatable  :: alvsf_grid(:,:)              _NULL  !> Visible black sky albedo; netCDF file has monthly values
     real, allocatable  :: alvwf_grid(:,:)              _NULL  !> Visible white sky albedo; netCDF file has monthly values
@@ -128,92 +128,92 @@ module fv_moving_nest_types_mod
 
   !> ???
   type fv_moving_nest_physics_type
-    real, _ALLOCATABLE                  :: ts(:,:)          _NULL   !< 2D skin temperature/SST
-    real, _ALLOCATABLE                  :: slmsk(:,:)       _NULL   !< land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
-    real (kind=kind_phys), _ALLOCATABLE :: smc (:,:,:)      _NULL   !< soil moisture content
-    real (kind=kind_phys), _ALLOCATABLE :: stc (:,:,:)      _NULL   !< soil temperature
-    real (kind=kind_phys), _ALLOCATABLE :: slc (:,:,:)      _NULL   !< soil liquid water content
+    real, _ALLOCATABLE                  :: ts(:,:)          _NULL   !> 2D skin temperature/SST
+    real, _ALLOCATABLE                  :: slmsk(:,:)       _NULL   !> land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
+    real (kind=kind_phys), _ALLOCATABLE :: smc (:,:,:)      _NULL   !> soil moisture content
+    real (kind=kind_phys), _ALLOCATABLE :: stc (:,:,:)      _NULL   !> soil temperature
+    real (kind=kind_phys), _ALLOCATABLE :: slc (:,:,:)      _NULL   !> soil liquid water content
 
-    real (kind=kind_phys), _ALLOCATABLE :: u10m (:,:)       _NULL   !< 10m u wind (a-grid?)
-    real (kind=kind_phys), _ALLOCATABLE :: v10m (:,:)       _NULL   !< 10m v wind (a-grid?)
-    real (kind=kind_phys), _ALLOCATABLE :: hprime (:,:,:)   _NULL   !< orographic metrics (maybe standard deviation?)
+    real (kind=kind_phys), _ALLOCATABLE :: u10m (:,:)       _NULL   !> 10m u wind (a-grid?)
+    real (kind=kind_phys), _ALLOCATABLE :: v10m (:,:)       _NULL   !> 10m v wind (a-grid?)
+    real (kind=kind_phys), _ALLOCATABLE :: hprime (:,:,:)   _NULL   !> orographic metrics (maybe standard deviation?)
 
-    real (kind=kind_phys), _ALLOCATABLE :: tprcp (:,:)      _NULL   !< total (of all precip types) precipitation rate
+    real (kind=kind_phys), _ALLOCATABLE :: tprcp (:,:)      _NULL   !> total (of all precip types) precipitation rate
 
-    real (kind=kind_phys), _ALLOCATABLE :: zorl (:,:)       _NULL   !< roughness length
-    real (kind=kind_phys), _ALLOCATABLE :: zorll (:,:)      _NULL   !< land roughness length
-    !real (kind=kind_phys), _ALLOCATABLE :: zorli (:,:)     _NULL   !< ice surface roughness length ! TODO do we need this?
-    real (kind=kind_phys), _ALLOCATABLE :: zorlw (:,:)      _NULL   !< wave surface roughness length
-    real (kind=kind_phys), _ALLOCATABLE :: zorlwav (:,:)    _NULL   !< wave surface roughness in cm derived from wave model
+    real (kind=kind_phys), _ALLOCATABLE :: zorl (:,:)       _NULL   !> roughness length
+    real (kind=kind_phys), _ALLOCATABLE :: zorll (:,:)      _NULL   !> land roughness length
+    !real (kind=kind_phys), _ALLOCATABLE :: zorli (:,:)     _NULL   !> ice surface roughness length ! TODO do we need this?
+    real (kind=kind_phys), _ALLOCATABLE :: zorlw (:,:)      _NULL   !> wave surface roughness length
+    real (kind=kind_phys), _ALLOCATABLE :: zorlwav (:,:)    _NULL   !> wave surface roughness in cm derived from wave model
 
-    real (kind=kind_phys), _ALLOCATABLE :: usfco (:,:)      _NULL   !< sea surface current (zonal)
-    real (kind=kind_phys), _ALLOCATABLE :: vsfco (:,:)      _NULL   !< sea surface current (meridional)
+    real (kind=kind_phys), _ALLOCATABLE :: usfco (:,:)      _NULL   !> sea surface current (zonal)
+    real (kind=kind_phys), _ALLOCATABLE :: vsfco (:,:)      _NULL   !> sea surface current (meridional)
 
-    real (kind=kind_phys), _ALLOCATABLE :: sfalb_lnd(:,:)   _NULL   !< surface albedo over land for LSM
-    real (kind=kind_phys), _ALLOCATABLE :: emis_lnd(:,:)    _NULL   !< surface emissivity over land for LSM
-    real (kind=kind_phys), _ALLOCATABLE :: emis_ice(:,:)    _NULL   !< surface emissivity over ice for LSM
-    real (kind=kind_phys), _ALLOCATABLE :: emis_wat(:,:)    _NULL   !< surface emissivity over water for LSM
-    real (kind=kind_phys), _ALLOCATABLE :: sfalb_lnd_bck(:,:) _NULL !< snow-free albedo over land
+    real (kind=kind_phys), _ALLOCATABLE :: sfalb_lnd(:,:)   _NULL   !> surface albedo over land for LSM
+    real (kind=kind_phys), _ALLOCATABLE :: emis_lnd(:,:)    _NULL   !> surface emissivity over land for LSM
+    real (kind=kind_phys), _ALLOCATABLE :: emis_ice(:,:)    _NULL   !> surface emissivity over ice for LSM
+    real (kind=kind_phys), _ALLOCATABLE :: emis_wat(:,:)    _NULL   !> surface emissivity over water for LSM
+    real (kind=kind_phys), _ALLOCATABLE :: sfalb_lnd_bck(:,:) _NULL !> snow-free albedo over land
 
-    !real (kind=kind_phys), _ALLOCATABLE :: semis(:,:)       _NULL   !< surface lw emissivity in fraction
-    !real (kind=kind_phys), _ALLOCATABLE :: semisbase(:,:)   _NULL   !< background surface emissivity
-    !real (kind=kind_phys), _ALLOCATABLE :: sfalb(:,:)       _NULL   !< mean surface diffused sw albedo
+    !real (kind=kind_phys), _ALLOCATABLE :: semis(:,:)       _NULL   !> surface lw emissivity in fraction
+    !real (kind=kind_phys), _ALLOCATABLE :: semisbase(:,:)   _NULL   !> background surface emissivity
+    !real (kind=kind_phys), _ALLOCATABLE :: sfalb(:,:)       _NULL   !> mean surface diffused sw albedo
 
-    real (kind=kind_phys), _ALLOCATABLE :: alvsf(:,:)       _NULL   !< visible black sky albedo
-    real (kind=kind_phys), _ALLOCATABLE :: alvwf(:,:)       _NULL   !< visible white sky albedo
-    real (kind=kind_phys), _ALLOCATABLE :: alnsf(:,:)       _NULL   !< near IR black sky albedo
-    real (kind=kind_phys), _ALLOCATABLE :: alnwf(:,:)       _NULL   !< near IR white sky albedo
+    real (kind=kind_phys), _ALLOCATABLE :: alvsf(:,:)       _NULL   !> visible black sky albedo
+    real (kind=kind_phys), _ALLOCATABLE :: alvwf(:,:)       _NULL   !> visible white sky albedo
+    real (kind=kind_phys), _ALLOCATABLE :: alnsf(:,:)       _NULL   !> near IR black sky albedo
+    real (kind=kind_phys), _ALLOCATABLE :: alnwf(:,:)       _NULL   !> near IR white sky albedo
 
-    real (kind=kind_phys), _ALLOCATABLE :: albdirvis_lnd(:,:)       _NULL   !<
-    real (kind=kind_phys), _ALLOCATABLE :: albdirnir_lnd(:,:)       _NULL   !<
-    real (kind=kind_phys), _ALLOCATABLE :: albdifvis_lnd(:,:)       _NULL   !<
-    real (kind=kind_phys), _ALLOCATABLE :: albdifnir_lnd(:,:)       _NULL   !<
+    real (kind=kind_phys), _ALLOCATABLE :: albdirvis_lnd(:,:)       _NULL   !> ???
+    real (kind=kind_phys), _ALLOCATABLE :: albdirnir_lnd(:,:)       _NULL   !> ???
+    real (kind=kind_phys), _ALLOCATABLE :: albdifvis_lnd(:,:)       _NULL   !> ???
+    real (kind=kind_phys), _ALLOCATABLE :: albdifnir_lnd(:,:)       _NULL   !> ???
 
-    real (kind=kind_phys), _ALLOCATABLE :: facsf(:,:)       _NULL   !< fractional coverage for strong zenith angle albedo
-    real (kind=kind_phys), _ALLOCATABLE :: facwf(:,:)       _NULL   !< fractional coverage for strong zenith angle albedo
+    real (kind=kind_phys), _ALLOCATABLE :: facsf(:,:)       _NULL   !> fractional coverage for strong zenith angle albedo
+    real (kind=kind_phys), _ALLOCATABLE :: facwf(:,:)       _NULL   !> fractional coverage for strong zenith angle albedo
 
-    real (kind=kind_phys), _ALLOCATABLE :: lakefrac (:,:)   _NULL   !< lake  fraction [0:1]
-    real (kind=kind_phys), _ALLOCATABLE :: lakedepth (:,:)  _NULL   !< lake  depth [ m ]
+    real (kind=kind_phys), _ALLOCATABLE :: lakefrac (:,:)   _NULL   !> lake  fraction [0:1]
+    real (kind=kind_phys), _ALLOCATABLE :: lakedepth (:,:)  _NULL   !> lake  depth [ m ]
 
-    real (kind=kind_phys), _ALLOCATABLE :: canopy (:,:)     _NULL   !< canopy water content
-    real (kind=kind_phys), _ALLOCATABLE :: vegfrac (:,:)    _NULL   !< vegetation fraction
-    real (kind=kind_phys), _ALLOCATABLE :: uustar (:,:)     _NULL   !< u* wind in similarity theory
-    real (kind=kind_phys), _ALLOCATABLE :: shdmin (:,:)     _NULL   !< min fractional coverage of green vegetation
-    real (kind=kind_phys), _ALLOCATABLE :: shdmax (:,:)     _NULL   !< max fractional coverage of green vegetation
-    real (kind=kind_phys), _ALLOCATABLE :: tsfco (:,:)      _NULL   !< surface temperature ocean
-    real (kind=kind_phys), _ALLOCATABLE :: tsfcl (:,:)      _NULL   !< surface temperature land
-    real (kind=kind_phys), _ALLOCATABLE :: tsfc (:,:)       _NULL   !< surface temperature
-    !real (kind=kind_phys), _ALLOCATABLE :: tsfc_radtime (:,:) _NULL !< surface temperature on radiative timestep
+    real (kind=kind_phys), _ALLOCATABLE :: canopy (:,:)     _NULL   !> canopy water content
+    real (kind=kind_phys), _ALLOCATABLE :: vegfrac (:,:)    _NULL   !> vegetation fraction
+    real (kind=kind_phys), _ALLOCATABLE :: uustar (:,:)     _NULL   !> u* wind in similarity theory
+    real (kind=kind_phys), _ALLOCATABLE :: shdmin (:,:)     _NULL   !> min fractional coverage of green vegetation
+    real (kind=kind_phys), _ALLOCATABLE :: shdmax (:,:)     _NULL   !> max fractional coverage of green vegetation
+    real (kind=kind_phys), _ALLOCATABLE :: tsfco (:,:)      _NULL   !> surface temperature ocean
+    real (kind=kind_phys), _ALLOCATABLE :: tsfcl (:,:)      _NULL   !> surface temperature land
+    real (kind=kind_phys), _ALLOCATABLE :: tsfc (:,:)       _NULL   !> surface temperature
+    !real (kind=kind_phys), _ALLOCATABLE :: tsfc_radtime (:,:) _NULL !> surface temperature on radiative timestep
 
-    real (kind=kind_phys), _ALLOCATABLE :: cv  (:,:)        _NULL   !< fraction of convective cloud
-    real (kind=kind_phys), _ALLOCATABLE :: cvt (:,:)        _NULL   !< convective cloud top pressure
-    real (kind=kind_phys), _ALLOCATABLE :: cvb (:,:)        _NULL   !< convective cloud bottom pressure
+    real (kind=kind_phys), _ALLOCATABLE :: cv  (:,:)        _NULL   !> fraction of convective cloud
+    real (kind=kind_phys), _ALLOCATABLE :: cvt (:,:)        _NULL   !> convective cloud top pressure
+    real (kind=kind_phys), _ALLOCATABLE :: cvb (:,:)        _NULL   !> convective cloud bottom pressure
 
-    real (kind=kind_phys), _ALLOCATABLE :: phy_f2d (:,:,:)  _NULL   !< 2D physics variables
-    real (kind=kind_phys), _ALLOCATABLE :: phy_f3d(:,:,:,:) _NULL   !< 3D physics variables
+    real (kind=kind_phys), _ALLOCATABLE :: phy_f2d (:,:,:)  _NULL   !> 2D physics variables
+    real (kind=kind_phys), _ALLOCATABLE :: phy_f3d(:,:,:,:) _NULL   !> 3D physics variables
 
     ! NSST Variables
 
-    real (kind=kind_phys), _ALLOCATABLE :: tref (:,:)       _NULL   !< reference temperature for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: z_c (:,:)        _NULL   !< coefficient for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: c_0 (:,:)        _NULL   !< coefficient for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: c_d (:,:)        _NULL   !< coefficient for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: w_0 (:,:)        _NULL   !< coefficient for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: w_d (:,:)        _NULL   !< coefficient for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xt (:,:)         _NULL   !< heat content for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xs (:,:)         _NULL   !< salinity for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xu (:,:)         _NULL   !< u current constant for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xv (:,:)         _NULL   !< v current constant for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xz (:,:)         _NULL   !< DTL thickness for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: zm (:,:)         _NULL   !< MXL for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xtts (:,:)       _NULL   !< d(xt)/d(ts) for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: xzts (:,:)       _NULL   !< d(xz)/d(ts) for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: d_conv (:,:)     _NULL   !< think of free convection layer for NSSTM
-    ! real (kind=kind_phys), _ALLOCATABLE :: ifd (:,:)      _NULL   !< index to start DTM run  for NSSTM   ! TODO Probably can't interpolate an index.
+    real (kind=kind_phys), _ALLOCATABLE :: tref (:,:)       _NULL   !> reference temperature for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: z_c (:,:)        _NULL   !> coefficient for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: c_0 (:,:)        _NULL   !> coefficient for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: c_d (:,:)        _NULL   !> coefficient for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: w_0 (:,:)        _NULL   !> coefficient for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: w_d (:,:)        _NULL   !> coefficient for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xt (:,:)         _NULL   !> heat content for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xs (:,:)         _NULL   !> salinity for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xu (:,:)         _NULL   !> u current constant for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xv (:,:)         _NULL   !> v current constant for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xz (:,:)         _NULL   !> DTL thickness for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: zm (:,:)         _NULL   !> MXL for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xtts (:,:)       _NULL   !> d(xt)/d(ts) for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: xzts (:,:)       _NULL   !> d(xz)/d(ts) for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: d_conv (:,:)     _NULL   !> think of free convection layer for NSSTM
+    ! real (kind=kind_phys), _ALLOCATABLE :: ifd (:,:)      _NULL   !> index to start DTM run  for NSSTM   ! TODO Probably can't interpolate an index.
     !  IFD values are 0 for land, and 1 for oceans/lakes -- reverse of the land sea mask
     !  Land Sea Mask has values of 0 for oceans/lakes, 1 for land, 2 for sea ice
-    real (kind=kind_phys), _ALLOCATABLE :: dt_cool (:,:)    _NULL   !< sub-layer cooling amount for NSSTM
-    real (kind=kind_phys), _ALLOCATABLE :: qrain (:,:)      _NULL   !< sensible heat flux due to rainfall for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: dt_cool (:,:)    _NULL   !> sub-layer cooling amount for NSSTM
+    real (kind=kind_phys), _ALLOCATABLE :: qrain (:,:)      _NULL   !> sensible heat flux due to rainfall for NSSTM
 
   end type fv_moving_nest_physics_type
 
