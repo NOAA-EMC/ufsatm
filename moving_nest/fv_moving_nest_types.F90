@@ -247,7 +247,7 @@ module fv_moving_nest_types_mod
   !> positive is to move in increasing i and j direction, and
   !> negative is to move in decreasing i and j direction.
   !> 0 means no move. The limitation is to move only 1 grid cell at each move.
-  integer, dimension(MAX_NNEST) :: move_cd_y = 0
+  integer, dimension(MAX_NNEST) :: move_cd_y = 0 !> ???
   integer, dimension(MAX_NNEST) :: corral_x = 5 !> Minimum parent gridpoints on each side of nest in i direction
   integer, dimension(MAX_NNEST) :: corral_y = 5 !> Minimum parent gridpoints on each side of nest in j direction
 
