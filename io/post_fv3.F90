@@ -1,3 +1,26 @@
+!> @file 
+!> @brief Run post on write grid comp.
+!> @author Jun Wang @date Jul, 2019 
+
+!> @brief Run post on write grid comp.
+!>
+!> ## Module History
+!>
+!> Date | Programmer | Modification
+!> -----|------------|-------------
+!> Jul 2019 | J. Wang | create interface to run inline post for FV3
+!> Sep 2020 | J. Dong/J. Wang | create interface to run inline post for FV3-LAM
+!> Apr 2021 | R. Sun | Added variables for Thomspon MP
+!> Apr 2022 | W. Meng | 1)unify global and regional inline post interfaces
+!> Apr 2022 | W. Meng | 2)add bug fix for dx/dy computation
+!> Apr 2022 | W. Meng | 3)add reading pwat from FV3
+!> Apr 2022 | W. Meng | 4)remove some variable initializations
+!> Apr 2022 | W. Meng | 5)read max/min 2m T from tmax_max2m/tmin_min2m for GFS, and from t02max/min for RRFS and  HAFS.
+!> Apr 2022 | W. Meng | 6)read 3D cloud fraction from cld_amt for GFDL MP, and from cldfra for other MPs.
+!> Jun 2022 | J. Meng | 2D decomposition
+!> Jul 2022 | W. Meng | 1)output lat/lon of four corner point for rotated lat-lon grid. 2)read instant model top logwave
+!>
+!> @author Jun Wang @date Jul, 2019 
 module post_fv3
 
   use mpi_f08
@@ -10,35 +33,26 @@ module post_fv3
 
   implicit none
 
-  public post_run_fv3
+  public post_run_fv3 !< Interface to run inline post
 
   contains
 
+    !> Interface to run inline post.
+    !>
+    !> @param[in] wrt_int_state write grid component internal state.
+    !> @param[in] grid_id id number of the output grid.
+    !> @param[in] mype MPI rank.
+    !> @param[in] mpicomp MPI communicator of the write grid component.
+    !> @param[in] lead_write lead task of the write group.
+    !> @param[in] itasks number of MPI tasks in i direction of output domain.
+    !> @param[in] jtasks number of MPI tasks in j direction of output domain.
+    !> @param[in] mynfhr output forecast hours on the write grid component.
+    !> @param[in] mynfmin output forecast minutes on the write grid component.
+    !> @param[in] mynfsec output forecast secondson the write grid component.
+    !>
+    !> @author Jun Wang @date Jul, 2019 
     subroutine post_run_fv3(wrt_int_state,grid_id,mype,mpicomp,lead_write, &
                             itasks,jtasks,mynfhr,mynfmin,mynfsec)
-!
-!  revision history:
-!     Jul 2019    J. Wang             create interface to run inline post for FV3
-!     Sep 2020    J. Dong/J. Wang     create interface to run inline post for FV3-LAM
-!     Apr 2021    R. Sun              Added variables for Thomspon MP
-!     Apr 2022    W. Meng             1)unify global and regional inline post interfaces
-!                                     2)add bug fix for dx/dy computation
-!                                     3)add reading pwat from FV3
-!                                     4)remove some variable initializations
-!                                     5)read max/min 2m T from tmax_max2m/tmin_min2m
-!                                       for GFS, and from t02max/min for RRFS
-!                                       and  HAFS.
-!                                     6)read 3D cloud fraction from cld_amt for GFDL MP,
-!                                       and from cldfra for other MPs.
-!     Jun 2022    J. Meng             2D decomposition
-!     Jul 2022    W. Meng             1)output lat/lon of four corner point for rotated
-!                                       lat-lon grid.
-!                                     2)read instant model top logwave
-!
-!-----------------------------------------------------------------------
-!*** run post on write grid comp
-!-----------------------------------------------------------------------
-!
       use ctlblk_mod, only : komax,ifhr,ifmin,modelname,datapd,fld_info, &
                              npset,grib,jsta,  &
                              jend,ista,iend, im, nsoil, filenameflat,numx
@@ -217,9 +231,13 @@ module post_fv3
       call post_finalize('grib2')
 
     end subroutine post_run_fv3
-!
-!-----------------------------------------------------------------------
-!
+
+    !> Subroutine to get attributes for post processing.
+    !>
+    !> @param[in] wrt_int_state write grid component internal state.
+    !> @param[in] grid_id id number of the output grid.
+    !>
+    !> @author Jun Wang @date Jul, 2019 
     subroutine post_getattr_fv3(wrt_int_state,grid_id)
 !
       use esmf
@@ -488,9 +506,15 @@ module post_fv3
       enddo !end nfb
 !
     end subroutine post_getattr_fv3
-!
-!-----------------------------------------------------------------------
-!
+
+    !> Subroutine to set post variables.
+    !>
+    !> @param[in] wrt_int_state write grid component internal state.
+    !> @param[in] grid_id id number of the output grid.
+    !> @param[in] mype MPI rank.
+    !> @param[in] mpicomp MPI communicator of the write grid component.
+    !>
+    !> @author Jun Wang @date Jul 2019 
     subroutine set_postvars_fv3(wrt_int_state,grid_id,mype,mpicomp)
 !
 !  revision history:
