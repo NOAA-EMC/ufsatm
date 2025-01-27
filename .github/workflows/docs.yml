@@ -1,11 +1,10 @@
 # This is a CI workflow for the fv3atm project.
 #
-# This workflow builds and tests the fv3atm library using GCC, and it tests
-# different CMake build options.
+# This workflow builds the fv3atm doxygen documentation.
 #
-# Alex Richert, 6 Dec 2023
+# Ed Hartnett, 1/9/25
 
-name: GCC
+name: docs
 on:
   push:
     branches:
@@ -21,7 +20,7 @@ jobs:
     strategy:
       matrix:
         gcc_ver: ["12"]
-        mpi: ["mpich", "openmpi"]
+        mpi: ["mpich"]
 
     steps:
         
@@ -62,20 +61,20 @@ jobs:
         echo "spackrc=$?" >> ${GITHUB_ENV}
         spack clean --all
 
-  build_fv3atm:
+  build_docs:
     needs: build_spack
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        cmake_opts: ["-D32BIT=ON", "-D32BIT=OFF"]
+        cmake_opts: ["-D32BIT=ON"]
         gcc_ver: ["12"]
-        mpi: ["mpich", "openmpi"]
+        mpi: ["mpich"]
 
     steps:
 
-    # Only do gcovr build for one job
-    - name: decide-gcovr-build
+    # Only do Doxygen and gcovr build for one job
+    - name: decide-doc-gcovr-build
       run: |
         if [[ "${{ matrix.cmake_opts }}" == "-D32BIT=ON" && "${{ matrix.gcc_ver }}" == 12 && "${{ matrix.mpi }}" == mpich ]]; then
           echo 'devbuild=ON' | tee -a ${GITHUB_ENV}
@@ -86,7 +85,7 @@ jobs:
 
     - name: install-utilities
       run: |
-        python3 -m pip install gcovr
+        sudo apt-get install doxygen graphviz
 
     - name: install-cmake
       run: |
@@ -107,7 +106,7 @@ jobs:
         path: ${{ github.workspace }}/spack-develop
         key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
 
-    - name: build-fv3atm
+    - name: docs-build
       run: |
         . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
         spack env activate gcc${{ matrix.gcc_ver }}
@@ -120,28 +119,16 @@ jobs:
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
-        make -j2
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_FV3ATM_DOCS=ON ${{ env.gcov_cmake }}
+        make doxygen_doc
 
-    - name: run-tests
-      run: |
-        cd $GITHUB_WORKSPACE/build
-        ctest -j2 --output-on-failure --rerun-failed
-
-    - name: get-test-coverage
-      if: ${{ env.devbuild == 'ON' }}
-      run: |
-        cd $GITHUB_WORKSPACE/build
-        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/fv3atm/tests --exclude $GITHUB_WORKSPACE/fv3atm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/fv3atm/build/ccpp --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/physics --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/framework --exclude $GITHUB_WORKSPACE/fv3atm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
-
-    - name: upload-test-coverage
+    - name: upload-docs
       uses: actions/upload-artifact@v4
       if: ${{ env.devbuild == 'ON' }}
       with:
-        name: test-coverage-fv3atm-${{ github.sha }}
+        name: docs-fv3atm
         path: |
-              ${{ github.workspace }}/build/*.html 
-              ${{ github.workspace }}/build/*.css
+          build/docs/html
 
     - name: debug-artifacts
       uses: actions/upload-artifact@v4
