@@ -1,3 +1,7 @@
+!> @file
+!> @brief Provides subroutines for grid bounding boxes for moving nest.
+!> @author W. Ramstrom (William.Ramstrom@noaa.gov), AOML/HRD  @date 07/28/2021
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -18,14 +22,9 @@
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
 
-!***********************************************************************
-!> @file
-!! @brief Provides subroutines for grid bounding boxes for moving nest
-!! @author W. Ramstrom, AOML/HRD  07/28/2021
-!! @email William.Ramstrom@noaa.gov
-!=======================================================================!
-
-
+!> @brief Provides subroutines for grid bounding boxes for moving nest.
+!>
+!> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
 module bounding_box_mod
   use mpp_domains_mod, only : mpp_get_C2F_index, nest_domain_type
   use mpp_mod,         only : mpp_pe
@@ -37,12 +36,16 @@ module bounding_box_mod
   use IPD_typedefs,      only : kind_phys => IPD_kind_phys
 #endif
 
-  ! Simple aggregation of the start and end indices of a 2D grid
-  ! Makes argument lists clearer to read
+  !> Simple aggregation of the start and end indices of a 2D grid.
+  !> Makes argument lists clearer to read.
   type bbox
-    integer :: is, ie, js, je
+    integer :: is !< ???
+    integer :: ie !< ???
+    integer :: js !< ???
+    integer :: je !< ???
   end type bbox
 
+  !< ???
   interface fill_bbox
     module procedure fill_bbox_r4_2d
     module procedure fill_bbox_r4_3d
@@ -54,6 +57,12 @@ module bounding_box_mod
 
 contains
 
+  !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_2d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:)
@@ -64,7 +73,12 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_2d
 
-
+  !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_3d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:,:)
@@ -75,6 +89,12 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_3d
 
+  !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_4d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:,:,:)
@@ -85,7 +105,12 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_4d
 
-
+  !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_2d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*8, allocatable, intent(in) :: in_grid(:,:)
@@ -96,6 +121,12 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_2d
 
+    !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_3d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*8, allocatable, intent(in) :: in_grid(:,:,:)
@@ -106,7 +137,12 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_3d
 
-
+  !> ???
+  !>
+  !> @param[out] out_bbox ???
+  !> @param[in] in_grid ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_4d(out_bbox, in_grid)
     type(bbox), intent(out)          :: out_bbox
     real*8, allocatable, intent(in)  :: in_grid(:,:,:,:)
@@ -117,9 +153,18 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_4d
 
-
-  !>@brief This subroutine returns the nest grid indices that correspond to the input nest domain, direction, and position
-  !>@details  Simplifies the call signature with the bbox type rather than 4 separate integers
+  !> This subroutine returns the nest grid indices that correspond to
+  !> the input nest domain, direction, and position 
+  !>
+  !> Simplifies the call signature with the bbox type rather than 
+  !> 4 separate integers.
+  !> @param[in] nest_domain ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine bbox_get_C2F_index(nest_domain, bbox_fine, bbox_coarse, direction,  position)
     implicit none
     type(nest_domain_type), intent(in)     :: nest_domain
