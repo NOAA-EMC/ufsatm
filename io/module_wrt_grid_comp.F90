@@ -1,31 +1,32 @@
-!-----------------------------------------------------------------------
-!
+!> @file 
+!> @brief Write grid component module.
+!> @author J. Wang/G. Theurich @date Jul, 2017
+
+!> @brief Write grid component.
+!>
+!> At initialization step, write grid is defined. The forecast field
+!> bundle is mirrored and output field information inside the field
+!> bundle is used to create ESMF field on the write grid and added in
+!> the output field bundle on write grid component. Also the IO_BaseTime
+!> is set to the initial clock time.
+!>
+!> At the run step, output time is set from the write grid comp clock
+!> the ESMF field bundles that contains the data on write grid are
+!> written out through ESMF field bundle write to netcdf files.
+!> The ESMF field bundle write uses parallel write, so if output grid
+!> is cubed sphere grid, the  six tiles file will be written out at
+!> same time.
+!>
+!> ## Module History
+!>
+!> Date | Programmer | Modification
+!> -----|------------|-------------
+!> Jul 2017 | J. Wang/G. Theurich | initial code for fv3 write grid component
+!> Mar 2018 | S  Moorthi | changing cfhour to accommodate up to 99999 hours
+!> Aug 2019 | J. Wang | add inline post
+!>
+!> @author Jun Wang @date Jul, 2019
     module module_wrt_grid_comp
-!
-!-----------------------------------------------------------------------
-!***  This module includes the functionality of write gridded component.
-!-----------------------------------------------------------------------
-!***  At initialization step, write grid is defined. The forecast field
-!***  bundle is mirrored and output field information inside the field
-!***  bundle is used to create ESMF field on the write grid and added in
-!***  the output field bundle on write grid component. Also the IO_BaseTime
-!***  is set to the initial clock time.
-!***  At the run step, output time is set from the write grid comp clock
-!***  the ESMF field bundles that contains the data on write grid are
-!***  written out through ESMF field bundle write to netcdf files.
-!***  The ESMF field bundle write uses parallel write, so if output grid
-!***  is cubed sphere grid, the  six tiles file will be written out at
-!***  same time.
-!-----------------------------------------------------------------------
-!***
-!***  Revision history
-!***
-!     Jul 2017:  J. Wang/G. Theurich  - initial code for fv3 write grid component
-!     Mar 2018:  S  Moorthi           - changing cfhour to accommodate up to 99999 hours
-!     Aug 2019:  J. Wang              - add inline post
-!
-!---------------------------------------------------------------------------------
-!
       use mpi_f08
       use esmf
       use fms, only : fms_init, fms_end, fms_mpp_uppercase, fms_mpp_error, FATAL
@@ -61,14 +62,16 @@
 !-----------------------------------------------------------------------
 !
 !
-      integer,save      :: lead_write_task                                !<-- Rank of the first write task in the write group
-      integer,save      :: last_write_task                                !<-- Rank of the last write task in the write group
-      integer,save      :: ntasks                                         !<-- # of write tasks in the current group
-      integer,save      :: itasks, jtasks                                 !<-- # of write tasks in i/j direction in the current group
-      integer,save      :: ngrids
+      integer,save      :: lead_write_task                                !< Rank of the first write task in the write group.
+      integer,save      :: last_write_task                                !< Rank of the last write task in the write group.
+      integer,save      :: ntasks                                         !< Number of write tasks in the current group.
+      integer,save      :: itasks                                         !< Number of write tasks in i direction in the current group.
+      integer,save      :: jtasks                                         !< Number of write tasks in j direction in the current group.
+      integer,save      :: ngrids                                         !< Number of output grids
 
-      type(MPI_Comm),save :: wrt_mpi_comm                                 !<-- the mpi communicator in the write comp
-      integer,save      :: idate(7), start_time(7)
+      type(MPI_Comm),save :: wrt_mpi_comm                                 !< The mpi communicator in the write comp.
+      integer,save      :: idate(7)                                       !< IO base time array
+      integer,save      :: start_time(7)                                  !< Experiment starting time
       logical,save      :: write_nsflip
       logical,save      :: change_wrtidate=.false.
       integer,save      :: frestart(999) = -1
@@ -77,16 +80,18 @@
 !
 !-----------------------------------------------------------------------
 !
-      type(ESMF_FieldBundle)           :: gridFB
-      integer                          :: FBCount
-      character(len=esmf_maxstr),allocatable    :: fcstItemNameList(:)
-      character(128)                            :: FBlist_outfilename(100)
-      logical                                   :: top_parent_is_global
+      type(ESMF_FieldBundle)           :: gridFB                          !< Temporary field bundle for axes information
+      integer                          :: FBCount                         !< Number of field bundles
+      character(len=esmf_maxstr),allocatable    :: fcstItemNameList(:)    !< Forecast item name list 
+      character(128)                            :: FBlist_outfilename(100) !< Output file name
+      logical                                   :: top_parent_is_global   !< Flag, .true. when the top partent domain is global
 !
 !-----------------------------------------------------------------------
-      REAL(KIND=8)             :: btim,btim0
-      REAL(KIND=8),PUBLIC,SAVE :: write_init_tim, write_run_tim
-      REAL(KIND=8), parameter  :: radi=180.0d0/pi
+      REAL(KIND=8)             :: btim                                    !< Begining time
+      REAL(KIND=8)             :: btim0                                   !< Begining time
+      REAL(KIND=8),PUBLIC,SAVE :: write_init_tim                          !< Write grid component initialization time
+      REAL(KIND=8),PUBLIC,SAVE :: write_run_tim                           !< Write grid component run time
+      REAL(KIND=8), parameter  :: radi=180.0d0/pi                         !< Radius
 !-----------------------------------------------------------------------
 !
       public SetServices
@@ -97,16 +102,19 @@
       end interface splat
 !
       type optimizeT
-        type(ESMF_State)                   :: state
-        type(ESMF_GridComp), allocatable   :: comps(:)
+        type(ESMF_State)                   :: state     !< ESMF state
+        type(ESMF_GridComp), allocatable   :: comps(:)  !< ESMF grid components
       end type
 
       contains
-!
-!-----------------------------------------------------------------------
-!#######################################################################
-!-----------------------------------------------------------------------
-!
+
+      !> NUOPC Interface to indicate the generic component being specialized
+      !>  and register any specialization points
+      !>
+      !> @param wrt_comp write grid component
+      !> @param rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine SetServices(wrt_comp, rc)
         type(ESMF_GridComp)  :: wrt_comp
         integer, intent(out) :: rc
@@ -134,11 +142,16 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       end subroutine SetServices
-!
-!-----------------------------------------------------------------------
-!#######################################################################
-!-----------------------------------------------------------------------
-!
+
+      !> Write grid component initialization phase 1
+      !>
+      !> @param wrt_comp Write grid component
+      !> @param imp_state_write Write grid component import state
+      !> @param exp_state_write Write grid component export state
+      !> @param clock ESMF clock for the write grid component
+      !> @param[out] rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine wrt_initialize_p1(wrt_comp, imp_state_write, exp_state_write, clock, rc)
 !
 !-----------------------------------------------------------------------
@@ -1429,17 +1442,17 @@
 !-----------------------------------------------------------------------
 !
       end subroutine wrt_initialize_p1
-!
-!-----------------------------------------------------------------------
-!#######################################################################
-!-----------------------------------------------------------------------
-!
+
+      !> Write grid component initialization phase 2
+      !>
+      !> @param wrt_comp Write grid component
+      !> @param imp_state_write Write grid component import state
+      !> @param exp_state_write Write grid component export state
+      !> @param clock ESMF clock for the write grid component
+      !> @param[out] rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine wrt_initialize_p2(wrt_comp, imp_state_write, exp_state_write, clock, rc)
-!
-!-----------------------------------------------------------------------
-!***  INITIALIZE THE WRITE GRIDDED COMPONENT.
-!-----------------------------------------------------------------------
-!
       type(esmf_GridComp)               :: wrt_comp
       type(ESMF_State)                  :: imp_state_write, exp_state_write
       type(esmf_Clock)                  :: clock
@@ -1526,20 +1539,18 @@
 
       enddo
 
-!-----------------------------------------------------------------------
-!
       end subroutine wrt_initialize_p2
-!
-!-----------------------------------------------------------------------
-!#######################################################################
-!-----------------------------------------------------------------------
-!
+
+      !> Write grid component initialization phase 3
+      !>
+      !> @param wrt_comp Write grid component
+      !> @param imp_state_write Write grid component import state
+      !> @param exp_state_write Write grid component export state
+      !> @param clock ESMF clock for the write grid component
+      !> @param[out] rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine wrt_initialize_p3(wrt_comp, imp_state_write, exp_state_write, clock, rc)
-!
-!-----------------------------------------------------------------------
-!***  INITIALIZE THE WRITE GRIDDED COMPONENT.
-!-----------------------------------------------------------------------
-!
       type(esmf_GridComp)               :: wrt_comp
       type(ESMF_State)                  :: imp_state_write, exp_state_write
       type(esmf_Clock)                  :: clock
@@ -1625,20 +1636,18 @@
 
       enddo
 
-!-----------------------------------------------------------------------
-!
       end subroutine wrt_initialize_p3
-!
-!-----------------------------------------------------------------------
-!#######################################################################
-!-----------------------------------------------------------------------
-!
+
+      !> Write grid component run phase
+      !>
+      !> @param wrt_comp Write grid component
+      !> @param imp_state_write Write grid component import state
+      !> @param exp_state_write Write grid component export state
+      !> @param clock ESMF clock for the write grid component
+      !> @param[out] rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine wrt_run(wrt_comp, imp_state_write, exp_state_write,clock,rc)
-!
-!-----------------------------------------------------------------------
-!***  the run step for the write gridded component.
-!-----------------------------------------------------------------------
-!
       type(ESMF_GridComp)            :: wrt_comp
       type(ESMF_State)               :: imp_state_write, exp_state_write
       type(ESMF_Clock)               :: clock
@@ -2462,26 +2471,18 @@
         write(*,'(A56,A,F10.5,A,I4.2,A,I2.2,1X,A)')'------- total',' write time is ',write_run_tim &
                  ,' at Fcst ',NF_HOURS,':',NF_MINUTES
       ENDIF
-!
-!-----------------------------------------------------------------------
-!
       END SUBROUTINE wrt_run
-!
-!-----------------------------------------------------------------------
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!-----------------------------------------------------------------------
-!
+
+      !> Write grid component finalize phase
+      !>
+      !> @param wrt_comp Write grid component
+      !> @param imp_state_write Write grid component import state
+      !> @param exp_state_write Write grid component export state
+      !> @param clock ESMF clock for the write grid component
+      !> @param[out] rc Return code.
+      !>
+      !> @author J. Wang/G. Theurich @date Jul, 2017        
       subroutine wrt_finalize(wrt_comp, imp_state_write, exp_state_write, clock, rc)
-!
-!-----------------------------------------------------------------------
-!***  finalize the write gridded component.
-!-----------------------------------------------------------------------
-!
-!***  HISTORY
-!       Feb 2017:  J. Wang  - deallocate for fv3
-!
-!-----------------------------------------------------------------------
-!
       type(ESMF_GridComp)            :: wrt_comp
       type(ESMF_State)               :: imp_state_write, exp_state_write
       type(ESMF_Clock)               :: clock
@@ -2512,13 +2513,14 @@
           line=__LINE__, file=__FILE__)) return
 
       call fms_end
-!
-!-----------------------------------------------------------------------
-!
     end subroutine wrt_finalize
-!
-!-----------------------------------------------------------------------
-!
+
+   !> Recover the fields interpolated through vector interpolation
+   !>
+   !> @param[in] file_bundle Field bundle
+   !> @param[out] rc Return code.
+   !>
+   !> @author J. Wang/G. Theurich @date Jul, 2017        
    subroutine recover_fields(file_bundle,rc)
 
      type(ESMF_FieldBundle), intent(in)              :: file_bundle
@@ -2755,9 +2757,13 @@
      rc = 0
 
    end subroutine recover_fields
-!
-!-----------------------------------------------------------------------
-!
+
+   !> Add undefined value mask to ESMF fields in an output file bundle
+   !>
+   !> @param[in] file_bundle Output field bundle
+   !> @param[out] rc Return code.
+   !>
+   !> @author J. Wang/G. Theurich @date Jul, 2017        
    subroutine mask_fields(file_bundle,rc)
 
      type(ESMF_FieldBundle), intent(in)              :: file_bundle
@@ -3012,10 +3018,29 @@
      rc = 0
 
    end subroutine mask_fields
-!
-!-----------------------------------------------------------------------
-!
 
+  !> ESMF prototype interface to write out tiled field bundles.
+  !>
+  !> Prototype multi-tile implementation for FieldBundleWrite().
+  !> Produces as many output files as there are tiles. The naming of the
+  !> output files is such that the string in the fileName argument is used
+  !> as the basis. If fileName ends with ".nc", then this suffix is replaced
+  !> by ".tileN.nc", where "N" is the tile number. If fileName does not
+  !> end in ".nc", then ".tileN.nc" will simply be appended.
+  !>
+  !> Restrictions: All Fields in the FieldBundle must have the same tileCount.
+  !>
+  !> @param[in] file_bundle Output ESMF field bundles
+  !> @param[in] fileName File name
+  !> @param[in] convention Convention of attribute package
+  !> @param[in] purpose Purpose of attribute package
+  !> @param[in] status ESMF file status flag
+  !> @param[in] timeslice Time slice
+  !> @param[in] state ESMF state
+  !> @param[in] comps ESMF grid component
+  !> @param[out] rc Return code.
+  !>
+  !> @author J. Wang/G. Theurich @date Jul, 2017        
   subroutine ESMFproto_FieldBundleWrite(fieldbundle, fileName, &
     convention, purpose, status, timeslice, state, comps, rc)
     type(ESMF_FieldBundle),     intent(in)              :: fieldbundle
@@ -3027,16 +3052,6 @@
     type(ESMF_State),           intent(inout), optional :: state
     type(ESMF_GridComp), allocatable, intent(inout), optional :: comps(:)
     integer,                    intent(out),   optional :: rc
-
-    ! Prototype multi-tile implementation for FieldBundleWrite().
-    ! Produces as many output files as there are tiles. The naming of the
-    ! output files is such that the string in the fileName argument is used
-    ! as the basis. If fileName ends with ".nc", then this suffix is replaced
-    ! by ".tileN.nc", where "N" is the tile number. If fileName does not
-    ! end in ".nc", then ".tileN.nc" will simply be appended.
-    !
-    ! Restrictions:
-    !   - All Fields in the FieldBundle must have the same tileCount
 
     integer                             :: i, j, ind
     integer                             :: fieldCount, tileCount, itemCount
@@ -3322,8 +3337,12 @@
 
   end subroutine ESMFproto_FieldBundleWrite
 
-  !-----------------------------------------------------------------------------
-
+  !> IO component set services
+  !>
+  !> @param[in] comp ESMF grid component
+  !> @param[out] rc Return code.
+  !>
+  !> @author J. Wang/G. Theurich @date Jul, 2017        
   subroutine ioCompSS(comp, rc)
     type(ESMF_GridComp)   :: comp
     integer, intent(out)  :: rc
@@ -3337,8 +3356,15 @@
 
   end subroutine
 
-  !-----------------------------------------------------------------------------
-
+  !> IO component run phase
+  !>
+  !> @param comp The ESMF grid component
+  !> @param importState Import state
+  !> @param exportState Export State
+  !> @param clock ESMF clock
+  !> @param[out] rc Return code.
+  !>
+  !> @author G. Theurich @date Jul, 2017        
   subroutine ioCompRun(comp, importState, exportState, clock, rc)
     use netcdf
 
@@ -3717,6 +3743,12 @@
 
   contains
 
+    !> Write out ungridded dimension attributes
+    !>
+    !> @param[in] dimLablel Dimension label
+    !> @param[out] rc Return code.
+    !>
+    !> @author G. Theurich @date Jul, 2017        
     subroutine write_out_ungridded_dim_atts(dimLabel, rc)
       character(len=*)      :: dimLabel
       integer, intent(out)  :: rc
@@ -3877,6 +3909,13 @@
       endif
     end subroutine write_out_ungridded_dim_atts
 
+    !> Write out ungridded dimension attributes from the ESMF fields
+    !>
+    !> @param[in] field ESMF field
+    !> @param[in] dimLabel Dimension label
+    !> @param[out] rc Return code.
+    !>
+    !> @author J. Wang/G. Theurich @date Jul, 2017        
     subroutine write_out_ungridded_dim_atts_from_field(field, dimLabel, rc)
 
       type(ESMF_Field),intent(in) :: field
@@ -4020,23 +4059,30 @@
 
   end subroutine ioCompRun
 
-  !-----------------------------------------------------------------------------
-
+  !> ESMF prototype to geta field on a single tile from a field on multitiles.
+  !>
+  !> Take in a field on a multi-tile grid and return a field that only
+  !> references a single tile.
+  !>
+  !> This routine only works with references, no data copies are being
+  !> made. The single tile field that is returned points to the original
+  !> field allocation.
+  !>
+  !> The original field passed in remains valid.
+  !>
+  !> @param[in] field ESMF field
+  !> @param[in] tile Tile number
+  !> @param[in] tileField ESMF field on the single tile
+  !> @param[in] petList PET list on the single tile
+  !> @param[out] rc Return code.
+  !>
+  !> @author G. Theurich @date Jul, 2017        
   subroutine ESMFproto_FieldMakeSingleTile(field, tile, tileField, petList, rc)
     type(ESMF_Field),     intent(in)              :: field
     integer,              intent(in)              :: tile
     type(ESMF_Field),     intent(out)             :: tileField
     integer, allocatable, intent(inout), optional :: petList(:)
     integer,              intent(out),   optional :: rc
-
-    ! Take in a field on a multi-tile grid and return a field that only
-    ! references a single tile.
-
-    ! This routine only works with references, no data copies are being
-    ! made. The single tile field that is returned points to the original
-    ! field allocation.
-
-    ! The original field passed in remains valid.
 
     type(ESMF_TypeKind_Flag)                :: typekind
     type(ESMF_StaggerLoc)                   :: staggerloc
@@ -4221,8 +4267,13 @@
 
   end subroutine ESMFproto_FieldMakeSingleTile
 
-!
-!-----------------------------------------------------------------------
+  !> Compute sine latitiude in real(4) from grid type
+  !>
+  !> @param[in] idrt Data representation type
+  !> @param[in] jmax Maximum on j-direction
+  !> @param[out] aslat SINE of latitude in real(4)
+  !>
+  !> @author J. Wang @date Jul, 2017        
   subroutine splat4(idrt,jmax,aslat)
 
       implicit none
@@ -4332,7 +4383,14 @@
       ENDIF
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      end subroutine splat4
-!----------------------------------------------------------------------
+
+     !> Compute sine latitiude in real(8) from grid type
+     !>
+     !> @param[in] idrt Data representation type
+     !> @param[in] jmax Maximum on j-direction
+     !> @param[out] aslat SINE of latitude in real(8)
+     !>
+     !> @author J. Wang @date Jul, 2017        
      subroutine splat8(idrt,jmax,aslat)
 !$$$
       implicit none
@@ -4441,8 +4499,17 @@
       ENDIF
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      end subroutine splat8
-!
-!
+
+   !> Compute geographical lat/lon from rotated lat/lon grid
+   !>
+   !> @param[in] tlmd Rotated Longitude
+   !> @param[in] tphd Rotated Latitude
+   !> @param[out] almd Geographical longitude
+   !> @param[out] aphd Geographical latitude
+   !> @param[in] tlm0d Central longitude
+   !> @param[in] tph0d Central latitude
+   !>
+   !> @author D. Jovic @date Jul, 2017        
    subroutine rtll(tlmd,tphd,almd,aphd,tlm0d,tph0d)
 !-------------------------------------------------------------------------------
       real(ESMF_KIND_R8), intent(in) :: tlmd, tphd
@@ -4493,12 +4560,21 @@
       return
 !
      end subroutine rtll
-!
-!-----------------------------------------------------------------------
-!
-     subroutine lambert(stlat1,stlat2,c_lat,c_lon,glon,glat,x,y,inv)
 
-!-------------------------------------------------------------------------------
+     !> Compute lambert comformal projection
+     !>
+     !> @param[in] stlat1 First standard parallel
+     !> @param[in] stlat2 Second standard parallel
+     !> @param[in] c_lat Central latitude
+     !> @param[in] c_lon Central longitude
+     !> @param[inout] glon Longitude
+     !> @param[inout] glat Latitude
+     !> @param[inout] x Lambert X coordinate
+     !> @param[inout] y Lambert Y coordinate
+     !> @param[in] inv Transformation indicator
+     !>
+     !> @author D. Jovic @date Jul, 2017        
+     subroutine lambert(stlat1,stlat2,c_lat,c_lon,glon,glat,x,y,inv)
       real(ESMF_KIND_R8),      intent(in)    :: stlat1,stlat2,c_lat,c_lon
       real(ESMF_KIND_R8),      intent(inout) :: glon, glat
       real(ESMF_KIND_R8),      intent(inout) :: x, y
@@ -4555,9 +4631,15 @@
 
       return
      end subroutine lambert
-!
-!-----------------------------------------------------------------------
-!
+
+     !> Get output file names
+     !>
+     !> @param[in] nfl Number of fields
+     !> @param[in] filename File name specified in each fiels
+     !> @param[inout] outfile_name Output file names
+     !> @param[inout] noutfile Number of output files
+     !>
+     !> @author J. Wang @date Jul, 2017        
      subroutine get_outfile(nfl, filename, outfile_name, noutfile)
        integer, intent(in)          :: nfl
        character(*), intent(in)     :: filename(:,:)
@@ -4594,6 +4676,11 @@
 
      end subroutine get_outfile
 
+     !> Trim the regridding interpolation method in a string suffix
+     !>
+     !> @param[in] string String with suffix
+     !>
+     !> @author J. Wang @date Jul, 2017        
      pure function trim_regridmethod_suffix(string) result(trimmed_string)
        character(len=*), intent(in) :: string
        character(len=:), allocatable :: trimmed_string
@@ -4606,6 +4693,12 @@
 
      end function trim_regridmethod_suffix
 
+     !> Trim the suffix from a string.
+     !>
+     !> @param[in] string String with suffix
+     !> @param[in] suffix Suffix string
+     !>
+     !> @author J. Wang @date Jul, 2017        
      pure function trim_suffix(string, suffix) result(trimmed_string)
        character(len=*), intent(in) :: string, suffix
        character(len=:), allocatable :: trimmed_string
@@ -4625,10 +4718,13 @@
        endif
 
      end function trim_suffix
-!
-!-----------------------------------------------------------------------
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!-----------------------------------------------------------------------
+
+     !> Print attribute list.
+     !>
+     !> @param[in] fb File Bundle
+     !> @param[out] rc Return code
+     !>
+     !> @author J. Wang @date Jul, 2017        
       subroutine print_att_list(fb, rc)
       type(ESMF_FieldBundle), intent(in) :: fb
       integer, intent(out) :: rc
@@ -4661,5 +4757,4 @@
       end subroutine print_att_list
 !
     end module  module_wrt_grid_comp
-!
-!-----------------------------------------------------------------------
+
