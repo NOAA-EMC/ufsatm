@@ -1,19 +1,35 @@
-!-----------------------------------------------------------------------
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!-----------------------------------------------------------------------
-!
-    subroutine post_alctvars(imi,jmi,lmi,mype,nwtlpes,lead_write, mpicomp,  &
-                             jts,jte,jtsgrp,jtegrp,its,ite,itsgrp,itegrp)
-!
-!
-!   revision history:
-!    Jul 2019 Jun Wang: allocate arrays for post processing
-!    Feb 2022 J. Meng/B. Cui: create interface to run inline post with post_2d_decomp
-!
-!-----------------------------------------------------------------------
-!*** allocate post variables
-!-----------------------------------------------------------------------
-!
+!> @file
+!> @brief Miscellaneous subroutines to support inline post.
+!> @author Jun Wang @date Oct 8, 2019 
+
+!> Allocate post variables.
+!>
+!> ## Subroutine History
+!>
+!> Date | Programmer | Modification
+!> -----|------------|-------------
+!> Jul 2019 | Jun Wang | allocate arrays for post processing
+!> Feb 2022 | J. Meng/B. Cui | create interface to run inline post with post_2d_decomp
+!>
+!> @param[in] imi i dimension size of the output grid.
+!> @param[in] jmi j dimension size of the output grid.
+!> @param[in] lmi l (layer) dimension size of the output grid.
+!> @param[in] mype MPI rank.
+!> @param[in] nwtlpes number of write tasks in the write group.
+!> @param[in] lead_write lead task of the write group.
+!> @param[in] mpicomp MPI communicator of the write grid component.
+!> @param[in] jts start index in j dimention in a task subdomain.
+!> @param[in] jte end index in j dimention in a task subdomain.
+!> @param[in] jtsgrp start index in j dimention of all write tasks.
+!> @param[in] jtegrp end index in j dimention of all write tasks.
+!> @param[in] its start index in i dimention in a task subdomain.
+!> @param[in] ite end index in j dimention in a task subdomain.
+!> @param[in] itsgrp start index in i dimention of all write tasks.
+!> @param[in] itegrp end idex in i dimention of all write tasks.
+!>
+!> @author Jun Wang @date Oct 8 2019 
+subroutine post_alctvars(imi,jmi,lmi,mype,nwtlpes,lead_write, mpicomp,  &
+     jts,jte,jtsgrp,jtegrp,its,ite,itsgrp,itegrp)
       use vrbls4d
       use vrbls3d
       use vrbls2d
@@ -215,11 +231,18 @@
        end do
       end do
     end subroutine post_alctvars
-!
-!---------------------------------------------------------------------
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!---------------------------------------------------------------------
-!
+
+  !> Read post namelist.
+  !>
+  !> @param[in] kpo number of pressure levels.
+  !> @param[in] kth number of isentropic levels.
+  !> @param[in] kpv number of potential vorticity levels.
+  !> @param[in] po pressure levels to output.
+  !> @param[in] th isentropic levels to output.
+  !> @param[in] pv potential vorticity levels to output.
+  !> @param[in] post_namelist post namelist array.
+  !>
+  !> @author Jun Wang @date Jul 2019
   subroutine read_postnmlt(kpo,kth,kpv,po,th,pv,post_namelist)
 !
       use ctlblk_mod, only : komax,fileNameD3D,lsm,lsmp1,spl,spldef,  &
@@ -228,10 +251,6 @@
                              isf_surface_physics,modelname,submodelname,&
                              rdaod,d2d_chem,nasa_on,gccpp_on
       use upp_ifi_mod, only: write_ifi_debug_files
-!
-!    revision history:
-!    Jul 2019 Jun Wang: read post namelist
-!
       implicit none
 !---
       character (len=*), intent(in) :: post_namelist
@@ -335,16 +354,13 @@
 1000  continue
 
       end subroutine read_postnmlt
-!
-!---------------------------------------------------------------------
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!---------------------------------------------------------------------
-!
+
+    !> Finalize post step.
+    !>
+    !> @param[in] post_gribversion grib version(1 or 2) used in post.
+    !>
+    !> @author Jun Wang @date Jul 2019
     subroutine post_finalize(post_gribversion)
-!
-!    revision history:
-!    Jul 2019 Jun Wang: finalize post step
-!
       use grib2_module, only : grib_info_finalize
 !
       character(*),intent(in) :: post_gribversion
