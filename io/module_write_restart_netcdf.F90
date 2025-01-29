@@ -9,8 +9,6 @@ module module_write_restart_netcdf
 
   use mpi_f08
   use esmf
-  use fms
-  use mpp_mod, only : mpp_chksum   ! needed for fms 2023.02
   use netcdf
   use module_fv3_io_def,only : zstandard_level
 
@@ -61,7 +59,7 @@ module module_write_restart_netcdf
     type(ESMF_DistGrid)                  :: distgrid
     character(len=ESMF_MAXSTR)           :: fldName
 
-    integer :: ncerr,ierr
+    integer :: ncerr, ierr
     integer :: ncid
     integer :: oldMode
     integer :: dimid, dimtype
@@ -69,7 +67,6 @@ module module_write_restart_netcdf
     integer :: im_varid, im_p1_varid, jm_varid, jm_p1_varid, time_varid
     integer, dimension(:), allocatable :: dimids_2d, dimids_3d, chunksizes
     integer, dimension(:), allocatable :: varids, zaxis_dimids
-    logical shuffle
 
     logical :: get_im_jm, found_im_jm
     logical :: is_cubed_sphere
@@ -169,13 +166,10 @@ module module_write_restart_netcdf
           if (is_cubed_sphere .and. nproc < 6) par = .false.
 
           allocate(rootPet(tileCount))
-          rootPet = -1
-          do t=1, deCount
-             if (deToTileMap(t) == my_tile) then
-                rootPet(my_tile) = t - 1
-                exit
-             end if
+          do t=1,tileCount
+             rootPet(t) = (t - 1) * nproc / tileCount
           end do
+
           im = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
           jm = maxIndexPTile(2,1) - minIndexPTile(2,1) + 1
           start_i = minIndexPDe(1,localDeToDeMap(1)+1)
@@ -206,17 +200,17 @@ module module_write_restart_netcdf
        end if
 
        if (fieldDimCount > gridDimCount) then
-         allocate(ungriddedLBound(fieldDimCount-gridDimCount))
-         allocate(ungriddedUBound(fieldDimCount-gridDimCount))
-         call ESMF_FieldGet(fcstField(i), &
-                            ungriddedLBound=ungriddedLBound, &
-                            ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
-         fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
-                     ungriddedLBound(fieldDimCount-gridDimCount) + 1
-         deallocate(ungriddedLBound)
-         deallocate(ungriddedUBound)
+          allocate(ungriddedLBound(fieldDimCount-gridDimCount))
+          allocate(ungriddedUBound(fieldDimCount-gridDimCount))
+          call ESMF_FieldGet(fcstField(i), &
+                             ungriddedLBound=ungriddedLBound, &
+                             ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
+          fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
+                      ungriddedLBound(fieldDimCount-gridDimCount) + 1
+          deallocate(ungriddedLBound)
+          deallocate(ungriddedUBound)
        else if (fieldDimCount == 2) then
-         fldlev(i) = 1
+          fldlev(i) = 1
        end if
 
     end do
@@ -418,7 +412,6 @@ module module_write_restart_netcdf
                                 name="checksum", value=field_checksum, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, varids(i), 'checksum', field_checksum); NC_ERR_STOP(ncerr)
 
-
          ncerr = nf90_def_var_chunking(ncid, varids(i), NF90_CHUNKED, chunksizes) ; NC_ERR_STOP(ncerr)
 
          if (zstandard_level(1) > 0) then
@@ -481,7 +474,6 @@ module module_write_restart_netcdf
 
          if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r4, rc=rc); ESMF_ERR_RETURN(rc)
-            ! write(field_checksum,'(Z16)') mpp_chksum(array_r4)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -500,7 +492,6 @@ module module_write_restart_netcdf
             end if
          else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
-            ! write(field_checksum,'(Z16)') mpp_chksum(array_r8)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -527,7 +518,6 @@ module module_write_restart_netcdf
 
          if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r4_3d, rc=rc); ESMF_ERR_RETURN(rc)
-            ! write(field_checksum,'(Z16)') mpp_chksum(array_r4_3d)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -555,7 +545,6 @@ module module_write_restart_netcdf
             end if
          else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r8_3d, rc=rc); ESMF_ERR_RETURN(rc)
-            ! write(field_checksum,'(Z16)') mpp_chksum(array_r8_3d)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -589,12 +578,6 @@ module module_write_restart_netcdf
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
       end if ! end rank
-
-      ! if (do_io) then
-      !    ncerr = nf90_redef(ncid=ncid); NC_ERR_STOP(ncerr)
-      !    ncerr = nf90_put_att(ncid, varids(i), 'checksum', field_checksum); NC_ERR_STOP(ncerr)
-      !    ncerr = nf90_enddef(ncid=ncid); NC_ERR_STOP(ncerr)
-      ! end if
 
     end do ! end fieldCount
 

@@ -81,7 +81,7 @@ contains
     real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_3d
     real(ESMF_KIND_R8), dimension(:,:,:,:), pointer :: array_r8_3d_cube
 
-    real(8), dimension(:), allocatable :: x,y
+    real(ESMF_KIND_R8), dimension(:), allocatable :: x,y
     integer :: fieldCount, fieldDimCount, gridDimCount
     integer, dimension(:), allocatable   :: ungriddedLBound, ungriddedUBound
     integer, dimension(:), allocatable   :: start_idx
@@ -97,11 +97,11 @@ contains
     character(len=ESMF_MAXSTR) :: attName, fldName
 
     integer :: varival
-    real(4) :: varr4val
-    real(8) :: varr8val
+    real(ESMF_KIND_R4) :: varr4val
+    real(ESMF_KIND_R8) :: varr8val
     character(len=ESMF_MAXSTR) :: varcval
 
-    integer :: ncerr,ierr
+    integer :: ncerr, ierr
     integer :: ncid
     integer :: oldMode
     integer :: dim_len
@@ -113,7 +113,7 @@ contains
     integer :: xtype
     integer :: quant_mode
     integer :: ishuffle
-    logical shuffle
+    logical :: shuffle
 
     logical :: is_cubed_sphere, is_cubed_sphere_tiled
     integer :: rank, deCount, localDeCount, dimCount, tileCount, tile_number
@@ -127,9 +127,8 @@ contains
 
     character(256) :: actualFileName
     integer :: idx
-    type(MPI_Comm)  :: io_comm
-    type(MPI_Comm)  :: dup_comm
-!
+    type(MPI_Comm) :: io_comm
+
     interface
       function nf_set_log_level(new_level) result(status)
         integer, intent(in) :: new_level
@@ -215,13 +214,10 @@ contains
           my_tile = deToTileMap(localDeToDeMap(1)+1)
 
           allocate(rootPet(tileCount))
-          rootPet = -1
-          do t=1, deCount
-             if (deToTileMap(t) == my_tile) then
-                rootPet(my_tile) = t - 1
-                exit
-             end if
+          do t=1,tileCount
+             rootPet(t) = (t - 1) * nproc / tileCount
           end do
+
           im = maxIndexPTile(1,1)
           jm = maxIndexPTile(2,1)
           start_i = minIndexPDe(1,localDeToDeMap(1)+1)
@@ -237,17 +233,17 @@ contains
        end if
 
        if (fieldDimCount > gridDimCount) then
-         allocate(ungriddedLBound(fieldDimCount-gridDimCount))
-         allocate(ungriddedUBound(fieldDimCount-gridDimCount))
-         call ESMF_FieldGet(fcstField(i), &
-                            ungriddedLBound=ungriddedLBound, &
-                            ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
-         fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
-                     ungriddedLBound(fieldDimCount-gridDimCount) + 1
-         deallocate(ungriddedLBound)
-         deallocate(ungriddedUBound)
+          allocate(ungriddedLBound(fieldDimCount-gridDimCount))
+          allocate(ungriddedUBound(fieldDimCount-gridDimCount))
+          call ESMF_FieldGet(fcstField(i), &
+                             ungriddedLBound=ungriddedLBound, &
+                             ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
+          fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
+                      ungriddedLBound(fieldDimCount-gridDimCount) + 1
+          deallocate(ungriddedLBound)
+          deallocate(ungriddedUBound)
        else if (fieldDimCount == 2) then
-         fldlev(i) = 1
+          fldlev(i) = 1
        end if
     end do
 
@@ -326,32 +322,31 @@ contains
 
        ! define coordinate variables
        if (metadata_as_fieldbundlewrite) then
-       ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, [im_dimid,jm_dimid], im_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, im_varid, "long_name", "T-cell longitude"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, im_varid, "units", "degrees_E"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, [im_dimid,jm_dimid], im_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "long_name", "T-cell longitude"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "units", "degrees_E"); NC_ERR_STOP(ncerr)
        else
-       ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, im_dimid, im_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, im_dimid, im_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
        end if
 
-
        if (metadata_as_fieldbundlewrite) then
-       ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, [im_dimid,jm_dimid], jm_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, jm_varid, "long_name", "T-cell latitude"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, jm_varid, "units", "degrees_N"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, [im_dimid,jm_dimid], jm_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "long_name", "T-cell latitude"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "units", "degrees_N"); NC_ERR_STOP(ncerr)
        else
-       ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, jm_dimid, jm_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, jm_dimid, jm_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
        end if
 
        if (lm > 1) then
-         call add_dim(ncid, "pfull", pfull_dimid, pfull_varid, wrtgrid, mype, rc)
-         call add_dim(ncid, "phalf", phalf_dimid, phalf_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "pfull", pfull_dimid, pfull_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "phalf", phalf_dimid, phalf_varid, wrtgrid, mype, rc)
        end if
        if (lsoil > 1) then
-         call add_dim(ncid, "zsoil", lsoil_dimid, lsoil_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "zsoil", lsoil_dimid, lsoil_varid, wrtgrid, mype, rc)
        end if
        if (is_cubed_sphere) then
           ncerr = nf90_def_dim(ncid, "tile", tileCount, tile_dimid); NC_ERR_STOP(ncerr)
@@ -361,7 +356,6 @@ contains
        end if
        call add_dim(ncid, "time", time_dimid, time_varid, wrtgrid, mype, rc)
        ncerr = nf90_def_dim(ncid, "nchars", 20, ch_dimid); NC_ERR_STOP(ncerr)
-
 
        if (is_cubed_sphere) then
           ncerr = nf90_def_var(ncid, "tile", NF90_INT, tile_dimid, tile_varid); NC_ERR_STOP(ncerr)
@@ -427,14 +421,10 @@ contains
 
        ! define variables (fields)
        if (is_cubed_sphere) then
-          ! allocate(dimids_2d(4))
-          ! allocate(dimids_3d(5), dimids_soil(5))
           dimids_2d =                  [im_dimid,jm_dimid,            tile_dimid,time_dimid]
           if (lm > 1) dimids_3d =      [im_dimid,jm_dimid,pfull_dimid,tile_dimid,time_dimid]
           if (lsoil > 1) dimids_soil = [im_dimid,jm_dimid,lsoil_dimid,tile_dimid,time_dimid]
        else
-          ! allocate(dimids_2d(3))
-          ! allocate(dimids_3d(4), dimids_soil(4))
           dimids_2d =                  [im_dimid,jm_dimid,                       time_dimid]
           if (lm > 1) dimids_3d =      [im_dimid,jm_dimid,pfull_dimid,           time_dimid]
           if (lsoil > 1) dimids_soil = [im_dimid,jm_dimid,lsoil_dimid,           time_dimid]
@@ -744,12 +734,9 @@ contains
 
        if (rank == 2) then
 
-         ! if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            ! allocate(start_idx(4))
             start_idx = [start_i,start_j,my_tile,1]
          else
-            ! allocate(start_idx(3))
             start_idx = [start_i,start_j,        1]
          end if
 
@@ -807,12 +794,9 @@ contains
 
       else if (rank == 3) then
 
-         ! if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            ! allocate(start_idx(5))
             start_idx = [start_i,start_j,1,my_tile,1]
          else
-            ! allocate(start_idx(4))
             start_idx = [start_i,start_j,1,        1]
          end if
 
@@ -882,12 +866,6 @@ contains
     if (.not. par) then
        deallocate(array_r8)
     end if
-
-    ! if (do_io) then
-    !    deallocate(dimids_2d)
-    !    deallocate(dimids_3d)
-    !    deallocate(dimids_soil)
-    ! end if
 
     deallocate(fcstField)
     deallocate(varids)
