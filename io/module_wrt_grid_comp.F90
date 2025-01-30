@@ -2351,7 +2351,6 @@
 
               if (tileCount == 6) then ! restart bundle is on cubed sphere
 #ifdef USE_ESMF_IO
-                if (mype == lead_write_task) write(0,*) trim(filename), " USE_ESMF_IO"
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &
                                                 status=ESMF_FILESTATUS_REPLACE,                &
@@ -2365,7 +2364,6 @@
                                                 comps=optimize(nbdl)%comps, rc=rc)
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
-                if (mype == lead_write_task) write(0,*) trim(filename), " new write_restart_netcdf"
                 call write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
                                           .false., wrt_mpi_comm, mype, &
                                           rc=rc)
@@ -2387,7 +2385,6 @@
                                  grid_id, rc=rc)
               else
 #ifdef USE_ESMF_IO
-                if (mype == lead_write_task) write(0,*) trim(filename), " USE_ESMF_IO"
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &
                                                 status=ESMF_FILESTATUS_REPLACE,                &
@@ -2403,7 +2400,6 @@
 
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
-                if (mype == lead_write_task) write(0,*) trim(filename), " new write_netcdf"
                 call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
                                  .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id, nc_file_type=NF90_64BIT_OFFSET, rc=rc)
