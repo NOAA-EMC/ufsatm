@@ -2349,25 +2349,32 @@
               call ESMF_GridGet(grid, tileCount=tileCount, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-              ! if (tileCount == 6) then ! restart bundle is on cubed sphere
-              !   call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
-              !                                   convention="NetCDF", purpose="FV3",            &
-              !                                   status=ESMF_FILESTATUS_REPLACE,                &
-              !                                   state=stateGridFB, comps=compsGridFB,rc=rc)
-              !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              if (tileCount == 6) then ! restart bundle is on cubed sphere
+#ifdef USE_ESMF_IO
+                if (mype == lead_write_task) write(0,*) trim(filename), " USE_ESMF_IO"
+                call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
+                                                convention="NetCDF", purpose="FV3",            &
+                                                status=ESMF_FILESTATUS_REPLACE,                &
+                                                state=stateGridFB, comps=compsGridFB,rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-              !   call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
-              !                                   filename=trim(filename), convention="NetCDF",  &
-              !                                   purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
-              !                                   timeslice=step, state=optimize(nbdl)%state,    &
-              !                                   comps=optimize(nbdl)%comps, rc=rc)
-              !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-              ! else
-                call  write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
-                                           .false., wrt_mpi_comm, mype, &
-                                           rc=rc)
-              ! endif ! cubed sphere vs. regional/nest write grid
+                call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
+                                                filename=trim(filename), convention="NetCDF",  &
+                                                purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
+                                                timeslice=step, state=optimize(nbdl)%state,    &
+                                                comps=optimize(nbdl)%comps, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#else
+                if (mype == lead_write_task) write(0,*) trim(filename), " new write_restart_netcdf"
+                call write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                          .false., wrt_mpi_comm, mype, &
+                                          rc=rc)
+#endif
+              else
+                call write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                          .false., wrt_mpi_comm, mype, &
+                                          rc=rc)
+              endif ! cubed sphere vs. regional/nest write grid
 
               restart_written = .true.
 
@@ -2379,24 +2386,28 @@
                                  .true., VM, wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id, rc=rc)
               else
+#ifdef USE_ESMF_IO
+                if (mype == lead_write_task) write(0,*) trim(filename), " USE_ESMF_IO"
+                call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
+                                                convention="NetCDF", purpose="FV3",            &
+                                                status=ESMF_FILESTATUS_REPLACE,                &
+                                                state=stateGridFB, comps=compsGridFB,rc=rc)
+
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+                call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
+                                                filename=trim(filename), convention="NetCDF",  &
+                                                purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
+                                                timeslice=step, state=optimize(nbdl)%state,    &
+                                                comps=optimize(nbdl)%comps, rc=rc)
+
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#else
+                if (mype == lead_write_task) write(0,*) trim(filename), " new write_netcdf"
                 call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
                                  .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id, nc_file_type=NF90_64BIT_OFFSET, rc=rc)
-
-                ! call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
-                !                                 convention="NetCDF", purpose="FV3",            &
-                !                                 status=ESMF_FILESTATUS_REPLACE,                &
-                !                                 state=stateGridFB, comps=compsGridFB,rc=rc)
-
-                ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-                ! call ESMFproto_FieldBundleWrite(wrt_int_state%wrtFB(nbdl),                     &
-                !                                 filename=trim(filename), convention="NetCDF",  &
-                !                                 purpose="FV3", status=ESMF_FILESTATUS_OLD,     &
-                !                                 timeslice=step, state=optimize(nbdl)%state,    &
-                !                                 comps=optimize(nbdl)%comps, rc=rc)
-
-                ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#endif
               end if
 
             else if (trim(output_grid(grid_id)) == 'gaussian_grid' .or. &
@@ -3023,6 +3034,7 @@
 !
 !-----------------------------------------------------------------------
 !
+#ifdef USE_ESMF_IO
   subroutine ESMFproto_FieldBundleWrite(fieldbundle, fileName, &
     convention, purpose, status, timeslice, state, comps, rc)
     type(ESMF_FieldBundle),     intent(in)              :: fieldbundle
@@ -4227,6 +4239,7 @@
     deallocate(deBlockList)
 
   end subroutine ESMFproto_FieldMakeSingleTile
+#endif
 !
 !-----------------------------------------------------------------------
   subroutine splat4(idrt,jmax,aslat)
