@@ -2381,7 +2381,7 @@
 
               if (trim(output_file(nnnn)) == 'netcdf_parallel') then
                 call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
-                                 .true., VM, wrt_mpi_comm, wrt_int_state%mype, &
+                                 .true., wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id, rc=rc)
               else
 #ifdef USE_ESMF_IO
@@ -2401,7 +2401,7 @@
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
                 call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
-                                 .false., VM, wrt_mpi_comm, wrt_int_state%mype, &
+                                 .false., wrt_mpi_comm, wrt_int_state%mype, &
                                  grid_id, nc_file_type=NF90_64BIT_OFFSET, rc=rc)
 #endif
               end if
@@ -2410,7 +2410,7 @@
                      trim(output_grid(grid_id)) == 'global_latlon') then
 
               call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
-                               use_parallel_netcdf, VM, wrt_mpi_comm, wrt_int_state%mype, &
+                               use_parallel_netcdf, wrt_mpi_comm, wrt_int_state%mype, &
                                grid_id, rc=rc)
 
             else if (trim(output_grid(grid_id)) == 'regional_latlon' .or.        &
@@ -2426,7 +2426,7 @@
               endif
 
               call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
-                                use_parallel_netcdf, VM, wrt_mpi_comm, wrt_int_state%mype, &
+                                use_parallel_netcdf, wrt_mpi_comm, wrt_int_state%mype, &
                                 grid_id, rc=rc)
 
             else ! unknown output_grid

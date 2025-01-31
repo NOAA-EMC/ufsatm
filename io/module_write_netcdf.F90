@@ -50,13 +50,12 @@ contains
   !>
   !> @author Dusan Jovic @date Nov 1, 2017
   subroutine write_netcdf(wrtfb, filename, &
-                          use_parallel_netcdf, VM, comm, mype, &
+                          use_parallel_netcdf, comm, mype, &
                           grid_id, nc_file_type, rc)
 !
     type(ESMF_FieldBundle), intent(in) :: wrtfb
     character(*), intent(in)           :: filename
     logical, intent(in)                :: use_parallel_netcdf
-    type(ESMF_VM), intent(in)          :: VM
     type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, intent(in)                :: grid_id
@@ -180,7 +179,7 @@ contains
        call ESMF_FieldGet(fcstField(i), dimCount=fieldDimCount, array=array, rc=rc); ESMF_ERR_RETURN(rc)
 
        if (fieldDimCount > 3) then
-          if (mype==0) write(0,*)"write_netcdf: Only 2D and 3D fields are supported!"
+          if (mype == 0) write(0,*)"write_netcdf: Only 2D and 3D fields are supported!"
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
 
@@ -218,8 +217,8 @@ contains
              rootPet(t) = (t - 1) * nproc / tileCount
           end do
 
-          im = maxIndexPTile(1,1)
-          jm = maxIndexPTile(2,1)
+          im = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
+          jm = maxIndexPTile(2,1) - minIndexPTile(2,1) + 1
           start_i = minIndexPDe(1,localDeToDeMap(1)+1)
           start_j = minIndexPDe(2,localDeToDeMap(1)+1)
           if (.not. par) then
@@ -230,6 +229,14 @@ contains
              start_i = mod(start_i, im)
              start_j = mod(start_j, jm)
           end if
+
+          deallocate(minIndexPDe)
+          deallocate(maxIndexPDe)
+          deallocate(minIndexPTile)
+          deallocate(maxIndexPTile)
+          deallocate(deToTileMap)
+          deallocate(localDeToDeMap)
+
        end if
 
        if (fieldDimCount > gridDimCount) then
@@ -249,7 +256,7 @@ contains
 
     ! For cubed sphere grid, number of i/o tasks must be divisible by 6
     if (is_cubed_sphere .and. mod(nproc,6) /= 0) then
-       if (mype==0) write(0,*)"write_netcdf: For cubed sphere grid, number of i/o tasks must be divisible by 6. nproc = ",nproc
+       if (mype == 0) write(0,*)"write_netcdf: For cubed sphere grid, number of i/o tasks must be divisible by 6. nproc = ",nproc
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
 
@@ -259,7 +266,7 @@ contains
     end if
 
     metadata_as_fieldbundlewrite = .false.
-    if (is_cubed_sphere_tiled .or. (trim(output_grid_name)=='cubed_sphere' .and. tileCount==1) ) then
+    if (is_cubed_sphere_tiled .or. (trim(output_grid_name) == 'cubed_sphere' .and. tileCount == 1) ) then
        metadata_as_fieldbundlewrite = .true.
     end if
 
@@ -277,7 +284,7 @@ contains
        allocate(array_r8(im,jm))
     end if
 
-    do_io = par .or. (mype==0)
+    do_io = par .or. (mype == 0)
 
     if (is_cubed_sphere_tiled) then
        do t=1, tileCount
@@ -445,7 +452,7 @@ contains
              dimids = dimids_3d
            endif
          else
-           if (mype==0) write(0,*)'Unsupported rank ', rank
+           if (mype == 0) write(0,*)'Unsupported rank ', rank
            call ESMF_Finalize(endflag=ESMF_END_ABORT)
          end if
 
@@ -454,7 +461,7 @@ contains
          else if (typekind == ESMF_TYPEKIND_R8) then
            xtype = NF90_DOUBLE
          else
-           if (mype==0) write(0,*)'Unsupported typekind ', typekind
+           if (mype == 0) write(0,*)'Unsupported typekind ', typekind
            call ESMF_Finalize(endflag=ESMF_END_ABORT)
          end if
 
@@ -508,7 +515,7 @@ contains
               else if (trim(quantize_mode(grid_id)) == 'quantize_bitround') then
                 quant_mode = 3
               else
-                if (mype==0) write(0,*)'Unknown quantize_mode ', trim(quantize_mode(grid_id))
+                if (mype == 0) write(0,*)'Unknown quantize_mode ', trim(quantize_mode(grid_id))
                 call ESMF_Finalize(endflag=ESMF_END_ABORT)
               endif
 
@@ -535,19 +542,19 @@ contains
               cycle
            end if
 
-           if (attTypeKind==ESMF_TYPEKIND_I4) then
+           if (attTypeKind == ESMF_TYPEKIND_I4) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varival, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
               ncerr = nf90_put_att(ncid, varids(i), trim(attName), varival); NC_ERR_STOP(ncerr)
 
-           else if (attTypeKind==ESMF_TYPEKIND_R4) then
+           else if (attTypeKind == ESMF_TYPEKIND_R4) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varr4val, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
               ncerr = nf90_put_att(ncid, varids(i), trim(attName), varr4val); NC_ERR_STOP(ncerr)
 
-           else if (attTypeKind==ESMF_TYPEKIND_R8) then
+           else if (attTypeKind == ESMF_TYPEKIND_R8) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varr8val, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
@@ -556,7 +563,7 @@ contains
                  ncerr = nf90_put_att(ncid, varids(i), trim(attName), varr8val); NC_ERR_STOP(ncerr)
               end if
 
-           else if (attTypeKind==ESMF_TYPEKIND_CHARACTER) then
+           else if (attTypeKind == ESMF_TYPEKIND_CHARACTER) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varcval, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
@@ -653,7 +660,7 @@ contains
              ncerr = nf90_put_var(ncid, im_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          if (mype==0) write(0,*)'unknown output_grid ', trim(output_grid_name)
+          if (mype == 0) write(0,*)'unknown output_grid ', trim(output_grid_name)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
     end if
@@ -710,7 +717,7 @@ contains
              ncerr = nf90_put_var(ncid, jm_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        else
-          if (mype==0) write(0,*)'unknown output_grid ', trim(output_grid_name)
+          if (mype == 0) write(0,*)'unknown output_grid ', trim(output_grid_name)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
     end if
@@ -856,7 +863,7 @@ contains
 
       else
 
-         if (mype==0) write(0,*)'Unsupported rank ', rank
+         if (mype == 0) write(0,*)'Unsupported rank ', rank
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
       end if ! end rank
@@ -913,7 +920,7 @@ contains
                              attnestflag=ESMF_ATTNEST_OFF, attributeIndex=i, name=attName, &
                              typekind=typekind, itemCount=itemCount, rc=rc); ESMF_ERR_RETURN(rc)
 
-      if (typekind==ESMF_TYPEKIND_I4) then
+      if (typekind == ESMF_TYPEKIND_I4) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attname), value=varival_i4, rc=rc); ESMF_ERR_RETURN(rc)
          ! FIXME Temporary hack while we are trying to create identical files as ESMF_FieldBundleWrite
@@ -928,7 +935,7 @@ contains
          ncerr = nf90_put_att(ncid, nf90_global, trim(attname), varival_i4); NC_ERR_STOP(ncerr)
          endif
 
-      else if (typekind==ESMF_TYPEKIND_I8) then
+      else if (typekind == ESMF_TYPEKIND_I8) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attname), value=varival_i8, rc=rc); ESMF_ERR_RETURN(rc)
          if (netcdf_file_type == NF90_64BIT_OFFSET) then
@@ -940,28 +947,28 @@ contains
             ncerr = nf90_put_att(ncid, nf90_global, trim(attname), varival_i8); NC_ERR_STOP(ncerr)
          end if
 
-      else if (typekind==ESMF_TYPEKIND_R4) then
+      else if (typekind == ESMF_TYPEKIND_R4) then
          allocate (varr4list(itemCount))
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), valueList=varr4list, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), varr4list); NC_ERR_STOP(ncerr)
          deallocate(varr4list)
 
-      else if (typekind==ESMF_TYPEKIND_R8) then
+      else if (typekind == ESMF_TYPEKIND_R8) then
          allocate (varr8list(itemCount))
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), valueList=varr8list, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), varr8list); NC_ERR_STOP(ncerr)
          deallocate(varr8list)
 
-      else if (typekind==ESMF_TYPEKIND_CHARACTER) then
+      else if (typekind == ESMF_TYPEKIND_CHARACTER) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), value=varcval, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), trim(varcval)); NC_ERR_STOP(ncerr)
 
       else
 
-         if (mype==0) write(0,*)'Unsupported typekind ', typekind
+         if (mype == 0) write(0,*)'Unsupported typekind ', typekind
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 
@@ -1006,20 +1013,20 @@ contains
                              attnestflag=ESMF_ATTNEST_OFF, attributeIndex=i, name=attName, &
                              typekind=typekind, itemCount=n, rc=rc); ESMF_ERR_RETURN(rc)
 
-      if (index(trim(attName), trim(prefix)//":")==1) then
+      if (index(trim(attName), trim(prefix)//":") == 1) then
          ind = len(trim(prefix)//":")
 
-         if (typekind==ESMF_TYPEKIND_I4) then
+         if (typekind == ESMF_TYPEKIND_I4) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varival, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varival); NC_ERR_STOP(ncerr)
 
-         else if (typekind==ESMF_TYPEKIND_R4) then
+         else if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varr4val, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varr4val); NC_ERR_STOP(ncerr)
 
-         else if (typekind==ESMF_TYPEKIND_R8) then
+         else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varr8val, rc=rc); ESMF_ERR_RETURN(rc)
             if (trim(attName) /= '_FillValue') then
@@ -1028,7 +1035,7 @@ contains
               ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varr8val); NC_ERR_STOP(ncerr)
             end if
 
-         else if (typekind==ESMF_TYPEKIND_CHARACTER) then
+         else if (typekind == ESMF_TYPEKIND_CHARACTER) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varcval, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), trim(varcval)); NC_ERR_STOP(ncerr)
@@ -1098,14 +1105,14 @@ contains
       ncerr = nf90_def_dim(ncid, trim(dim_name), n, dimid); NC_ERR_STOP(ncerr)
     end if
 
-    if (typekind==ESMF_TYPEKIND_R8) then
+    if (typekind == ESMF_TYPEKIND_R8) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_REAL8, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
-    else if (typekind==ESMF_TYPEKIND_R4) then
+    else if (typekind == ESMF_TYPEKIND_R4) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_REAL4, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
-    else if (typekind==ESMF_TYPEKIND_I4) then
+    else if (typekind == ESMF_TYPEKIND_I4) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_INT4, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
     else
-      if (mype==0) write(0,*)'Error in module_write_netcdf.F90(add_dim) unknown typekind for ',trim(dim_name)
+      if (mype == 0) write(0,*)'Error in module_write_netcdf.F90(add_dim) unknown typekind for ',trim(dim_name)
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
     if (par) then
@@ -1149,26 +1156,26 @@ contains
                            attnestflag=ESMF_ATTNEST_OFF, name=dim_name, &
                            typekind=typekind, itemCount=n, rc=rc); ESMF_ERR_RETURN(rc)
 
-    if (typekind==ESMF_TYPEKIND_R8) then
+    if (typekind == ESMF_TYPEKIND_R8) then
        allocate(valueListR8(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListR8, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListR8); NC_ERR_STOP(ncerr)
        deallocate(valueListR8)
-    else if (typekind==ESMF_TYPEKIND_R4) then
+    else if (typekind == ESMF_TYPEKIND_R4) then
        allocate(valueListR4(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListR4, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListR4); NC_ERR_STOP(ncerr)
        deallocate(valueListR4)
-    else if (typekind==ESMF_TYPEKIND_I4) then
+    else if (typekind == ESMF_TYPEKIND_I4) then
        allocate(valueListI4(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListI4, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListI4); NC_ERR_STOP(ncerr)
        deallocate(valueListI4)
     else
-       if (mype==0) write(0,*)'Error in module_write_netcdf.F90(write_dim) unknown typekind for ',trim(dim_name)
+       if (mype == 0) write(0,*)'Error in module_write_netcdf.F90(write_dim) unknown typekind for ',trim(dim_name)
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
 
