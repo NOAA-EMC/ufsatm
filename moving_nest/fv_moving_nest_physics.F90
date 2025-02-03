@@ -87,21 +87,21 @@ module fv_moving_nest_physics_mod
 
 #ifdef NO_QUAD_PRECISION
   ! 64-bit precision (kind=8)
-  integer, parameter:: f_p = selected_real_kind(15) !> ???
+  integer, parameter:: f_p = selected_real_kind(15) !< ???
 #else
   ! Higher precision (kind=16) for grid geometrical factors:
-  integer, parameter:: f_p = selected_real_kind(20) !> ???
+  integer, parameter:: f_p = selected_real_kind(20) !< ???
 #endif
 
 #ifdef OVERLOAD_R4
-  real, parameter:: real_snan=x'FFBFFFFF' !> ???
+  real, parameter:: real_snan=x'FFBFFFFF' !< ???
 #else
-  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !> ???
+  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !< ???
 #endif
 
-  logical :: debug_log = .false. !> ???
-  logical :: move_physics = .true.       !> Always true, unless developer sets move_physics to .False. here for debugging.
-  logical :: move_nsst = .true.          !> Value is reset in fv_moving_nest_main.F90 from namelist options
+  logical :: debug_log = .false. !< ???
+  logical :: move_physics = .true.       !< Always true, unless developer sets move_physics to .False. here for debugging.
+  logical :: move_nsst = .true.          !< Value is reset in fv_moving_nest_main.F90 from namelist options
 
   !! Persistent variables to enable debug printing after range warnings.
   !type (fv_atmos_type), pointer                 :: save_Atm_n
