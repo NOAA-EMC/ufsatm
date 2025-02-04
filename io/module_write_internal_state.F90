@@ -12,7 +12,8 @@ module write_internal_state
       implicit none
 !
 !-----------------------------------------------------------------------
-!
+
+      !> Output grid information.
       type output_grid_info
         integer :: im !< Output grid global I dimension size.
         integer :: jm !< Output grid global J dimension size.
@@ -37,6 +38,7 @@ module write_internal_state
         real    :: lonlast !< Output grid last longitude.
       end type output_grid_info
 
+      !> Internal state.
       type wrt_internal_state
 
 !--------------------------------
