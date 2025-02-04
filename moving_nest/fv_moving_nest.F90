@@ -798,14 +798,9 @@ contains
 
     if (use_timers) call mpp_clock_begin (id_load2)
 
-
-    !===========================================================
     !  Begin tile_geo per PE.
-    !===========================================================
 
-    !------------------------
     ! Grid Definitions
-    !------------------------
     !
     ! tile_geo - lat/lons on A-grid (cell centers) for nest, on data domain (includes halo) for each PE
     ! parent_geo - lat/lons of supergrid for parent

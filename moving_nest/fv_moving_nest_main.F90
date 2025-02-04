@@ -26,9 +26,7 @@ module fv_moving_nest_main_mod
 
 #include <fms_platform.h>
 
-  !-----------------
   ! FMS modules:
-  !-----------------
   use block_control_mod,      only: block_control_type
 #ifdef OVERLOAD_R4
   use constantsR4_mod,        only: cp_air, rdgas, grav, rvgas, kappa, pstd_mks
@@ -63,9 +61,7 @@ module fv_moving_nest_main_mod
   use multi_gases_mod,  only: virq, virq_max, num_gas, ri, cpi
 #endif
 
-  !-----------------
   ! FV core modules:
-  !-----------------
   use atmosphere_mod,     only: Atm, mygrid, p_split, dt_atmos
   use fv_arrays_mod,      only: fv_atmos_type, R_GRID, fv_grid_bounds_type, phys_diag_type
   use fv_control_mod,     only: ngrids
@@ -75,9 +71,7 @@ module fv_moving_nest_main_mod
   use fv_mp_mod,          only: is_master
   use fv_regional_mod,    only: start_regional_restart, read_new_bc_data, a_step, p_step, current_time_in_seconds
 
-  !-----------------------------------------
   !  External routines
-  !-----------------------------------------
   use mpp_domains_mod,    only: NORTH, NORTH_EAST, EAST, SOUTH_EAST, CORNER, CENTER
   use mpp_domains_mod,    only: nest_domain_type
   use mpp_mod,            only: mpp_sync, mpp_exit
@@ -91,9 +85,7 @@ module fv_moving_nest_main_mod
   use fv_io_mod,          only: fv_io_exit
   !!use fv_restart_mod,     only: d2c_setup
 
-  !------------------------------------
   !  Moving Nest Routines
-  !------------------------------------
 
   use fv_moving_nest_types_mod, only: allocate_fv_moving_nest_prog_type, allocate_fv_moving_nest_physics_type
   use fv_moving_nest_types_mod, only: deallocate_fv_moving_nests
@@ -134,7 +126,6 @@ module fv_moving_nest_main_mod
 
   implicit none
 
-  !-----------------------------------------------------------------------
   ! version number of this module
   ! Include variable "version" to be written to log file.
 #include<file_version.h>
@@ -569,7 +560,7 @@ contains
     integer, intent(in)                                     :: parent_grid_num, child_grid_num  !< Grid numbers
     real, intent(in)                                        :: dt_atmos              !< Timestep in seconds
 
-    !---- Moving Nest local variables  -----
+    ! Moving Nest local variables 
     integer                                        :: this_pe
     integer, pointer                               :: ioffset, joffset
     real, pointer, dimension(:,:,:)                :: grid, agrid
