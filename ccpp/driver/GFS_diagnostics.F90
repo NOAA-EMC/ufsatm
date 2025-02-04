@@ -3751,7 +3751,6 @@ module GFS_diagnostics
      ExtDiag(idx)%desc = 'volumetric soil moisture'
      ExtDiag(idx)%unit = 'fraction'
      ExtDiag(idx)%mod_name = 'gfs_sfc'
-     allocate (ExtDiag(idx)%data(nblks))
      do nb = 1,nblks
         ExtDiag(idx)%data(1)%var3 => sfcprop%smc(:,:)
      enddo
