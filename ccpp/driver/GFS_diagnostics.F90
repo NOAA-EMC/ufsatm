@@ -4346,9 +4346,8 @@ module GFS_diagnostics
       ExtDiag(idx)%desc = 'smoke emission'
       ExtDiag(idx)%unit = 'ug/m2/s'
       ExtDiag(idx)%mod_name = 'gfs_phys'
-      allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-       ExtDiag(idx)%data(nb)%var3 => Coupling%ebu_smoke(Model%chunk_begin(nb):Model%chunk_end(nb),:)
+         ExtDiag(idx)%data(1)%var3 => Coupling%ebu_smoke(:,:)
       enddo
 
       idx = idx + 1
