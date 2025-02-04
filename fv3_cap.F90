@@ -1,16 +1,20 @@
-!--------------- FV3 ATM solo model ----------------
-!
-!*** The FV3 atmosphere grid component nuopc cap
-!
-! Author:  Jun Wang@noaa.gov
-!
-! revision history
-! 11 Oct 2016: J. Wang          Initial code
-! 18 Apr 2017: J. Wang          set up fcst grid component and write grid components
-! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
-! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
-!
+!> @file
+!> @brief The FV3 atmosphere grid component nuopc cap.
+!> @author Jun Wang @date 01/2017
 
+!> @brief The FV3 atmosphere grid component nuopc cap.
+!>
+!> FV3 ATM solo model
+!>
+!> ## Module History
+!> Date | Author | Modification
+!> -----|--------|-------------
+!> 11 Oct 2016 | J. Wang | Initial code
+!> 18 Apr 2017 | J. Wang | set up fcst grid component and write grid components
+!> 24 Jul 2017 | J. Wang | initialization and time stepping changes for coupling
+!> 02 Nov 2017 | J. Wang | Use Gerhard's transferable RouteHandle
+!>
+!> @author Jun Wang @date 01/2017
 module fv3atm_cap_mod
 
   use ESMF
@@ -53,42 +57,74 @@ module fv3atm_cap_mod
   implicit none
   private
   public SetServices
-!
-!-----------------------------------------------------------------------
-!
 
+  !> ???
   type(ESMF_GridComp)                         :: fcstComp
+
+  !> ???
   type(ESMF_State)                            :: fcstState
+
+  !> ???
   type(ESMF_FieldBundle), allocatable         :: fcstFB(:)
+
+  !> ???
   integer,dimension(:), allocatable           :: fcstPetList
+
+  !> ???
   integer, save                               :: FBCount
 
+  !> ???
   type(ESMF_GridComp),    allocatable         :: wrtComp(:)
+
+  !> ???
   type(ESMF_State),       allocatable         :: wrtState(:)
+
+  !> ???
   type(ESMF_FieldBundle), allocatable         :: wrtFB(:,:)
 
+  !> ???
   type(ESMF_RouteHandle), allocatable         :: routehandle(:,:)
+
+  !> ???
   type(ESMF_RouteHandle), allocatable         :: gridRedistRH(:,:)
+
+  !> ???
   type(ESMF_Grid), allocatable                :: srcGrid(:,:), dstGrid(:,:)
+
+  !> ???
   logical, allocatable                        :: is_moving_FB(:)
 
+  !> ???
   logical                                     :: profile_memory = .true.
+
+  !> ???
   logical                                     :: write_runtimelog = .false.
+
+  !> ???
   logical                                     :: lprint = .false.
 
+  !> ???
   integer                                     :: mype = -1
+
+  !> ???
   integer                                     :: dbug = 0
+
+  !> ???
   integer                                     :: frestart(999) = -1
 
+  !> ???
   real(kind=8)                                :: timere, timep2re
-!-----------------------------------------------------------------------
 
   contains
 
-!-----------------------------------------------------------------------
-!------------------- Solo fv3atm code starts here ----------------------
-!-----------------------------------------------------------------------
+! Solo fv3atm code starts here
 
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine SetServices(gcomp, rc)
 
     type(ESMF_GridComp)  :: gcomp
@@ -167,8 +203,12 @@ module fv3atm_cap_mod
 
   end subroutine SetServices
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine InitializeAdvertise(gcomp, rc)
 
     type(ESMF_GridComp)                    :: gcomp
@@ -220,9 +260,7 @@ module fv3atm_cap_mod
     integer                                :: sloc
     type(ESMF_StaggerLoc)                  :: staggerloc
     character(len=20)                      :: cvalue
-!
-!------------------------------------------------------------------------
-!
+
     rc = ESMF_SUCCESS
     timeis = MPI_Wtime()
 
@@ -330,7 +368,6 @@ module fv3atm_cap_mod
        endif
     end if
 
-!------------------------------------------------------------------------
 ! get config variables
 !
     CF = ESMF_ConfigCreate(rc=rc)
@@ -406,12 +443,9 @@ module fv3atm_cap_mod
     first_kdt = 1
     if( mype == 0) lprint = .true.
 !
-!#######################################################################
 ! set up fcst grid component
 !
-!----------------------------------------------------------------------
 !*** create fv3 atm tasks and quilt servers
-!-----------------------------------------------------------------------
 !
 ! create fcst grid component
 
@@ -487,9 +521,7 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 !
-!-----------------------------------------------------------------------
 !***  create and initialize Write component(s).
-!-----------------------------------------------------------------------
 !
     if( quilting ) then
 
@@ -861,27 +893,24 @@ module fv3atm_cap_mod
       deallocate(originPetList)
       deallocate(targetPetList)
 !
-!---------------------------------------------------------------------------------
-!---  set up output forecast time array
+! set up output forecast time array
 !
-!--- get current forecast length
+! get current forecast length
       if(iau_offset > 0) then
         output_startfh = iau_offset
       endif
       if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,' iau_offset=',iau_offset
 !
-!-----------------------------------------------------------------------
 !***  SET THE FIRST WRITE GROUP AS THE FIRST ONE TO ACT.
-!-----------------------------------------------------------------------
 !
       n_group = 1
 !
 !end quilting
     endif
 !
-!-- set up output forecast time if output_fh is specified
+! set up output forecast time if output_fh is specified
     if (noutput_fh > 0 ) then
-!--- use output_fh to sepcify output forecast time
+! use output_fh to sepcify output forecast time
       loutput_fh = .true.
       lflname_fulltime = .false.
       if(noutput_fh == 1) then
@@ -964,7 +993,7 @@ module fv3atm_cap_mod
       enddo
     endif
 
-    ! --- advertise Fields in importState and exportState -------------------
+    ! advertise Fields in importState and exportState 
 
 ! call fcst Initialize (advertise phase)
     call ESMF_GridCompInitialize(fcstComp, importState=importState, exportState=exportState, &
@@ -974,12 +1003,15 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, init time=',MPI_Wtime()-timeis,mype
-!-----------------------------------------------------------------------
 !
   end subroutine InitializeAdvertise
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine InitializeRealize(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
@@ -999,7 +1031,7 @@ module fv3atm_cap_mod
     call NUOPC_ModelGet(gcomp, driverClock=clock, importState=importState, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    ! --- conditionally realize or remove Fields in importState and exportState -------------------
+    ! conditionally realize or remove Fields in importState and exportState 
 
     ! call fcst Initialize (realize phase)
     call ESMF_GridCompInitialize(fcstComp, importState=importState, exportState=exportState, &
@@ -1015,15 +1047,17 @@ module fv3atm_cap_mod
 
   end subroutine InitializeRealize
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine ModelAdvance(gcomp, rc)
 
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
     real(kind=8)                :: MPI_Wtime, timers
-
-!-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
     timers = MPI_Wtime()
@@ -1044,8 +1078,12 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine ModelAdvance_phase1(gcomp, rc)
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
@@ -1057,8 +1095,6 @@ module fv3atm_cap_mod
     character(len=*),parameter  :: subname='(fv3_cap:ModelAdvance_phase1)'
     character(240)              :: msgString
     real(kind=8)                :: MPI_Wtime, timep1rs, timep1re
-
-!-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
     timep1rs = MPI_Wtime()
@@ -1099,8 +1135,12 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance_phase1
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine ModelAdvance_phase2(gcomp, rc)
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
@@ -1125,7 +1165,6 @@ module fv3atm_cap_mod
 
     character(len=ESMF_MAXSTR)  :: fb_name
     type(ESMF_Info)             :: info
-!-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
     timep2rs = MPI_Wtime()
@@ -1145,7 +1184,6 @@ module fv3atm_cap_mod
     call ESMF_ClockAdvance(clock_out, rc = RC)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-!-------------------------------------------------------------------------------
 !*** if it is output time, call data transfer and write grid comp run
     if( quilting ) then
 
@@ -1254,8 +1292,12 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance_phase2
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine ModelSetRunClock(gcomp, rc)
 
     type(ESMF_GridComp)         :: gcomp
@@ -1265,8 +1307,6 @@ module fv3atm_cap_mod
     type(ESMF_Clock)            :: dclock, mclock
     type(ESMF_TimeInterval)     :: dtimestep, mtimestep
     type(ESMF_Time)             :: mcurrtime, mstoptime
-
-!-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
 
@@ -1288,8 +1328,12 @@ module fv3atm_cap_mod
 
   end subroutine ModelSetRunClock
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine fv3_checkimport(gcomp, rc)
 
 !***  Check the import state fields
@@ -1377,8 +1421,12 @@ module fv3atm_cap_mod
 
   end subroutine fv3_checkimport
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine TimestampExport_phase1(gcomp, rc)
 
     ! input arguments
@@ -1407,8 +1455,12 @@ module fv3atm_cap_mod
 
   end subroutine TimestampExport_phase1
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !>
+  !> @param[in] gcomp ???
+  !> @param[out] rc Return code.
+  !>
+  !> @author
   subroutine ModelFinalize(gcomp, rc)
 
     ! input arguments
@@ -1421,7 +1473,6 @@ module fv3atm_cap_mod
     type(ESMF_VM)              :: vm
     real(kind=8)               :: MPI_Wtime, timeffs
 !
-!-----------------------------------------------------------------------------
 !*** finialize forecast
 
     rc = ESMF_SUCCESS
@@ -1462,6 +1513,5 @@ module fv3atm_cap_mod
 
   end subroutine ModelFinalize
 !
-!-----------------------------------------------------------------------------
 
 end module fv3atm_cap_mod
