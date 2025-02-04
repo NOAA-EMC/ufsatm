@@ -1,3 +1,7 @@
+!> @file
+!> @brief Provides subroutines to enable moving nest functionality in FV3 dynamic core.
+!> @author W. Ramstrom (William.Ramstrom@noaa.gov), AOML/HRD @date 01/15/2021
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -18,12 +22,6 @@
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
 
-!***********************************************************************
-!> @file
-!! @brief   Provides subroutines to enable moving nest functionality in FV3 dynamic core.
-!! @author W. Ramstrom, AOML/HRD   01/15/2021
-!! @email William.Ramstrom@noaa.gov
-! =======================================================================!
 
 module fv_moving_nest_utils_mod
 
@@ -86,6 +84,7 @@ module fv_moving_nest_utils_mod
 
   implicit none
 
+  !> ???
 #ifdef NO_QUAD_PRECISION
   ! 64-bit precision (kind=8)
   integer, parameter:: f_p = selected_real_kind(15)
@@ -94,10 +93,10 @@ module fv_moving_nest_utils_mod
   integer, parameter:: f_p = selected_real_kind(20)
 #endif
 
-  integer, parameter :: UWIND = 1
-  integer, parameter :: VWIND = 2
+  integer, parameter :: UWIND = 1 !< ???
+  integer, parameter :: VWIND = 2 !< ???
 
-  logical :: debug_log = .false.
+  logical :: debug_log = .false. !< ???
 
 
 #include <fms_platform.h>
@@ -177,7 +176,14 @@ contains
   !                                             S (i-1,j+1) +
   !                                             S (i-1,j-1) )
 
-
+  !> ???
+  !>
+  !> @param[in] data_var ???
+  !> @param[in] i ???
+  !> @param[in] j ???
+  !> @param[out] val ???
+  !>
+  !> @author
   subroutine smooth_5_point(data_var, i, j, val)
     real, allocatable, intent(in)               :: data_var(:,:)
     integer                                     :: i,j
@@ -193,7 +199,14 @@ contains
 
   end subroutine smooth_5_point
 
-
+  !> ???
+  !>
+  !> @param[in] data_var ???
+  !> @param[in] i ???
+  !> @param[in] j ???
+  !> @param[out] val ???
+  !>
+  !> @author
   subroutine smooth_9_point(data_var, i, j, val)
     real, allocatable, intent(in)               :: data_var(:,:)
     integer                                     :: i,j
@@ -213,6 +226,18 @@ contains
   ! blend_size is 5 for static nests.  We may increase it for moving nests.
   !  This is only called for fine PEs.
   !  Blends a few points into the nest.  Calls zs filtering if enabled in namelist.
+
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] parent_orog_grid Coarse grid orography
+  !> @param[in] nest_orog_grid Orography for the full panel of the parent, at high-resolution
+  !> @param[in] refine ???
+  !> @param[in] halo_size ???
+  !> @param[in] blend_size ???
+  !> @param[in] a_step ???
+  !>
+  !> @author
   subroutine set_blended_terrain(Atm, parent_orog_grid, nest_orog_grid, refine, halo_size, blend_size, a_step)
     type(fv_atmos_type), intent(inout), target :: Atm
     real, allocatable, intent(in)              :: parent_orog_grid(:,:)   ! Coarse grid orography
@@ -295,6 +320,16 @@ contains
 
   end subroutine set_blended_terrain
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] fp_orog Orography for the full panel of the parent, at high-resolution
+  !> @param[in] refine ???
+  !> @param[in] num_points ???
+  !> @param[in] halo_size ???
+  !> @param[in] blend_size ???
+  !>
+  !> @author
   subroutine set_smooth_nest_terrain(Atm, fp_orog, refine, num_points, halo_size, blend_size)
     type(fv_atmos_type), intent(inout) :: Atm
     real, allocatable, intent(in)      :: fp_orog(:,:)   ! orography for the full panel of the parent, at high-resolution
@@ -360,12 +395,22 @@ contains
 
   end subroutine set_smooth_nest_terrain
 
-  !==================================================================================================
-  !
   !  Fill Nest Halos from Parent
-  !
-  !==================================================================================================
 
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r4_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
     character(len=*), intent(in)                :: var_name
     real*4, allocatable, intent(inout)          :: data_var(:,:)
@@ -387,11 +432,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -403,11 +444,7 @@ contains
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind)
@@ -423,7 +460,20 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_2d
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r8_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:)
@@ -446,11 +496,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -462,11 +508,7 @@ contains
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind)
@@ -482,7 +524,23 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r8_2d
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !> @param[in] mask_var ???
+  !> @param[in] mask_val ???
+  !> @param[in] default_val ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_masked(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, mask_var, mask_val, default_val)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:)
@@ -507,11 +565,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -523,11 +577,7 @@ contains
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer_masked(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
       call fill_nest_from_buffer_masked(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
@@ -543,7 +593,21 @@ contains
 
   end subroutine fill_nest_halos_from_parent_masked
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r4_3d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     character(len=*), intent(in)                :: var_name
     real*4, allocatable, intent(inout)          :: data_var(:,:,:)
@@ -565,11 +629,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position, nz)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position, nz)
@@ -581,11 +641,7 @@ contains
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -601,7 +657,21 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_3d
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r8_3d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:,:)
@@ -623,11 +693,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position, nz)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position, nz)
@@ -639,11 +705,7 @@ contains
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -659,7 +721,21 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r8_3d
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r4_4d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     character(len=*), intent(in)                :: var_name
     real*4, allocatable, intent(inout)          :: data_var(:,:,:,:)
@@ -681,11 +757,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     n4d = ubound(data_var, 4)
 
@@ -694,21 +766,15 @@ contains
     call alloc_halo_buffer(ebuffer, east_fine,  east_coarse,  nest_domain, EAST,   position, nz, n4d)
     call alloc_halo_buffer(wbuffer, west_fine,  west_coarse,  nest_domain, WEST,   position, nz, n4d)
 
-    !====================================================
     ! Passes data from coarse grid to fine grid's halo
     ! Coarse parent PEs send data from data_var
     ! Fine halo PEs receive data into one or more of the halo buffers
-    !====================================================
 
     call mpp_update_nest_fine(data_var, nest_domain, wbuffer, sbuffer, ebuffer, nbuffer, nest_level, position=position)
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -724,7 +790,21 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_4d
 
-
+  !> ???
+  !>
+  !> @param[in] var_name ???
+  !> @param[inout] data_var ???
+  !> @param[in] interp_type ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] is_fine_pe ???
+  !> @param[inout] nest_domain ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r8_4d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:,:,:)
@@ -746,11 +826,7 @@ contains
 
     this_pe = mpp_pe()
 
-    !!===========================================================
-    !!
     !! Fill halo buffers
-    !!
-    !!===========================================================
 
     n4d = ubound(data_var, 4)
 
@@ -759,21 +835,15 @@ contains
     call alloc_halo_buffer(ebuffer, east_fine,  east_coarse,  nest_domain, EAST,   position, nz, n4d)
     call alloc_halo_buffer(wbuffer, west_fine,  west_coarse,  nest_domain, WEST,   position, nz, n4d)
 
-    !====================================================
     ! Passes data from coarse grid to fine grid's halo
     ! Coarse parent PEs send data from data_var
     ! Fine halo PEs receive data into one or more of the halo buffers
-    !====================================================
 
     call mpp_update_nest_fine(data_var, nest_domain, wbuffer, sbuffer, ebuffer, nbuffer, nest_level, position=position)
 
     if (is_fine_pe) then
 
-      !!===========================================================
-      !!
       !! Apply halo data
-      !!
-      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -790,12 +860,18 @@ contains
   end subroutine fill_nest_halos_from_parent_r8_4d
 
 
-  !==================================================================================================
-  !
   !  Allocate halo buffers
-  !
-  !==================================================================================================
 
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r8_2d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position)
     real*8, dimension(:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                          :: bbox_fine, bbox_coarse
@@ -815,7 +891,16 @@ contains
 
   end subroutine alloc_halo_buffer_r8_2d
 
-
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r4_2d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position)
     real*4, dimension(:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                          :: bbox_fine, bbox_coarse
@@ -835,7 +920,17 @@ contains
 
   end subroutine alloc_halo_buffer_r4_2d
 
-
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r4_3d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position, nz)
     real*4, dimension(:,:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                            :: bbox_fine, bbox_coarse
@@ -856,7 +951,17 @@ contains
 
   end subroutine alloc_halo_buffer_r4_3d
 
-
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r8_3d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position, nz)
     real*8, dimension(:,:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                            :: bbox_fine, bbox_coarse
@@ -876,7 +981,18 @@ contains
 
   end subroutine alloc_halo_buffer_r8_3d
 
-
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !> @param[in] n4d ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r4_4d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position, nz, n4d)
     real*4, dimension(:,:,:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                              :: bbox_fine, bbox_coarse
@@ -896,7 +1012,18 @@ contains
 
   end subroutine alloc_halo_buffer_r4_4d
 
-
+  !> ???
+  !>
+  !> @param[out] buffer ???
+  !> @param[out] bbox_fine ???
+  !> @param[out] bbox_coarse ???
+  !> @param[in] nest_domain ???
+  !> @param[in] direction ???
+  !> @param[in] position ???
+  !> @param[in] nz ???
+  !> @param[in] n4d ???
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r8_4d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position, nz, n4d)
     real*8, dimension(:,:,:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                              :: bbox_fine, bbox_coarse
@@ -916,17 +1043,27 @@ contains
 
   end subroutine alloc_halo_buffer_r8_4d
 
-
-  !==================================================================================================
-  !
   !  Load static data from netCDF files
-  !
-  !==================================================================================================
 
   ! Load the full panel nest latlons from netCDF file
   ! character(*), parameter      :: nc_filename = '/scratch2/NAGAPE/aoml-hafs1/William.Ramstrom/static_grids/C384_grid.tile6.nc'
   ! Read in the lat/lon in degrees, convert to radians
 
+  !> ???
+  !>
+  !> @param[in] nc_filename ???
+  !> @param[in] nxp ???
+  !> @param[in] nyp ???
+  !> @param[in] nzp ???
+  !> @param[in] refine ???
+  !> @param[in] pelist ???
+  !> @param[inout] fp_tile_geo ???
+  !> @param[out] fp_istart_fine ???
+  !> @param[out]] fp_iend_fine ???
+  !> @param[out] fp_jstart_fine ???
+  !> @param[out] fp_jend_fine ???
+  !>
+  !> @author
   subroutine load_nest_latlons_from_nc(nc_filename, nxp, nyp, refine, pelist, &
       fp_tile_geo, fp_istart_fine, fp_iend_fine, fp_jstart_fine, fp_jend_fine)
     implicit none
@@ -937,15 +1074,11 @@ contains
     type(grid_geometry), intent(inout)    :: fp_tile_geo
     integer, intent(out)                  :: fp_istart_fine, fp_iend_fine, fp_jstart_fine, fp_jend_fine
 
-    !========================================================================================
-    !
     !  Determine which tile this PE is operating on
     !  Load the lat/lon data from netCDF file
     !  If fine nest, also determine the parent tile
     !  load the lat/lon data from that tile
     !  This code will only operate for nest motion within a single tile
-    !
-    !========================================================================================
 
     !  read lat/lon for this tile
     !  lat is y from grid file
@@ -1029,6 +1162,17 @@ contains
   end subroutine load_nest_latlons_from_nc
 
 #ifdef OVERLOAD_R8
+  !> ???
+  !>
+  !> @param[in] nc_filename ???
+  !> @param[in] var_name ???
+  !> @param[in] x_size ???
+  !> @param[in] y_size ???
+  !> @param[inout] data_array ???
+  !> @param[in] pes ???
+  !> @param[in] time ???
+  !>
+  !> @author
   subroutine alloc_read_data_r4_2d(nc_filename, var_name, x_size, y_size, data_array, pes, time)
     character(len=*), intent(in)           :: nc_filename, var_name
     integer, intent(in)                    :: x_size, y_size
@@ -1069,6 +1213,17 @@ contains
   end subroutine alloc_read_data_r4_2d
 #endif
 
+  !> ???
+  !>
+  !> @param[in] nc_filename ???
+  !> @param[in] var_name ???
+  !> @param[in] x_size ???
+  !> @param[in] y_size ???
+  !> @param[inout] data_array ???
+  !> @param[in] pes ???
+  !> @param[in] time ???
+  !>
+  !> @author
   subroutine alloc_read_data_r8_2d(nc_filename, var_name, x_size, y_size, data_array, pes, time)
     character(len=*), intent(in)           :: nc_filename, var_name
     integer, intent(in)                    :: x_size, y_size
@@ -1108,13 +1263,24 @@ contains
 
   end subroutine alloc_read_data_r8_2d
 
-
-  !==================================================================================================
-  !
   !  NetCDF Function Section
-  !
-  !==================================================================================================
 
+  !> ???
+  !>
+  !> @param[in] flag ???
+  !> @param[in] istart ???
+  !> @param[in] iend ???
+  !> @param[in] jstart ???
+  !> @param[in] jend ???
+  !> @param[in] k ???
+  !> @param[in] grid ???
+  !> @param[in] file_str ???
+  !> @param[in] var_name ???
+  !> @param[in] time_step ???
+  !> @param[in] dom ???
+  !> @param[in] pos ???
+  !>
+  !> @author
   subroutine output_grid_to_nc_3d(flag, istart, iend, jstart, jend, k, grid, file_str, var_name, time_step, dom, pos)
     implicit none
 
@@ -1193,7 +1359,22 @@ contains
 
   end subroutine output_grid_to_nc_3d
 
-
+  !> ???
+  !>
+  !> @param[in] flag ???
+  !> @param[in] istart ???
+  !> @param[in] iend ???
+  !> @param[in] jstart ???
+  !> @param[in] jend ???
+  !> @param[in] k ???
+  !> @param[in] grid ???
+  !> @param[in] file_str ???
+  !> @param[in] var_name ???
+  !> @param[in] time_step ???
+  !> @param[in] dom ???
+  !> @param[in] pos ???
+  !>
+  !> @author
   subroutine output_grid_to_nc_2d(flag, istart, iend, jstart, jend, grid, file_str, var_name, time_step, dom, pos)
     implicit none
 
@@ -1248,14 +1429,19 @@ contains
 
   end subroutine output_grid_to_nc_2d
 
-
-
-  !==================================================================================================
-  !
   !  Fill Section
-  !
-  !==================================================================================================
 
+  !> ???
+  !>
+  !> @param[inout] in_grid ???
+  !> @param[in] stagger_type ???
+  !> @param[in] fp_super_tile_geo ???
+  !> @param[in] ioffset ???
+  !> @param[in] joffset ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r4_3d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*4, allocatable, intent(inout)  :: in_grid(:,:,:)
@@ -1321,7 +1507,17 @@ contains
 
   end subroutine fill_grid_from_supergrid_r4_3d
 
-
+  !> ???
+  !>
+  !> @param[inout] in_grid ???
+  !> @param[in] stagger_type ???
+  !> @param[in] fp_super_tile_geo ???
+  !> @param[in] ioffset ???
+  !> @param[in] joffset ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r8_3d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*8, allocatable, intent(inout)  :: in_grid(:,:,:)
@@ -1387,7 +1583,17 @@ contains
 
   end subroutine fill_grid_from_supergrid_r8_3d
 
-
+  !> ???
+  !>
+  !> @param[inout] in_grid ???
+  !> @param[in] stagger_type ???
+  !> @param[in] fp_super_tile_geo ???
+  !> @param[in] ioffset ???
+  !> @param[in] joffset ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r8_4d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*8, allocatable, intent(inout)  :: in_grid(:,:,:,:)
@@ -1453,10 +1659,22 @@ contains
 
   end subroutine fill_grid_from_supergrid_r8_4d
 
-
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
-  !>@details  Applicable to any interpolation type
-
+  !> This subroutine fills the nest halo data from the coarse grid data by downscaling.
+  !>
+  !> Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r4_2d(interp_type, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1487,10 +1705,22 @@ contains
 
   end subroutine fill_nest_from_buffer_r4_2d
 
-
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
-  !>@details  Applicable to any interpolation type
-
+  !> This subroutine fills the nest halo data from the coarse grid data by downscaling.
+  !>
+  !> Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r8_2d(interp_type, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1521,7 +1751,23 @@ contains
 
   end subroutine fill_nest_from_buffer_r8_2d
 
-
+  !> ???
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] mask_var ???
+  !> @param[in] mask_val ???
+  !> @param[in] default_val ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_masked(interp_type, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
     implicit none
 
@@ -1557,8 +1803,21 @@ contains
 
   end subroutine fill_nest_from_buffer_masked
 
-
-
+  !> ???
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r4_3d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1590,7 +1849,21 @@ contains
 
   end subroutine fill_nest_from_buffer_r4_3d
 
-
+  !> ???
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r8_3d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1622,10 +1895,23 @@ contains
 
   end subroutine fill_nest_from_buffer_r8_3d
 
-
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
-  !>@details  Applicable to any interpolation type
-
+  !> This subroutine fills the nest halo data from the coarse grid data by downscaling.
+  !>
+  !> Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r4_4d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1657,7 +1943,23 @@ contains
 
   end subroutine fill_nest_from_buffer_r4_4d
 
-
+  !> This subroutine fills the nest halo data from the coarse grid data by downscaling.
+  !>
+  !> Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r8_4d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1689,10 +1991,22 @@ contains
 
   end subroutine fill_nest_from_buffer_r8_4d
 
-
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.  It can accommodate all grid staggers, using the stagger variable.  [The routine needs to be renamed since "_from_cell_center" has become incorrect.)
-  !>@details  Applicable to any interpolation type
-
+  !> This subroutine fills the nest halo data from the coarse grid data by downscaling. It can accommodate all grid staggers, using the stagger variable.
+  !>
+  !> Applicable to any interpolation type
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r4_2d(stagger, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -1743,7 +2057,20 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r4_2d
 
-
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r8_2d(stagger, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -1794,7 +2121,23 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r8_2d
 
-
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !> @param[in] mask_var ???
+  !> @param[in] mask_val ???
+  !> @param[in] default_val ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_masked(stagger, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -1864,7 +2207,21 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_masked
 
-
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r4_3d(stagger, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -1917,6 +2274,21 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r4_3d
 
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r8_3d(stagger, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -1968,7 +2340,21 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r8_3d
 
-
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r4_4d(stagger, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -2018,7 +2404,21 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r4_4d
 
-
+  !> ???
+  !>
+  !> @param[in] stagger ???
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] x_refine ???
+  !> @param[in] y_refine ???
+  !> @param[in] wt ???
+  !> @param[in] ind ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r8_4d(stagger, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -2068,7 +2468,17 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r8_4d
 
-
+  !> ???
+  !>
+  !> @param[inout] x ???
+  !> @param[in] buffer ???
+  !> @param[in] bbox_fine ???
+  !> @param[in] bbox_coarse ???
+  !> @param[in] nz ???
+  !> @param[in] dir ???
+  !> @param[in] wt ???
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_nearest_neighbor(x, buffer, bbox_fine, bbox_coarse, nz, dir, wt)
     implicit none
 
@@ -2131,7 +2541,12 @@ contains
 
   end subroutine fill_nest_from_buffer_nearest_neighbor
 
-
+  !> ???
+  !>
+  !> @param[inout] atm_wt ???
+  !> @param[in] new_wt ???
+  !>
+  !> @author
   subroutine fill_weight_grid(atm_wt, new_wt)
     real, allocatable, intent(inout) :: atm_wt(:,:,:)
     real, allocatable, intent(in) :: new_wt(:,:,:)
