@@ -49,7 +49,7 @@ use mpp_domains_mod,    only: domain2d
 use mpp_mod,            only: mpp_get_current_pelist_name
 use mpp_mod,            only: input_nml_file
 use fms2_io_mod,        only: file_exists
-use fms_mod,            only: close_file, write_version_number, stdlog, stdout
+use fms_mod,            only: write_version_number, stdlog, stdout
 use fms_mod,            only: clock_flag_default
 use fms_mod,            only: check_nml_error
 use diag_manager_mod,   only: diag_send_complete_instant
@@ -831,7 +831,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    if (mpp_pe() == mpp_root_pe()) then
       unit = stdlog( )
       write (unit, nml=atmos_model_nml)
-      call close_file (unit)
+      close (unit)
    endif
 
    !--- set up clock time

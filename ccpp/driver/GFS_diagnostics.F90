@@ -1255,7 +1255,7 @@ module GFS_diagnostics
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'pevpr_ave'
     ExtDiag(idx)%desc = 'averaged potential evaporation rate'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%unit = 'mm/s'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%time_avg = .TRUE.
     do nb = 1,nblks
@@ -1939,7 +1939,7 @@ module GFS_diagnostics
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'pevpr'
     ExtDiag(idx)%desc = 'instantaneous surface potential evaporation'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%unit = 'mm/s'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     do nb = 1,nblks
        ExtDiag(idx)%data(1)%var2 => IntDiag%epi(:)
@@ -4339,7 +4339,17 @@ module GFS_diagnostics
       endif
 
       endif  extended_smoke_dust_diagnostics
-
+      
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'ebu_smoke'
+      ExtDiag(idx)%desc = 'smoke emission'
+      ExtDiag(idx)%unit = 'ug/m2/s'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      allocate (ExtDiag(idx)%data(nblks))
+      do nb = 1,nblks
+       ExtDiag(idx)%data(nb)%var3 => Coupling%ebu_smoke(Model%chunk_begin(nb):Model%chunk_end(nb),:)
+      enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -4394,16 +4404,6 @@ module GFS_diagnostics
       enddo
 
       endif smoke_forecast_mode
-
-      idx = idx + 1
-      ExtDiag(idx)%axes = 3
-      ExtDiag(idx)%name = 'ebu_smoke'
-      ExtDiag(idx)%desc = 'smoke emission'
-      ExtDiag(idx)%unit = 'ug/m2/s'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      do nb = 1,nblks
-         ExtDiag(idx)%data(1)%var3 => Coupling%ebu_smoke(:,:)
-      enddo
 
       idx = idx + 1
       ExtDiag(idx)%axes = 3

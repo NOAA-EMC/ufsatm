@@ -864,8 +864,11 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
+# Note EJH: Add @abs_top_srcdir@ after doxygenating those code
+# files. The comments in one of them are activating a bug in doxygen
+# and need to be cleaned up to get a doxygen build working.
+
 INPUT                  = @abs_top_srcdir@/docs/user_guide.md \
-                         @abs_top_srcdir@ \
                          @abs_top_srcdir@/ccpp \
                          @abs_top_srcdir@/cpl \
                          @abs_top_srcdir@/io \
