@@ -4807,49 +4807,22 @@ module GFS_diagnostics
 
     integer :: nk, idx0, iblk
 
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_snow_z3d(:,:), 'lake_snow_z3d', 'lake snow level depth', 'm',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_snow_dz3d(:,:), 'lake_snow_dz3d', 'lake snow level thickness', 'm',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_snow_zi3d(:,:), 'lake_snow_zi3d', 'lake snow interface depth', 'm',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_h2osoi_vol3d(:,:), 'lake_h2osoi_vol3d', 'volumetric soil water', 'm3 m-3',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_h2osoi_liq3d(:,:), 'lake_h2osoi_liq3d', 'soil liquid water content', 'kg m-2',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_h2osoi_ice3d(:,:), 'lake_h2osoi_ice3d', 'soil ice water content', 'kg m-2',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_t_soisno3d(:,:), 'lake_t_soisno3d', 'snow or soil level temperature', 'K',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_t_lake3d(:,:), 'lake_t_lake3d', 'lake layer temperature', 'K',iblk)
-    enddo
-
-    do iblk=1,nblks
-      call link_all_levels(Sfcprop%lake_icefrac3d(:,:), 'lake_icefrac3d', 'lake fractional ice cover', 'fraction',iblk)
-    enddo
+    call link_all_levels(Sfcprop%lake_snow_z3d(:,:),     'lake_snow_z3d',     'lake snow level depth',          'm')
+    call link_all_levels(Sfcprop%lake_snow_dz3d(:,:),    'lake_snow_dz3d',    'lake snow level thickness',      'm')
+    call link_all_levels(Sfcprop%lake_snow_zi3d(:,:),    'lake_snow_zi3d',    'lake snow interface depth',      'm')
+    call link_all_levels(Sfcprop%lake_h2osoi_vol3d(:,:), 'lake_h2osoi_vol3d', 'volumetric soil water',          'm3 m-3')
+    call link_all_levels(Sfcprop%lake_h2osoi_liq3d(:,:), 'lake_h2osoi_liq3d', 'soil liquid water content',      'kg m-2')
+    call link_all_levels(Sfcprop%lake_h2osoi_ice3d(:,:), 'lake_h2osoi_ice3d', 'soil ice water content',         'kg m-2')
+    call link_all_levels(Sfcprop%lake_t_soisno3d(:,:),   'lake_t_soisno3d',   'snow or soil level temperature', 'K')
+    call link_all_levels(Sfcprop%lake_t_lake3d(:,:),     'lake_t_lake3d',     'lake layer temperature',         'K')
+    call link_all_levels(Sfcprop%lake_icefrac3d(:,:),    'lake_icefrac3d',    'lake fractional ice cover',      'fraction')
 
   contains
 
-    subroutine link_all_levels(var3d, varname, levelname, unit, ib)
+    subroutine link_all_levels(var3d, varname, levelname, unit)
       implicit none
       real(kind=kind_phys), target :: var3d(:,:)
       character(len=*), intent(in) :: varname, levelname, unit
-      integer, intent(in) :: ib
       integer k, b, namelen
 
       namelen = 30+max(len(varname),len(levelname))
