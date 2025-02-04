@@ -1,3 +1,9 @@
+!> @file
+!> @brief The module 'fv_tracker' contains the internal GFDL/NCEP vortex tracker
+!> adapted from HWRF internal vortex tracker, mainly based on the GFDL vortex
+!> tracker.
+!> @author W. Ramstrom (William.Ramstrom@noaa.gov), AOML/HRD
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -17,10 +23,6 @@
 !*           675 Mass Ave, Cambridge, MA 02139, USA.                   *
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
-
-!>@brief The module 'fv_tracker' contains the internal GFDL/NCEP vortex tracker
-!adapted from HWRF internal vortex tracker, mainly based on the GFDL vortex
-!tracker.
 
 module fv_tracker_mod
 
@@ -60,24 +62,26 @@ module fv_tracker_mod
   public :: check_is_moving_nest, execute_tracker
   public :: Tracker
 
-  integer, parameter :: maxtp=11 ! number of tracker parameters
+  integer, parameter :: maxtp=11 !< number of tracker parameters
 
-  real, parameter :: invE=0.36787944117 ! 1/e
-  real, parameter :: searchrad_6=250.0 ! km - ignore data more than this far from domain center
-  real, parameter :: searchrad_7=200.0 ! km - ignore data more than this far from domain center
-  real, parameter :: uverrmax=225.0 ! For use in get_uv_guess
-  real, parameter :: ecircum=40030.2 ! Earth's circumference (km) using erad=6371.e3
-  real, parameter :: rads_vmag=120.0 ! max search radius for wind minimum
-  real, parameter :: err_reg_init=300.0 ! max err at initial time (km)
-  real, parameter :: err_reg_max=225.0 ! max err at other times (km)
+  real, parameter :: invE=0.36787944117 !< 1/e
+  real, parameter :: searchrad_6=250.0 !< km - ignore data more than this far from domain center
+  real, parameter :: searchrad_7=200.0 !< km - ignore data more than this far from domain center
+  real, parameter :: uverrmax=225.0 !< For use in get_uv_guess
+  real, parameter :: ecircum=40030.2 !< Earth's circumference (km) using erad=6371.e3
+  real, parameter :: rads_vmag=120.0 !< max search radius for wind minimum
+  real, parameter :: err_reg_init=300.0 !< max err at initial time (km)
+  real, parameter :: err_reg_max=225.0 !< max err at other times (km)
 
-  real, parameter :: errpmax=485.0 ! max stddev of track parameters
-  real, parameter :: errpgro=1.25 ! stddev multiplier
+  real, parameter :: errpmax=485.0 !< max stddev of track parameters
+  real, parameter :: errpgro=1.25 !< stddev multiplier
 
-  real, parameter :: max_wind_search_radius=searchrad_7 ! max radius for vmax search
-  real, parameter :: min_mlsp_search_radius=searchrad_7 ! max radius for pmin search
+  real, parameter :: max_wind_search_radius=searchrad_7 !< max radius for vmax search
+  real, parameter :: min_mlsp_search_radius=searchrad_7 !< max radius for pmin search
 
-  real, parameter :: km2nmi=0.539957, kn2mps=0.514444, mps2kn=1./kn2mps
+  real, parameter :: km2nmi=0.539957 !< ???
+  real, parameter :: kn2mps=0.514444 !< ???
+  real, parameter :: mps2kn=1./kn2mps !< ???
 
 
   type fv_tracker_type
@@ -128,12 +132,22 @@ module fv_tracker_mod
     logical :: tracker_gave_up = .false. !< True = inline tracker gave up on tracking the storm
   end type fv_tracker_type
 
+  !> ???
   type(fv_tracker_type), _ALLOCATABLE, target :: Tracker(:)
+
+  !> ???
   integer :: n = 2 ! TODO allow to vary for multiple nests
+
+  !> ???
   integer :: id_fv_tracker
 
 contains
 
+  !> ???
+  !>
+  !> @param[in] length ???
+  !>
+  !> @author
   subroutine fv_tracker_init(length)
     ! Initialize tracker variables in the Atm structure.
     implicit none
@@ -173,6 +187,15 @@ contains
 
   end subroutine fv_tracker_init
 
+  !> ???
+  !>
+  !> @param[in] i ???
+  !> @param[in] is ???
+  !> @param[in] ie ???
+  !> @param[in] js ???
+  !> @param[in] je ???
+  !>
+  !> @author
   subroutine allocate_tracker(i, is, ie, js, je)
     integer, intent(in) :: i, is, ie, js, je
     ! Allocate internal vortex tracker arrays
@@ -199,6 +222,11 @@ contains
     allocate ( Tracker(i)%tracker_fixes(is:ie,js:je) )
   end subroutine allocate_tracker
 
+  !> ???
+  !>
+  !> @param[in] nn ???
+  !>
+  !> @author
   subroutine deallocate_tracker(nn)
     integer, intent(in) :: nn
 
@@ -228,6 +256,15 @@ contains
 
   end subroutine deallocate_tracker
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] mygrid ???
+  !> @param[in] ngrids ???
+  !> @param[out] is_moving_nest ???
+  !> @param[out] moving_nest_parent ???
+  !>
+  !> @author
   subroutine check_is_moving_nest(Atm, mygrid, ngrids, is_moving_nest, moving_nest_parent)
     type(fv_atmos_type), intent(inout) :: Atm(:)
     integer, intent(in) :: mygrid, ngrids
@@ -252,7 +289,14 @@ contains
 
   end subroutine check_is_moving_nest
 
-
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] mygrid ???
+  !> @param[in] Time ???
+  !> @param[in] Time_step ???
+  !>
+  !> @author
   subroutine execute_tracker(Atm, mygrid, Time, Time_step)
     implicit none
     type(fv_atmos_type), intent(inout) :: Atm(:)
@@ -268,7 +312,7 @@ contains
     Time_step_atmos = Time_step
     Time_next = Time + Time_step_atmos
 
-    !---- FV internal vortex tracker -----
+    ! FV internal vortex tracker 
     if ( Moving_nest(mygrid)%mn_flag%is_moving_nest ) then
       if ( Moving_nest(mygrid)%mn_flag%vortex_tracker .eq. 2 .or. &
           Moving_nest(mygrid)%mn_flag%vortex_tracker .eq. 6 .or. &
@@ -292,6 +336,13 @@ contains
 
   end subroutine execute_tracker
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] n ???
+  !> @param[in] Time ???
+  !>
+  !> @author
   subroutine fv_tracker_center(Atm, n, Time)
     ! Top-level entry to the internal GFDL/NCEP vortex tracker. Finds the center of
     ! the storm in the specified Atm and updates the Atm variables.
@@ -320,6 +371,13 @@ contains
 
   end subroutine fv_tracker_center
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] zvir ???
+  !> @param[in] Time ???
+  !>
+  !> @author
   subroutine fv_diag_tracker(Atm, zvir, Time)
 
     type(fv_atmos_type), intent(inout) :: Atm(:)
@@ -437,6 +495,31 @@ contains
 
   end subroutine fv_diag_tracker
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[inout] tracker ???
+  !> @param[in] Time ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !>
+  !> @author
   subroutine ntc_impl(Atm,tracker,Time, &
       ids,ide,jds,jde,kds,kde, &
       ims,ime,jms,jme,kms,kme, &
@@ -731,6 +814,29 @@ contains
 
   end subroutine ntc_impl
 
+  !> ???
+  !>
+  !> @param[in] Atm ???
+  !> @param[out] ids ???
+  !> @param[out] ide ???
+  !> @param[out] jds ???
+  !> @param[out] jde ???
+  !> @param[out] kds ???
+  !> @param[out] kde ???
+  !> @param[out] ims ???
+  !> @param[out] ime ???
+  !> @param[out] jms ???
+  !> @param[out] jme ???
+  !> @param[out] kms ???
+  !> @param[out] kme ???
+  !> @param[out] ips ???
+  !> @param[out] ipe ???
+  !> @param[out] jps ???
+  !> @param[out] jpe ???
+  !> @param[out] kps ???
+  !> @param[out] kpe ???
+  !>
+  !> @author
   subroutine get_ijk_from_domain(Atm,  &
       ids, ide, jds, jde, kds, kde, &
       ims, ime, jms, jme, kms, kme, &
@@ -757,6 +863,36 @@ contains
     kpe = Atm%npz
   end subroutine get_ijk_from_domain
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[out] iloc ???
+  !> @param[out] jloc ???
+  !> @param[out] ierr ???
+  !> @param[in] lon ???
+  !> @param[in] lat ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !> @param[out] lonnear ???
+  !> @param[out] latnear ???
+  !>
+  !> @author
   subroutine get_nearest_lonlat(Atm,iloc,jloc,ierr,lon,lat, &
       ids,ide, jds,jde, kds,kde, &
       ims,ime, jms,jme, kms,kme, &
@@ -807,6 +943,30 @@ contains
     if(present(lonnear)) lonnear=lonmin
   end subroutine get_nearest_lonlat
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] Time ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] its ???
+  !> @param[in] ite ???
+  !> @param[in] jts ???
+  !> @param[in] jte ???
+  !> @param[in] kts ???
+  !> @param[in] kte ???
+  !>
+  !> @author
   subroutine output_partial_atcfunix(Atm,Time, &
       ids,ide,jds,jde,kds,kde, &
       ims,ime,jms,jme,kms,kme, &
@@ -843,6 +1003,36 @@ contains
     end if
   end subroutine output_partial_atcfunix
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[out] min_mslp ???
+  !> @param[out] max_wind ???
+  !> @param[out] rmw ???
+  !> @param[in] max_wind_search_radius ???
+  !> @param[in] min_mlsp_search_radius ???
+  !> @param[in] clon ???
+  !> @param[in] clat ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] its ???
+  !> @param[in] ite ???
+  !> @param[in] jts ???
+  !> @param[in] jte ???
+  !> @param[in] kts ???
+  !> @param[in] kte ???
+  !>
+  !> @author
   subroutine get_wind_pres_intensity(Atm, &
       min_mslp,max_wind,rmw, &
       max_wind_search_radius, min_mlsp_search_radius, clon,clat, &
@@ -935,6 +1125,43 @@ contains
 
   end subroutine get_wind_pres_intensity
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] icen ???
+  !> @param[in] jcen ???
+  !> @param[inout] calcparm ???
+  !> @param[in] loncen ???
+  !> @param[in] latcen ???
+  !> @param[in] iguess ???
+  !> @param[in] jguess ???
+  !> @param[in] longuess ???
+  !> @param[in] latguess ???
+  !> @param[inout] ifinal ???
+  !> @param[inout] jfinal ???
+  !> @param[inout] lonfinal ???
+  !> @param[inout] latfinal ???
+  !> @param[in] north_hemi ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !>
+  !> @author
   subroutine fixcenter(Atm,icen,jcen,calcparm,loncen,latcen, &
       iguess,jguess,longuess,latguess, &
       ifinal,jfinal,lonfinal,latfinal, &
@@ -1234,6 +1461,40 @@ contains
 
   end subroutine fixcenter
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] icen ???
+  !> @param[in] jcen ???
+  !> @param[in] loncen ???
+  !> @param[in] latcen ???
+  !> @param[in] calcparm ???
+  !> @param[in] iguess ???
+  !> @param[in] jguess ???
+  !> @param[in] longuess ???
+  !> @param[in] latguess ???
+  !> @param[inout] iout ???
+  !> @param[inout] jout ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] its ???
+  !> @param[in] ite ???
+  !> @param[in] jts ???
+  !> @param[in] jte ???
+  !> @param[in] kts ???
+  !> @param[in] kte ???
+  !>
+  !> @author
   subroutine get_uv_guess(Atm,icen,jcen,loncen,latcen,calcparm, &
       iguess,jguess,longuess,latguess,iout,jout, &
       ids,ide,jds,jde,kds,kde, &
@@ -1308,6 +1569,40 @@ contains
     jout=nint(real(jsum)/real(ict))
   end subroutine get_uv_guess
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] orig ???
+  !> @param[inout] iout ???
+  !> @param[inout] jout ???
+  !> @param[inout] rout ???
+  !> @param[inout] calcparm ???
+  !> @param[inout] lonout ???
+  !> @param[inout] latout ???
+  !> @param[in] dxdymean ???
+  !> @param[in] cparm ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !> @param[in] iuvguess ???
+  !> @param[in] juvguess ???
+  !>
+  !> @author
   subroutine get_uv_center(Atm,orig, &
       iout,jout,rout,calcparm,lonout,latout, &
       dxdymean,cparm, &
@@ -1384,6 +1679,42 @@ contains
     endif resultif
   end subroutine get_uv_center
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] orig ???
+  !> @param[in] srsq ???
+  !> @param[inout] iout ???
+  !> @param[inout] jout ???
+  !> @param[inout] rout ???
+  !> @param[inout] calcparm ???
+  !> @param[inout] lonout ???
+  !> @param[inout] latout ???
+  !> @param[in] dxdymean ???
+  !> @param[in] cparm ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !> @param[in] iuvguess ???
+  !> @param[in] juvguess ???
+  !> @param[in] north_hemi ???
+  !>
+  !> @author
   subroutine find_center(Atm,orig,srsq, &
       iout,jout,rout,calcparm,lonout,latout, &
       dxdymean,cparm, &
@@ -1541,6 +1872,29 @@ contains
     endif resultif
   end subroutine find_center
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] its ???
+  !> @param[in] ite ???
+  !> @param[in] jts ???
+  !> @param[in] jte ???
+  !> @param[in] kts ???
+  !> @param[in] kte ???
+  !>
+  !> @author
   subroutine get_distsq(Atm, &
       ids,ide,jds,jde,kds,kde, &
       ims,ime,jms,jme,kms,kme, &
@@ -1585,6 +1939,29 @@ contains
 
   end subroutine get_distsq
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] its ???
+  !> @param[in] ite ???
+  !> @param[in] jts ???
+  !> @param[in] jte ???
+  !> @param[in] kts ???
+  !> @param[in] kte ???
+  !>
+  !> @author
   subroutine get_tracker_distsq(Atm, &
       ids,ide,jds,jde,kds,kde, &
       ims,ime,jms,jme,kms,kme, &
@@ -1671,6 +2048,16 @@ contains
     call mpp_error(NOTE, message)
   end subroutine get_tracker_distsq
 
+  !> ???
+  !>
+  !> @param[in] rlonb ???
+  !> @param[in] rlatb ???
+  !> @param[in] rlonc ???
+  !> @param[in] rlatc ???
+  !> @param[out] xdist ???
+  !> @param[inout] degrees ???
+  !>
+  !> @author
   subroutine calcdist(rlonb,rlatb,rlonc,rlatc,xdist,degrees)
     ! Copied from gettrk_main.f
     !
@@ -1744,6 +2131,34 @@ contains
     return
   end subroutine calcdist
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !> @param[in] iguess ???
+  !> @param[in] jguess ???
+  !> @param[in] longuess ???
+  !> @param[in] latguess ???
+  !> @param[in] ierr ???
+  !> @param[in] ids ???
+  !> @param[in] ide ???
+  !> @param[in] jds ???
+  !> @param[in] jde ???
+  !> @param[in] kds ???
+  !> @param[in] kde ???
+  !> @param[in] ims ???
+  !> @param[in] ime ???
+  !> @param[in] jms ???
+  !> @param[in] jme ???
+  !> @param[in] kms ???
+  !> @param[in] kme ???
+  !> @param[in] ips ???
+  !> @param[in] ipe ???
+  !> @param[in] jps ???
+  !> @param[in] jpe ???
+  !> @param[in] kps ???
+  !> @param[in] kpe ???
+  !>
+  !> @author
   subroutine get_lonlat(Atm,iguess,jguess,longuess,latguess,ierr, &
       ids,ide, jds,jde, kds,kde, &
       ims,ime, jms,jme, kms,kme, &
@@ -1785,6 +2200,12 @@ contains
     endif
   end subroutine get_lonlat
 
+  !> ???
+  !>
+  !> @param[inout] xlon1 ???
+  !> @param[inout] ylat1 ???
+  !>
+  !> @author
   subroutine clean_lon_lat(xlon1,ylat1)
     real, intent(inout) :: xlon1,ylat1
     ! This modifies a (lat,lon) pair so that the longitude fits
@@ -1802,9 +2223,15 @@ contains
     endif
   end subroutine clean_lon_lat
 
-  !----------------------------------------------------------------------------------
   ! These two simple routines return an N, S, E or W for the
   ! hemisphere of a latitude or longitude.
+
+  !> Return an N or S for the hemisphere of a latitude.
+  !>
+  !> @param[in] lat ???
+  !> @return ???
+  !>
+  !> @author
   character(1) function get_lat_ns(lat)
     ! This could be written simply as merge('N','S',lat>=0) if F95 allowed
     implicit none
@@ -1815,6 +2242,13 @@ contains
       get_lat_ns='S'
     endif
   end function get_lat_ns
+
+  !> Return an E or W for the hemisphere of a longitude.
+  !>
+  !> @param[in] lon ???
+  !> @return ???
+  !>
+  !> @author
   character(1) function get_lon_ew(lon)
     ! This could be written simply as merge('E','W',lon>=0) if F95 allowed
     implicit none
@@ -1826,6 +2260,11 @@ contains
     endif
   end function get_lon_ew
 
+  !> ???
+  !>
+  !> @param[inout] Atm ???
+  !>
+  !> @author
   subroutine fv_tracker_post_move(Atm)
     ! This updates the tracker i/j fix location and square of the
     ! distance to the tracker center after a nest move.
@@ -1859,6 +2298,14 @@ contains
   end subroutine fv_tracker_post_move
 
 #ifdef DEBUG
+  !> ???
+  !>
+  !> @param[in] cparm ???
+  !> @param[in] v ???
+  !> @param[in] i ???
+  !> @param[in] j ???
+  !>
+  !> @author
   subroutine check_validity(cparm, v, i, j)
     ! [KA] Checks value of a tracking parameter for validity
     character*(*), intent(in) :: cparm
