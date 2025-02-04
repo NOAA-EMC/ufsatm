@@ -432,7 +432,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -444,7 +448,11 @@ contains
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind)
@@ -496,7 +504,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -508,7 +520,11 @@ contains
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind)
@@ -565,7 +581,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position)
@@ -577,7 +597,11 @@ contains
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer_masked(interp_type, data_var, nbuffer, north_fine, north_coarse, NORTH, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
       call fill_nest_from_buffer_masked(interp_type, data_var, sbuffer, south_fine, south_coarse, SOUTH, x_refine, y_refine, wt, ind, mask_var, mask_val, default_val)
@@ -629,7 +653,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position, nz)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position, nz)
@@ -641,7 +669,11 @@ contains
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -693,7 +725,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     call alloc_halo_buffer(nbuffer, north_fine, north_coarse, nest_domain, NORTH,  position, nz)
     call alloc_halo_buffer(sbuffer, south_fine, south_coarse, nest_domain, SOUTH,  position, nz)
@@ -705,7 +741,11 @@ contains
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -757,7 +797,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     n4d = ubound(data_var, 4)
 
@@ -766,15 +810,21 @@ contains
     call alloc_halo_buffer(ebuffer, east_fine,  east_coarse,  nest_domain, EAST,   position, nz, n4d)
     call alloc_halo_buffer(wbuffer, west_fine,  west_coarse,  nest_domain, WEST,   position, nz, n4d)
 
+    !====================================================
     ! Passes data from coarse grid to fine grid's halo
     ! Coarse parent PEs send data from data_var
     ! Fine halo PEs receive data into one or more of the halo buffers
+    !====================================================
 
     call mpp_update_nest_fine(data_var, nest_domain, wbuffer, sbuffer, ebuffer, nbuffer, nest_level, position=position)
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -826,7 +876,11 @@ contains
 
     this_pe = mpp_pe()
 
+    !!===========================================================
+    !!
     !! Fill halo buffers
+    !!
+    !!===========================================================
 
     n4d = ubound(data_var, 4)
 
@@ -835,15 +889,21 @@ contains
     call alloc_halo_buffer(ebuffer, east_fine,  east_coarse,  nest_domain, EAST,   position, nz, n4d)
     call alloc_halo_buffer(wbuffer, west_fine,  west_coarse,  nest_domain, WEST,   position, nz, n4d)
 
+    !====================================================
     ! Passes data from coarse grid to fine grid's halo
     ! Coarse parent PEs send data from data_var
     ! Fine halo PEs receive data into one or more of the halo buffers
-
+    !====================================================
+  
     call mpp_update_nest_fine(data_var, nest_domain, wbuffer, sbuffer, ebuffer, nbuffer, nest_level, position=position)
 
     if (is_fine_pe) then
 
+      !!===========================================================
+      !!
       !! Apply halo data
+      !!
+      !!===========================================================
 
       call fill_nest_from_buffer(interp_type, data_var, nbuffer, north_fine, north_coarse, nz, NORTH, x_refine, y_refine, wt, ind)
       call fill_nest_from_buffer(interp_type, data_var, sbuffer, south_fine, south_coarse, nz, SOUTH, x_refine, y_refine, wt, ind)
@@ -1074,11 +1134,15 @@ contains
     type(grid_geometry), intent(inout)    :: fp_tile_geo
     integer, intent(out)                  :: fp_istart_fine, fp_iend_fine, fp_jstart_fine, fp_jend_fine
 
+    !========================================================================================
+    !
     !  Determine which tile this PE is operating on
     !  Load the lat/lon data from netCDF file
     !  If fine nest, also determine the parent tile
     !  load the lat/lon data from that tile
     !  This code will only operate for nest motion within a single tile
+    !
+    !========================================================================================
 
     !  read lat/lon for this tile
     !  lat is y from grid file
