@@ -3711,31 +3711,54 @@ module GFS_diagnostics
   endif
 
   if (Model%lsm == Model%lsm_ruc) then
-    do num = 1,Model%lsoil_lsm
-      write (xtra,'(i1)') num
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'soilw'//trim(xtra)
-      ExtDiag(idx)%desc = 'volumetric soil moisture ' // trim(soil_layer_depth(Model%lsm, Model%lsm_ruc, Model%lsm_noah, num))
-      ExtDiag(idx)%unit = 'fraction'
-      ExtDiag(idx)%mod_name = 'gfs_sfc'
-      do nb = 1,nblks
-         ExtDiag(idx)%data(1)%var2 => sfcprop%smois(:,num)
-      enddo
-    enddo
-    idx = idx + 1
-    ExtDiag(idx)%axes = 3
-    ExtDiag(idx)%name = 'soilw'
-    ExtDiag(idx)%desc = 'volumetric soil moisture'
-    ExtDiag(idx)%unit = 'fraction'
-    ExtDiag(idx)%mod_name = 'gfs_sfc'
-    do nb = 1,nblks
-       ExtDiag(idx)%data(1)%var3 => sfcprop%smois(:,:)
-    enddo
+     do num = 1,Model%lsoil_lsm
+        write (xtra,'(i1)') num
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'soilw'//trim(xtra)
+        ExtDiag(idx)%desc = 'volumetric soil moisture ' // trim(soil_layer_depth(Model%lsm, Model%lsm_ruc, Model%lsm_noah, num))
+        ExtDiag(idx)%unit = 'fraction'
+        ExtDiag(idx)%mod_name = 'gfs_sfc'
+        do nb = 1,nblks
+           ExtDiag(idx)%data(1)%var2 => sfcprop%smois(:,num)
+        enddo
+     enddo
+     idx = idx + 1
+     ExtDiag(idx)%axes = 3
+     ExtDiag(idx)%name = 'soilw'
+     ExtDiag(idx)%desc = 'volumetric soil moisture'
+     ExtDiag(idx)%unit = 'fraction'
+     ExtDiag(idx)%mod_name = 'gfs_sfc'
+     do nb = 1,nblks
+        ExtDiag(idx)%data(1)%var3 => sfcprop%smois(:,:)
+     enddo
+  else
+     do num = 1,Model%lsoil_lsm
+        write (xtra,'(i1)') num
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'soilw'//trim(xtra)
+        ExtDiag(idx)%desc = 'volumetric soil moisture ' // trim(soil_layer_depth(Model%lsm, Model%lsm_ruc, Model%lsm_noah, num))
+        ExtDiag(idx)%unit = 'fraction'
+        ExtDiag(idx)%mod_name = 'gfs_sfc'
+        do nb = 1,nblks
+           ExtDiag(idx)%data(1)%var2 => sfcprop%smc(:,num)
+        enddo
+     enddo
+     idx = idx + 1
+     ExtDiag(idx)%axes = 3
+     ExtDiag(idx)%name = 'soilw'
+     ExtDiag(idx)%desc = 'volumetric soil moisture'
+     ExtDiag(idx)%unit = 'fraction'
+     ExtDiag(idx)%mod_name = 'gfs_sfc'
+     allocate (ExtDiag(idx)%data(nblks))
+     do nb = 1,nblks
+        ExtDiag(idx)%data(1)%var3 => sfcprop%smc(:,:)
+     enddo
   endif
 
-    if (Model%lsm == Model%lsm_ruc) then
-      do num = 1,Model%lsoil_lsm
+  if (Model%lsm == Model%lsm_ruc) then
+     do num = 1,Model%lsoil_lsm
         write (xtra,'(i1)') num
         idx = idx + 1
         ExtDiag(idx)%axes = 2
@@ -3756,18 +3779,18 @@ module GFS_diagnostics
       do nb = 1,nblks
          ExtDiag(idx)%data(1)%var3 => sfcprop%tslb(:,:)
       enddo
-    else
+   else
       do num = 1,Model%lsoil_lsm
-        write (xtra,'(i1)') num
-        idx = idx + 1
-        ExtDiag(idx)%axes = 2
-        ExtDiag(idx)%name = 'soilt'//trim(xtra)
-        ExtDiag(idx)%desc = 'soil temperature ' // trim(soil_layer_depth(Model%lsm, Model%lsm_ruc, Model%lsm_noah, num))
-        ExtDiag(idx)%unit = 'K'
-        ExtDiag(idx)%mod_name = 'gfs_sfc'
-        do nb = 1,nblks
-           ExtDiag(idx)%data(1)%var2 => sfcprop%stc(:,num)
-        enddo
+         write (xtra,'(i1)') num
+         idx = idx + 1
+         ExtDiag(idx)%axes = 2
+         ExtDiag(idx)%name = 'soilt'//trim(xtra)
+         ExtDiag(idx)%desc = 'soil temperature ' // trim(soil_layer_depth(Model%lsm, Model%lsm_ruc, Model%lsm_noah, num))
+         ExtDiag(idx)%unit = 'K'
+         ExtDiag(idx)%mod_name = 'gfs_sfc'
+         do nb = 1,nblks
+            ExtDiag(idx)%data(1)%var2 => sfcprop%stc(:,num)
+         enddo
       enddo
       idx = idx + 1
       ExtDiag(idx)%axes = 3
@@ -3778,7 +3801,7 @@ module GFS_diagnostics
       do nb = 1,nblks
          ExtDiag(idx)%data(1)%var3 => sfcprop%stc(:,:)
       enddo
-    endif
+   endif
 
 !--------------------------nsst variables
   if (model%nstf_name(1) > 0) then
@@ -3904,6 +3927,16 @@ module GFS_diagnostics
        ExtDiag(idx)%data(1)%var2 => sfcprop%zm(:)
     enddo
 
+    idx = idx + 1
+    ExtDiag(idx)%axes = 2
+    ExtDiag(idx)%name = 'xtts'
+    ExtDiag(idx)%desc = 'nsst d(xt)/d(ts)'
+    ExtDiag(idx)%unit = 'm'
+    ExtDiag(idx)%mod_name = 'gfs_sfc'
+    do nb = 1,nblks
+       ExtDiag(idx)%data(1)%var2 => sfcprop%xtts(:)
+    enddo
+    
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'xzts'
