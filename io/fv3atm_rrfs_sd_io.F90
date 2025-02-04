@@ -1,7 +1,14 @@
-!> \file fv3atm_rrfs_sd_io.F90
-!! This file contains derived types and subroutines for RRFS-SD scheme I/O.
-!! They read and write restart files, and read emissions data.
+!> @file
+!> @brief Derived types and subroutines for RRFS-SD scheme I/O.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 
+!> @brief Derived types and subroutines for RRFS-SD scheme I/O.
+!>
+!> These subroutines read and write restart files, and read emissions
+!> data.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_rrfs_sd_io
   use block_control_mod,  only: block_control_type
   use fms2_io_mod,        only: FmsNetcdfDomainFile_t, write_data, &
@@ -26,13 +33,10 @@ module fv3atm_rrfs_sd_io
        rrfs_sd_emissions_register_emi, rrfs_sd_emissions_copy_emi, &
        rrfs_sd_emissions_register_fire, rrfs_sd_emissions_copy_fire
 
-  !>\defgroup fv3atm_rrfs_sd_io module
-  !> @{
-
-  !>@ Temporary data storage for reading and writing restart data for the RRFS-SD scheme.
+  !> Temporary data storage for reading and writing restart data for
+  !> the RRFS-SD scheme. The rrfs_sd_state_type stores temporary
+  !> arrays used to read or write RRFS-SD restart and axis variables.
   type rrfs_sd_state_type
-    ! The rrfs_sd_state_type stores temporary arrays used to read or
-    ! write RRFS-SD restart and axis variables.
 
     real(kind_phys), pointer, private, dimension(:,:) :: & ! i,j variables
          emdust=>null(), emseas=>null(), emanoc=>null(), fhist=>null(), coef_bb_dc=>null()
@@ -58,21 +62,29 @@ module fv3atm_rrfs_sd_io
 
   ! --------------------------------------------------------------------
 
-  !>@ Temporary data storage for reading RRFS-SD emissions data
+  !> Temporary data storage for reading RRFS-SD emissions data.
   type rrfs_sd_emissions_type
     integer, private :: nvar_dust12m = 5
     integer, private :: nvar_emi = 1
     integer, private :: nvar_fire = 2
     integer, private :: nvar_fire2d = 5
 
+    !> ???
     character(len=32), pointer, dimension(:), private :: dust12m_name => null()
+    !> ???
     character(len=32), pointer, dimension(:), private :: emi_name => null()
+    !> ???
     character(len=32), pointer, dimension(:), private :: fire_name => null()
+    !> ???
     character(len=32), pointer, dimension(:), private :: fire_name2d => null()
 
+    !> ???
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: dust12m_var => null()
+    !> ???
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: emi_var => null()
+    !> ???
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: fire_var => null()
+    !> ???
     real(kind=kind_phys), pointer, dimension(:,:,:  ), private :: fire_var2d => null()
 
   contains
@@ -98,7 +110,13 @@ contains
   ! -- RRFS_SD_STATE IMPLEMENTATION ------------------------------------
   ! --------------------------------------------------------------------
 
-  !>@ Registers the fire_aux_data_levels axis for restart I/O
+  !> Registers the fire_aux_data_levels axis for restart I/O.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param Sfc_restart ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_register_axis(data,Model,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -110,7 +128,13 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Registers and writes the axis indices for the fire_aux_data_levels axis
+  !> Registers and writes the axis indices for the fire_aux_data_levels axis.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param Sfc_restart ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_write_axis(data,Model,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -124,7 +148,13 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays for RRFS-SD scheme I/O and stores fire_aux_data_levels axis indices
+  !> Allocates temporary arrays for RRFS-SD scheme I/O and stores
+  !> fire_aux_data_levels axis indices.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_allocate_data(data,Model)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -152,10 +182,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Fills RRFS-SD temporary arrays with reasonable defaults.
-  !> \section rrfs_sd_state_type%fill_data() procedure
-  !! Fills all temporary variables with default values.
-  !! Terrible things will happen if you don't call data%allocate_data first.
+  !> Fills RRFS-SD temporary arrays with reasonable defaults.
+  !>
+  !> Fills all temporary variables with default values.
+  !> Terrible things will happen if you don't call data%allocate_data first.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param[in] Atm_block ???
+  !> @param Sfcprop ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_fill_data(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -187,11 +224,16 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Registers RRFS-SD restart variables (for read or write)
-  !> \section rrfs_sd_state_type%register_fields() procedure
-  !! Registers all restart fields needed by the RRFS-SD
-  !! Terrible things will happen if you don't call data%allocate_data
-  !! and data%register_axes first.
+  !> Registers RRFS-SD restart variables (for read or write).
+  !>
+  !> Registers all restart fields needed by the RRFS-SD
+  !> Terrible things will happen if you don't call data%allocate_data
+  !> and data%register_axes first.
+  !>
+  !> @param data ???
+  !> @param Sfc_restart ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_register_fields(data,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -226,11 +268,20 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Creates ESMF bundles for writing RRFS-SD restarts via the write component (quilt)
-  !> \section rrfs_sd_state_type%bundle_fields() procedure
-  !! Registers all restart fields needed by the RRFS-SD
-  !! Terrible things will happen if you don't call data%allocate_data
-  !! and data%register_axes first.
+  !> Creates ESMF bundles for writing RRFS-SD restarts via the write
+  !> component (quilt).
+  !> 
+  !> Registers all restart fields needed by the RRFS-SD
+  !> Terrible things will happen if you don't call data%allocate_data
+  !> and data%register_axes first.
+  !>
+  !> @param data ???
+  !> @param bundle ???
+  !> @param grid ???
+  !> @param[in] Model ???
+  !> @param[in] outputfile ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_bundle_fields(data, bundle, grid, Model, outputfile)
     use esmf
     use GFS_typedefs, only: GFS_control_type
@@ -255,12 +306,16 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Destructor for the rrfs_sd_state_type
-  !> \section rrfs_sd_state_type destructor() procedure
-  !! Final routine for rrfs_sd_state_type, called automatically when
-  !! an object of that type goes out of scope.  This is a wrapper
-  !! around data%deallocate_data() with necessary syntactic
-  !! differences.
+  !> Destructor for the rrfs_sd_state_type.
+  !> 
+  !> Final routine for rrfs_sd_state_type, called automatically when
+  !> an object of that type goes out of scope.  This is a wrapper
+  !> around data%deallocate_data() with necessary syntactic
+  !> differences.
+  !>
+  !> @param data ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_final(data)
     implicit none
     type(rrfs_sd_state_type) :: data
@@ -269,16 +324,20 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Deallocates internal arrays in an rrfs_sd_state_type
-  !> \section rrfs_sd_state_type%deallocate_data() procedure
-  !! Deallocates all data used, and nullifies the pointers. The data
-  !! object can safely be used again after this call. This is also
-  !! the implementation of the rrfs_sd_state_deallocate_data final routine.
+  !> Deallocates internal arrays in an rrfs_sd_state_type.
+  !>
+  !> Deallocates all data used, and nullifies the pointers. The data
+  !> object can safely be used again after this call. This is also
+  !> the implementation of the rrfs_sd_state_deallocate_data final routine.
+  !>
+  !> @param data ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_deallocate_data(data)
     implicit none
     class(rrfs_sd_state_type) :: data
 
-    ! This #define reduces code length by a lot
+    !> This #define reduces code length by a lot
 #define IF_ASSOC_DEALLOC_NULL(var) \
     if(associated(data%var)) then ; \
       deallocate(data%var) ; \
@@ -299,10 +358,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Copies from rrfs_sd_state_type internal arrays to the model grid.
-  !> \section rrfs_sd_state_type%copy_to_grid() procedure
-  !! This procedure is called after reading a restart, to copy restart data
-  !! from the rrfs_sd_state_type to the model grid.
+  !> Copies from rrfs_sd_state_type internal arrays to the model grid.
+  !> 
+  !> This procedure is called after reading a restart, to copy restart data
+  !> from the rrfs_sd_state_type to the model grid.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param[in] Atm_block ???
+  !> @param[in] Sfcprop ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_copy_to_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -332,11 +398,18 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Copies from the model grid to rrfs_sd_state_type internal arrays
-  !> \section rrfs_sd_state_type%copy_from_grid() procedure
-  !! This procedure is called before writing the restart, to copy data from
-  !! the model grid to rrfs_sd_state_type internal arrays. The ESMF or FMS
-  !! restart code will write data from those arrays, not the model grid.
+  !> Copies from the model grid to rrfs_sd_state_type internal arrays.
+  !>
+  !> This procedure is called before writing the restart, to copy data from
+  !> the model grid to rrfs_sd_state_type internal arrays. The ESMF or FMS
+  !> restart code will write data from those arrays, not the model grid.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param[in] Atm_block ???
+  !> @param[in] Sfcprop ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_state_copy_from_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -368,7 +441,14 @@ contains
   ! -- RRFS_SD_EMISSIONS IMPLEMENTATION --------------------------------
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the dust12m file.
+  !> Allocates temporary arrays and registers variables for reading
+  !> the dust12m file.
+  !>
+  !> @param data ???
+  !> @param Sfc_restart ???
+  !> @param[in] Atm_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_emissions_register_dust12m(data, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -413,8 +493,15 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Called after register_dust12m() to copy data from internal arrays to the model grid and deallocate arrays
-  subroutine rrfs_sd_emissions_copy_dust12m(data, Model, Sfcprop, Atm_block)
+  !> Called after register_dust12m() to copy data from internal arrays
+  !> to the model grid and deallocate arrays.
+  !>
+  !> @param data ???
+  !> @param[inout] Sfcprop ???
+  !> @param[in] Atm_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
+  subroutine rrfs_sd_emissions_copy_dust12m(data, Sfcprop, Atm_block)
     implicit none
     type(GFS_control_type),    intent(in) :: Model
     type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
@@ -453,7 +540,14 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the emissions file.
+  !> Allocates temporary arrays and registers variables for reading
+  !> the emissions file.
+  !>
+  !> @param data ???
+  !> @param restart ???
+  !> @param[in] Atm_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_emissions_register_emi(data, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -528,7 +622,15 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the fire data file.
+  !> Allocates temporary arrays and registers variables for reading
+  !> the fire data file.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param restart ???
+  !> @param[in] Atm_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_emissions_register_fire(data, Model, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -607,7 +709,15 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Called after register_fire() to copy data from internal arrays to the model grid and deallocate arrays
+  !> Called after register_fire() to copy data from internal arrays to
+  !> the model grid and deallocate arrays.
+  !>
+  !> @param data ???
+  !> @param[in] Model ???
+  !> @param[inout] Sfcprop ???
+  !> @param[in] Atm_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_emissions_copy_fire(data, Model, Sfcprop, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -646,12 +756,16 @@ contains
     enddo
   end subroutine rrfs_sd_emissions_copy_fire
 
-  !>@ Destructor for rrfs_sd_emissions_type
+  !> Destructor for rrfs_sd_emissions_type.
+  !>
+  !> @param data ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine rrfs_sd_emissions_final(data)
     implicit none
     type(rrfs_sd_emissions_type) :: data
 
-    ! This #define reduces code length by a lot
+    !> This #define reduces code length by a lot.
 #define IF_ASSOC_DEALLOC_NULL(var) \
     if(associated(data%var)) then ; \
       deallocate(data%var) ; \
@@ -670,5 +784,3 @@ contains
   end subroutine rrfs_sd_emissions_final
 
 end module fv3atm_rrfs_sd_io
-
-!> @}
