@@ -1,3 +1,7 @@
+!> @file
+!> @brief ???
+!> @author ??? @date ???
+
 module stochastic_physics_wrapper_mod
 
   use machine, only: kind_phys
@@ -5,58 +9,75 @@ module stochastic_physics_wrapper_mod
   implicit none
 
   ! For stochastic physics pattern generation
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlat
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlon
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sppt_wts
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: shum_wts
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebu_wts
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
-  real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlat !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlon !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sppt_wts !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: shum_wts !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebu_wts !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts !< ???
+  real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts !< ???
 
-  logical, save :: is_initialized = .false.
-  integer, save :: lsoil = -999
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: smc
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: stc
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: slc
+  logical, save :: is_initialized = .false. !< ???
+  integer, save :: lsoil = -999 !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: smc !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: stc !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: slc !< ???
   !
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: vfrac
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: vfrac !< ???
   !albedo
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: snoalb
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnsf
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnwf
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: snoalb !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnsf !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnwf !< ???
   !emissivity
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: semis
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: semis !< ???
   !roughness length for land
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll !< ???
 
   !real(kind=kind_phys), dimension(:,:),   allocatable, save :: stype
-  integer, dimension(:,:),   allocatable, save :: stype
+  integer, dimension(:,:),   allocatable, save :: stype !< ???
 
   ! For cellular automata
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lake
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: uwind
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: vwind
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: height
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: dx
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lake !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: uwind !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: vwind !< ???
+  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: height !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: dx !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_turb_cpl !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_shal_cpl !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca2_cpl !< ???
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca3_cpl !< ???
 
 
-!----------------
+!
 ! Public Entities
-!----------------
+!
 ! functions
   public stochastic_physics_wrapper
 
   contains
 
-!-------------------------------
+!
 !  CCPP step
-!-------------------------------
+!
+
+  !> ???
+  !>
+  !> @param[inout] GFS_control ???
+  !> @param[in] GFS_Statein ???
+  !> @param[in] GFS_Grid ???
+  !> @param[inout] GFS_Sfcprop ???
+  !> @param[inout] GFS_Radtend ???
+  !> @param[inout] GFS_Coupling ???
+  !> @param[inout] Atm_block ???
+  !> @param[out] ierr ???
+  !>  
+  !> @author 
   subroutine stochastic_physics_wrapper (GFS_Control, GFS_Statein, GFS_Grid, GFS_Sfcprop, GFS_Radtend, GFS_Coupling, Atm_block, ierr)
 
 #ifdef _OPENMP
@@ -440,6 +461,13 @@ module stochastic_physics_wrapper_mod
 
   contains
 
+    !> ???
+    !>
+    !> @param[in] blksz ???
+    !> @param[in] data_in ???
+    !> @param[out] data_out ???
+    !>  
+    !> @author 
     subroutine transfer_field_to_stochastics(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -460,6 +488,13 @@ module stochastic_physics_wrapper_mod
 
     end subroutine transfer_field_to_stochastics
 
+    !> ???
+    !>
+    !> @param[in] blksz ???
+    !> @param[in] data_in ???
+    !> @param[out] data_out ???
+    !>  
+    !> @author 
     subroutine transfer_field_to_stochastics_3d(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -473,6 +508,13 @@ module stochastic_physics_wrapper_mod
 
     end subroutine transfer_field_to_stochastics_3d
 
+    !> ???
+    !>
+    !> @param[in] blksz ???
+    !> @param[in] data_in ???
+    !> @param[out] data_out ???
+    !>  
+    !> @author 
     subroutine transfer_field_from_stochastics(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -495,7 +537,11 @@ module stochastic_physics_wrapper_mod
 
   end subroutine stochastic_physics_wrapper
 
-
+  !> ???
+  !>
+  !> @param[inout] GFS_Control ???
+  !>  
+  !> @author 
   subroutine stochastic_physics_wrapper_end (GFS_Control)
 
   use GFS_typedefs,       only: GFS_control_type

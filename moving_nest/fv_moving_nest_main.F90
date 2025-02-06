@@ -138,15 +138,29 @@ module fv_moving_nest_main_mod
 #endif
 
   ! Enable these for more debugging outputs
-  logical :: debug_log = .false.    ! Produces logging to out.* file
-  logical :: tsvar_out = .false.    ! Produces netCDF outputs; be careful to not exceed file number limits set in namelist
+  logical :: debug_log = .false.    !< Produces logging to out.* file
+  logical :: tsvar_out = .false.    !< Produces netCDF outputs; be careful to not exceed file number limits set in namelist
 
   !  --- Clock ids for moving_nest performance metering
-  integer :: id_movnest1, id_movnest1_9, id_movnest2, id_movnest3, id_movnest4, id_movnest5
-  integer :: id_movnest5_1, id_movnest5_2, id_movnest5_3, id_movnest5_4
-  integer :: id_movnest6, id_movnest7_0, id_movnest7_1, id_movnest7_2, id_movnest7_3, id_movnest8, id_movnest9
-  integer :: id_movnestTot
-  integer, save :: output_step = 0
+  integer :: id_movnest1 !< ???
+  integer :: id_movnest1_9 !< ???
+  integer :: id_movnest2 !< ???
+  integer :: id_movnest3 !< ???
+  integer :: id_movnest4 !< ???
+  integer :: id_movnest5 !< ???
+  integer :: id_movnest5_1 !< ???
+  integer :: id_movnest5_2 !< ???
+  integer :: id_movnest5_3 !< ???
+  integer :: id_movnest5_4 !< ???
+  integer :: id_movnest6 !< ???
+  integer :: id_movnest7_0 !< ???
+  integer :: id_movnest7_1 !< ???
+  integer :: id_movnest7_2 !< ???
+  integer :: id_movnest7_3 !< ???
+  integer :: id_movnest8 !< ???
+  integer :: id_movnest9 !< ???
+  integer :: id_movnestTot !< ???
+  integer, save :: output_step = 0 !< ???
 
 contains
 
