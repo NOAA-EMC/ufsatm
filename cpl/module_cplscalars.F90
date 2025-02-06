@@ -26,13 +26,14 @@ module module_cplscalars
   public State_GetScalar
 
   ! set from config
-  integer, public           :: flds_scalar_num, flds_scalar_index_nx
-  integer, public           :: flds_scalar_index_ny, flds_scalar_index_ntile
-  character(len=80), public :: flds_scalar_name
+  integer, public           :: flds_scalar_num !< ???
+  integer, public           :: flds_scalar_index_nx !< ???
+  integer, public           :: flds_scalar_index_ny !< ???
+  integer, public           :: flds_scalar_index_ntile !< ???
+  character(len=80), public :: flds_scalar_name !< ???
 
 contains
 
-  !================================================================================
   !> Create a scalar field
   !>
   !> @param[inout]   field            an ESMF_Field
@@ -71,7 +72,6 @@ contains
 
   end subroutine SetScalarField
 
-  !================================================================================
   !> Set scalar data into a state
   !>
   !> @param[inout]   State            an ESMF_State
@@ -126,7 +126,6 @@ contains
 
   end subroutine State_SetScalar
 
-  !===============================================================================
   !> Get scalar data from a state
   !>
   !> @details Obtain the field flds_scalar_name from a State and broadcast and
