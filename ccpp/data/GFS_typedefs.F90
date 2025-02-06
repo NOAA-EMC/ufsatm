@@ -1,5 +1,6 @@
 module GFS_typedefs
 
+   use mpi_f08
    use machine,                  only: kind_phys, kind_dbl_prec, kind_sngl_prec
    use physcons,                 only: con_cp, con_fvirt, con_g, rholakeice,           &
                                        con_hvap, con_hfus, con_pi, con_rd, con_rv,     &
@@ -9,12 +10,15 @@ module GFS_typedefs
                                        con_csol, con_epsqs, con_rocp, con_rog,         &
                                        con_omega, con_rerth, con_psat, karman, rainmin,&
                                        con_c, con_plnk, con_boltz, con_solr_2008,      &
-                                       con_solr_2002, con_thgni, con_1ovg
+                                       con_solr_2002, con_thgni, con_1ovg, con_rgas,   &
+                                       con_avgd, con_amd, con_amw
 
    use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
    use module_radlw_parameters,  only: topflw_type, sfcflw_type
-   use h2o_def,                  only: levh2o, h2o_coeff
    use module_ozphys,            only: ty_ozphys
+   use module_h2ophys,           only: ty_h2ophys
+   use land_iau_mod,             only: land_iau_external_data_type, land_iau_control_type, &
+                                       land_iau_state_type, land_iau_mod_set_control
 
    implicit none
 
@@ -80,7 +84,6 @@ module GFS_typedefs
 !    GFS_cldprop_type        !< cloud fields needed by radiation from physics
 !    GFS_radtend_type        !< radiation tendencies needed in physics
 !    GFS_diag_type           !< fields targetted for diagnostic output
-!    GFS_data_type           !< combined type of all of the above except GFS_control_type
 
 !--------------------------------------------------------------------------------
 ! GFS_init_type
@@ -94,7 +97,7 @@ module GFS_typedefs
   type GFS_init_type
     integer :: me                                !< my MPI-rank
     integer :: master                            !< master MPI-rank
-    integer :: fcst_mpi_comm                     !< forecast tasks mpi communicator
+    type(MPI_Comm) :: fcst_mpi_comm              !< forecast tasks mpi communicator
     integer :: fcst_ntasks                       !< total number of forecast tasks
     integer :: tile_num                          !< tile number for this MPI rank
     integer :: isc                               !< starting i-index for this MPI-domain
@@ -236,6 +239,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: soiltype_frac(:,:) => null()  !< fractions [0:1] of soil categories
                                                               !< [tsea in gbphys.f]
     real (kind=kind_phys), pointer :: tsfco  (:)   => null()  !< sst in K
+    real (kind=kind_phys), pointer :: usfco  (:)   => null()  !< surface zonal current in m s-1
+    real (kind=kind_phys), pointer :: vsfco  (:)   => null()  !< surface meridional current in m s-1
     real (kind=kind_phys), pointer :: tsfcl  (:)   => null()  !< surface land temperature in K
     real (kind=kind_phys), pointer :: tisfc  (:)   => null()  !< surface temperature over ice fraction
     real (kind=kind_phys), pointer :: tiice(:,:)   => null()  !< internal ice temperature
@@ -253,7 +258,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hprime (:,:) => null()  !< orographic metrics
     real (kind=kind_phys), pointer :: dust12m_in  (:,:,:) => null()  !< fengsha dust input
     real (kind=kind_phys), pointer :: emi_in (:,:) => null()  !< anthropogenic background input
-    real (kind=kind_phys), pointer :: smoke_RRFS(:,:,:) => null()  !< RRFS fire input
+    real (kind=kind_phys), pointer :: smoke_RRFS(:,:,:) => null()  !< RRFS fire input hourly
+    real (kind=kind_phys), pointer :: smoke2d_RRFS(:,:) => null()  !< RRFS fire input daily
     real (kind=kind_phys), pointer :: z0base (:)   => null()  !< background or baseline surface roughness length in m
     real (kind=kind_phys), pointer :: semisbase(:) => null()  !< background surface emissivity
     real (kind=kind_phys), pointer :: sfalb_lnd (:) => null() !< surface albedo over land for LSM
@@ -294,6 +300,11 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hflx   (:)   => null()  !<
     real (kind=kind_phys), pointer :: qss    (:)   => null()  !<
 
+!--- fire_behavior
+    real (kind=kind_phys), pointer :: hflx_fire (:)   => null()  !< kinematic surface upward sensible heat flux of fire
+    real (kind=kind_phys), pointer :: evap_fire (:)   => null()  !< kinematic surface upward latent heat flux of fire
+    real (kind=kind_phys), pointer :: smoke_fire (:)   => null()  !< smoke emission of fire
+
 !-- In/Out
     real (kind=kind_phys), pointer :: maxupmf(:)   => null()  !< maximum up draft mass flux for Grell-Freitas
     real (kind=kind_phys), pointer :: conv_act(:)  => null()  !< convective activity counter for Grell-Freitas
@@ -305,7 +316,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: ffmm   (:)   => null()  !< fm parameter from PBL scheme
     real (kind=kind_phys), pointer :: ffhh   (:)   => null()  !< fh parameter from PBL scheme
     real (kind=kind_phys), pointer :: f10m   (:)   => null()  !< fm at 10m - Ratio of sigma level 1 wind and 10m wind
-    real (kind=kind_phys), pointer :: rca     (:)  => null()  !< canopy resistance
+    real (kind=kind_phys), pointer :: rca    (:)   => null()  !< canopy resistance
     real (kind=kind_phys), pointer :: tprcp  (:)   => null()  !< sfc_fld%tprcp - total precipitation
     real (kind=kind_phys), pointer :: srflag (:)   => null()  !< sfc_fld%srflag - snow/rain flag for precipitation
     real (kind=kind_phys), pointer :: slc    (:,:) => null()  !< liquid soil moisture
@@ -460,18 +471,28 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: emseas  (:)     => null()  !< instantaneous sea salt emission
     real (kind=kind_phys), pointer :: emanoc  (:)     => null()  !< instantaneous anthro. oc emission
 
-    !--- Smoke. These 3 arrays are hourly, so their dimension is imx24 (output is hourly)
-    real (kind=kind_phys), pointer :: ebb_smoke_hr(:)    => null()  !< hourly smoke emission
-    real (kind=kind_phys), pointer :: frp_hr      (:)    => null()  !< hourly FRP
-    real (kind=kind_phys), pointer :: frp_std_hr  (:)    => null()  !< hourly std. FRP
-
+    !--- Smoke. These 2 arrays are input smoke emission and frp
+    real (kind=kind_phys), pointer :: ebb_smoke_in(:)   => null()  !< input smoke emission
+    real (kind=kind_phys), pointer :: frp_output  (:)   => null()  !< output FRP
     !--- For fire diurnal cycle
     real (kind=kind_phys), pointer :: fhist       (:)   => null()  !< instantaneous fire coef_bb
     real (kind=kind_phys), pointer :: coef_bb_dc  (:)   => null()  !< instantaneous fire coef_bb
+    integer, pointer               :: fire_type   (:)   => null()  !< fire type
+    real (kind=kind_phys), pointer :: peak_hr     (:)   => null()  !< peak hour of fire emissions
+    real (kind=kind_phys), pointer :: lu_nofire   (:)   => null()  !<lu_nofire pixels
+    real (kind=kind_phys), pointer :: lu_qfire    (:)   => null()  !<lu_qfire pixels
+    !--- wildfire heat flux
+    real (kind=kind_phys), pointer :: fire_heat_flux   (:) => null() !< heat flux from wildfire
+    real (kind=kind_phys), pointer :: frac_grid_burned (:) => null() !< fraction of grid cell burning
 
     !--- For smoke and dust auxiliary inputs
     real (kind=kind_phys), pointer :: fire_in   (:,:)   => null()  !< fire auxiliary inputs
-
+    
+    !--- Land IAU DDTs
+    type(land_iau_external_data_type) :: land_iau_data
+    type(land_iau_control_type)       :: land_iau_control
+    type(land_iau_state_type)         :: land_iau_state
+                                        
     contains
       procedure :: create  => sfcprop_create  !<   allocate array data
   end type GFS_sfcprop_type
@@ -537,6 +558,20 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dtsfcin_med(:)         => null()   !< sfc latent heat flux over ocean
     real (kind=kind_phys), pointer :: dqsfcin_med(:)         => null()   !< sfc sensible heat flux over ocean
     real (kind=kind_phys), pointer :: ulwsfcin_med(:)        => null()   !< sfc upward lw flux over ocean
+    !--- variables needed for cpllnd = .TRUE. and cpllnd2atm=.TRUE.
+    real (kind=kind_phys), pointer :: sncovr1_lnd(:)         => null()   !< sfc snow area fraction over land
+    real (kind=kind_phys), pointer :: qsurf_lnd(:)           => null()   !< sfc specific humidity
+    real (kind=kind_phys), pointer :: evap_lnd(:)            => null()   !< sfc latent heat flux over land, converted to evaporative flux
+    real (kind=kind_phys), pointer :: hflx_lnd(:)            => null()   !< sfc sensible heat flux over land
+    real (kind=kind_phys), pointer :: ep_lnd(:)              => null()   !< sfc up pot latent heat flux over land
+    real (kind=kind_phys), pointer :: t2mmp_lnd(:)           => null()   !< 2 meter temperature over land 
+    real (kind=kind_phys), pointer :: q2mp_lnd(:)            => null()   !< 2 meter spec humidity over land
+    real (kind=kind_phys), pointer :: gflux_lnd(:)           => null()   !< soil heat flux over land
+    real (kind=kind_phys), pointer :: runoff_lnd(:)          => null()   !< surface runoff over land
+    real (kind=kind_phys), pointer :: drain_lnd(:)           => null()   !< subsurface runoff over land
+    real (kind=kind_phys), pointer :: cmm_lnd(:)             => null()   !< surface drag wind speed for momentum
+    real (kind=kind_phys), pointer :: chh_lnd(:)             => null()   !< surface drag mass flux for heat and moisture 
+    real (kind=kind_phys), pointer :: zvfun_lnd(:)           => null()   !< function of surface roughness length and green vegetation fraction 
 
 !--- outgoing accumulated quantities
     real (kind=kind_phys), pointer :: rain_cpl  (:)  => null()   !< total rain precipitation
@@ -615,21 +650,27 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: nifa2d  (:)     => null()  !< instantaneous ice-friendly sfc aerosol source
 
     !--- For fire diurnal cycle
-    real (kind=kind_phys), pointer :: ebu_smoke (:,:)   => null()  !< 3D ebu array
-
-    !--- For smoke and dust optical extinction
-    real (kind=kind_phys), pointer :: smoke_ext (:,:)   => null()  !< 3D aod array
-    real (kind=kind_phys), pointer :: dust_ext  (:,:)   => null()  !< 3D aod array
+    real (kind=kind_phys), pointer :: ebu_smoke (:,:) => null()  !< 3D ebu array
 
     !--- For MYNN PBL transport of  smoke and dust
     real (kind=kind_phys), pointer :: chem3d  (:,:,:)   => null()  !< 3D aod array
     real (kind=kind_phys), pointer :: ddvel   (:,:  )   => null()  !< 2D dry deposition velocity
+    !--- For convective wet removal of  smoke and dust
+    real (kind=kind_phys), pointer :: wetdpc_flux (:,:) => null()  !< 2D wet deposition array
+    !--- For large-scale wet removal of  smoke and dust
+    real (kind=kind_phys), pointer :: wetdpr_flux (:,:) => null()  !< 2D wet deposition array
+    !--- For dry deposition of smoke and dust
+    real (kind=kind_phys), pointer :: drydep_flux (:,:) => null()  !< 2D dry deposition flux of smoke
 
     !--- Fire plume rise diagnostics
-    real (kind=kind_phys), pointer :: min_fplume (:)   => null()  !< minimum plume rise level
-    real (kind=kind_phys), pointer :: max_fplume (:)   => null()  !< maximum plume rise level
+    real (kind=kind_phys), pointer :: min_fplume (:)  => null()  !< minimum plume rise level
+    real (kind=kind_phys), pointer :: max_fplume (:)  => null()  !< maximum plume rise level
+    real (kind=kind_phys), pointer :: uspdavg (:)     => null()  !< BL average wind speed
+    real (kind=kind_phys), pointer :: hpbl_thetav (:) => null()  !< BL depth parcel method
+    real (kind=kind_phys), pointer :: rho_dry (:,:)   => null()  !< dry air density 3D array
     !--- hourly fire potential index
-    real (kind=kind_phys), pointer :: rrfs_hwp   (:)   => null()  !< hourly fire potential index
+    real (kind=kind_phys), pointer :: rrfs_hwp   (:)  => null()  !< hourly fire potential index
+    real (kind=kind_phys), pointer :: rrfs_hwp_ave   (:)   => null()  !< *Average* hourly fire potential index
 
     !--- instantaneous quantities for chemistry coupling
     real (kind=kind_phys), pointer :: ushfsfci(:)     => null()  !< instantaneous upward sensible heat flux (w/m**2)
@@ -677,7 +718,7 @@ module GFS_typedefs
 
     integer              :: me              !< MPI rank designator
     integer              :: master          !< MPI rank of master atmosphere processor
-    integer              :: communicator    !< MPI communicator
+    type(MPI_Comm)       :: communicator    !< MPI communicator
     integer              :: ntasks          !< MPI size in communicator
     integer              :: nthreads        !< OpenMP threads available for physics
     integer              :: nlunit          !< unit for namelist
@@ -686,7 +727,9 @@ module GFS_typedefs
                                                                         !< for use with internal file reads
     integer              :: input_nml_file_length    !< length (number of lines) in namelist for internal reads
     integer              :: logunit
-    real(kind=kind_phys) :: fhzero          !< hours between clearing of diagnostic buckets
+    real(kind=kind_phys) :: fhzero          !< hours between clearing of diagnostic buckets (current bucket)
+    real(kind=kind_phys) :: fhzero_array(2) !< array to hold the the hours between clearing of diagnostic buckets
+    real(kind=kind_phys) :: fhzero_fhour(2) !< the maximum forecast length for the hours between clearing of diagnostic buckets
     logical              :: ldiag3d         !< flag for 3d diagnostic fields
     logical              :: qdiag3d         !< flag for 3d tracer diagnostic fields
     logical              :: flag_for_gwd_generic_tend  !< true if GFS_GWD_generic should calculate tendencies
@@ -723,7 +766,11 @@ module GFS_typedefs
     integer              :: nblks           !< for explicit data blocking: number of blocks
     integer,     pointer :: blksz(:)        !< for explicit data blocking: block sizes of all blocks
     integer              :: ncols           !< total number of columns for all blocks
-
+    !
+    integer              :: nchunks         !< number of chunks of an array that are used in the CCPP run phase
+    integer,     pointer :: chunk_begin(:)  !< first indices of chunks of an array for the CCPP run phase
+    integer,     pointer :: chunk_end(:)    !< last indices of chunks of an array for the CCPP run phase
+    !
     integer              :: fire_aux_data_levels !< vertical levels of fire auxiliary data
 
 !--- coupling parameters
@@ -735,7 +782,9 @@ module GFS_typedefs
     logical              :: cplaqm          !< default no cplaqm collection
     logical              :: cplchm          !< default no cplchm collection
     logical              :: cpllnd          !< default no cpllnd collection
+    logical              :: cpllnd2atm      !< default no lnd->atm coupling 
     logical              :: rrfs_sd         !< default no rrfs_sd collection
+    logical              :: cpl_fire        !< default no fire_behavior collection
     logical              :: use_cice_alb    !< default .false. - i.e. don't use albedo imported from the ice model
     logical              :: cpl_imp_mrg     !< default no merge import with internal forcings
     logical              :: cpl_imp_dbg     !< default no write import data to file post merge
@@ -762,6 +811,8 @@ module GFS_typedefs
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
+    logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag 
+
 !--- radiation control parameters
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr           !< frequency for longwave radiation (secs)
@@ -988,6 +1039,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: dt_inner        !< time step for the inner loop in s
     logical              :: sedi_semi       !< flag for semi Lagrangian sedi of rain
     integer              :: decfl           !< deformed CFL factor
+    logical              :: thompson_mp_is_init=.false. !< Local scheme initialization flag
 
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
@@ -1058,6 +1110,9 @@ module GFS_typedefs
     integer              :: isncond_opt=1   !< control for soil thermal conductivity option in RUC land surface model
     integer              :: isncovr_opt=1   !< control for snow cover fraction option in RUC land surface model
 
+    ! -- Fire heat flux
+    logical              :: add_fire_heat_flux=.false. !<control to add fireheat flux to RUC LSM
+
     logical              :: use_ufo         !< flag for gcycle surface option
 
     ! GFDL Surface Layer options
@@ -1104,6 +1159,7 @@ module GFS_typedefs
     logical              :: do_gsl_drag_ls_bl    !< flag for GSL drag (mesoscale GWD and blocking only)
     logical              :: do_gsl_drag_ss       !< flag for GSL drag (small-scale GWD only)
     logical              :: do_gsl_drag_tofd     !< flag for GSL drag (turbulent orog form drag only)
+    logical              :: do_gwd_opt_psl       !< flag for PSL drag (mesoscale GWD and blocking only)
     logical              :: do_ugwp_v1           !< flag for version 1 ugwp GWD
     logical              :: do_ugwp_v1_orog_only !< flag for version 1 ugwp GWD (orographic drag only)
     logical              :: do_ugwp_v1_w_gsldrag !< flag for version 1 ugwp with OGWD of GSL
@@ -1136,6 +1192,7 @@ module GFS_typedefs
     logical              :: lheatstrg       !< flag for canopy heat storage parameterization
     logical              :: lseaspray       !< flag for sea spray parameterization
     logical              :: cnvcld
+    logical              :: xr_cnvcld       !< flag for adding suspended convective clouds to Xu-Randall cloud fraction
     logical              :: random_clds     !< flag controls whether clouds are random
     logical              :: shal_cnv        !< flag for calling shallow convection
     logical              :: do_deep         !< whether to do deep convection
@@ -1175,6 +1232,10 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
+    logical              :: gf_coldstart     !< flag for cold start GF 
+    integer              :: conv_cf_opt      !< option for convection scheme cloud fraction computation
+                                             !< 0: Chaboureau-Bechtold
+                                             !< 1: Xu-Randall
 
     integer              :: nmtvr           !< number of topographic variables such as variance etc
                                             !< used in the GWD parameterization - 10 more added if
@@ -1186,6 +1247,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ccwf(2)         !< multiplication factor for critical cloud
                                             !< workfunction for RAS
     real(kind=kind_phys) :: cdmbgwd(4)      !< multiplication factors for cdmb, gwd and NS gwd, tke based enhancement
+    real(kind=kind_phys) :: alpha_fd        !< alpha coefficient for turbulent orographic form drag
+    real(kind=kind_phys) :: psl_gwd_dx_factor  !< multiplication factors for grid spacing
     real(kind=kind_phys) :: sup             !< supersaturation in pdf cloud when t is very low
     real(kind=kind_phys) :: ctei_rm(2)      !< critical cloud top entrainment instability criteria
                                             !< (used if mstrat=.true.)
@@ -1294,6 +1357,10 @@ module GFS_typedefs
                                             !< 0=no change
                                             !< 6=areodynamical roughness over water with input 10-m wind
                                             !< 7=slightly decrease Cd for higher wind speed compare to 6
+!--- air_sea_flux scheme
+    integer              :: icplocn2atm     !< air_sea flux options over ocean:
+                                            !< 0=no change
+                                            !< l=including ocean current in the computation of air_sea fluxes
 
 !--- potential temperature definition in surface layer physics
     logical              :: thsfc_loc       !< flag for local vs. standard potential temperature
@@ -1447,11 +1514,12 @@ module GFS_typedefs
     integer              :: nto2            !< tracer index for oxygen
     integer              :: ntwa            !< tracer index for water friendly aerosol
     integer              :: ntia            !< tracer index for ice friendly aerosol
+    integer              :: ntfsmoke        !< tracer index for fire smoke
     integer              :: ntsmoke         !< tracer index for smoke
     integer              :: ntdust          !< tracer index for dust
     integer              :: ntcoarsepm      !< tracer index for coarse PM
-    integer              :: nchem = 3       !< number of prognostic chemical species (vertically mixied)
-    integer              :: ndvel = 3       !< number of prognostic chemical species (which are deposited, usually =nchem)
+    integer              :: nchem           !< number of prognostic chemical species (vertically mixied)
+    integer              :: ndvel           !< number of prognostic chemical species (which are deposited, usually =nchem)
     integer              :: ntchm           !< number of prognostic chemical tracers (advected)
     integer              :: ntchs           !< tracer index for first prognostic chemical tracer
     integer              :: ntche           !< tracer index for last prognostic chemical tracer
@@ -1512,21 +1580,30 @@ module GFS_typedefs
     real(kind=kind_phys) :: dust_alpha        !< alpha parameter for fengsha dust scheme
     real(kind=kind_phys) :: dust_gamma        !< gamma parameter for fengsha dust scheme
     real(kind=kind_phys) :: wetdep_ls_alpha   !< alpha parameter for wet deposition
+    real(kind=kind_phys) :: plume_alpha       !< alpha parameter for plumerise scheme
+    integer              :: ebb_dcycle        !< 1:retro; 2:forecast of fire emission
     integer              :: seas_opt
     integer              :: dust_opt
     integer              :: drydep_opt
     integer              :: coarsepm_settling
+    integer              :: plume_wind_eff
+    logical              :: extended_sd_diags
     integer              :: wetdep_ls_opt
     logical              :: do_plumerise
     integer              :: addsmoke_flag
     integer              :: plumerisefire_frq
-    integer              :: smoke_forecast
+    integer              :: n_dbg_lines
+    integer              :: hwp_method
+    logical              :: add_fire_moist_flux ! Flag to add moisture fluxes based on PM2.5 emissions
+    real(kind=kind_phys) :: sc_factor
     logical              :: aero_ind_fdb    ! WFA/IFA indirect
     logical              :: aero_dir_fdb    ! smoke/dust direct
     logical              :: rrfs_smoke_debug
+    logical              :: do_smoke_transport
     logical              :: mix_chem
     logical              :: enh_mix
     real(kind=kind_phys) :: smoke_dir_fdb_coef(7) !< smoke & dust direct feedbck coefficents
+    real(kind=kind_phys) :: smoke_conv_wet_coef(3) !< smoke & dust convective wet removal coefficents
 
 !--- debug flags
     logical              :: debug
@@ -1563,6 +1640,9 @@ module GFS_typedefs
     real(kind=kind_phys), pointer :: si(:)  !< vertical sigma coordinate for model initialization
     real(kind=kind_phys)          :: sec    !< seconds since model initialization
 
+!--- Increment grid    
+    logical              :: increment_file_on_native_grid ! increment on native grid else Gaussian grid
+    
 !--- IAU
     integer              :: iau_offset
     real(kind=kind_phys) :: iau_delthrs     ! iau time interval (to scale increments) in hours
@@ -1588,7 +1668,24 @@ module GFS_typedefs
     type(ty_ozphys) :: ozphys          !< DDT with data needed by ozone physics
     integer         :: levozp          !< Number of vertical layers in ozone forcing data
     integer         :: oz_coeff        !< Number of coefficients in ozone forcing data
+!--- NRL h2o photchemistry physics
+    type(ty_h2ophys) :: h2ophys        !< DDT with data needed by h2o photchemistry physics.
+    integer          :: levh2o         !< Number of vertical layers in stratospheric h2o data.
+    integer          :: h2o_coeff      !< Number of coefficients in stratospheric h2o data.
 
+! !--- Land IAU
+!   !> land iau setting read from namelist
+!     logical               :: do_land_iau               
+!     real(kind=kind_phys)  :: land_iau_delthrs                  
+!     character(len=240)    :: land_iau_inc_files(7)             
+!     real(kind=kind_phys)  :: land_iau_fhrs(7)              
+!     logical               :: land_iau_filter_increments 
+!     integer               :: lsoil_incr 
+!     logical               :: land_iau_upd_stc
+!     logical               :: land_iau_upd_slc 
+!     logical               :: land_iau_do_stcsmc_adjustment 
+!     real(kind=kind_phys)  :: land_iau_min_T_increment 
+    
     contains
       procedure :: init            => control_initialize
       procedure :: init_chemistry  => control_chemistry_initialize
@@ -1606,50 +1703,50 @@ module GFS_typedefs
 !!
   type GFS_grid_type
 
-    real (kind=kind_phys), pointer :: xlon   (:)    => null()   !< grid longitude in radians, ok for both 0->2pi
-                                                                !! or -pi -> +pi ranges
-    real (kind=kind_phys), pointer :: xlat   (:)    => null()   !< grid latitude in radians, default to pi/2 ->
-                                                                !! -pi/2 range, otherwise adj in subr called
-    real (kind=kind_phys), pointer :: xlat_d (:)    => null()   !< grid latitude in degrees, default to 90 ->
-                                                                !! -90 range, otherwise adj in subr called
-    real (kind=kind_phys), pointer :: xlon_d (:)    => null()   !< grid longitude in degrees, default to 0 ->
-                                                                !! 360 range, otherwise adj in subr called
-    real (kind=kind_phys), pointer :: sinlat (:)    => null()   !< sine of the grids corresponding latitudes
-    real (kind=kind_phys), pointer :: coslat (:)    => null()   !< cosine of the grids corresponding latitudes
-    real (kind=kind_phys), pointer :: area   (:)    => null()   !< area of the grid cell
-    real (kind=kind_phys), pointer :: dx     (:)    => null()   !< relative dx for the grid cell
+    real (kind=kind_phys), pointer :: xlon   (:)        !< grid longitude in radians, ok for both 0->2pi
+                                                        !! or -pi -> +pi ranges
+    real (kind=kind_phys), pointer :: xlat   (:)        !< grid latitude in radians, default to pi/2 ->
+                                                        !! -pi/2 range, otherwise adj in subr called
+    real (kind=kind_phys), pointer :: xlat_d (:)        !< grid latitude in degrees, default to 90 ->
+                                                        !! -90 range, otherwise adj in subr called
+    real (kind=kind_phys), pointer :: xlon_d (:)        !< grid longitude in degrees, default to 0 ->
+                                                        !! 360 range, otherwise adj in subr called
+    real (kind=kind_phys), pointer :: sinlat (:)        !< sine of the grids corresponding latitudes
+    real (kind=kind_phys), pointer :: coslat (:)        !< cosine of the grids corresponding latitudes
+    real (kind=kind_phys), pointer :: area   (:)        !< area of the grid cell
+    real (kind=kind_phys), pointer :: dx     (:)        !< relative dx for the grid cell
 
 !--- grid-related interpolation data for prognostic ozone
-    real (kind=kind_phys), pointer :: ddy_o3    (:) => null()   !< interpolation     weight for ozone
-    integer,               pointer :: jindx1_o3 (:) => null()   !< interpolation  low index for ozone
-    integer,               pointer :: jindx2_o3 (:) => null()   !< interpolation high index for ozone
+    real (kind=kind_phys), pointer :: ddy_o3    (:)     !< interpolation     weight for ozone
+    integer,               pointer :: jindx1_o3 (:)     !< interpolation  low index for ozone
+    integer,               pointer :: jindx2_o3 (:)     !< interpolation high index for ozone
 
 !--- grid-related interpolation data for stratosphere water
-    real (kind=kind_phys), pointer :: ddy_h     (:) => null()   !< interpolation     weight for h2o
-    integer,               pointer :: jindx1_h  (:) => null()   !< interpolation  low index for h2o
-    integer,               pointer :: jindx2_h  (:) => null()   !< interpolation high index for h2o
+    real (kind=kind_phys), pointer :: ddy_h     (:)     !< interpolation     weight for h2o
+    integer,               pointer :: jindx1_h  (:)     !< interpolation  low index for h2o
+    integer,               pointer :: jindx2_h  (:)     !< interpolation high index for h2o
 
 !--- grid-related interpolation data for prognostic iccn
-    real (kind=kind_phys), pointer :: ddy_ci    (:) => null()   !< interpolation     weight for iccn
-    integer,               pointer :: jindx1_ci (:) => null()   !< interpolation  low index for iccn
-    integer,               pointer :: jindx2_ci (:) => null()   !< interpolation high index for iccn
-    real (kind=kind_phys), pointer :: ddx_ci    (:) => null()   !< interpolation     weight for iccn
-    integer,               pointer :: iindx1_ci (:) => null()   !< interpolation  low index for iccn
-    integer,               pointer :: iindx2_ci (:) => null()   !< interpolation high index for iccn
+    real (kind=kind_phys), pointer :: ddy_ci    (:)     !< interpolation     weight for iccn
+    integer,               pointer :: jindx1_ci (:)     !< interpolation  low index for iccn
+    integer,               pointer :: jindx2_ci (:)     !< interpolation high index for iccn
+    real (kind=kind_phys), pointer :: ddx_ci    (:)     !< interpolation     weight for iccn
+    integer,               pointer :: iindx1_ci (:)     !< interpolation  low index for iccn
+    integer,               pointer :: iindx2_ci (:)     !< interpolation high index for iccn
 
 !--- grid-related interpolation data for prescribed aerosols
-    real (kind=kind_phys), pointer :: ddy_aer    (:) => null()   !< interpolation     weight for iaerclm
-    integer,               pointer :: jindx1_aer (:) => null()   !< interpolation  low index for iaerclm
-    integer,               pointer :: jindx2_aer (:) => null()   !< interpolation high index for iaerclm
-    real (kind=kind_phys), pointer :: ddx_aer    (:) => null()   !< interpolation     weight for iaerclm
-    integer,               pointer :: iindx1_aer (:) => null()   !< interpolation  low index for iaerclm
-    integer,               pointer :: iindx2_aer (:) => null()   !< interpolation high index for iaerclm
+    real (kind=kind_phys), pointer :: ddy_aer    (:)    !< interpolation     weight for iaerclm
+    integer,               pointer :: jindx1_aer (:)    !< interpolation  low index for iaerclm
+    integer,               pointer :: jindx2_aer (:)    !< interpolation high index for iaerclm
+    real (kind=kind_phys), pointer :: ddx_aer    (:)    !< interpolation     weight for iaerclm
+    integer,               pointer :: iindx1_aer (:)    !< interpolation  low index for iaerclm
+    integer,               pointer :: iindx2_aer (:)    !< interpolation high index for iaerclm
 
 !--- grid-related interpolation data for cires_ugwp_v1
-    real (kind=kind_phys), pointer :: ddy_j1tau  (:) => null()   !< interpolation     weight for  tau_ugwp
-    real (kind=kind_phys), pointer :: ddy_j2tau  (:) => null()   !< interpolation     weight for  tau_ugwp
-    integer,               pointer :: jindx1_tau (:) => null()   !< interpolation  low index for tau_ugwp
-    integer,               pointer :: jindx2_tau (:) => null()   !< interpolation high index for tau_ugwp
+    real (kind=kind_phys), pointer :: ddy_j1tau  (:)    !< interpolation     weight for  tau_ugwp
+    real (kind=kind_phys), pointer :: ddy_j2tau  (:)    !< interpolation     weight for  tau_ugwp
+    integer,               pointer :: jindx1_tau (:)    !< interpolation  low index for tau_ugwp
+    integer,               pointer :: jindx2_tau (:)    !< interpolation high index for tau_ugwp
 
     contains
       procedure :: create   => grid_create   !<   allocate array data
@@ -1918,7 +2015,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: det_thl    (:,:)   => null()  !
     real (kind=kind_phys), pointer :: det_sqv    (:,:)   => null()  !
     real (kind=kind_phys), pointer :: maxMF       (:)    => null()  !
-    integer, pointer               :: nupdraft    (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxwidth    (:)    => null()  !
+    real (kind=kind_phys), pointer :: ztop_plume  (:)    => null()  !
     integer, pointer               :: ktop_plume  (:)    => null()  !
     real (kind=kind_phys), pointer :: exch_h     (:,:)   => null()  !
     real (kind=kind_phys), pointer :: exch_m     (:,:)   => null()  !
@@ -1984,6 +2082,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: cldfra (:,:)   => null()  !< instantaneous 3D cloud fraction
     !--- MP quantities for 3D diagnositics
     real (kind=kind_phys), pointer :: refl_10cm(:,:) => null()  !< instantaneous refl_10cm
+    real (kind=kind_phys), pointer :: max_hail_diam_sfc(:) => null()  !< instantaneous max hail diameter sfc
     real (kind=kind_phys), pointer :: cldfra2d (:)   => null()  !< instantaneous 2D cloud fraction
     real (kind=kind_phys), pointer :: total_albedo (:)   => null()  !< total sky (with cloud) albedo at toa
     real (kind=kind_phys), pointer :: lwp_ex (:)     => null()  !< liquid water path from microphysics
@@ -2032,14 +2131,6 @@ module GFS_typedefs
 !
 !---vay-2018 UGWP-diagnostics daily mean
 !
-    real (kind=kind_phys), pointer :: dudt_tot (:,:) => null()  !< daily aver GFS_phys tend for WE-U
-    real (kind=kind_phys), pointer :: dvdt_tot (:,:) => null()  !< daily aver GFS_phys tend for SN-V
-    real (kind=kind_phys), pointer :: dtdt_tot (:,:) => null()  !< daily aver GFS_phys tend for Temp-re
-!
-    real (kind=kind_phys), pointer :: du3dt_pbl(:,:) => null()  !< daily aver GFS_phys tend for WE-U pbl
-    real (kind=kind_phys), pointer :: dv3dt_pbl(:,:) => null()  !< daily aver GFS_phys tend for SN-V pbl
-    real (kind=kind_phys), pointer :: dt3dt_pbl(:,:) => null()  !< daily aver GFS_phys tend for Temp pbl
-!
     real (kind=kind_phys), pointer :: du3dt_ogw(:,:) => null()  !< daily aver GFS_phys tend for WE-U OGW
 !
     real (kind=kind_phys), pointer :: ldu3dt_ogw(:,:) => null()  !< time aver GFS_phys tend for WE-U OGW
@@ -2087,10 +2178,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: gwp_ayo(:,:)   => null()   ! instant oro-UGWP tend m/s/s NS
     real (kind=kind_phys), pointer :: gwp_axf(:,:)   => null()   ! instant jet-UGWP tend m/s/s EW
     real (kind=kind_phys), pointer :: gwp_ayf(:,:)   => null()   ! instant jet-UGWP tend m/s/s NS
-
-    real (kind=kind_phys), pointer :: uav_ugwp(:,:)  => null()   ! aver  wind UAV from physics
-    real (kind=kind_phys), pointer :: tav_ugwp(:,:)  => null()   ! aver  temp UAV from physics
-    real (kind=kind_phys), pointer :: du3dt_dyn(:,:) => null()   ! U Tend-dynamics "In"-"PhysOut"
 
 !--- COODRE ORO diagnostics
     real (kind=kind_phys), pointer :: zmtb(:)        => null()   !
@@ -2145,24 +2232,6 @@ module GFS_typedefs
       procedure :: phys_zero => diag_phys_zero
   end type GFS_diag_type
 
-!----------------------------------------------------------
-! combined type of all of the above except GFS_control_type
-!----------------------------------------------------------
-!! \section arg_table_GFS_data_type
-!! \htmlinclude GFS_data_type.html
-!!
-  type GFS_data_type
-     type(GFS_statein_type)  :: Statein
-     type(GFS_stateout_type) :: Stateout
-     type(GFS_sfcprop_type)  :: Sfcprop
-     type(GFS_coupling_type) :: Coupling
-     type(GFS_grid_type)     :: Grid
-     type(GFS_tbd_type)      :: Tbd
-     type(GFS_cldprop_type)  :: Cldprop
-     type(GFS_radtend_type)  :: Radtend
-     type(GFS_diag_type)     :: Intdiag
-  end type GFS_data_type
-
 !----------------
 ! PUBLIC ENTITIES
 !----------------
@@ -2171,7 +2240,6 @@ module GFS_typedefs
          GFS_coupling_type
   public GFS_control_type,  GFS_grid_type,     GFS_tbd_type, &
          GFS_cldprop_type,  GFS_radtend_type,  GFS_diag_type
-  public GFS_data_type
 
 !*******************************************************************************************
   CONTAINS
@@ -2179,12 +2247,14 @@ module GFS_typedefs
 !------------------------
 ! GFS_statein_type%create
 !------------------------
-  subroutine statein_create (Statein, IM, Model)
+  subroutine statein_create (Statein, Model)
     implicit none
 
     class(GFS_statein_type)             :: Statein
-    integer,                 intent(in) :: IM
     type(GFS_control_type),  intent(in) :: Model
+    integer :: IM
+
+    IM = Model%ncols
 
     !--- level geopotential and pressures
     allocate (Statein%phii  (IM,Model%levs+1))
@@ -2246,13 +2316,15 @@ module GFS_typedefs
 !-------------------------
 ! GFS_stateout_type%create
 !-------------------------
-  subroutine stateout_create (Stateout, IM, Model)
+  subroutine stateout_create (Stateout, Model)
 
     implicit none
 
     class(GFS_stateout_type)           :: Stateout
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
+
+    IM = Model%ncols
 
     allocate (Stateout%gu0 (IM,Model%levs))
     allocate (Stateout%gv0 (IM,Model%levs))
@@ -2270,13 +2342,18 @@ module GFS_typedefs
 !------------------------
 ! GFS_sfcprop_type%create
 !------------------------
-  subroutine sfcprop_create (Sfcprop, IM, Model)
+  subroutine sfcprop_create (Sfcprop, Model)
 
     implicit none
 
     class(GFS_sfcprop_type)            :: Sfcprop
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
+
+    character(len=512)                 :: errmsg
+    integer                            :: errflg
+
+    IM = Model%ncols
 
     !--- physics and radiation
     allocate (Sfcprop%slmsk    (IM))
@@ -2307,6 +2384,8 @@ module GFS_typedefs
     endif
 
     allocate (Sfcprop%tsfc     (IM))
+    allocate (Sfcprop%usfco    (IM))
+    allocate (Sfcprop%vsfco    (IM))
     allocate (Sfcprop%tsfco    (IM))
     allocate (Sfcprop%tsfcl    (IM))
     allocate (Sfcprop%tisfc    (IM))
@@ -2324,17 +2403,16 @@ module GFS_typedefs
     allocate (Sfcprop%weasdi   (IM))
     allocate (Sfcprop%hprime   (IM,Model%nmtvr))
     allocate (Sfcprop%dust12m_in  (IM,12,5))
-    allocate (Sfcprop%smoke_RRFS(IM,24,3))
+    allocate (Sfcprop%smoke_RRFS(IM,24,2))
+    allocate (Sfcprop%smoke2d_RRFS(IM,5))
     allocate (Sfcprop%emi_in   (IM,1))
-    allocate(Sfcprop%albdirvis_lnd (IM))
-    allocate(Sfcprop%albdirnir_lnd (IM))
-    allocate(Sfcprop%albdifvis_lnd (IM))
-    allocate(Sfcprop%albdifnir_lnd (IM))
+    allocate (Sfcprop%albdirvis_lnd (IM))
+    allocate (Sfcprop%albdirnir_lnd (IM))
+    allocate (Sfcprop%albdifvis_lnd (IM))
+    allocate (Sfcprop%albdifnir_lnd (IM))
     allocate (Sfcprop%emis_lnd (IM))
     allocate (Sfcprop%emis_ice (IM))
     allocate (Sfcprop%emis_wat (IM))
-    allocate (Sfcprop%acsnow_land (IM))
-    allocate (Sfcprop%acsnow_ice (IM))
 
     Sfcprop%slmsk     = clear_val
     Sfcprop%oceanfrac = clear_val
@@ -2363,6 +2441,8 @@ module GFS_typedefs
     endif
 
     Sfcprop%tsfc      = clear_val
+    Sfcprop%usfco     = clear_val
+    Sfcprop%vsfco     = clear_val
     Sfcprop%tsfco     = clear_val
     Sfcprop%tsfcl     = clear_val
     Sfcprop%tisfc     = clear_val
@@ -2382,6 +2462,7 @@ module GFS_typedefs
     Sfcprop%dust12m_in= clear_val
     Sfcprop%emi_in    = clear_val
     Sfcprop%smoke_RRFS= clear_val
+    Sfcprop%smoke2d_RRFS= clear_val
     Sfcprop%albdirvis_lnd = clear_val
     Sfcprop%albdirnir_lnd = clear_val
     Sfcprop%albdifvis_lnd = clear_val
@@ -2389,9 +2470,6 @@ module GFS_typedefs
     Sfcprop%emis_lnd  = clear_val
     Sfcprop%emis_ice  = clear_val
     Sfcprop%emis_wat  = clear_val
-    Sfcprop%acsnow_land = clear_val
-    Sfcprop%acsnow_ice = clear_val
-
 
 !--- In (radiation only)
     allocate (Sfcprop%snoalb (IM))
@@ -2551,30 +2629,40 @@ module GFS_typedefs
       Sfcprop%dt_cool = zero
       Sfcprop%qrain   = zero
     endif
-    if (Model%lsm == Model%lsm_noah) then
+    if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp .or. Model%lsm == Model%lsm_ruc) then
       allocate (Sfcprop%xlaixy   (IM))
       allocate (Sfcprop%canopylaixy   (IM))
       allocate (Sfcprop%canopyfchxy   (IM))
       allocate (Sfcprop%canopyfrtxy (IM))
       allocate (Sfcprop%canopycluxy   (IM))
-      allocate (Sfcprop%rca      (IM))
       Sfcprop%xlaixy     = clear_val
       Sfcprop%canopylaixy     = clear_val
       Sfcprop%canopyfchxy     = clear_val
       Sfcprop%canopyfrtxy   = clear_val
       Sfcprop%canopycluxy     = clear_val
+    else
+      allocate (Sfcprop%xlaixy        (0))
+      allocate (Sfcprop%canopylaixy   (0))
+      allocate (Sfcprop%canopyfchxy   (0))
+      allocate (Sfcprop%canopyfrtxy   (0))
+      allocate (Sfcprop%canopycluxy   (0))
+    end if
+    if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp) then
+      allocate (Sfcprop%rca      (IM))
       Sfcprop%rca        = clear_val
+    else
+      allocate (Sfcprop%rca      (0))
     end if
     if (Model%lsm == Model%lsm_ruc .or. Model%lsm == Model%lsm_noahmp .or. &
          (Model%lkm>0 .and. Model%iopt_lake==Model%iopt_lake_clm)) then
-     allocate(Sfcprop%raincprv  (IM))
-     allocate(Sfcprop%rainncprv (IM))
+     allocate (Sfcprop%raincprv  (IM))
+     allocate (Sfcprop%rainncprv (IM))
      Sfcprop%raincprv   = clear_val
      Sfcprop%rainncprv  = clear_val
      if (Model%lsm == Model%lsm_ruc .or. Model%lsm == Model%lsm_noahmp) then
-      allocate(Sfcprop%iceprv    (IM))
-      allocate(Sfcprop%snowprv   (IM))
-      allocate(Sfcprop%graupelprv(IM))
+      allocate (Sfcprop%iceprv    (IM))
+      allocate (Sfcprop%snowprv   (IM))
+      allocate (Sfcprop%graupelprv(IM))
       Sfcprop%iceprv     = clear_val
       Sfcprop%snowprv    = clear_val
       Sfcprop%graupelprv = clear_val
@@ -2663,11 +2751,11 @@ module GFS_typedefs
       Sfcprop%smoiseq    = clear_val
       Sfcprop%zsnsoxy    = clear_val
 
-      allocate(Sfcprop%draincprv  (IM))
-      allocate(Sfcprop%drainncprv (IM))
-      allocate(Sfcprop%diceprv    (IM))
-      allocate(Sfcprop%dsnowprv   (IM))
-      allocate(Sfcprop%dgraupelprv(IM))
+      allocate (Sfcprop%draincprv  (IM))
+      allocate (Sfcprop%drainncprv (IM))
+      allocate (Sfcprop%diceprv    (IM))
+      allocate (Sfcprop%dsnowprv   (IM))
+      allocate (Sfcprop%dgraupelprv(IM))
 
       Sfcprop%draincprv   = clear_val
       Sfcprop%drainncprv  = clear_val
@@ -2678,11 +2766,11 @@ module GFS_typedefs
     endif
 
     if (Model%do_myjsfc .or. Model%do_myjpbl) then
-      allocate(Sfcprop%z0base(IM))
+      allocate (Sfcprop%z0base(IM))
       Sfcprop%z0base = clear_val
     end if
 
-    allocate(Sfcprop%semisbase(IM))
+    allocate (Sfcprop%semisbase(IM))
     Sfcprop%semisbase = clear_val
 
     if (Model%lsm == Model%lsm_ruc) then
@@ -2704,6 +2792,9 @@ module GFS_typedefs
        allocate (Sfcprop%snowfallac_ice  (IM))
        allocate (Sfcprop%acsnow_land     (IM))
        allocate (Sfcprop%acsnow_ice      (IM))
+       allocate (Sfcprop%fire_heat_flux  (IM))
+       allocate (Sfcprop%frac_grid_burned(IM))
+
        !
        Sfcprop%wetness         = clear_val
        Sfcprop%sh2o            = clear_val
@@ -2722,6 +2813,8 @@ module GFS_typedefs
        Sfcprop%snowfallac_ice  = clear_val
        Sfcprop%acsnow_land     = clear_val
        Sfcprop%acsnow_ice      = clear_val
+       Sfcprop%fire_heat_flux  = clear_val
+       Sfcprop%frac_grid_burned= clear_val
        !
        if (Model%rdlai) then
           allocate (Sfcprop%xlaixy (IM))
@@ -2745,12 +2838,14 @@ module GFS_typedefs
        end if
 
     end if
-       allocate (Sfcprop%rmol   (IM ))
-       allocate (Sfcprop%flhc   (IM ))
-       allocate (Sfcprop%flqc   (IM ))
-       Sfcprop%rmol        = clear_val
-       Sfcprop%flhc        = clear_val
-       Sfcprop%flqc        = clear_val
+
+    allocate (Sfcprop%rmol   (IM ))
+    allocate (Sfcprop%flhc   (IM ))
+    allocate (Sfcprop%flqc   (IM ))
+    Sfcprop%rmol        = clear_val
+    Sfcprop%flhc        = clear_val
+    Sfcprop%flqc        = clear_val
+
     if (Model%do_mynnsfclay) then
     ! For MYNN surface layer scheme
        !print*,"Allocating all MYNN-sfclay variables"
@@ -2780,29 +2875,29 @@ module GFS_typedefs
 
     ! CLM Lake Model variables
     if (Model%lkm/=0 .and. Model%iopt_lake==Model%iopt_lake_clm) then
-       allocate(Sfcprop%lake_t2m(IM))
-       allocate(Sfcprop%lake_q2m(IM))
-       allocate(Sfcprop%lake_albedo(IM))
-       allocate(Sfcprop%input_lakedepth(IM))
-       allocate(Sfcprop%lake_h2osno2d(IM))
-       allocate(Sfcprop%lake_sndpth2d(IM))
-       allocate(Sfcprop%lake_snl2d(IM))
-       allocate(Sfcprop%lake_snow_z3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_snow_dz3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_snow_zi3d(IM,Model%nlevsnowsoil_clm_lake))
-       allocate(Sfcprop%lake_h2osoi_vol3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_h2osoi_liq3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_h2osoi_ice3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_tsfc(IM))
-       allocate(Sfcprop%lake_t_soisno3d(IM,Model%nlevsnowsoil1_clm_lake))
-       allocate(Sfcprop%lake_t_lake3d(IM,Model%nlevlake_clm_lake))
-       allocate(Sfcprop%lake_savedtke12d(IM))
-       allocate(Sfcprop%lake_icefrac3d(IM,Model%nlevlake_clm_lake))
-       allocate(Sfcprop%lake_rho0(IM))
-       allocate(Sfcprop%lake_ht(IM))
-       allocate(Sfcprop%lake_is_salty(IM))
-       allocate(Sfcprop%lake_cannot_freeze(IM))
-       allocate(Sfcprop%clm_lake_initialized(IM))
+       allocate (Sfcprop%lake_t2m(IM))
+       allocate (Sfcprop%lake_q2m(IM))
+       allocate (Sfcprop%lake_albedo(IM))
+       allocate (Sfcprop%input_lakedepth(IM))
+       allocate (Sfcprop%lake_h2osno2d(IM))
+       allocate (Sfcprop%lake_sndpth2d(IM))
+       allocate (Sfcprop%lake_snl2d(IM))
+       allocate (Sfcprop%lake_snow_z3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_snow_dz3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_snow_zi3d(IM,Model%nlevsnowsoil_clm_lake))
+       allocate (Sfcprop%lake_h2osoi_vol3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_h2osoi_liq3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_h2osoi_ice3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_tsfc(IM))
+       allocate (Sfcprop%lake_t_soisno3d(IM,Model%nlevsnowsoil1_clm_lake))
+       allocate (Sfcprop%lake_t_lake3d(IM,Model%nlevlake_clm_lake))
+       allocate (Sfcprop%lake_savedtke12d(IM))
+       allocate (Sfcprop%lake_icefrac3d(IM,Model%nlevlake_clm_lake))
+       allocate (Sfcprop%lake_rho0(IM))
+       allocate (Sfcprop%lake_ht(IM))
+       allocate (Sfcprop%lake_is_salty(IM))
+       allocate (Sfcprop%lake_cannot_freeze(IM))
+       allocate (Sfcprop%clm_lake_initialized(IM))
 
        Sfcprop%lake_t2m = clear_val
        Sfcprop%lake_q2m = clear_val
@@ -2834,38 +2929,70 @@ module GFS_typedefs
       allocate (Sfcprop%emdust    (IM))
       allocate (Sfcprop%emseas    (IM))
       allocate (Sfcprop%emanoc    (IM))
-      allocate (Sfcprop%ebb_smoke_hr (IM))
-      allocate (Sfcprop%frp_hr    (IM))
-      allocate (Sfcprop%frp_std_hr(IM))
+      allocate (Sfcprop%ebb_smoke_in (IM))
+      allocate (Sfcprop%frp_output (IM))
       allocate (Sfcprop%fhist     (IM))
       allocate (Sfcprop%coef_bb_dc(IM))
+      allocate (Sfcprop%fire_type (IM))
+      allocate (Sfcprop%peak_hr   (IM))
+      allocate (Sfcprop%lu_nofire (IM))
+      allocate (Sfcprop%lu_qfire  (IM))
       allocate (Sfcprop%fire_in   (IM,Model%fire_aux_data_levels))
 
       ! IMPORTANT: This initialization must match rrfs_sd_fill_data
       Sfcprop%emdust     = clear_val
       Sfcprop%emseas     = clear_val
       Sfcprop%emanoc     = clear_val
-      Sfcprop%ebb_smoke_hr  = clear_val
-      Sfcprop%frp_hr     = clear_val
-      Sfcprop%frp_std_hr = clear_val
+      Sfcprop%ebb_smoke_in = clear_val
+      Sfcprop%frp_output  = clear_val
       Sfcprop%fhist      = 1.
       Sfcprop%coef_bb_dc = clear_val
+      Sfcprop%fire_type  = 0
       Sfcprop%fire_in    = clear_val
+      Sfcprop%peak_hr    = clear_val
+      Sfcprop%lu_nofire  = clear_val
+      Sfcprop%lu_qfire   = clear_val
     endif
 
+    !--- if fire_behavior is on
+    if(Model%cpl_fire) then
+      allocate (Sfcprop%hflx_fire   (IM))
+      allocate (Sfcprop%evap_fire   (IM))
+      allocate (Sfcprop%smoke_fire  (IM))
+      Sfcprop%hflx_fire = zero
+      Sfcprop%evap_fire = zero
+      Sfcprop%smoke_fire = zero
+    endif
+
+    ! land iau control setting
+    call land_iau_mod_set_control(Sfcprop%land_iau_control, &
+            Model%fn_nml, Model%input_nml_file, Model%me, Model%master, &
+            Model%isc,  Model%jsc,  Model%nx,  Model%ny,  Model%tile_num,  Model%nblks,  Model%blksz, &
+            Model%lsoil, Model%lsnow_lsm, Model%dtp, Model%fhour, errmsg, errflg)
+
+    if (errflg/=0) then
+      if (Model%me==Model%master) then
+        write(0,'(a)') "Error inside sfcprop_create"
+        write(0,'(a)') trim(errmsg)
+        stop
+      endif
+    endif   
+    
   end subroutine sfcprop_create
 
 
 !-------------------------
 ! GFS_coupling_type%create
 !-------------------------
-  subroutine coupling_create (Coupling, IM, Model)
+  subroutine coupling_create (Coupling, Model)
 
     implicit none
 
     class(GFS_coupling_type)           :: Coupling
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
+
+    IM = Model%ncols
 
     !--- radiation out
     !--- physics in
@@ -2910,7 +3037,7 @@ module GFS_typedefs
        Coupling%tsfc_radtime       = clear_val
     endif
 
-    if (Model%cplflx .or. Model%do_sppt .or. Model%cplchm .or. Model%ca_global .or. Model%cpllnd) then
+    if (Model%cplflx .or. Model%do_sppt .or. Model%cplchm .or. Model%ca_global .or. Model%cpllnd .or. Model%cpl_fire) then
       allocate (Coupling%rain_cpl (IM))
       allocate (Coupling%snow_cpl (IM))
       Coupling%rain_cpl = clear_val
@@ -2939,14 +3066,31 @@ module GFS_typedefs
 !     Coupling%zorlwav_cpl  = clear_val
 !   endif
 
+    ! -- additional coupling options for air quality
+    if (Model%cplflx .or. Model%cpllnd .or. Model%cpl_fire .or. (Model%cplaqm .and. .not.Model%cplflx)) then
+      allocate (Coupling%psurfi_cpl  (IM))
+      allocate (Coupling%nswsfci_cpl (IM))
+      Coupling%psurfi_cpl  = clear_val
+      Coupling%nswsfci_cpl = clear_val
+    endif
+     
+    if (Model%cplflx .or. Model%cpl_fire .or. (Model%cplaqm .and. .not.Model%cplflx)) then
+      allocate (Coupling%dtsfci_cpl  (IM))
+      allocate (Coupling%dqsfci_cpl  (IM))
+      allocate (Coupling%t2mi_cpl    (IM))
+      allocate (Coupling%q2mi_cpl    (IM))
+      Coupling%dtsfci_cpl  = clear_val
+      Coupling%dqsfci_cpl  = clear_val
+      Coupling%t2mi_cpl    = clear_val
+      Coupling%q2mi_cpl    = clear_val
+    endif
+    
     if (Model%cplflx .or. Model%cpllnd) then
       allocate (Coupling%dlwsfci_cpl (IM))
       allocate (Coupling%dswsfci_cpl (IM))
       allocate (Coupling%dlwsfc_cpl  (IM))
       allocate (Coupling%dswsfc_cpl  (IM))
-      allocate (Coupling%psurfi_cpl  (IM))
       allocate (Coupling%nswsfc_cpl  (IM))
-      allocate (Coupling%nswsfci_cpl (IM))
       allocate (Coupling%nnirbmi_cpl (IM))
       allocate (Coupling%nnirdfi_cpl (IM))
       allocate (Coupling%nvisbmi_cpl (IM))
@@ -2960,9 +3104,7 @@ module GFS_typedefs
       Coupling%dswsfci_cpl  = clear_val
       Coupling%dlwsfc_cpl  = clear_val
       Coupling%dswsfc_cpl  = clear_val
-      Coupling%psurfi_cpl  = clear_val
       Coupling%nswsfc_cpl  = clear_val
-      Coupling%nswsfci_cpl = clear_val
       Coupling%nnirbmi_cpl = clear_val
       Coupling%nnirdfi_cpl = clear_val
       Coupling%nvisbmi_cpl = clear_val
@@ -2973,7 +3115,7 @@ module GFS_typedefs
       Coupling%nvisdf_cpl  = clear_val
     end if
 
-    if (Model%cplflx) then
+    if (Model%cplflx .or. Model%cpl_fire) then
       !--- incoming quantities
       allocate (Coupling%slimskin_cpl        (IM))
       allocate (Coupling%dusfcin_cpl         (IM))
@@ -3046,35 +3188,59 @@ module GFS_typedefs
       !--- instantaneous quantities
       allocate (Coupling%dusfci_cpl  (IM))
       allocate (Coupling%dvsfci_cpl  (IM))
-      allocate (Coupling%dtsfci_cpl  (IM))
-      allocate (Coupling%dqsfci_cpl  (IM))
       allocate (Coupling%dnirbmi_cpl (IM))
       allocate (Coupling%dnirdfi_cpl (IM))
       allocate (Coupling%dvisbmi_cpl (IM))
       allocate (Coupling%dvisdfi_cpl (IM))
       allocate (Coupling%nlwsfci_cpl (IM))
-      allocate (Coupling%t2mi_cpl    (IM))
-      allocate (Coupling%q2mi_cpl    (IM))
       allocate (Coupling%oro_cpl     (IM))
       allocate (Coupling%slmsk_cpl   (IM))
 
       Coupling%dusfci_cpl  = clear_val
       Coupling%dvsfci_cpl  = clear_val
-      Coupling%dtsfci_cpl  = clear_val
-      Coupling%dqsfci_cpl  = clear_val
       Coupling%dnirbmi_cpl = clear_val
       Coupling%dnirdfi_cpl = clear_val
       Coupling%dvisbmi_cpl = clear_val
       Coupling%dvisdfi_cpl = clear_val
       Coupling%nlwsfci_cpl = clear_val
-      Coupling%t2mi_cpl    = clear_val
-      Coupling%q2mi_cpl    = clear_val
       Coupling%oro_cpl     = clear_val  !< pointer to sfcprop%oro
       Coupling%slmsk_cpl   = clear_val  !< pointer to sfcprop%slmsk
     endif
 
-   !-- cellular automata
+    ! -- Coupling options to retrive land fluxes from external land component 
+    if (Model%cpllnd .and. Model%cpllnd2atm) then
+      allocate (Coupling%sncovr1_lnd (IM))
+      allocate (Coupling%qsurf_lnd   (IM))
+      allocate (Coupling%evap_lnd    (IM))
+      allocate (Coupling%hflx_lnd    (IM))
+      allocate (Coupling%ep_lnd      (IM))
+      allocate (Coupling%t2mmp_lnd   (IM))
+      allocate (Coupling%q2mp_lnd    (IM))
+      allocate (Coupling%gflux_lnd   (IM))
+      allocate (Coupling%runoff_lnd  (IM))
+      allocate (Coupling%drain_lnd   (IM))
+      allocate (Coupling%cmm_lnd     (IM))
+      allocate (Coupling%chh_lnd     (IM))
+      allocate (Coupling%zvfun_lnd   (IM))
+
+      Coupling%sncovr1_lnd = clear_val
+      Coupling%qsurf_lnd   = clear_val
+      Coupling%evap_lnd    = clear_val
+      Coupling%hflx_lnd    = clear_val
+      Coupling%ep_lnd      = clear_val
+      Coupling%t2mmp_lnd   = clear_val
+      Coupling%q2mp_lnd    = clear_val
+      Coupling%gflux_lnd   = clear_val
+      Coupling%runoff_lnd  = clear_val
+      Coupling%drain_lnd   = clear_val
+      Coupling%cmm_lnd     = clear_val
+      Coupling%chh_lnd     = clear_val
+      Coupling%zvfun_lnd   = clear_val
+    end if
+
+    !-- cellular automata
     allocate (Coupling%condition(IM))
+    Coupling%condition = clear_val
     if (Model%do_ca) then
       allocate (Coupling%ca1      (IM))
       allocate (Coupling%ca2      (IM))
@@ -3092,7 +3258,6 @@ module GFS_typedefs
       Coupling%ca_shal   = clear_val
       Coupling%ca_rad    = clear_val
       Coupling%ca_micro  = clear_val
-      Coupling%condition = clear_val
     endif
 
     ! -- Aerosols coupling options
@@ -3107,31 +3272,14 @@ module GFS_typedefs
       Coupling%pfl_lsan  = clear_val
     endif
 
-    if (Model%cplchm .or. Model%cplflx .or. Model%cpllnd) then
+    if (Model%cplchm .or. Model%cplflx .or. Model%cpllnd .or. Model%cpl_fire) then
       !--- accumulated convective rainfall
       allocate (Coupling%rainc_cpl (IM))
       Coupling%rainc_cpl = clear_val
     end if
 
-    ! -- additional coupling options for air quality
-    if (Model%cplaqm .and. .not.Model%cplflx) then
-      !--- outgoing instantaneous quantities
-      allocate (Coupling%dtsfci_cpl  (IM))
-      allocate (Coupling%dqsfci_cpl  (IM))
-      allocate (Coupling%nswsfci_cpl (IM))
-      allocate (Coupling%t2mi_cpl    (IM))
-      allocate (Coupling%q2mi_cpl    (IM))
-      allocate (Coupling%psurfi_cpl  (IM))
-      Coupling%dtsfci_cpl  = clear_val
-      Coupling%dqsfci_cpl  = clear_val
-      Coupling%nswsfci_cpl = clear_val
-      Coupling%t2mi_cpl    = clear_val
-      Coupling%q2mi_cpl    = clear_val
-      Coupling%psurfi_cpl  = clear_val
-    endif
-
     if(Model%progsigma)then
-       allocate(Coupling%dqdt_qmicro (IM,Model%levs))
+       allocate (Coupling%dqdt_qmicro (IM,Model%levs))
        Coupling%dqdt_qmicro = clear_val
     endif
 
@@ -3189,21 +3337,31 @@ module GFS_typedefs
     if(Model%rrfs_sd) then
     !--- needed for smoke aerosol option
       allocate (Coupling%ebu_smoke (IM,Model%levs))
-      allocate (Coupling%smoke_ext (IM,Model%levs))
-      allocate (Coupling%dust_ext  (IM,Model%levs))
       allocate (Coupling%chem3d    (IM,Model%levs,Model%nchem))
       allocate (Coupling%ddvel     (IM,Model%ndvel))
+      allocate (Coupling%wetdpc_flux(IM,Model%nchem))
+      allocate (Coupling%wetdpr_flux(IM,Model%nchem))
+      allocate (Coupling%drydep_flux(IM,Model%ndvel))
       allocate (Coupling%min_fplume(IM))
       allocate (Coupling%max_fplume(IM))
+      allocate (Coupling%uspdavg(IM))
+      allocate (Coupling%rho_dry   (IM,Model%levs))
+      allocate (Coupling%hpbl_thetav(IM))
       allocate (Coupling%rrfs_hwp  (IM))
+      allocate (Coupling%rrfs_hwp_ave  (IM))
       Coupling%ebu_smoke  = clear_val
-      Coupling%smoke_ext  = clear_val
-      Coupling%dust_ext   = clear_val
       Coupling%chem3d     = clear_val
       Coupling%ddvel      = clear_val
+      Coupling%wetdpc_flux = clear_val
+      Coupling%wetdpr_flux = clear_val
+      Coupling%drydep_flux = clear_val
       Coupling%min_fplume = clear_val
       Coupling%max_fplume = clear_val
+      Coupling%uspdavg = clear_val
+      Coupling%rho_dry = clear_val
+      Coupling%hpbl_thetav = clear_val
       Coupling%rrfs_hwp   = clear_val
+      Coupling%rrfs_hwp_ave = clear_val
     endif
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3) then
@@ -3264,7 +3422,7 @@ module GFS_typedefs
     real(kind=kind_phys), dimension(:), intent(in) :: bk
     logical,                intent(in) :: restart
     logical,                intent(in) :: hydrostatic
-    integer,                intent(in) :: communicator
+    type(MPI_Comm),         intent(in) :: communicator
     integer,                intent(in) :: ntasks
     integer,                intent(in) :: nthreads
 
@@ -3274,14 +3432,14 @@ module GFS_typedefs
     integer :: seed0
     logical :: exists
     real(kind=kind_phys) :: tem
-    real(kind=kind_phys) :: rinc(5)
-    real(kind=kind_sngl_prec) :: rinc4(5)
-    real(kind=kind_dbl_prec) :: rinc8(5)
+    real(kind=kind_dbl_prec) :: rinc(5)
     real(kind=kind_phys) :: wrk(1)
     real(kind=kind_phys), parameter :: con_hr = 3600.
 
 !--- BEGIN NAMELIST VARIABLES
     real(kind=kind_phys) :: fhzero         = 0.0             !< hours between clearing of diagnostic buckets
+    real(kind=kind_phys) :: fhzero_array(1:2)  = 0.0         !< array with hours between clearing of diagnostic buckets
+    real(kind=kind_phys) :: fhzero_fhour(1:2)  = 0.0         !< the maximum forecast length for the hours between clearing of diagnostic buckets
     logical              :: ldiag3d        = .false.         !< flag for 3d diagnostic fields
     logical              :: qdiag3d        = .false.         !< flag for 3d tracer diagnostic fields
     logical              :: lssav          = .false.         !< logical flag for storing diagnostics
@@ -3305,7 +3463,9 @@ module GFS_typedefs
     logical              :: cplaqm         = .false.         !< default no cplaqm collection
     logical              :: cplchm         = .false.         !< default no cplchm collection
     logical              :: cpllnd         = .false.         !< default no cpllnd collection
+    logical              :: cpllnd2atm     = .false.         !< default no cpllnd2atm coupling
     logical              :: rrfs_sd        = .false.         !< default no rrfs_sd collection
+    logical              :: cpl_fire       = .false.         !< default no fire behavior colleciton
     logical              :: use_cice_alb   = .false.         !< default no cice albedo
     logical              :: cpl_imp_mrg    = .false.         !< default no merge import with internal forcings
     logical              :: cpl_imp_dbg    = .false.         !< default no write import data to file post merge
@@ -3574,6 +3734,8 @@ module GFS_typedefs
 
     logical              :: use_ufo        = .false.                  !< flag for gcycle surface option
 
+    logical              :: add_fire_heat_flux = .false.              !< Flag for fire heat flux
+
     logical              :: lcurr_sf       = .false.                  !< flag for taking ocean currents into account in GFDL surface layer
     logical              :: pert_cd        = .false.                  !< flag for perturbing the surface drag coefficient for momentum in surface layer scheme
     integer              :: ntsflg         = 0                        !< flag for updating skin temperature in the GFDL surface layer scheme
@@ -3604,6 +3766,7 @@ module GFS_typedefs
     logical              :: do_gsl_drag_ls_bl    = .false.      !< flag for GSL drag (mesoscale GWD and blocking only)
     logical              :: do_gsl_drag_ss       = .false.      !< flag for GSL drag (small-scale GWD only)
     logical              :: do_gsl_drag_tofd     = .false.      !< flag for GSL drag (turbulent orog form drag only)
+    logical              :: do_gwd_opt_psl       = .false.      !< flag for PSL drag (mesoscale GWD and blocking only)
     logical              :: do_ugwp_v1           = .false.      !< flag for version 1 ugwp GWD
     logical              :: do_ugwp_v1_orog_only = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
     logical              :: do_ugwp_v1_w_gsldrag = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
@@ -3640,6 +3803,7 @@ module GFS_typedefs
     logical              :: lheatstrg      = .false.                  !< flag for canopy heat storage parameterization
     logical              :: lseaspray      = .false.                  !< flag for sea spray parameterization
     logical              :: cnvcld         = .false.
+    logical              :: xr_cnvcld      = .true.                   !< flag for including suspended convective clouds in Xu-Randall cloud fraction
     logical              :: random_clds    = .false.                  !< flag controls whether clouds are random
     logical              :: shal_cnv       = .false.                  !< flag for calling shallow convection
     integer              :: imfshalcnv     =  1                       !< flag for mass-flux shallow convection scheme
@@ -3664,6 +3828,7 @@ module GFS_typedefs
     logical              :: hwrf_samfdeep     = .false.               !< flag for HWRF SAMF deepcnv scheme
     logical              :: hwrf_samfshal     = .false.               !< flag for HWRF SAMF shalcnv scheme
     logical              :: progsigma         = .false.               !< flag for prognostic updraft area fraction closure in saSAS or Unified conv.
+    integer              :: conv_cf_opt       =  0                    !< option for convection scheme cloud fraction computation
     logical              :: do_mynnedmf       = .false.               !< flag for MYNN-EDMF
     logical              :: do_mynnsfclay     = .false.               !< flag for MYNN Surface Layer Scheme
     ! DH* TODO - move to MYNN namelist section
@@ -3706,6 +3871,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ccwf(2)        = (/1.0d0,1.0d0/)          !< multiplication factor for critical cloud
                                                                       !< workfunction for RAS
     real(kind=kind_phys) :: cdmbgwd(4)     = (/2.0d0,0.25d0,1.0d0,1.0d0/)   !< multiplication factors for cdmb, gwd, and NS gwd, tke based enhancement
+    real(kind=kind_phys) :: alpha_fd       = 12.0                     !< alpha coefficient for turbulent orographic form drag
+    real(kind=kind_phys) :: psl_gwd_dx_factor  = 6.0                  !< multiplication factors for grid spacing
     real(kind=kind_phys) :: sup            = 1.0                      !< supersaturation in pdf cloud (IMP_physics=98) when t is very low
                                                                       !< or ice super saturation in SHOC (when do_shoc=.true.)
     real(kind=kind_phys) :: ctei_rm(2)     = (/10.0d0,10.0d0/)        !< critical cloud top entrainment instability criteria
@@ -3784,6 +3951,9 @@ module GFS_typedefs
                                                              !< 6=areodynamical roughness over water with input 10-m wind
                                                              !< 7=slightly decrease Cd for higher wind speed compare to 6
                                                              !< negative when cplwav2atm=.true. - i.e. two way wave coupling
+    integer              :: icplocn2atm    = 0               !< air_sea_flux options over ocean
+                                                             !< 0=ocean current is not used in the computation of air_sea fluxes
+                                                             !< 1=including ocean current in the computation of air_sea fluxes
 
 !--- potential temperature definition in surface layer physics
     logical              :: thsfc_loc      = .true.          !< flag for local vs. standard potential temperature
@@ -3839,6 +4009,9 @@ module GFS_typedefs
     logical              :: ca_entr        = .false.
     logical              :: ca_trigger     = .false.
 
+!--- Increment grid
+    logical               :: increment_file_on_native_grid = .false. ! increment on native grid else Gaussian grid
+    
 !--- IAU options
     real(kind=kind_phys)  :: iau_delthrs      = 0           !< iau time interval (to scale increments)
     character(len=240)    :: iau_inc_files(7) = ''          !< list of increment files
@@ -3885,29 +4058,39 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
+    logical              :: gf_coldstart  = .false.   !< flag for cold start GF 
 
 !-- chem nml variables for RRFS-SD
     real(kind=kind_phys) :: dust_drylimit_factor  = 1.0
     real(kind=kind_phys) :: dust_moist_correction = 1.0
     real(kind=kind_phys) :: dust_alpha = 0.
     real(kind=kind_phys) :: dust_gamma = 0.
-    real(kind=kind_phys) :: wetdep_ls_alpha = 0.
+    real(kind=kind_phys) :: wetdep_ls_alpha = 0.5
+    real(kind=kind_phys) :: plume_alpha = 0.05
     integer :: dust_moist_opt = 1         ! fecan :1  else shao
+    integer :: ebb_dcycle = 1             ! 1:retro; 2:forecast
     integer :: seas_opt = 2
-    integer :: dust_opt = 5
+    integer :: dust_opt = 1
     integer :: drydep_opt  = 1
     integer :: coarsepm_settling  = 1
+    integer :: plume_wind_eff = 1
+    logical :: extended_sd_diags = .false.
     integer :: wetdep_ls_opt  = 1
     logical :: do_plumerise   = .false.
+    logical :: add_fire_moist_flux = .false.
+    real(kind=kind_phys) :: sc_factor = 1.0
     integer :: addsmoke_flag  = 1
     integer :: plumerisefire_frq = 60
-    integer :: smoke_forecast = 0         ! RRFS-sd read in ebb_smoke
+    integer :: n_dbg_lines = 3
+    integer :: hwp_method = 2         ! RRFS-sd read in ebb_smoke
     logical :: aero_ind_fdb = .false.     ! RRFS-sd wfa/ifa emission
     logical :: aero_dir_fdb = .false.     ! RRFS-sd smoke/dust radiation feedback
     logical :: rrfs_smoke_debug = .false. ! RRFS-sd plumerise debug
+    logical :: do_smoke_transport = .true.! RRFS-sd convective transport of smoke/dust
     logical :: mix_chem = .false.         ! tracer mixing option by MYNN PBL
     logical :: enh_mix  = .false.         ! enhance vertmix option by MYNN PBL
     real(kind=kind_phys) :: smoke_dir_fdb_coef(7) =(/ 0.33, 0.67, 0.02, 0.13, 0.85, 0.05, 0.95 /) !< smoke & dust direct feedbck coefficents
+    real(kind=kind_phys) :: smoke_conv_wet_coef(3) =(/ 0.50, 0.50, 0.50 /) !< smoke & dust convective wet removal coefficents
 
 !-- Lightning threat index
     logical :: lightning_threat = .false.
@@ -3918,13 +4101,27 @@ module GFS_typedefs
     integer              :: kozpl        = 28       !< File identifier for ozone forcing data
     integer              :: kozc         = 48       !< File identifier for ozone climotology data
 
+!--- NRL h2o photochemistry physics
+    integer              :: kh2oc        = 29       !< File identifier for h2o photochemistry data.
+    
 !--- aerosol scavenging factors
     integer, parameter :: max_scav_factors = 183
     character(len=40)  :: fscav_aero(max_scav_factors) = ''
 
     real(kind=kind_phys) :: radar_tten_limits(2) = (/ limit_unspecified, limit_unspecified /)
     integer :: itime
-    integer :: w3kindreal,w3kindint
+
+  ! !> land iau setting read from namelist
+  !   logical               :: do_land_iau                   = .false.
+  !   real(kind=kind_phys)  :: land_iau_delthrs              = 0           
+  !   character(len=240)    :: land_iau_inc_files(7)         = ''          
+  !   real(kind=kind_phys)  :: land_iau_fhrs(7)              = -1          
+  !   logical               :: land_iau_filter_increments    = .false.     
+  !   integer               :: lsoil_incr                    = 4
+  !   logical               :: land_iau_upd_stc              = .false.
+  !   logical               :: land_iau_upd_slc              = .false.
+  !   logical               :: land_iau_do_stcsmc_adjustment = .false.
+  !   real(kind=kind_phys)  :: land_iau_min_T_increment      = 0.0001
 
 !--- switch for aqm canopy effects
     logical :: do_canopy       = .false.         !< flag for canopy option
@@ -3933,13 +4130,13 @@ module GFS_typedefs
 
     NAMELIST /gfs_physics_nml/                                                              &
                           !--- general parameters
-                               fhzero, ldiag3d, qdiag3d, lssav, naux2d, dtend_select,       &
-                               naux3d, aux2d_time_avg, aux3d_time_avg, fhcyc,               &
-                               thermodyn_id, sfcpress_id,                                   &
+                               fhzero, fhzero_array, fhzero_fhour, ldiag3d, qdiag3d, lssav, &
+                               naux2d, dtend_select, naux3d, aux2d_time_avg,                &
+                               aux3d_time_avg, fhcyc, thermodyn_id, sfcpress_id,            &
                           !--- coupling parameters
                                cplflx, cplice, cplocn2atm, cplwav, cplwav2atm, cplaqm,      &
-                               cplchm, cpllnd, cpl_imp_mrg, cpl_imp_dbg, rrfs_sd,           &
-                               use_cice_alb,                                                &
+                               cplchm, cpllnd, cpllnd2atm, cpl_imp_mrg, cpl_imp_dbg,        &
+                               cpl_fire, rrfs_sd, use_cice_alb,                             & 
 #ifdef IDEA_PHYS
                                lsidea, weimer_model, f107_kp_size, f107_kp_interval,        &
                                f107_kp_skip_size, f107_kp_data_size, f107_kp_read_in_start, &
@@ -3989,6 +4186,7 @@ module GFS_typedefs
                                iopt_inf, iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc,     &
                                iopt_trs, iopt_diag,                                         &
                           !    RUC lsm options
+                               add_fire_heat_flux,                                          &
                                mosaic_lu, mosaic_soil, isncond_opt, isncovr_opt,            &
                           !    GFDL surface layer options
                                lcurr_sf, pert_cd, ntsflg, sfenth,                           &
@@ -4011,15 +4209,18 @@ module GFS_typedefs
                                gwd_opt, do_ugwp_v0, do_ugwp_v0_orog_only,                   &
                                do_ugwp_v0_nst_only,                                         &
                                do_gsl_drag_ls_bl, do_gsl_drag_ss, do_gsl_drag_tofd,         &
+                               do_gwd_opt_psl,                                              &
                                do_ugwp_v1, do_ugwp_v1_orog_only,  do_ugwp_v1_w_gsldrag,     &
                                ugwp_seq_update, var_ric, coef_ric_l, coef_ric_s, hurr_pbl,  &
                                do_myjsfc, do_myjpbl,                                        &
                                hwrf_samfdeep, hwrf_samfshal,progsigma,betascu,betamcu,      &
                                betadcu,h2o_phys, pdfcld, shcnvcw, redrag, hybedmf, satmedmf,&
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
-                               random_clds, shal_cnv, imfshalcnv, imfdeepcnv, isatmedmf,    &
-                               do_deep, jcap,                                               &
-                               cs_parm, flgmin, cgwf, ccwf, cdmbgwd, sup, ctei_rm, crtrh,   &
+                               xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
+                               isatmedmf, conv_cf_opt, do_deep, jcap,                       &
+                               cs_parm, flgmin, cgwf, ccwf, cdmbgwd, alpha_fd,              &
+                               psl_gwd_dx_factor,                                           &
+                               sup, ctei_rm, crtrh,                                         &
                                dlqf, rbcr, shoc_parm, psauras, prauras, wminras,            &
                                do_sppt, do_shum, do_skeb,                                   &
                                do_spp, n_var_spp,                                           &
@@ -4040,7 +4241,7 @@ module GFS_typedefs
                                frac_grid, min_lakeice, min_seaice, min_lake_height,         &
                                ignore_lake, frac_ice,                                       &
                           !--- surface layer
-                               sfc_z0_type,                                                 &
+                               sfc_z0_type, icplocn2atm,                                    &
                           !--- switch beteeen local and standard potential temperature
                                thsfc_loc,                                                   &
                           !--- switches in 2-m diagnostics
@@ -4055,6 +4256,8 @@ module GFS_typedefs
                                nseed,  nseed_g,  nthresh, do_ca, ca_advect,                 &
                                ca_sgs, ca_global,iseed_ca,ca_smooth,                        &
                                nspinup,ca_amplitude,nsmooth,ca_closure,ca_entr,ca_trigger,  &
+                          !--- Increment grid
+                               increment_file_on_native_grid,                               &
                           !--- IAU
                                iau_delthrs,iaufhrs,iau_inc_files,iau_filter_increments,     &
                                iau_drymassfixer,                                            &
@@ -4069,18 +4272,27 @@ module GFS_typedefs
                                dust_drylimit_factor, dust_moist_correction, dust_moist_opt, &
                                dust_alpha, dust_gamma, wetdep_ls_alpha,                     &
                                seas_opt, dust_opt, drydep_opt, coarsepm_settling,           &
-                               wetdep_ls_opt, smoke_forecast, aero_ind_fdb, aero_dir_fdb,   &
+                               plume_wind_eff,ebb_dcycle, extended_sd_diags,                &
+                               wetdep_ls_opt, hwp_method, aero_ind_fdb, aero_dir_fdb,       &
                                rrfs_smoke_debug, do_plumerise, plumerisefire_frq,           &
                                addsmoke_flag, enh_mix, mix_chem, smoke_dir_fdb_coef,        &
+                               do_smoke_transport,smoke_conv_wet_coef,n_dbg_lines,          &
+                               add_fire_moist_flux, sc_factor,                              &
                           !--- C3/GF closures
-                               ichoice,ichoicem,ichoice_s,                                  &
+                               ichoice,ichoicem,ichoice_s,gf_coldstart,                     &
                           !--- (DFI) time ranges with radar-prescribed microphysics tendencies
                           !          and (maybe) convection suppression
                                fh_dfi_radar, radar_tten_limits, do_cap_suppress,            &
                           !    aqm canopy option
                                do_canopy,                                                   &
                           !--- GSL lightning threat indices
-                               lightning_threat
+                               lightning_threat !,                                            &
+                          ! !--- land_iau_nml
+                          !      do_land_iau, land_iau_delthrs, land_iau_inc_files,           & 
+                          !      land_iau_fhrs, land_iau_filter_increments, lsoil_incr,       &
+                          !      land_iau_upd_stc, land_iau_upd_slc,                          &
+                          !      land_iau_do_stcsmc_adjustment, land_iau_min_T_increment                                    
+   
 
 !--- other parameters
     integer :: nctp    =  0                !< number of cloud types in CS scheme
@@ -4110,7 +4322,7 @@ module GFS_typedefs
 !--- read in the namelist
 #ifdef INTERNAL_FILE_NML
     ! allocate required to work around GNU compiler bug 100886 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100886
-    allocate(Model%input_nml_file, mold=input_nml_file)
+    allocate (Model%input_nml_file, mold=input_nml_file)
     Model%input_nml_file => input_nml_file
     read(Model%input_nml_file, nml=gfs_physics_nml)
     ! Set length (number of lines) in namelist for internal reads
@@ -4146,6 +4358,11 @@ module GFS_typedefs
     Model%fn_nml           = fn_nml
     Model%logunit          = logunit
     Model%fhzero           = fhzero
+    Model%fhzero_array     = fhzero_array
+    Model%fhzero_fhour     = fhzero_fhour
+    if( Model%fhzero_array(1) > 0. ) then
+      Model%fhzero = Model%fhzero_array(1)
+    endif
     Model%ldiag3d          = ldiag3d
     Model%qdiag3d          = qdiag3d
     if (qdiag3d .and. .not. ldiag3d) then
@@ -4232,11 +4449,11 @@ module GFS_typedefs
     Model%naux2d           = naux2d
     Model%naux3d           = naux3d
     if (Model%naux2d>0) then
-        allocate(Model%aux2d_time_avg(1:naux2d))
+        allocate (Model%aux2d_time_avg(1:naux2d))
         Model%aux2d_time_avg(1:naux2d) = aux2d_time_avg(1:naux2d)
     end if
     if (Model%naux3d>0) then
-        allocate(Model%aux3d_time_avg(1:naux3d))
+        allocate (Model%aux3d_time_avg(1:naux3d))
         Model%aux3d_time_avg(1:naux3d) = aux3d_time_avg(1:naux3d)
     end if
     !
@@ -4252,8 +4469,8 @@ module GFS_typedefs
     Model%nx               = nx
     Model%ny               = ny
     Model%levs             = levs
-    allocate(Model%ak(1:size(ak)))
-    allocate(Model%bk(1:size(bk)))
+    allocate (Model%ak(1:size(ak)))
+    allocate (Model%bk(1:size(bk)))
     Model%ak               = ak
     Model%bk               = bk
     Model%levsp1           = Model%levs + 1
@@ -4263,9 +4480,19 @@ module GFS_typedefs
     Model%lonr             = gnx         ! number longitudinal points
     Model%latr             = gny         ! number of latitudinal points from pole to pole
     Model%nblks            = size(blksz)
-    allocate(Model%blksz(1:Model%nblks))
+    allocate (Model%blksz(1:Model%nblks))
     Model%blksz            = blksz
     Model%ncols            = sum(Model%blksz)
+    ! DH*
+    Model%nchunks          = size(blksz)
+    allocate (Model%chunk_begin(Model%nchunks))
+    allocate (Model%chunk_end(Model%nchunks))
+    Model%chunk_begin(1) = 1
+    Model%chunk_end(1) = Model%chunk_begin(1) + blksz(1) - 1
+    do i=2,Model%nchunks
+        Model%chunk_begin(i) = Model%chunk_end(i-1) + 1
+        Model%chunk_end(i) = Model%chunk_begin(i) + blksz(i) - 1
+    end do
 
 !--- coupling parameters
     Model%cplflx           = cplflx
@@ -4284,6 +4511,7 @@ module GFS_typedefs
     Model%cplaqm           = cplaqm
     Model%cplchm           = cplchm .or. cplaqm
     Model%cpllnd           = cpllnd
+    Model%cpllnd2atm       = cpllnd2atm
     Model%use_cice_alb     = use_cice_alb
     Model%cpl_imp_mrg      = cpl_imp_mrg
     Model%cpl_imp_dbg      = cpl_imp_dbg
@@ -4291,33 +4519,44 @@ module GFS_typedefs
 
 !--- RRFS-SD
     Model%rrfs_sd           = rrfs_sd
+    Model%cpl_fire          = cpl_fire
     Model%dust_drylimit_factor = dust_drylimit_factor
     Model%dust_moist_correction = dust_moist_correction
     Model%dust_moist_opt    = dust_moist_opt
     Model%dust_alpha        = dust_alpha
     Model%dust_gamma        = dust_gamma
     Model%wetdep_ls_alpha   = wetdep_ls_alpha
+    Model%plume_alpha       = plume_alpha
+    Model%ebb_dcycle        = ebb_dcycle
     Model%seas_opt          = seas_opt
     Model%dust_opt          = dust_opt
     Model%drydep_opt        = drydep_opt
     Model%coarsepm_settling = coarsepm_settling
+    Model%plume_wind_eff    = plume_wind_eff
+    Model%extended_sd_diags = extended_sd_diags
     Model%wetdep_ls_opt     = wetdep_ls_opt
     Model%do_plumerise      = do_plumerise
+    Model%n_dbg_lines       = n_dbg_lines
     Model%plumerisefire_frq = plumerisefire_frq
     Model%addsmoke_flag     = addsmoke_flag
-    Model%smoke_forecast    = smoke_forecast
+    Model%add_fire_moist_flux = add_fire_moist_flux
+    Model%sc_factor         = sc_factor
+    Model%hwp_method        = hwp_method
     Model%aero_ind_fdb      = aero_ind_fdb
     Model%aero_dir_fdb      = aero_dir_fdb
     Model%rrfs_smoke_debug  = rrfs_smoke_debug
+    Model%do_smoke_transport= do_smoke_transport
     Model%mix_chem          = mix_chem
     Model%enh_mix           = enh_mix
     Model%smoke_dir_fdb_coef  = smoke_dir_fdb_coef
+    Model%smoke_conv_wet_coef = smoke_conv_wet_coef
 
-    Model%fire_aux_data_levels = 10
+    Model%fire_aux_data_levels = 1
 
     Model%ichoice_s = ichoice_s
     Model%ichoicem  = ichoicem
     Model%ichoice   = ichoice
+    Model%gf_coldstart  = gf_coldstart
 
 !--- integrated dynamics through earth's atmosphere
     Model%lsidea           = lsidea
@@ -4791,6 +5030,7 @@ module GFS_typedefs
     Model%mosaic_soil      = mosaic_soil
     Model%isncond_opt      = isncond_opt
     Model%isncovr_opt      = isncovr_opt
+    Model%add_fire_heat_flux = add_fire_heat_flux ! JLS
 
 !--- tuning parameters for physical parameterizations
     Model%ras              = ras
@@ -4839,18 +5079,6 @@ module GFS_typedefs
     Model%oz_phys_2015     = oz_phys_2015
     Model%h2o_phys         = h2o_phys
 
-    ! To ensure that these values match what's in the physics,
-    ! array sizes are compared during model init in GFS_phys_time_vary_init()
-    !
-    ! from module h2ointerp
-    if (h2o_phys) then
-       levh2o    = 72
-       h2o_coeff = 3
-    else
-       levh2o    = 1
-       h2o_coeff = 1
-    end if
-
     Model%pdfcld            = pdfcld
     Model%shcnvcw           = shcnvcw
     Model%redrag            = redrag
@@ -4863,18 +5091,22 @@ module GFS_typedefs
     Model%lheatstrg         = lheatstrg
     Model%lseaspray         = lseaspray
     Model%cnvcld            = cnvcld
+    Model%xr_cnvcld         = xr_cnvcld
     Model%random_clds       = random_clds
     Model%shal_cnv          = shal_cnv
     Model%imfshalcnv        = imfshalcnv
     Model%imfdeepcnv        = imfdeepcnv
     Model%isatmedmf         = isatmedmf
     Model%do_deep           = do_deep
+    Model%conv_cf_opt       = conv_cf_opt
     Model%nmtvr             = nmtvr
     Model%jcap              = jcap
     Model%flgmin            = flgmin
     Model%cgwf              = cgwf
     Model%ccwf              = ccwf
     Model%cdmbgwd           = cdmbgwd
+    Model%alpha_fd          = alpha_fd
+    Model%psl_gwd_dx_factor = psl_gwd_dx_factor
     Model%sup               = sup
     Model%ctei_rm           = ctei_rm
     Model%crtrh             = crtrh
@@ -4922,6 +5154,7 @@ module GFS_typedefs
     Model%do_gsl_drag_ls_bl    = do_gsl_drag_ls_bl
     Model%do_gsl_drag_ss       = do_gsl_drag_ss
     Model%do_gsl_drag_tofd     = do_gsl_drag_tofd
+    Model%do_gwd_opt_psl       = do_gwd_opt_psl
     Model%do_ugwp_v1           = do_ugwp_v1
     Model%do_ugwp_v1_orog_only = do_ugwp_v1_orog_only
     Model%do_ugwp_v1_w_gsldrag = do_ugwp_v1_w_gsldrag
@@ -4937,6 +5170,7 @@ module GFS_typedefs
        Model%do_gsl_drag_tofd     = .true.
        Model%do_gsl_drag_ss       = .true.
        Model%do_ugwp_v1_orog_only = .false.
+       Model%do_gwd_opt_psl       = .true.
     endif
 
     Model%do_myjsfc            = do_myjsfc
@@ -4982,6 +5216,7 @@ module GFS_typedefs
 !--- surface layer
     Model%sfc_z0_type      = sfc_z0_type
     if (Model%cplwav2atm) Model%sfc_z0_type = -1
+    Model%icplocn2atm      = icplocn2atm
 
 !--- potential temperature reference in sfc layer
     Model%thsfc_loc        = thsfc_loc
@@ -5030,16 +5265,16 @@ module GFS_typedefs
     Model%do_canopy        = do_canopy
 
     if (Model%lndp_type/=0) then
-      allocate(Model%lndp_var_list(Model%n_var_lndp))
-      allocate(Model%lndp_prt_list(Model%n_var_lndp))
+      allocate (Model%lndp_var_list(Model%n_var_lndp))
+      allocate (Model%lndp_prt_list(Model%n_var_lndp))
       Model%lndp_var_list(:) = ''
       Model%lndp_prt_list(:) = clear_val
     end if
 
     if (Model%do_spp) then
-      allocate(Model%spp_var_list(Model%n_var_spp))
-      allocate(Model%spp_prt_list(Model%n_var_spp))
-      allocate(Model%spp_stddev_cutoff(Model%n_var_spp))
+      allocate (Model%spp_var_list(Model%n_var_spp))
+      allocate (Model%spp_prt_list(Model%n_var_spp))
+      allocate (Model%spp_stddev_cutoff(Model%n_var_spp))
       Model%spp_var_list(:) = ''
       Model%spp_prt_list(:) = clear_val
       Model%spp_stddev_cutoff(:) = clear_val
@@ -5047,7 +5282,7 @@ module GFS_typedefs
 
     !--- cellular automata options
     ! force namelist constsitency
-    allocate(Model%vfact_ca(levs))
+    allocate (Model%vfact_ca(levs))
     if ( .not. ca_global ) nca_g=0
     if ( .not. ca_sgs ) nca=0
 
@@ -5129,12 +5364,14 @@ module GFS_typedefs
     Model%nqrimef          = get_tracer_index(Model%tracer_names, 'q_rimef',    Model%me, Model%master, Model%debug)
     Model%ntwa             = get_tracer_index(Model%tracer_names, 'liq_aero',   Model%me, Model%master, Model%debug)
     Model%ntia             = get_tracer_index(Model%tracer_names, 'ice_aero',   Model%me, Model%master, Model%debug)
+    if (Model%cpl_fire) then
+    Model%ntfsmoke         = get_tracer_index(Model%tracer_names, 'fsmoke',   Model%me, Model%master, Model%debug)
+    endif
     if (Model%rrfs_sd) then
     Model%ntsmoke          = get_tracer_index(Model%tracer_names, 'smoke',      Model%me, Model%master, Model%debug)
     Model%ntdust           = get_tracer_index(Model%tracer_names, 'dust',       Model%me, Model%master, Model%debug)
     Model%ntcoarsepm       = get_tracer_index(Model%tracer_names, 'coarsepm',   Model%me, Model%master, Model%debug)
     endif
-
 !--- initialize parameters for atmospheric chemistry tracers
     call Model%init_chemistry(tracer_types)
 
@@ -5173,7 +5410,7 @@ module GFS_typedefs
     Model%nprocess = Model%index_of_process_photochem
 
     ! List which processes should be summed as photochemical:
-    allocate(Model%is_photochem(Model%nprocess))
+    allocate (Model%is_photochem(Model%nprocess))
     Model%is_photochem = .false.
     Model%is_photochem(Model%index_of_process_prod_loss) = .true.
     Model%is_photochem(Model%index_of_process_ozmix) = .true.
@@ -5187,7 +5424,7 @@ module GFS_typedefs
 
     ! Last index of outermost dimension of dtend
     Model%ndtend = 0
-    allocate(Model%dtidx(Model%ntracp100,Model%nprocess))
+    allocate (Model%dtidx(Model%ntracp100,Model%nprocess))
     Model%dtidx = -99
 
     if(Model%ntchm>0) then
@@ -5240,8 +5477,6 @@ module GFS_typedefs
             .and. Model%flag_for_dcnv_generic_tend
 
        ! Increment idtend and fill dtidx:
-        allocate(Model%dtend_var_labels(Model%ntracp100))
-        allocate(Model%dtend_process_labels(Model%nprocess))
 
         call allocate_dtend_labels_and_causes(Model)
 
@@ -5561,6 +5796,17 @@ module GFS_typedefs
        err_message = Model%ozphys%load_o3clim('global_o3prdlos.f77',kozc)
     end if
 
+    !--- NRL h2o photochemistry physics.
+    if (Model%h2o_phys) then
+       ! Load data for h2o photochemistry physics.
+       err_message     = Model%h2ophys%load('global_h2oprdlos.f77',kh2oc)
+       Model%levh2o    = Model%h2ophys%nlev
+       Model%h2o_coeff = Model%h2ophys%ncf
+    else
+       Model%levh2o    = 1
+       Model%h2o_coeff = 1
+    end if
+    
 !--- quantities to be used to derive phy_f*d totals
     Model%nshoc_2d         = nshoc_2d
     Model%nshoc_3d         = nshoc_3d
@@ -5579,19 +5825,7 @@ module GFS_typedefs
     Model%cdec             = -9999.
     Model%clstp            = -9999
     rinc(1:5)              = 0
-    call w3kind(w3kindreal,w3kindint)
-    if (w3kindreal == 8) then
-       rinc8(1:5) = 0
-       call w3difdat(jdat,idat,4,rinc8)
-       rinc = rinc8
-    else if (w3kindreal == 4) then
-       rinc4(1:5) = 0
-       call w3difdat(jdat,idat,4,rinc4)
-       rinc = rinc4
-    else
-       write(0,*)' FATAL ERROR: Invalid w3kindreal'
-       call abort
-    endif
+    call w3difdat(jdat,idat,4,rinc)
     Model%phour            = rinc(4)/con_hr
     Model%fhour            = (rinc(4) + Model%dtp)/con_hr
     Model%zhour            = mod(Model%phour,Model%fhzero)
@@ -5600,6 +5834,10 @@ module GFS_typedefs
     Model%restart          = restart
     Model%lsm_cold_start   = .not. restart
     Model%hydrostatic      = hydrostatic
+    if (Model%me == Model%master) then
+      print *,'in atm phys init, phour=',Model%phour,'fhour=',Model%fhour,'zhour=',Model%zhour,'kdt=',Model%kdt
+    endif
+    
 
     if(Model%hydrostatic .and. Model%lightning_threat) then
       write(0,*) 'Turning off lightning threat index for hydrostatic run.'
@@ -5608,7 +5846,7 @@ module GFS_typedefs
     endif
 
     Model%jdat(1:8)        = jdat(1:8)
-    allocate(Model%si(Model%levs+1))
+    allocate (Model%si(Model%levs+1))
     !--- Define sigma level for radiation initialization
     !--- The formula converting hybrid sigma pressure coefficients to sigma coefficients follows Eckermann (2009, MWR)
     !--- ps is replaced with p0. The value of p0 uses that in http://www.emc.ncep.noaa.gov/officenotes/newernotes/on461.pdf
@@ -5758,6 +5996,7 @@ module GFS_typedefs
         print *,' mosaic_soil =  ',mosaic_soil
         print *,' isncond_opt =  ',isncond_opt
         print *,' isncovr_opt =  ',isncovr_opt
+        print *,' add_fire_heat_flux = ',add_fire_heat_flux
       else
         print *,' Unsupported LSM type - job aborted - lsm=',Model%lsm
         stop
@@ -6165,7 +6404,7 @@ module GFS_typedefs
                  ' do_shoc=',   Model%do_shoc,   ' nshoc3d=',  Model%nshoc_3d,  &
                  ' nshoc_2d=',  Model%nshoc_2d,  ' shoc_cld=', Model%shoc_cld,  &
                  ' nkbfshoc=',  Model%nkbfshoc,  ' nahdshoc=', Model%nahdshoc,  &
-                 ' nscfshoc=',  Model%nscfshoc,                                 &
+                 ' nscfshoc=',  Model%nscfshoc,  ' xr_cnvcld=',Model%xr_cnvcld, &
                  ' uni_cld=',   Model%uni_cld,                                  &
                  ' ntot3d=',    Model%ntot3d,    ' ntot2d=',   Model%ntot2d,    &
                  ' shocaftcnv=',Model%shocaftcnv,' indcld=',   Model%indcld,    &
@@ -6198,6 +6437,18 @@ module GFS_typedefs
       endif
     endif
 !--- END CODE FROM GLOOPB
+
+! !---Land IAU Settings
+!     Model%do_land_iau = do_land_iau
+!     Model%iau_delthrs = land_iau_delthrs
+!     Model%iau_inc_files = land_iau_inc_files
+!     Model%iaufhrs = land_iau_fhrs   
+!     Model%iau_filter_increments = land_iau_filter_increments
+!     Model%lsoil_incr = lsoil_incr
+!     Model%upd_stc = land_iau_upd_stc
+!     Model%upd_slc = land_iau_upd_slc
+!     Model%do_stcsmc_adjustment = land_iau_do_stcsmc_adjustment
+!     Model%min_T_increment = land_iau_min_T_increment
 
     call Model%print ()
 
@@ -6336,7 +6587,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: tem
 
     !--- begin
-    allocate(Model%fscav(Model%ntchm))
+    allocate (Model%fscav(Model%ntchm))
 
     if (Model%ntchm > 0) then
       !--- set default as no scavenging
@@ -6388,10 +6639,12 @@ module GFS_typedefs
       print *, 'basic control parameters'
       print *, ' me                : ', Model%me
       print *, ' master            : ', Model%master
-      print *, ' communicator      : ', Model%communicator
+      print *, ' communicator      : ', Model%communicator%mpi_val
       print *, ' nlunit            : ', Model%nlunit
       print *, ' fn_nml            : ', trim(Model%fn_nml)
       print *, ' fhzero            : ', Model%fhzero
+      print *, ' fhzero_array      : ', Model%fhzero_array
+      print *, ' fhzero_fhour      : ', Model%fhzero_fhour
       print *, ' ldiag3d           : ', Model%ldiag3d
       print *, ' qdiag3d           : ', Model%qdiag3d
       print *, ' lssav             : ', Model%lssav
@@ -6432,7 +6685,9 @@ module GFS_typedefs
       print *, ' cplaqm            : ', Model%cplaqm
       print *, ' cplchm            : ', Model%cplchm
       print *, ' cpllnd            : ', Model%cpllnd
+      print *, ' cpllnd2atm        : ', Model%cpllnd2atm
       print *, ' rrfs_sd           : ', Model%rrfs_sd
+      print *, ' cpl_fire          : ', Model%cpl_fire
       print *, ' use_cice_alb      : ', Model%use_cice_alb
       print *, ' cpl_imp_mrg       : ', Model%cpl_imp_mrg
       print *, ' cpl_imp_dbg       : ', Model%cpl_imp_dbg
@@ -6441,6 +6696,7 @@ module GFS_typedefs
         print*,'ichoice_s          : ', Model%ichoice_s
         print*,'ichoicem           : ', Model%ichoicem
         print*,'ichoice            : ', Model%ichoice
+        print*,'gf_coldstart       : ', Model%gf_coldstart
       endif
       if(model%rrfs_sd) then
         print *, ' '
@@ -6451,21 +6707,29 @@ module GFS_typedefs
         print *, 'dust_alpha       : ',Model%dust_alpha
         print *, 'dust_gamma       : ',Model%dust_gamma
         print *, 'wetdep_ls_alpha  : ',Model%wetdep_ls_alpha
+        print *, 'plume_alpha      : ',Model%plume_alpha
+        print *, 'ebb_dcycle       : ',Model%ebb_dcycle
         print *, 'seas_opt         : ',Model%seas_opt
         print *, 'dust_opt         : ',Model%dust_opt
         print *, 'drydep_opt       : ',Model%drydep_opt
         print *, 'coarsepm_settling: ',Model%coarsepm_settling
+        print *, 'plume_wind_eff   : ',Model%plume_wind_eff
+        print *, 'extended_sd_diags: ',Model%extended_sd_diags
         print *, 'wetdep_ls_opt    : ',Model%wetdep_ls_opt
         print *, 'do_plumerise     : ',Model%do_plumerise
         print *, 'plumerisefire_frq: ',Model%plumerisefire_frq
+        print *, 'add_fire_moist_flux: ',Model%add_fire_moist_flux
+        print *, 'sc_factor        : ',Model%sc_factor
         print *, 'addsmoke_flag    : ',Model%addsmoke_flag
-        print *, 'smoke_forecast   : ',Model%smoke_forecast
+        print *, 'hwp_method       : ',Model%hwp_method
         print *, 'aero_ind_fdb     : ',Model%aero_ind_fdb
         print *, 'aero_dir_fdb     : ',Model%aero_dir_fdb
         print *, 'rrfs_smoke_debug : ',Model%rrfs_smoke_debug
+        print *, 'do_smoke_transport : ',Model%do_smoke_transport
         print *, 'mix_chem         : ',Model%mix_chem
         print *, 'enh_mix          : ',Model%enh_mix
         print *, 'smoke_dir_fdb_coef : ',Model%smoke_dir_fdb_coef
+        print *, 'smoke_conv_wet_coef: ',Model%smoke_conv_wet_coef
       endif
       print *, ' '
       print *, ' lsidea            : ', Model%lsidea
@@ -6737,6 +7001,7 @@ module GFS_typedefs
       print *, ' imfshalcnv        : ', Model%imfshalcnv
       print *, ' imfdeepcnv        : ', Model%imfdeepcnv
       print *, ' do_deep           : ', Model%do_deep
+      print *, ' conv_cf_opt        : ', Model%conv_cf_opt
       print *, ' nmtvr             : ', Model%nmtvr
       print *, ' jcap              : ', Model%jcap
       print *, ' cs_parm           : ', Model%cs_parm
@@ -6744,6 +7009,8 @@ module GFS_typedefs
       print *, ' cgwf              : ', Model%cgwf
       print *, ' ccwf              : ', Model%ccwf
       print *, ' cdmbgwd           : ', Model%cdmbgwd
+      print *, ' alpha_fd          : ', Model%alpha_fd
+      print *, ' psl_gwd_dx_factor : ', Model%psl_gwd_dx_factor
       print *, ' sup               : ', Model%sup
       print *, ' ctei_rm           : ', Model%ctei_rm
       print *, ' crtrh             : ', Model%crtrh
@@ -6764,6 +7031,7 @@ module GFS_typedefs
       print *, ' do_gsl_drag_ls_bl    : ', Model%do_gsl_drag_ls_bl
       print *, ' do_gsl_drag_ss       : ', Model%do_gsl_drag_ss
       print *, ' do_gsl_drag_tofd     : ', Model%do_gsl_drag_tofd
+      print *, ' do_gwd_opt_psl       : ', Model%do_gwd_opt_psl
       print *, ' do_ugwp_v1           : ', Model%do_ugwp_v1
       print *, ' do_ugwp_v1_orog_only : ', Model%do_ugwp_v1_orog_only
       print *, ' do_ugwp_v1_w_gsldrag : ', Model%do_ugwp_v1_w_gsldrag
@@ -6806,6 +7074,7 @@ module GFS_typedefs
       print *, ' '
       print *, 'surface layer options'
       print *, ' sfc_z0_type       : ', Model%sfc_z0_type
+      print *, ' icplocn2atm       : ', Model%icplocn2atm
       print *, ' '
       print *, 'vertical diffusion coefficients'
       print *, ' xkzm_m            : ', Model%xkzm_m
@@ -6899,6 +7168,7 @@ module GFS_typedefs
       print *, ' nto2              : ', Model%nto2
       print *, ' ntwa              : ', Model%ntwa
       print *, ' ntia              : ', Model%ntia
+      print *, ' ntfsmoke          : ', Model%ntfsmoke
       print *, ' ntsmoke           : ', Model%ntsmoke
       print *, ' ntdust            : ', Model%ntdust
       print *, ' ntcoarsepm        : ', Model%ntcoarsepm
@@ -6964,14 +7234,15 @@ module GFS_typedefs
 !----------------
 ! GFS_grid%create
 !----------------
-  subroutine grid_create (Grid, IM, Model)
+  subroutine grid_create (Grid, Model)
 
     implicit none
 
     class(GFS_grid_type)               :: Grid
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
 
+    IM = Model%ncols
     allocate (Grid%xlon   (IM))
     allocate (Grid%xlat   (IM))
     allocate (Grid%xlat_d (IM))
@@ -7065,14 +7336,15 @@ module GFS_typedefs
 !--------------------
 ! GFS_tbd_type%create
 !--------------------
-  subroutine tbd_create (Tbd, IM, Model)
+  subroutine tbd_create (Tbd, Model)
 
     implicit none
 
     class(GFS_tbd_type)                :: Tbd
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
 
+    IM = Model%ncols
 !--- In
 !--- sub-grid cloud radiation
     if ( Model%isubc_lw == 2 .or. Model%isubc_sw == 2 ) then
@@ -7090,35 +7362,32 @@ module GFS_typedefs
     nullify(Tbd%dfi_radar_tten)
     nullify(Tbd%cap_suppress)
     if(Model%num_dfi_radar>0) then
-       allocate(Tbd%dfi_radar_tten(IM,Model%levs,Model%num_dfi_radar))
+       allocate (Tbd%dfi_radar_tten(IM,Model%levs,Model%num_dfi_radar))
        Tbd%dfi_radar_tten = -20.0
        Tbd%dfi_radar_tten(:,1,:) = zero
        if(Model%do_cap_suppress) then
-         allocate(Tbd%cap_suppress(IM,Model%num_dfi_radar))
+         allocate (Tbd%cap_suppress(IM,Model%num_dfi_radar))
          Tbd%cap_suppress(:,:) = zero
        endif
     endif
 
 !--- ozone and stratosphere h2o needs
     allocate (Tbd%ozpl  (IM,Model%levozp,Model%oz_coeff))
-    allocate (Tbd%h2opl (IM,levh2o,h2o_coeff))
+    allocate (Tbd%h2opl (IM,Model%levh2o,Model%h2o_coeff))
     Tbd%h2opl = clear_val
     Tbd%ozpl  = clear_val
 
 !--- ccn and in needs
-    ! DH* allocate only for MG? *DH
     allocate (Tbd%in_nm  (IM,Model%levs))
     allocate (Tbd%ccn_nm (IM,Model%levs))
     Tbd%in_nm  = clear_val
     Tbd%ccn_nm = clear_val
 
 !--- aerosol fields
-    ! DH* allocate only for MG? *DH
     allocate (Tbd%aer_nm  (IM,Model%levs,ntrcaer))
     Tbd%aer_nm = clear_val
 
 !--- tau_amf for  NGWs
-    ! DH* allocate only for UGWP ? *DH
     allocate (Tbd%tau_amf(im) )
     Tbd%tau_amf = clear_val
 
@@ -7173,29 +7442,28 @@ module GFS_typedefs
     Tbd%hpbl     = clear_val
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_ntiedtke .or. Model%imfdeepcnv == Model%imfdeepcnv_samf .or. Model%imfshalcnv == Model%imfshalcnv_samf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3 .or. Model%imfshalcnv == Model%imfshalcnv_c3) then
-       allocate(Tbd%prevsq(IM, Model%levs))
+       allocate (Tbd%prevsq(IM, Model%levs))
        Tbd%prevsq = clear_val
     endif
 
     if (Model%imfdeepcnv .ge. 0 .or. Model%imfshalcnv .ge. 0) then
-       allocate(Tbd%ud_mf(IM, Model%levs))
+       allocate (Tbd%ud_mf(IM, Model%levs))
        Tbd%ud_mf = zero
     endif
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_ntiedtke .or.  Model%imfdeepcnv == Model%imfdeepcnv_c3) then
-       allocate(Tbd%forcet(IM, Model%levs))
-       allocate(Tbd%forceq(IM, Model%levs))
-       allocate(Tbd%forcet(IM, Model%levs))
-       allocate(Tbd%prevst(IM, Model%levs))
+       allocate (Tbd%forcet(IM, Model%levs))
+       allocate (Tbd%forceq(IM, Model%levs))
+       allocate (Tbd%prevst(IM, Model%levs))
        Tbd%forcet = clear_val
        Tbd%forceq = clear_val
        Tbd%prevst = clear_val
     end if
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or.  Model%imfdeepcnv == Model%imfdeepcnv_c3) then
-       allocate(Tbd%cactiv(IM))
-       allocate(Tbd%cactiv_m(IM))
-       allocate(Tbd%aod_gf(IM))
+       allocate (Tbd%cactiv(IM))
+       allocate (Tbd%cactiv_m(IM))
+       allocate (Tbd%aod_gf(IM))
        Tbd%cactiv = zero
        Tbd%cactiv_m = zero
        Tbd%aod_gf = zero
@@ -7263,13 +7531,15 @@ module GFS_typedefs
 !------------------------
 ! GFS_cldprop_type%create
 !------------------------
-  subroutine cldprop_create (Cldprop, IM, Model)
+  subroutine cldprop_create (Cldprop, Model)
 
     implicit none
 
     class(GFS_cldprop_type)            :: Cldprop
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
+
+    IM = Model%ncols
 
     allocate (Cldprop%cv  (IM))
     allocate (Cldprop%cvt (IM))
@@ -7285,13 +7555,15 @@ module GFS_typedefs
 !******************************************
 ! GFS_radtend_type%create
 !******************************************
-  subroutine radtend_create (Radtend, IM, Model)
+  subroutine radtend_create (Radtend, Model)
 
     implicit none
 
     class(GFS_radtend_type)            :: Radtend
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
+    integer :: IM
+
+    IM = Model%ncols
 
     !--- Out (radiation only)
     allocate (Radtend%sfcfsw (IM))
@@ -7501,8 +7773,8 @@ module GFS_typedefs
     type(GFS_control_type), intent(inout) :: Model
     integer :: i
 
-    allocate(Model%dtend_var_labels(Model%ntracp100))
-    allocate(Model%dtend_process_labels(Model%nprocess))
+    allocate (Model%dtend_var_labels(Model%ntracp100))
+    allocate (Model%dtend_process_labels(Model%nprocess))
 
     Model%dtend_var_labels(1)%name = 'unallocated'
     Model%dtend_var_labels(1)%desc = 'unallocated tracer'
@@ -7563,18 +7835,18 @@ module GFS_typedefs
 !----------------
 ! GFS_diag%create
 !----------------
-  subroutine diag_create (Diag, IM, Model)
+  subroutine diag_create (Diag, Model)
     use parse_tracers,    only: get_tracer_index
     class(GFS_diag_type)               :: Diag
-    integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
-
-!
+    integer :: IM
     logical, save :: linit
     logical :: have_pbl, have_dcnv, have_scnv, have_mp, have_oz_phys
 
+    IM = Model%ncols
+
     if(Model%print_diff_pgr) then
-      allocate(Diag%old_pgr(IM))
+      allocate (Diag%old_pgr(IM))
       Diag%old_pgr = clear_val
     endif
 
@@ -7711,7 +7983,7 @@ module GFS_typedefs
 
     !--- 3D diagnostics
     if (Model%ldiag3d) then
-      allocate(Diag%dtend(IM,Model%levs,Model%ndtend))
+      allocate (Diag%dtend(IM,Model%levs,Model%ndtend))
       Diag%dtend = clear_val
       if (Model%qdiag3d) then
         allocate (Diag%upd_mf (IM,Model%levs))
@@ -7719,10 +7991,10 @@ module GFS_typedefs
         allocate (Diag%det_mf (IM,Model%levs))
       endif
       if (Model%oz_phys_2015) then
-         allocate(Diag%do3_dt_prd( IM, Model%levs))
-         allocate(Diag%do3_dt_ozmx(IM, Model%levs))
-         allocate(Diag%do3_dt_temp(IM, Model%levs))
-         allocate(Diag%do3_dt_ohoz(IM, Model%levs))
+         allocate (Diag%do3_dt_prd( IM, Model%levs))
+         allocate (Diag%do3_dt_ozmx(IM, Model%levs))
+         allocate (Diag%do3_dt_temp(IM, Model%levs))
+         allocate (Diag%do3_dt_ohoz(IM, Model%levs))
       endif
     endif
 
@@ -7740,20 +8012,11 @@ module GFS_typedefs
     allocate (Diag%kdis_gw   (IM,Model%levs))
 
     if (Model%ldiag_ugwp) then
-      allocate (Diag%du3dt_dyn  (IM,Model%levs) )
-      allocate (Diag%du3dt_pbl  (IM,Model%levs) )
-      allocate (Diag%dv3dt_pbl  (IM,Model%levs) )
-      allocate (Diag%dt3dt_pbl  (IM,Model%levs) )
       allocate (Diag%du3dt_ogw  (IM,Model%levs) )
       allocate (Diag%du3dt_mtb  (IM,Model%levs) )
       allocate (Diag%du3dt_tms  (IM,Model%levs) )
       allocate (Diag%du3dt_ngw  (IM,Model%levs) )
       allocate (Diag%dv3dt_ngw  (IM,Model%levs) )
-      allocate (Diag%dudt_tot  (IM,Model%levs) )
-      allocate (Diag%dvdt_tot  (IM,Model%levs) )
-      allocate (Diag%dtdt_tot  (IM,Model%levs) )
-      allocate (Diag%uav_ugwp  (IM,Model%levs) )
-      allocate (Diag%tav_ugwp  (IM,Model%levs) )
       allocate (Diag%dws3dt_ogw (IM,Model%levs) )
       allocate (Diag%dws3dt_obl (IM,Model%levs) )
       allocate (Diag%dws3dt_oss (IM,Model%levs) )
@@ -7766,9 +8029,9 @@ module GFS_typedefs
       allocate (Diag%ldv3dt_ngw (IM,Model%levs) )
       allocate (Diag%ldt3dt_ngw (IM,Model%levs) )
     endif
-
+    
+    allocate (Diag%dudt_ogw  (IM,Model%levs))
     if (Model%do_ugwp_v1 .or. Model%ldiag_ugwp) then
-      allocate (Diag%dudt_ogw  (IM,Model%levs))
       allocate (Diag%dvdt_ogw  (IM,Model%levs))
       allocate (Diag%dudt_obl  (IM,Model%levs))
       allocate (Diag%dvdt_obl  (IM,Model%levs))
@@ -7792,12 +8055,11 @@ module GFS_typedefs
       allocate (Diag%dv3_osscol (IM)          )
       allocate (Diag%du3_ofdcol (IM)          )
       allocate (Diag%dv3_ofdcol (IM)          )
-    else
-      allocate (Diag%dudt_ogw  (IM,Model%levs))
     endif
 
     !--- 3D diagnostics for Thompson MP / GFDL MP
     allocate (Diag%refl_10cm(IM,Model%levs))
+    allocate (Diag%max_hail_diam_sfc(IM))
 
     !--- New PBL Diagnostics
     allocate (Diag%dkt(IM,Model%levs))
@@ -7833,8 +8095,9 @@ module GFS_typedefs
         allocate (Diag%qbuoy     (IM,Model%levs))
         allocate (Diag%qdiss     (IM,Model%levs))
       endif
-      allocate (Diag%nupdraft  (IM))
+      allocate (Diag%maxwidth  (IM))
       allocate (Diag%maxmf     (IM))
+      allocate (Diag%ztop_plume(IM))
       allocate (Diag%ktop_plume(IM))
       allocate (Diag%exch_h    (IM,Model%levs))
       allocate (Diag%exch_m    (IM,Model%levs))
@@ -7857,8 +8120,9 @@ module GFS_typedefs
         Diag%qbuoy         = clear_val
         Diag%qdiss         = clear_val
       endif
-      Diag%nupdraft      = 0
+      Diag%maxwidth      = clear_val
       Diag%maxmf         = clear_val
+      Diag%ztop_plume    = clear_val
       Diag%ktop_plume    = 0
       Diag%exch_h        = clear_val
       Diag%exch_m        = clear_val
@@ -8080,8 +8344,9 @@ module GFS_typedefs
         Diag%det_thl       = clear_val
         Diag%det_sqv       = clear_val
       endif
-      Diag%nupdraft      = 0
+      Diag%maxwidth      = clear_val
       Diag%maxmf         = clear_val
+      Diag%ztop_plume    = clear_val
       Diag%ktop_plume    = 0
       Diag%exch_h        = clear_val
       Diag%exch_m        = clear_val
@@ -8118,8 +8383,8 @@ module GFS_typedefs
     Diag%dtdt_gw     = zero
     Diag%kdis_gw     = zero
 
+    Diag%dudt_ogw    = zero
     if (Model%do_ugwp_v1 .or. Model%ldiag_ugwp) then
-      Diag%dudt_ogw    = zero
       Diag%dvdt_ogw    = zero
       Diag%dudt_obl    = zero
       Diag%dvdt_obl    = zero
@@ -8143,24 +8408,14 @@ module GFS_typedefs
       Diag%dv3_osscol  = zero
       Diag%du3_ofdcol  = zero
       Diag%dv3_ofdcol  = zero
-    else
-      Diag%dudt_ogw    = zero
     end if
 
     if (Model%ldiag_ugwp) then
-      Diag%du3dt_pbl   = zero
-      Diag%dv3dt_pbl   = zero
-      Diag%dt3dt_pbl   = zero
       Diag%du3dt_ogw   = zero
       Diag%du3dt_mtb   = zero
       Diag%du3dt_tms   = zero
       Diag%du3dt_ngw   = zero
       Diag%dv3dt_ngw   = zero
-      Diag%dudt_tot    = zero
-      Diag%dvdt_tot    = zero
-      Diag%dtdt_tot    = zero
-      Diag%uav_ugwp    = zero
-      Diag%tav_ugwp    = zero
       Diag%dws3dt_ogw  = zero
       Diag%dws3dt_obl  = zero
       Diag%dws3dt_oss  = zero
@@ -8172,8 +8427,6 @@ module GFS_typedefs
       Diag%ldu3dt_ngw  = zero
       Diag%ldv3dt_ngw  = zero
       Diag%ldt3dt_ngw  = zero
-!COORDE
-      Diag%du3dt_dyn   = zero
     endif
 
 !
@@ -8185,6 +8438,7 @@ module GFS_typedefs
 
 ! max hourly diagnostics
     Diag%refl_10cm   = -35.
+    Diag%max_hail_diam_sfc = -999.
     Diag%refdmax     = -35.
     Diag%refdmax263k = -35.
     Diag%t02max      = -999.

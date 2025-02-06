@@ -28,7 +28,7 @@ module fv3atm_cap_mod
                                     NUOPC_ModelGet
 !
   use module_fv3_config,      only: quilting, quilting_restart, output_fh,   &
-                                    nfhout, nfhout_hf, nsout, dt_atmos,      &
+                                    dt_atmos,                                &
                                     calendar, cpl_grid_id,                   &
                                     cplprint_flag, first_kdt
 
@@ -36,7 +36,7 @@ module fv3atm_cap_mod
                                     num_files, filename_base,                &
                                     wrttasks_per_group, n_group,             &
                                     lead_wrttask, last_wrttask,              &
-                                    nsout_io, iau_offset, lflname_fulltime,  &
+                                    iau_offset, lflname_fulltime,            &
                                     time_unlimited
 !
   use module_fcst_grid_comp,  only: fcstSS => SetServices
@@ -46,6 +46,9 @@ module fv3atm_cap_mod
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
   use module_cap_cpl,         only: diagnose_cplFields
+  use module_cplscalars,      only: flds_scalar_name, flds_scalar_num,          &
+                                    flds_scalar_index_nx, flds_scalar_index_ny, &
+                                    flds_scalar_index_ntile
 
   implicit none
   private
@@ -216,6 +219,7 @@ module fv3atm_cap_mod
 
     integer                                :: sloc
     type(ESMF_StaggerLoc)                  :: staggerloc
+    character(len=20)                      :: cvalue
 !
 !------------------------------------------------------------------------
 !
@@ -260,7 +264,7 @@ module fv3atm_cap_mod
 
     cplprint_flag = (trim(value)=="true")
     write(msgString,'(A,l6)') trim(subname)//' cplprint_flag = ',cplprint_flag
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
     ! Read in cap debug flag
     call NUOPC_CompAttributeGet(gcomp, name='dbug_flag', value=value, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -269,7 +273,62 @@ module fv3atm_cap_mod
      read(value,*) dbug
     end if
     write(msgString,'(A,i6)') trim(subname)//' dbug = ',dbug
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+
+    ! set cpl_scalars from config. Default to null values for standalone
+    flds_scalar_name = ''
+    flds_scalar_num = 0
+    flds_scalar_index_nx = 0
+    flds_scalar_index_ny = 0
+    flds_scalar_index_ntile = 0
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldName", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (isPresent .and. isSet) then
+       flds_scalar_name = trim(cvalue)
+       call ESMF_LogWrite(trim(subname)//' flds_scalar_name = '//trim(flds_scalar_name), ESMF_LOGMSG_INFO)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    endif
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldCount", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (isPresent .and. isSet) then
+       read(cvalue, *) flds_scalar_num
+       write(msgString,*) flds_scalar_num
+       call ESMF_LogWrite(trim(subname)//' flds_scalar_num = '//trim(msgString), ESMF_LOGMSG_INFO)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    endif
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNX", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (isPresent .and. isSet) then
+       read(cvalue,*) flds_scalar_index_nx
+       write(msgString,*) flds_scalar_index_nx
+       call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_nx = '//trim(msgString), ESMF_LOGMSG_INFO)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    endif
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNY", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (isPresent .and. isSet) then
+       read(cvalue,*) flds_scalar_index_ny
+       write(msgString,*) flds_scalar_index_ny
+       call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_ny = '//trim(msgString), ESMF_LOGMSG_INFO)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    endif
+    ! tile index must be present if indices for nx and ny are non-zero
+    if (flds_scalar_index_nx /= 0 .and. flds_scalar_index_ny /=0 ) then
+       call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNTile", isPresent=isPresent, isSet=isSet, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+       if (.not. isPresent .and. .not. isSet) then
+          if (mype == 0)write(*,*)'ERROR : ScalarFieldIdxGridNTile must be set'
+          call ESMF_LogWrite('ERROR : ScalarFieldIdxGridNTile must be set', ESMF_LOGMSG_ERROR)
+          rc = ESMF_FAILURE
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+       else
+          call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNTile", value=cvalue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          read(cvalue,*) flds_scalar_index_ntile
+          write(msgString,*) flds_scalar_index_ntile
+          call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_ntile = '//trim(msgString), ESMF_LOGMSG_INFO)
+       endif
+    end if
 
 !------------------------------------------------------------------------
 ! get config variables
@@ -301,7 +360,6 @@ module fv3atm_cap_mod
     if(mype == 0) print *,'af ufs config,quilting=',quilting,' calendar=', trim(calendar),' iau_offset=',iau_offset, &
       ' noutput_fh=',noutput_fh
 !
-    nfhout = 0 ; nfhmax_hf = 0 ; nfhout_hf = 0 ; nsout = 0
     if ( quilting ) then
       call ESMF_ConfigGetAttribute(config=CF,value=use_saved_routehandles, &
                                    label ='use_saved_routehandles:', &
@@ -333,15 +391,6 @@ module fv3atm_cap_mod
         call ESMF_ConfigGetAttribute(config=CF,value=filename_base(i), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       enddo
-
-! variables for output
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhout,   label ='nfhout:',   default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhmax_hf,label ='nfhmax_hf:',default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nfhout_hf,label ='nfhout_hf:',default=-1,rc=rc)
-      call ESMF_ConfigGetAttribute(config=CF, value=nsout,    label ='nsout:',    default=-1,rc=rc)
-      nsout_io = nsout
-!
-      if(mype==0) print *,'af ufs config,nfhout,nsout=',nfhout,nfhmax_hf,nfhout_hf, nsout,noutput_fh
 
       call ESMF_ConfigGetAttribute(config=CF, value=time_unlimited, label ='time_unlimited:', default=.false., rc=rc)
 
@@ -819,64 +868,7 @@ module fv3atm_cap_mod
       if(iau_offset > 0) then
         output_startfh = iau_offset
       endif
-      if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,'nsout=',nsout, &
-        'iau_offset=',iau_offset,'nfhmax_hf=',nfhmax_hf,'nfhout_hf=',nfhout_hf, &
-        'nfhout=',nfhout
-!
-!--- set up output_fh with output forecast hours
-! if the run does not have iau, it will have output after first step integration as fh00
-! if the run has iau, it will start output at fh=00 at the cycle time (usually StartTime+IAU_offsetTI)
-      if(nsout > 0) then
-!--- use nsout for output frequency nsout*dt_atmos
-        nfh = 0
-        if( nfhmax > output_startfh ) nfh = nint((nfhmax-output_startfh)/(nsout*dt_atmos/3600.))+1
-        if(nfh >0) then
-          allocate(output_fh(nfh))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nsout*dt_atmos/3600. + output_startfh
-          enddo
-        endif
-      elseif (nfhmax_hf > 0 ) then
-!--- use high frequency output and low frequency for output forecast time
-        nfh = 0
-        if( nfhout_hf>0 .and. nfhmax_hf>output_startfh) nfh = nint((nfhmax_hf-output_startfh)/nfhout_hf)+1
-        nfh2 = 0
-        if( nfhout>0 .and. nfhmax>nfhmax_hf) nfh2 = nint((nfhmax-nfhmax_hf)/nfhout)
-        if( nfh+nfh2 > 0) then
-          allocate(output_fh(nfh+nfh2))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nfhout_hf + output_startfh
-          enddo
-          do i=1,nfh2
-            output_fh(nfh+i) = nfhmax_hf + i*nfhout
-          enddo
-        endif
-      elseif (nfhout > 0 ) then
-!--- use one output freqency
-        nfh = 0
-        if( nfhout > 0 .and. nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/nfhout) + 1
-        if( nfh > 0 ) then
-          allocate(output_fh(nfh))
-          if( output_startfh == 0) then
-            output_fh(1) = dt_atmos/3600.
-          else
-            output_fh(1) = output_startfh
-          endif
-          do i=2,nfh
-            output_fh(i) = (i-1)*nfhout + output_startfh
-          enddo
-        endif
-      endif
+      if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,' iau_offset=',iau_offset
 !
 !-----------------------------------------------------------------------
 !***  SET THE FIRST WRITE GROUP AS THE FIRST ONE TO ACT.
@@ -1097,7 +1089,8 @@ module fv3atm_cap_mod
     if( dbug > 0 .or. cplprint_flag ) then
          fcstpe = .false.
          if( mype < num_pes_fcst ) fcstpe = .true.
-         call diagnose_cplFields(gcomp, clock, fcstpe, cplprint_flag, dbug, 'import')
+         call diagnose_cplFields(gcomp, clock, fcstpe, cplprint_flag, dbug, 'import', rc=rc)
+         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
 
     timep1re = MPI_Wtime()
@@ -1130,6 +1123,8 @@ module fv3atm_cap_mod
 
     real(kind=8)                :: MPI_Wtime, timep2rs
 
+    character(len=ESMF_MAXSTR)  :: fb_name
+    type(ESMF_Info)             :: info
 !-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -1198,6 +1193,21 @@ module fv3atm_cap_mod
 
         call ESMF_TraceRegionExit("ESMF_VMEpoch:fcstFB->wrtFB", rc=rc)
 
+        do j=1, FBCount
+
+          ! Update fcstFB attributes from fcst PEs to all PEs in this VM
+          ! This is needed in case some attributes are updated during run time
+          call ESMF_FieldBundleGet(fcstFB(j), name=fb_name, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          if (fb_name(1:8) /= "restart_") then
+            call ESMF_InfoGetFromHost(fcstFB(j), info=info, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            call ESMF_InfoBroadcast(info, rootPet=fcstPetList(1), rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          endif
+
+        enddo
+
         call ESMF_LogWrite('Model Advance: before wrtcomp run ', ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -1234,7 +1244,8 @@ module fv3atm_cap_mod
     if( dbug > 0 .or. cplprint_flag ) then
       fcstpe = .false.
       if( mype < num_pes_fcst ) fcstpe = .true.
-      call diagnose_cplFields(gcomp, clock_out, fcstpe, cplprint_flag, dbug, 'export')
+      call diagnose_cplFields(gcomp, clock_out, fcstpe, cplprint_flag, dbug, 'export', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     end if
 
     timep2re = MPI_Wtime()

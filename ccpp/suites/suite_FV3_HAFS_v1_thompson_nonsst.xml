@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_HAFS_v1_thompson" version="1">
+<suite name="FV3_HAFS_v1_thompson_nonsst" version="1">
   <!-- <init></init> -->
   <group name="time_vary">
     <subcycle loop="1">
@@ -18,7 +18,6 @@
       <scheme>rad_sw_pre</scheme>
       <scheme>rrtmg_sw</scheme>
       <scheme>rrtmg_sw_post</scheme>
-      <scheme>rrtmg_lw_pre</scheme>
       <scheme>rrtmg_lw</scheme>
       <scheme>rrtmg_lw_post</scheme>
       <scheme>GFS_rrtmg_post</scheme>
@@ -40,9 +39,7 @@
     <subcycle loop="2">
       <scheme>sfc_diff</scheme>
       <scheme>GFS_surface_loop_control_part1</scheme>
-      <scheme>sfc_nst_pre</scheme>
-      <scheme>sfc_nst</scheme>
-      <scheme>sfc_nst_post</scheme>
+      <scheme>sfc_ocean</scheme>
       <scheme>lsm_noah</scheme>
       <scheme>sfc_sice</scheme>
       <scheme>GFS_surface_loop_control_part2</scheme>
@@ -61,8 +58,7 @@
       <scheme>unified_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
-      <scheme>ozphys_2015</scheme>
-      <scheme>h2ophys</scheme>
+      <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>GFS_DCNV_generic_pre</scheme>
@@ -79,7 +75,7 @@
       <scheme>mp_thompson_post</scheme>
       <scheme>GFS_MP_generic_post</scheme>
       <scheme>maximum_hourly_diagnostics</scheme>
-      <scheme>phys_tend</scheme>
+      <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
   <group name="stochastics">

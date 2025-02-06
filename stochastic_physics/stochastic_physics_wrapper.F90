@@ -57,13 +57,13 @@ module stochastic_physics_wrapper_mod
 !-------------------------------
 !  CCPP step
 !-------------------------------
-  subroutine stochastic_physics_wrapper (GFS_Control, GFS_Data, Atm_block, ierr)
+  subroutine stochastic_physics_wrapper (GFS_Control, GFS_Statein, GFS_Grid, GFS_Sfcprop, GFS_Radtend, GFS_Coupling, Atm_block, ierr)
 
 #ifdef _OPENMP
     use omp_lib
 #endif
 
-    use GFS_typedefs,       only: GFS_control_type, GFS_data_type
+    use GFS_typedefs,       only: GFS_control_type, GFS_statein_type, GFS_grid_type, GFS_sfcprop_type, GFS_radtend_type, GFS_coupling_type
     use mpp_mod,            only: FATAL, mpp_error
     use block_control_mod,  only: block_control_type
     use atmosphere_mod,     only: Atm, mygrid
@@ -76,11 +76,15 @@ module stochastic_physics_wrapper_mod
     implicit none
 
     type(GFS_control_type),   intent(inout) :: GFS_Control
-    type(GFS_data_type),      intent(inout) :: GFS_Data(:)
+    type(GFS_statein_type),   intent(in)    :: GFS_Statein
+    type(GFS_grid_type),      intent(in)    :: GFS_Grid
+    type(GFS_sfcprop_type),   intent(inout) :: GFS_Sfcprop
+    type(GFS_radtend_type),   intent(inout) :: GFS_Radtend
+    type(GFS_coupling_type),  intent(inout) :: GFS_Coupling
     type(block_control_type), intent(inout) :: Atm_block
     integer,                  intent(out)   :: ierr
 
-    integer :: nthreads, nb, levs, maxblk, nblks, n, v
+    integer :: nthreads, nb, levs, maxblk, nblks, n, v, ixs, ixe
     logical :: param_update_flag
 
 #ifdef _OPENMP
@@ -101,10 +105,8 @@ module stochastic_physics_wrapper_mod
       if (GFS_Control%do_sppt .OR. GFS_Control%do_shum .OR. GFS_Control%do_skeb .OR. (GFS_Control%lndp_type > 0) .OR. GFS_Control%do_spp) then
          allocate(xlat(1:nblks,maxblk))
          allocate(xlon(1:nblks,maxblk))
-         do nb=1,nblks
-            xlat(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Grid%xlat(:)
-            xlon(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Grid%xlon(:)
-         end do
+         call transfer_field_to_stochastics(GFS_Control%blksz, GFS_Grid%xlat, xlat)
+         call transfer_field_to_stochastics(GFS_Control%blksz, GFS_Grid%xlon, xlon)
         ! Initialize stochastic physics
         call init_stochastic_physics(levs, GFS_Control%blksz, GFS_Control%dtp, GFS_Control%sppt_amp,                                  &
             GFS_Control%input_nml_file, GFS_Control%fn_nml, GFS_Control%nlunit, xlon, xlat, GFS_Control%do_sppt, GFS_Control%do_shum, &
@@ -185,7 +187,7 @@ module stochastic_physics_wrapper_mod
                                      spp_wts=spp_wts, nthreads=nthreads)
          ! Copy contiguous data back
          do nb=1,nblks
-            GFS_Data(nb)%Coupling%sfc_wts(:,:) = sfc_wts(nb,1:GFS_Control%blksz(nb),:)
+            GFS_Coupling%sfc_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = sfc_wts(nb,1:GFS_Control%blksz(nb),:)
          end do
          deallocate(sfc_wts)
       end if
@@ -222,18 +224,18 @@ module stochastic_physics_wrapper_mod
          ! Copy contiguous data back
          if (GFS_Control%do_sppt) then
             do nb=1,nblks
-                GFS_Data(nb)%Coupling%sppt_wts(:,:) = sppt_wts(nb,1:GFS_Control%blksz(nb),:)
+                GFS_Coupling%sppt_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = sppt_wts(nb,1:GFS_Control%blksz(nb),:)
             end do
          end if
          if (GFS_Control%do_shum) then
             do nb=1,nblks
-                GFS_Data(nb)%Coupling%shum_wts(:,:) = shum_wts(nb,1:GFS_Control%blksz(nb),:)
+                GFS_Coupling%shum_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = shum_wts(nb,1:GFS_Control%blksz(nb),:)
             end do
          end if
          if (GFS_Control%do_skeb) then
             do nb=1,nblks
-                GFS_Data(nb)%Coupling%skebu_wts(:,:) = skebu_wts(nb,1:GFS_Control%blksz(nb),:)
-                GFS_Data(nb)%Coupling%skebv_wts(:,:) = skebv_wts(nb,1:GFS_Control%blksz(nb),:)
+                GFS_Coupling%skebu_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = skebu_wts(nb,1:GFS_Control%blksz(nb),:)
+                GFS_Coupling%skebv_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = skebv_wts(nb,1:GFS_Control%blksz(nb),:)
             end do
          end if
          if (GFS_Control%do_spp) then
@@ -241,27 +243,27 @@ module stochastic_physics_wrapper_mod
                select case (trim(GFS_Control%spp_var_list(n)))
                case('pbl')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_pbl(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_pbl(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                case('sfc')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_sfc(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_sfc(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                case('mp')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_mp(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_mp(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                case('gwd')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_gwd(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_gwd(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                case('rad')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_rad(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_rad(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                case('cu_deep')
                  do nb=1,Atm_block%nblks
-                     GFS_Data(nb)%Coupling%spp_wts_cu_deep(:,:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
+                     GFS_Coupling%spp_wts_cu_deep(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = spp_wts(nb,1:GFS_Control%blksz(nb),:,n)
                  end do
                end select
             end do
@@ -269,49 +271,52 @@ module stochastic_physics_wrapper_mod
 
          if (GFS_Control%lndp_type == 2) then ! save wts, and apply lndp scheme
              do nb=1,nblks
-                GFS_Data(nb)%Coupling%sfc_wts(:,:) = sfc_wts(nb,1:GFS_Control%blksz(nb),:)
+                GFS_Coupling%sfc_wts(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) = sfc_wts(nb,1:GFS_Control%blksz(nb),:)
              end do
  
              do nb=1,nblks
+                ixs = GFS_control%chunk_begin(nb)
+                ixe = GFS_control%chunk_end(nb)
                 do v = 1,GFS_Control%n_var_lndp
                   ! used to identify locations with land model (=soil) 
                   if ((GFS_Control%lsm == GFS_Control%lsm_ruc) ) then 
-                     smc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%smois(1:GFS_Control%blksz(nb),1:lsoil)
+                     smc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%smois(ixs:ixe,1:lsoil)
                   else  ! noah or noah-MP
-                     smc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%smc(1:GFS_Control%blksz(nb),1:lsoil)
+                     smc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%smc(ixs:ixe,1:lsoil)
                   endif
 
                   select case (trim(GFS_Control%lndp_var_list(v)))
+                  ! DH* is this correct? shouldn't this be slc ?
                   case('smc')
                       ! stype used to fetch soil params
-                      stype(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%stype(1:GFS_Control%blksz(nb))
+                      stype(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%stype(ixs:ixe)
                       if ((GFS_Control%lsm == GFS_Control%lsm_ruc) ) then 
-                         slc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%sh2o(1:GFS_Control%blksz(nb),1:lsoil)
+                         slc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%sh2o(ixs:ixe,1:lsoil)
                       else  ! noah or noah-MP
-                         slc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%slc(1:GFS_Control%blksz(nb),1:lsoil)
+                         slc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%slc(ixs:ixe,1:lsoil)
                       endif
                   case('stc')
                       if ((GFS_Control%lsm == GFS_Control%lsm_ruc) ) then 
-                         stc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%tslb(1:GFS_Control%blksz(nb),1:lsoil)
+                         stc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%tslb(ixs:ixe,1:lsoil)
                       else ! noah or noah-MP 
-                         stc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Data(nb)%Sfcprop%stc(1:GFS_Control%blksz(nb),1:lsoil)
+                         stc(nb,1:GFS_Control%blksz(nb),1:lsoil) = GFS_Sfcprop%stc(ixs:ixe,1:lsoil)
                       endif 
                   case('vgf')
                       if ( (GFS_Control%lsm == GFS_Control%lsm_noahmp) ) then 
                          ! assumes iopt_dveg = 4 (will be checked later)
-                         vfrac(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%shdmax(1:GFS_Control%blksz(nb))
+                         vfrac(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%shdmax(ixs:ixe)
                       else ! ruc or noah-MP
-                         vfrac(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%vfrac(1:GFS_Control%blksz(nb))
+                         vfrac(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%vfrac(ixs:ixe)
                       endif
                   case('alb')
-                      alnsf(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%alnsf(1:GFS_Control%blksz(nb))
-                      alnwf(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%alnwf(1:GFS_Control%blksz(nb))
+                      alnsf(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%alnsf(ixs:ixe)
+                      alnwf(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%alnwf(ixs:ixe)
                   case('sal')
-                      snoalb(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Sfcprop%snoalb(1:GFS_Control%blksz(nb))
+                      snoalb(nb,1:GFS_Control%blksz(nb)) = GFS_Sfcprop%snoalb(ixs:ixe)
                   case('emi')
-                      semis(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Radtend%semis(1:GFS_Control%blksz(nb))
+                      semis(nb,1:GFS_Control%blksz(nb))  = GFS_Radtend%semis(ixs:ixe)
                   case('zol')
-                      zorll(nb,1:GFS_Control%blksz(nb))  = GFS_Data(nb)%Sfcprop%zorll(1:GFS_Control%blksz(nb))
+                      zorll(nb,1:GFS_Control%blksz(nb))  = GFS_Sfcprop%zorll(ixs:ixe)
                   endselect
               enddo
              enddo
@@ -343,39 +348,42 @@ module stochastic_physics_wrapper_mod
              endif
 
              do nb=1,nblks
+                ixs = GFS_control%chunk_begin(nb)
+                ixe = GFS_control%chunk_end(nb)
+
                 do v = 1,GFS_Control%n_var_lndp
 
                   select case (trim(GFS_Control%lndp_var_list(v)))
                   case('smc')
                       if ((GFS_Control%lsm == GFS_Control%lsm_ruc) ) then 
-                           GFS_Data(nb)%Sfcprop%smois(1:GFS_Control%blksz(nb),1:lsoil) = smc(nb,1:GFS_Control%blksz(nb),1:lsoil)
-                           GFS_Data(nb)%Sfcprop%sh2o(1:GFS_Control%blksz(nb),1:lsoil)  = slc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%smois(ixs:ixe,1:lsoil) = smc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%sh2o(ixs:ixe,1:lsoil)  = slc(nb,1:GFS_Control%blksz(nb),1:lsoil)
                       else  ! noah or noah-MP
-                           GFS_Data(nb)%Sfcprop%smc(1:GFS_Control%blksz(nb),1:lsoil) = smc(nb,1:GFS_Control%blksz(nb),1:lsoil)
-                           GFS_Data(nb)%Sfcprop%slc(1:GFS_Control%blksz(nb),1:lsoil) = slc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%smc(ixs:ixe,1:lsoil) = smc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%slc(ixs:ixe,1:lsoil) = slc(nb,1:GFS_Control%blksz(nb),1:lsoil)
                       endif
                   case('stc')
                       if ((GFS_Control%lsm == GFS_Control%lsm_ruc) ) then 
-                           GFS_Data(nb)%Sfcprop%tslb(1:GFS_Control%blksz(nb),1:lsoil)  = stc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%tslb(ixs:ixe,1:lsoil)  = stc(nb,1:GFS_Control%blksz(nb),1:lsoil)
                       else ! noah or noah-MP 
-                           GFS_Data(nb)%Sfcprop%stc(1:GFS_Control%blksz(nb),1:lsoil) = stc(nb,1:GFS_Control%blksz(nb),1:lsoil)
+                           GFS_Sfcprop%stc(ixs:ixe,1:lsoil) = stc(nb,1:GFS_Control%blksz(nb),1:lsoil)
                       endif 
                   case('vgf')
                       if ( (GFS_Control%lsm == GFS_Control%lsm_noahmp) ) then 
-                        GFS_Data(nb)%Sfcprop%shdmax(1:GFS_Control%blksz(nb))  = vfrac(nb,1:GFS_Control%blksz(nb))
+                        GFS_Sfcprop%shdmax(ixs:ixe)  = vfrac(nb,1:GFS_Control%blksz(nb))
                       else 
-                        GFS_Data(nb)%Sfcprop%vfrac(1:GFS_Control%blksz(nb))  = vfrac(nb,1:GFS_Control%blksz(nb))
+                        GFS_Sfcprop%vfrac(ixs:ixe)  = vfrac(nb,1:GFS_Control%blksz(nb))
                       endif
                   case('alb')
-                       GFS_Data(nb)%Sfcprop%alnsf(1:GFS_Control%blksz(nb))  = alnsf(nb,1:GFS_Control%blksz(nb))
-                       GFS_Data(nb)%Sfcprop%alnwf(1:GFS_Control%blksz(nb))  = alnwf(nb,1:GFS_Control%blksz(nb))
+                      GFS_Sfcprop%alnsf(ixs:ixe)  = alnsf(nb,1:GFS_Control%blksz(nb))
+                      GFS_Sfcprop%alnwf(ixs:ixe)  = alnwf(nb,1:GFS_Control%blksz(nb))
                   case('sal')
-                        GFS_Data(nb)%Sfcprop%snoalb(1:GFS_Control%blksz(nb)) = snoalb(nb,1:GFS_Control%blksz(nb))
+                      GFS_Sfcprop%snoalb(ixs:ixe) = snoalb(nb,1:GFS_Control%blksz(nb))
                   case('emi')
-                        GFS_Data(nb)%Radtend%semis(1:GFS_Control%blksz(nb))  = semis(nb,1:GFS_Control%blksz(nb))
+                      GFS_Radtend%semis(ixs:ixe)  = semis(nb,1:GFS_Control%blksz(nb))
                   case('zol')
-                        GFS_Data(nb)%Sfcprop%zorll(1:GFS_Control%blksz(nb))  = zorll(nb,1:GFS_Control%blksz(nb))
-                  end select   
+                      GFS_Sfcprop%zorll(ixs:ixe)  = zorll(nb,1:GFS_Control%blksz(nb))
+                  end select
                 enddo 
             enddo
          endif ! lndp block
@@ -385,18 +393,20 @@ module stochastic_physics_wrapper_mod
 
        if(GFS_Control%ca_sgs)then
          do nb=1,nblks
-             sst        (nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Sfcprop%tsfco(:)
-             lmsk       (nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Sfcprop%slmsk(:)
-             lake       (nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Sfcprop%lakefrac(:)
-             uwind      (nb,1:GFS_Control%blksz(nb),:) = GFS_Data(nb)%Statein%ugrs(:,:)
-             vwind      (nb,1:GFS_Control%blksz(nb),:) =  GFS_Data(nb)%Statein%vgrs(:,:)
-             height     (nb,1:GFS_Control%blksz(nb),:) =  GFS_Data(nb)%Statein%phil(:,:)
-             dx         (nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Grid%dx(:)
-             condition  (nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Coupling%condition(:)
-             ca_deep_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Coupling%ca_deep(:)
-             ca_turb_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Coupling%ca_turb(:)
-             ca_shal_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Data(nb)%Coupling%ca_shal(:)
-         enddo
+             ixs = GFS_control%chunk_begin(nb)
+             ixe = GFS_control%chunk_end(nb)
+             sst        (nb,1:GFS_Control%blksz(nb)) = GFS_Sfcprop%tsfco(ixs:ixe)
+             lmsk       (nb,1:GFS_Control%blksz(nb)) = GFS_Sfcprop%slmsk(ixs:ixe)
+             lake       (nb,1:GFS_Control%blksz(nb)) = GFS_Sfcprop%lakefrac(ixs:ixe)
+             condition  (nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%condition(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
+             ca_deep_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%ca_deep(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
+             ca_turb_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%ca_turb(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
+             ca_shal_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%ca_shal(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
+          enddo
+          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%ugrs, uwind)
+          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%vgrs, vwind)
+          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%phil, height)
+         call transfer_field_to_stochastics(GFS_Control%blksz, GFS_Grid%dx, dx)
          call cellular_automata_sgs(GFS_Control%kdt,GFS_control%dtp,GFS_control%restart,GFS_Control%first_time_step,              &
             sst,lmsk,lake,uwind,vwind,height,dx,condition,ca_deep_cpl,ca_turb_cpl,ca_shal_cpl, Atm(mygrid)%domain_for_coupler,nblks,      &
             Atm_block%isc,Atm_block%iec,Atm_block%jsc,Atm_block%jec,Atm(mygrid)%npx,Atm(mygrid)%npy, levs,                        &
@@ -405,9 +415,9 @@ module stochastic_physics_wrapper_mod
             GFS_Control%nspinup,GFS_Control%ca_trigger,Atm_block%blksz(1),GFS_Control%master,GFS_Control%communicator)
          ! Copy contiguous data back as needed
          do nb=1,nblks
-             GFS_Data(nb)%Coupling%ca_deep(:) = ca_deep_cpl (nb,1:GFS_Control%blksz(nb))
-             GFS_Data(nb)%Coupling%ca_turb(:) = ca_turb_cpl (nb,1:GFS_Control%blksz(nb))
-             GFS_Data(nb)%Coupling%ca_shal(:) = ca_shal_cpl (nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca_deep(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca_deep_cpl (nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca_turb(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca_turb_cpl (nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca_shal(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca_shal_cpl (nb,1:GFS_Control%blksz(nb))
          enddo
        endif
        if(GFS_Control%ca_global)then
@@ -418,9 +428,9 @@ module stochastic_physics_wrapper_mod
             GFS_Control%nsmooth,GFS_Control%ca_amplitude,GFS_Control%master,GFS_Control%communicator)
           ! Copy contiguous data back
           do nb=1,nblks
-             GFS_Data(nb)%Coupling%ca1(:) = ca1_cpl(nb,1:GFS_Control%blksz(nb))
-             GFS_Data(nb)%Coupling%ca2(:) = ca2_cpl(nb,1:GFS_Control%blksz(nb))
-             GFS_Data(nb)%Coupling%ca3(:) = ca3_cpl(nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca1(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca1_cpl(nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca2(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca2_cpl(nb,1:GFS_Control%blksz(nb))
+             GFS_Coupling%ca3(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb)) = ca3_cpl(nb,1:GFS_Control%blksz(nb))
           enddo
        endif
 
@@ -428,12 +438,67 @@ module stochastic_physics_wrapper_mod
 
     endif initalize_stochastic_physics
 
+  contains
+
+    subroutine transfer_field_to_stochastics(blksz, data_in, data_out)
+
+      integer, dimension(:), intent(in) :: blksz
+      real(kind=kind_phys), dimension(:), intent(in) :: data_in
+      real(kind=kind_phys), dimension(:,:), intent(out) :: data_out
+      integer :: i, nb, ni
+
+      nb = 1
+      ni = 1
+      do i=1,size(data_in)
+        if (ni>blksz(nb)) then
+          nb = nb+1
+          ni = 1
+        end if
+        data_out(nb,ni) = data_in(i)
+        ni =  ni+1
+      end do
+
+    end subroutine transfer_field_to_stochastics
+
+    subroutine transfer_field_to_stochastics_3d(blksz, data_in, data_out)
+
+      integer, dimension(:), intent(in) :: blksz
+      real(kind=kind_phys), dimension(:,:), intent(in) :: data_in
+      real(kind=kind_phys), dimension(:,:,:), intent(out) :: data_out
+      integer :: j
+
+      do j=1,size(data_in, dim=2)
+         call transfer_field_to_stochastics(blksz, data_in(:,j), data_out(:,:,j))
+      end do
+
+    end subroutine transfer_field_to_stochastics_3d
+
+    subroutine transfer_field_from_stochastics(blksz, data_in, data_out)
+
+      integer, dimension(:), intent(in) :: blksz
+      real(kind=kind_phys), dimension(:,:), intent(in) :: data_in
+      real(kind=kind_phys), dimension(:), intent(out) :: data_out
+      integer :: i, nb, ni
+
+      nb = 1
+      ni = 1
+      do i=1,size(data_out)
+        if (ni>blksz(nb)) then
+          nb = nb+1
+          ni = 1
+        end if
+        data_out(i)= data_in(nb,ni)
+        ni =  ni+1
+      end do
+
+    end subroutine transfer_field_from_stochastics
+
   end subroutine stochastic_physics_wrapper
 
 
   subroutine stochastic_physics_wrapper_end (GFS_Control)
 
-  use GFS_typedefs,       only: GFS_control_type, GFS_data_type
+  use GFS_typedefs,       only: GFS_control_type
   use stochastic_physics, only: finalize_stochastic_physics
 
   implicit none

@@ -35,3 +35,8 @@ Do PRs in upstream repositories need to be merged first?
 If so add the "waiting for other repos" label and list the upstream PRs
 - waiting on noaa-emc/nems/pull/<pr_number>
 - waiting on noaa-emc/fv3atm/pull/<pr_number>
+
+# Requirements before merging
+- [ ] All new code in this PR is tested by at least one unit test
+- [ ] All new code in this PR includes Doxygen documentation
+- [ ] All new code in this PR does not add new compilation warnings (check CI output)

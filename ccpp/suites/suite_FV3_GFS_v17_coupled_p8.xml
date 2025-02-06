@@ -18,7 +18,6 @@
       <scheme>rad_sw_pre</scheme>
       <scheme>rrtmg_sw</scheme>
       <scheme>rrtmg_sw_post</scheme>
-      <scheme>rrtmg_lw_pre</scheme>
       <scheme>rrtmg_lw</scheme>
       <scheme>rrtmg_lw_post</scheme>
       <scheme>GFS_rrtmg_post</scheme>
@@ -44,6 +43,7 @@
       <scheme>sfc_nst</scheme>
       <scheme>sfc_nst_post</scheme>
       <scheme>noahmpdrv</scheme>
+      <scheme>sfc_land</scheme>      
       <scheme>sfc_cice</scheme>
       <scheme>sfc_sice</scheme>
       <scheme>GFS_surface_loop_control_part2</scheme>
@@ -62,7 +62,7 @@
       <scheme>unified_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
-      <scheme>h2ophys</scheme>
+      <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>GFS_DCNV_generic_pre</scheme>

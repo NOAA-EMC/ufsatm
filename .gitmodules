@@ -4,12 +4,12 @@
   branch = dev/emc
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  url = https://github.com/noaa-oar-arl/ccpp-framework
-  branch = develop
+  url = https://github.com/NCAR/ccpp-framework
+  branch = main
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/noaa-oar-arl/ccpp-physics
-  branch = feature/aqm_canopy
+  branch = feature/aqm_canopy2
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP

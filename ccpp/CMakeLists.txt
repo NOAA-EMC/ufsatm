@@ -84,8 +84,10 @@ endif(CCPP_32BIT)
 
 #------------------------------------------------------------------------------
 # Add model-specific flags for C/C++/Fortran preprocessor
-add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
-add_definitions(-DINTERNAL_FILE_NML)
+if(NOT HYDRO)
+  add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
+endif()
+add_definitions(-DINTERNAL_FILE_NML -DNEMS_GSM)
 
 if(MULTI_GASES)
   add_definitions(-DMULTI_GASES)

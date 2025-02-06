@@ -1,8 +1,29 @@
+# This is the main CMake file for fv3atm.
+#
+# Dusan Jovic, Alex Richert
+cmake_minimum_required(VERSION 3.19)
+
+# Handle user build options.
+option(ENABLE_FV3ATM_DOCS "Enable generation of doxygen-based documentation." OFF)
+
+# Determine whether or not to generate documentation.
+if(ENABLE_FV3ATM_DOCS)
+  message(STATUS "We will build the fv3atm doxygen documentation.")
+  find_package(Doxygen REQUIRED)
+  add_subdirectory(docs)
+endif()
+
+# Enable CI build & unit testing:
+if(BUILD_TESTING)
+  project(fv3atm VERSION 1.0 LANGUAGES C CXX Fortran)
+  include(ci/CMakeLists.txt)
+endif()
 
 ###############################################################################
 ### CCPP
 ###############################################################################
 
+set(MPI ON)
 add_subdirectory(ccpp)
 
 ###############################################################################
@@ -17,7 +38,11 @@ set(USE_GFSL63  ON)
 if(MOVING_NEST)
   set(MOVING_NEST ON)
 endif()
+if(HYDRO)
+  set(HYDRO ON)
+endif()
 add_subdirectory(atmos_cubed_sphere)
+target_compile_definitions(fv3 PRIVATE BYPASS_BREED_SLP_INLINE)
 
 ###############################################################################
 ### fv3atm
@@ -40,7 +65,11 @@ if(NOT PARALLEL_NETCDF)
 endif()
 
 if(MOVING_NEST)
-  list(APPEND _fv3atm_defs_private MOVING_NEST MOIST_CAPPA USE_COND)
+  list(APPEND _fv3atm_defs_private MOVING_NEST)
+  if(NOT HYDRO)
+    list(APPEND _fv3atm_defs_private MOIST_CAPPA USE_COND)
+  endif()
+
   if(DEBUG)
     list(APPEND _fv3atm_defs_private DEBUG)
   endif()
@@ -85,6 +114,7 @@ add_library(fv3atm
   cpl/module_block_data.F90
   cpl/module_cplfields.F90
   cpl/module_cap_cpl.F90
+  cpl/module_cplscalars.F90
   io/fv3atm_common_io.F90
   io/fv3atm_clm_lake_io.F90
   io/fv3atm_rrfs_sd_io.F90
@@ -133,6 +163,11 @@ endif()
 
 if(OPENMP)
   target_link_libraries(fv3atm PUBLIC OpenMP::OpenMP_Fortran)
+endif()
+
+if(BUILD_TESTING)
+  include(CTest)
+  add_subdirectory(tests)
 endif()
 
 ###############################################################################

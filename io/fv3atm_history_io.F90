@@ -49,9 +49,11 @@ module fv3atm_history_io_mod
   type history_type
     integer :: tot_diag_idx = 0
 
-    integer :: isco=0,ieco=0,jsco=0,jeco=0,levo=0,num_axes_phys=0
-    integer :: fhzero=0, ncld=0, nsoil=0, imp_physics=0, landsfcmdl=0
+    integer :: isco=0,ieco=0,jsco=0,jeco=0,num_axes_phys=0
+    integer :: ncld=0, nsoil=0, nsoil_lsm=0, imp_physics=0, landsfcmdl=0
+    real(4) :: fhzero=0.
     real(4) :: dtp=0
+    integer,dimension(:),        pointer         :: levo => null()
     integer,dimension(:),        pointer         :: nstt => null()
     integer,dimension(:),        pointer         :: nstt_vctbl => null()
     integer,dimension(:),        pointer         :: all_axes => null()
@@ -182,11 +184,11 @@ CONTAINS
     hist%ieco   = Atm_block%iec
     hist%jsco   = Atm_block%jsc
     hist%jeco   = Atm_block%jec
-    hist%levo   = model%levs
-    hist%fhzero = nint(Model%fhzero)
+    hist%fhzero = Model%fhzero
     !   hist%ncld   = Model%ncld
     hist%ncld   = Model%imp_physics
     hist%nsoil  = Model%lsoil
+    hist%nsoil_lsm  = Model%lsoil_lsm
     hist%dtp    = Model%dtp
     hist%imp_physics  = Model%imp_physics
     hist%landsfcmdl  = Model%lsm
@@ -208,7 +210,9 @@ CONTAINS
       call mpp_error(fatal, 'fv3atm_io::fv3atm_diag_register - need to increase parameter DIAG_SIZE')
     endif
 
+    allocate(hist%levo(hist%tot_diag_idx))
     allocate(hist%nstt(hist%tot_diag_idx), hist%nstt_vctbl(hist%tot_diag_idx))
+    hist%levo          = 0
     hist%nstt          = 0
     hist%nstt_vctbl    = 0
     nrgst_bl      = 0
@@ -224,6 +228,7 @@ CONTAINS
            trim(Diag(idx)%unit), missing_value=real(missing_value))
       if(Diag(idx)%id > 0) then
         if (Diag(idx)%axes == 2) then
+          hist%levo(idx) = 1
           if( index(trim(Diag(idx)%intpl_method),'bilinear') > 0 ) then
             nrgst_bl = nrgst_bl + 1
             hist%nstt(idx) = nrgst_bl
@@ -239,17 +244,18 @@ CONTAINS
             endif
           endif
         else if (diag(idx)%axes == 3) then
+          hist%levo(idx) = size(Diag(idx)%data(1)%var3, dim=2)
           if( index(trim(diag(idx)%intpl_method),'bilinear') > 0 ) then
             hist%nstt(idx) = nrgst_bl + 1
-            nrgst_bl  = nrgst_bl + hist%levo
+            nrgst_bl  = nrgst_bl + hist%levo(idx)
           else if (trim(diag(idx)%intpl_method) == 'nearest_stod' ) then
             hist%nstt(idx) = nrgst_nb + 1
-            nrgst_nb  = nrgst_nb + hist%levo
+            nrgst_nb  = nrgst_nb + hist%levo(idx)
           endif
           if(trim(diag(idx)%intpl_method) == 'vector_bilinear') then
             if(diag(idx)%name(1:1) == 'v' .or. diag(idx)%name(1:1) == 'V') then
               hist%nstt_vctbl(idx) = nrgst_vctbl + 1
-              nrgst_vctbl = nrgst_vctbl + hist%levo
+              nrgst_vctbl = nrgst_vctbl + hist%levo(idx)
               !             print *,'in phy_setup, vector_bilinear, name=', trim(diag(idx)%name),' nstt_vctbl=', hist%nstt_vctbl(idx), 'idx=',idx
             endif
           endif
@@ -289,14 +295,14 @@ CONTAINS
     real(kind=kind_phys),      intent(in) :: time_radsw
     real(kind=kind_phys),      intent(in) :: time_radlw
     !--- local variables
-    integer :: i, j, k, idx, nb, ix, ii, jj
+    integer :: i, j, k, idx, nb, ix, ii, jj, levo_3d
     character(len=2) :: xtra
 #ifdef CCPP_32BIT
     real, dimension(nx,ny)      :: var2
-    real, dimension(nx,ny,levs) :: var3
+    real, dimension(:,:,:), allocatable :: var3
 #else
     real(kind=kind_phys), dimension(nx,ny)      :: var2
-    real(kind=kind_phys), dimension(nx,ny,levs) :: var3
+    real(kind=kind_phys), dimension(:,:,:), allocatable :: var3
 #endif
     real(kind=kind_phys) :: rtime_int, rtime_intfull, lcnvfac
     real(kind=kind_phys) :: rtime_radsw, rtime_radlw
@@ -444,31 +450,37 @@ CONTAINS
               enddo
             endif if_mask
           endif int_or_real
-          !           used=send_data(Diag(idx)%id, var2, Time)
-          !           print *,'in phys, after store_data, idx=',idx,' var=', trim(Diag(idx)%name)
+
           call hist%store_data(Diag(idx)%id, var2, Time, idx, Diag(idx)%intpl_method, Diag(idx)%name)
-          !           if(trim(Diag(idx)%name) == 'totprcp_ave' ) print *,'in gfs_io, totprcp=',Diag(idx)%data(1)%var2(1:3), &
-          !             ' lcnvfac=', lcnvfac
+
         elseif (Diag(idx)%axes == 3) then
           !---
           !--- skipping other 3D variables with the following else statement
           !---
-          !         if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. 3D fields, idx=',idx,'varname=',trim(diag(idx)%name), &
-          !             'lcnvfac=',lcnvfac, 'hist%levo=',hist%levo,'nx=',nx,'ny=',ny
-          do k=1, hist%levo
+
+          levo_3d = hist%levo(idx)
+          allocate(var3(nx,ny,levo_3d))
+
+          do k=1, levo_3d
             do j = 1, ny
               jj = j + Atm_block%jsc -1
               do i = 1, nx
                 ii = i + Atm_block%isc -1
                 nb = Atm_block%blkno(ii,jj)
                 ix = Atm_block%ixp(ii,jj)
-                !         if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io,sze(Diag(idx)%data(nb)%var3)=',  &
-                !             size(Diag(idx)%data(nb)%var3,1),size(Diag(idx)%data(nb)%var3,2)
-                var3(i,j,k) = Diag(idx)%data(nb)%var3(ix,hist%levo-k+1)*lcnvfac
+                ! flip only 3d variables with vertical dimension == levs (atm model levels)
+                if (levo_3d == levs) then
+                  var3(i,j,k) = Diag(idx)%data(nb)%var3(ix,levo_3d-k+1)*lcnvfac
+                else
+                  var3(i,j,k) = Diag(idx)%data(nb)%var3(ix,        k  )*lcnvfac
+                endif
               enddo
             enddo
           enddo
+
           call hist%store_data3D(Diag(idx)%id, var3, Time, idx, Diag(idx)%intpl_method, Diag(idx)%name)
+          deallocate(var3)
+
         endif if_2d
       endif has_id
     end do history_loop
@@ -574,7 +586,7 @@ CONTAINS
 #ifdef CCPP_32BIT
     real, intent(in)                    :: work(:,:,:)
 #else
-    real(kind=kind_phys), intent(in)    :: work(hist%ieco-hist%isco+1,hist%jeco-hist%jsco+1,hist%levo)
+    real(kind=kind_phys), intent(in)    :: work(hist%ieco-hist%isco+1,hist%jeco-hist%jsco+1,hist%levo(idx))
 #endif
     type(time_type), intent(in)         :: Time
     character(*), intent(in)            :: intpl_method
@@ -588,7 +600,7 @@ CONTAINS
       if( hist%use_wrtgridcomp_output ) then
         if( trim(intpl_method) == 'bilinear') then
           !$omp parallel do default(shared) private(i,j,k)
-          do k= 1,hist%levo
+          do k= 1,hist%levo(idx)
             do j= hist%jsco,hist%jeco
               do i= hist%isco,hist%ieco
                 hist%buffer_phys_bl(i,j,hist%nstt(idx)+k-1) = work(i-hist%isco+1,j-hist%jsco+1,k)
@@ -597,7 +609,7 @@ CONTAINS
           enddo
         else if(trim(intpl_method) == 'nearest_stod') then
           !$omp parallel do default(shared) private(i,j,k)
-          do k= 1,hist%levo
+          do k= 1,hist%levo(idx)
             do j= hist%jsco,hist%jeco
               do i= hist%isco,hist%ieco
                 hist%buffer_phys_nb(i,j,hist%nstt(idx)+k-1) = work(i-hist%isco+1,j-hist%jsco+1,k)
@@ -607,7 +619,7 @@ CONTAINS
         else if(trim(intpl_method) == 'vector_bilinear') then
           !first save the data
           !$omp parallel do default(shared) private(i,j,k)
-          do k= 1,hist%levo
+          do k= 1,hist%levo(idx)
             do j= hist%jsco,hist%jeco
               do i= hist%isco,hist%ieco
                 hist%buffer_phys_bl(i,j,hist%nstt(idx)+k-1) = work(i-hist%isco+1,j-hist%jsco+1,k)
@@ -615,9 +627,9 @@ CONTAINS
             enddo
           enddo
           if( fldname(1:1) == 'u' .or. fldname(1:1) == 'U') then
-            if(.not.associated(hist%uwork3d)) allocate(hist%uwork3d(hist%isco:hist%ieco,hist%jsco:hist%jeco,hist%levo))
+            if(.not.associated(hist%uwork3d)) allocate(hist%uwork3d(hist%isco:hist%ieco,hist%jsco:hist%jeco,hist%levo(idx)))
             !$omp parallel do default(shared) private(i,j,k)
-            do k= 1, hist%levo
+            do k= 1, hist%levo(idx)
               do j= hist%jsco,hist%jeco
                 do i= hist%isco,hist%ieco
                   hist%uwork3d(i,j,k) = work(i-hist%isco+1,j-hist%jsco+1,k)
@@ -642,7 +654,7 @@ CONTAINS
                 enddo
               enddo
               !$omp parallel do default(shared) private(i,j,k,nv,i1,j1)
-              do k= 1, hist%levo
+              do k= 1, hist%levo(idx)
                 nv = hist%nstt_vctbl(idx)+k-1
                 do j= hist%jsco,hist%jeco
                   j1 = j-hist%jsco+1
@@ -895,6 +907,36 @@ CONTAINS
         deallocate(axis_data)
       enddo
     endif
+
+    ! add zsoil axis
+    call ESMF_AttributeAdd(fcst_grid, convention="NetCDF", purpose="FV3",  &
+         attrList=(/"zsoil               ", &
+                    "zsoil:long_name     ", &
+                    "zsoil:units         ", &
+                    "zsoil:cartesian_axis", &
+                    "zsoil:positive      "/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_AttributeSet(fcst_grid, convention="NetCDF", purpose="FV3", &
+         name="zsoil", valueList=(/ (i, i=1,hist%nsoil_lsm) /), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_AttributeSet(fcst_grid, convention="NetCDF", purpose="FV3", &
+         name="zsoil:long_name", value="soil level", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_AttributeSet(fcst_grid, convention="NetCDF", purpose="FV3", &
+         name="zsoil:units", value="level", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_AttributeSet(fcst_grid, convention="NetCDF", purpose="FV3", &
+         name="zsoil:cartesian_axis", value="Z", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_AttributeSet(fcst_grid, convention="NetCDF", purpose="FV3", &
+         name="zsoil:positive", value="down", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
     !   print *,'in setup fieldbundle_phys, hist%num_axes_phys=',hist%num_axes_phys,'hist%tot_diag_idx=',hist%tot_diag_idx, &
     !       'nbdlphys=',nbdlphys
     !
@@ -913,7 +955,7 @@ CONTAINS
 
             !add origin field
             call hist%add_field_to_phybundle(trim(output_name),trim(Diag(idx)%desc),trim(Diag(idx)%unit), "time: point",         &
-                 axes(1:Diag(idx)%axes), fcst_grid, hist%nstt(idx), phys_bundle(ibdl), outputfile(ibdl),  &
+                 axes(1:Diag(idx)%axes), fcst_grid, hist%nstt(idx), hist%levo(idx), phys_bundle(ibdl), outputfile(ibdl),  &
                  bdl_intplmethod(ibdl), rcd=rc)
             !           if( mpp_pe() == mpp_root_pe()) print *,'phys, add field,',trim(Diag(idx)%name),'idx=',idx,'ibdl=',ibdl
             !
@@ -923,7 +965,7 @@ CONTAINS
                 output_name = 'wind'//trim(output_name)//'vector'
                 outputfile1 = 'none'
                 call hist%add_field_to_phybundle(trim(output_name),trim(Diag(idx)%desc),trim(Diag(idx)%unit), "time: point",       &
-                     axes(1:Diag(idx)%axes), fcst_grid, hist%nstt_vctbl(idx),phys_bundle(ibdl), outputfile1, &
+                     axes(1:Diag(idx)%axes), fcst_grid, hist%nstt_vctbl(idx), hist%levo(idx), phys_bundle(ibdl), outputfile1, &
                      bdl_intplmethod(ibdl),l2dvector=l2dvector,  rcd=rc)
                 !               if( mpp_pe() == mpp_root_pe()) print *,'in phys, add vector field,',trim(Diag(idx)%name),' idx=',idx,' ibdl=',ibdl
               endif
@@ -951,7 +993,7 @@ CONTAINS
   !! It sets attributes for and logs information about a single ESMF field. Do not call this subroutine directly.
   !! Call fv_phys_bundle_setup instead.
   subroutine history_type_add_field_to_phybundle(hist,var_name,long_name,units,cell_methods, axes,phys_grid, &
-       kstt,phys_bundle,output_file,intpl_method,range,l2dvector,rcd)
+       kstt,levo,phys_bundle,output_file,intpl_method,range,l2dvector,rcd)
     !
     use esmf
     !
@@ -961,7 +1003,7 @@ CONTAINS
     character(*), intent(in)             :: output_file, intpl_method
     integer, intent(in)                  :: axes(:)
     type(esmf_grid), intent(in)          :: phys_grid
-    integer, intent(in)                  :: kstt
+    integer, intent(in)                  :: kstt, levo
     type(esmf_fieldbundle),intent(inout) :: phys_bundle
     real, intent(in), optional           :: range(2)
     logical, intent(in), optional        :: l2dvector
@@ -1027,7 +1069,7 @@ CONTAINS
              line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
       else if(size(axes) == 3) then
-        temp_r3d => hist%buffer_phys_nb(hist%isco:hist%ieco,hist%jsco:hist%jeco,kstt:kstt+hist%levo-1)
+        temp_r3d => hist%buffer_phys_nb(hist%isco:hist%ieco,hist%jsco:hist%jeco,kstt:kstt+levo-1)
         field = ESMF_FieldCreate(phys_grid, temp_r3d, datacopyflag=copyflag, &
              name=var_name, indexFlag=ESMF_INDEX_DELOCAL, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,       &
@@ -1043,7 +1085,7 @@ CONTAINS
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,       &
              line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
       else if(size(axes) == 3) then
-        temp_r3d => hist%buffer_phys_bl(hist%isco:hist%ieco,hist%jsco:hist%jeco,kstt:kstt+hist%levo-1)
+        temp_r3d => hist%buffer_phys_bl(hist%isco:hist%ieco,hist%jsco:hist%jeco,kstt:kstt+levo-1)
         field = ESMF_FieldCreate(phys_grid, temp_r3d, datacopyflag=copyflag, &
              name=var_name, indexFlag=ESMF_INDEX_DELOCAL, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,       &
@@ -1128,8 +1170,14 @@ CONTAINS
           call ESMF_AttributeAdd(field, convention="NetCDF", purpose="FV3", &
                attrList=(/"ESMF:ungridded_dim_labels"/), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_AttributeSet(field, convention="NetCDF", purpose="FV3", &
-               name="ESMF:ungridded_dim_labels", valueList=(/trim(hist%axis_name(idx))/), rc=rc)
+
+          if (levo == hist%nsoil_lsm) then
+            call ESMF_AttributeSet(field, convention="NetCDF", purpose="FV3", &
+                 name="ESMF:ungridded_dim_labels", valueList=(/"zsoil"/), rc=rc)
+          else
+            call ESMF_AttributeSet(field, convention="NetCDF", purpose="FV3", &
+                 name="ESMF:ungridded_dim_labels", valueList=(/trim(hist%axis_name(idx))/), rc=rc)
+          endif
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
         endif
       enddo
