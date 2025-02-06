@@ -205,7 +205,7 @@ type(DYCORE_data_type),    allocatable :: DYCORE_Data(:)  ! number of blocks
 !  GFS containers
 !----------------
 type(GFS_externaldiag_type), target :: GFS_Diag(DIAG_SIZE)
-type(GFS_restart_type)              :: GFS_restart_var
+type(GFS_restart_type)     , allocatable, target :: GFS_restart_var(:)
 
 !--------------
 ! IAU container
