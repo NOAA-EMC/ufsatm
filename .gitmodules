@@ -4,11 +4,11 @@
   branch = dev/emc
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  url = https://github.com/noaa-oar-arl/ccpp-framework
+  url = https://github.com/NCAR/ccpp-framework
   branch = develop
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/noaa-oar-arl/ccpp-physics
+  url = https://github.com/NCAR/ccpp-physics
   branch = develop
 [submodule "upp"]
   path = upp
