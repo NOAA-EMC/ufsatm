@@ -132,6 +132,14 @@ module CCPP_driver
         return
       end if
 
+      ! call timestep_init for "physics"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if      
+            
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! DH* 20210104 - this block of code will be removed once the CCPP framework    !
       ! fully supports handling diagnostics through its metadata, work in progress   !
@@ -213,6 +221,14 @@ module CCPP_driver
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if
+
+      ! call timestep_finalize for "physics"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if      
 
     ! Physics finalize
     else if (trim(step)=="physics_finalize") then
