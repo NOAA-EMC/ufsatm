@@ -1,9 +1,7 @@
+!> @file
+!> @brief This module contains the fv3 Coupling Fields: export and import
+!> @author ???
 module module_cplfields
-
-  !-----------------------------------------------------------------------------
-  ! This module contains the fv3 Coupling Fields: export and import
-  !
-  !-----------------------------------------------------------------------------
 
   use ESMF
   use NUOPC
@@ -12,9 +10,10 @@ module module_cplfields
 
   private
 
+  !> ???
   type, public :: FieldInfo
-    character(len=41) :: name
-    character(len=1) :: type
+    character(len=41) :: name !< ???
+    character(len=1) :: type !< ???
   end type
 
 ! Export Fields ----------------------------------------
@@ -26,9 +25,10 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 121
-  type(ESMF_Field), target, public    :: exportFields(NexportFields)
+  integer,          public, parameter :: NexportFields = 121 !< ???
+  type(ESMF_Field), target, public    :: exportFields(NexportFields) !< ???
 
+  !> ???
   type(FieldInfo), dimension(NexportFields), public, parameter :: exportFieldsInfo = [ &
     FieldInfo("inst_pres_interface                      ", "i"), &
     FieldInfo("inst_pres_levels                         ", "l"), &
@@ -158,10 +158,11 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67
-  logical,          public            :: importFieldsValid(NimportFields)
-  type(ESMF_Field), target, public    :: importFields(NimportFields)
+  integer,          public, parameter :: NimportFields = 67 !< ???
+  logical,          public            :: importFieldsValid(NimportFields) !< ???
+  type(ESMF_Field), target, public    :: importFields(NimportFields) !< ???
 
+  !> ???
   type(FieldInfo), dimension(NimportFields), public, parameter :: importFieldsInfo = [ &
     FieldInfo("inst_tracer_mass_frac                    ", "t"), &
     FieldInfo("land_mask                                ", "s"), &
@@ -241,7 +242,7 @@ module module_cplfields
     FieldInfo("evap_fire                                ", "s"), &
     FieldInfo("smoke_fire                               ", "s") ]
 
-! Fields exported exclusively for coupling with chemistry
+  !> Fields exported exclusively for coupling with chemistry
   character(*), public, parameter :: chemistryFieldNames(*) = [ &
     "inst_pres_interface             ", &
     "inst_pres_levels                ", &
@@ -282,9 +283,15 @@ module module_cplfields
   public cplFieldGet
   public realizeConnectedCplFields
 
-!-----------------------------------------------------------------------------
   contains
-!-----------------------------------------------------------------------------
+
+  !> ???
+  !> 
+  !> @param[in] fieldname ???
+  !> @param[in] abortflag ???
+  !> @return ???
+  !>
+  !> @author
   integer function queryExportFields(fieldname, abortflag)
 
     character(len=*),intent(in) :: fieldname
@@ -294,8 +301,13 @@ module module_cplfields
 
   end function queryExportFields
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] fieldname ???
+  !> @param[in] abortflag ???
+  !> @return ???
+  !>
+  !> @author
   integer function queryImportFields(fieldname, abortflag)
 
     character(len=*),intent(in) :: fieldname
@@ -305,8 +317,14 @@ module module_cplfields
 
   end function queryImportFields
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] fieldsInfo ???
+  !> @param[in] fieldname ???
+  !> @param[in] abortflag ???
+  !> @return ???
+  !>
+  !> @author
   integer function queryFieldList(fieldsInfo, fieldname, abortflag)
     ! returns integer index of first found fieldname in fieldlist
     ! by default, will abort if field not found, set abortflag to false
@@ -343,8 +361,14 @@ module module_cplfields
     endif
   end function queryFieldList
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] state ???
+  !> @param[in] fieldList ???
+  !> @param[out] fieldCount ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine cplStateGet(state, fieldList, fieldCount, rc)
 
     character(len=*), intent(in)            :: state
@@ -371,8 +395,17 @@ module module_cplfields
 
   end subroutine cplStateGet
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] state ???
+  !> @param[in] name ???
+  !> @param[in] localDe ???
+  !> @param[in] farrayPtr2d ???
+  !> @param[in] farrayPtr3d ???
+  !> @param[in] farrayPtr4d ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine cplFieldGet(state, name, localDe, &
                          farrayPtr2d, farrayPtr3d, farrayPtr4d, rc)
 
@@ -441,7 +474,20 @@ module module_cplfields
 
   end subroutine cplFieldGet
 
-
+  !> ???
+  !> 
+  !> @param[inout] state ???
+  !> @param[in] grid ???
+  !> @param[in] numLevels ???
+  !> @param[in] numSoilLayers ???
+  !> @param[in] numTracers ???
+  !> @param[in] fields_info ???
+  !> @param[in] state_tag ???
+  !> @param[out] fieldList ???
+  !> @param[in] fill_value ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine realizeConnectedCplFields(state, grid, &
                                        numLevels, numSoilLayers, numTracers, &
                                        fields_info, state_tag, fieldList, fill_value, rc)
@@ -565,8 +611,15 @@ module module_cplfields
 
   end subroutine realizeConnectedCplFields
 
-!-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] field ???
+  !> @param[in] key ???
+  !> @param[in] numLevels ???
+  !> @param[in] values ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine addFieldMetadata(field, key, values, rc)
 
     ! This subroutine implements a preliminary method to provide metadata to
@@ -601,6 +654,5 @@ module module_cplfields
 
   end subroutine addFieldMetadata
 !
-!------------------------------------------------------------------------------
 !
 end module module_cplfields
