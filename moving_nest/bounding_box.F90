@@ -22,9 +22,6 @@
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
 
-!> @brief Provides subroutines for grid bounding boxes for moving nest.
-!>
-!> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
 module bounding_box_mod
   use mpp_domains_mod, only : mpp_get_C2F_index, nest_domain_type
   use mpp_mod,         only : mpp_pe
