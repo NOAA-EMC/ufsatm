@@ -220,6 +220,7 @@ module fv3atm_cap_mod
     integer                                :: sloc
     type(ESMF_StaggerLoc)                  :: staggerloc
     character(len=20)                      :: cvalue
+    character(ESMF_MAXSTR)                 :: output_grid
 !
 !------------------------------------------------------------------------
 !
@@ -757,10 +758,13 @@ module fv3atm_cap_mod
             if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
+                                   name="output_grid", value=output_grid, isPresent=isPresent, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
             fieldbundle_uses_redist = .false.
-            ! if (fcstItemNameList(j)(1:8) == "restart_" .or. fcstItemNameList(j)(1:18) == "cubed_sphere_grid_") then
-            if (fcstItemNameList(j)(1:8) == "restart_") then
-              ! restart output forecast bundles, no need to set regridmethod
+            if (trim(output_grid) == "restart_grid" .or. trim(output_grid) == "cubed_sphere_grid") then
+              ! restart output forecast bundles, or history cubed_sphere (native) grid; no need to set regridmethod
               ! Redist will be used instead of Regrid
               fieldbundle_uses_redist = .true.
             else
