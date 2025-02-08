@@ -58,70 +58,70 @@ module fv3atm_cap_mod
   private
   public SetServices
 
-  !> ???
+  !> forecast grid component
   type(ESMF_GridComp)                         :: fcstComp
 
-  !> ???
+  !> forecast grid component's export state
   type(ESMF_State)                            :: fcstState
 
-  !> ???
+  !> Array of forecast grid component's field bundles
   type(ESMF_FieldBundle), allocatable         :: fcstFB(:)
 
-  !> ???
+  !> forecast grid component's PET list
   integer,dimension(:), allocatable           :: fcstPetList
 
-  !> ???
+  !> number of field bundles in foreacst grid component's export state
   integer, save                               :: FBCount
 
-  !> ???
+  !> Array of write grid components
   type(ESMF_GridComp),    allocatable         :: wrtComp(:)
 
-  !> ???
+  !> Array of write component's import state
   type(ESMF_State),       allocatable         :: wrtState(:)
 
-  !> ???
+  !> Array of write field bundles
   type(ESMF_FieldBundle), allocatable         :: wrtFB(:,:)
 
-  !> ???
+  !> Array of route handles
   type(ESMF_RouteHandle), allocatable         :: routehandle(:,:)
 
-  !> ???
+  !> Array of route handles used for grid redist-ing
   type(ESMF_RouteHandle), allocatable         :: gridRedistRH(:,:)
 
-  !> ???
+  !> Array of source and destination grids, used for computing routehandles
   type(ESMF_Grid), allocatable                :: srcGrid(:,:), dstGrid(:,:)
 
-  !> ???
+  !> Array of logical flags indicating which field bundles are 'moving' grid bundle
   logical, allocatable                        :: is_moving_FB(:)
 
-  !> ???
+  !> logical flag that controls memory profiling
   logical                                     :: profile_memory = .true.
 
-  !> ???
+  !> logical flag that controls runtime logs
   logical                                     :: write_runtimelog = .false.
 
-  !> ???
+  !> logical flag that controls debug prints, true on root task
   logical                                     :: lprint = .false.
 
-  !> ???
+  !> current rank
   integer                                     :: mype = -1
 
-  !> ???
+  !> logical flag that controls debug prints
   integer                                     :: dbug = 0
 
-  !> ???
+  !> Array of restart times (in seconds)
   integer                                     :: frestart(999) = -1
 
-  !> ???
+  !> wall clock timers
   real(kind=8)                                :: timere, timep2re
 
   contains
 
 ! Solo fv3atm code starts here
 
-  !> ???
+  !> SetServices subroutine, register subroutines that are implemented in the NUOPC cap
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -203,9 +203,9 @@ module fv3atm_cap_mod
 
   end subroutine SetServices
 
-  !> ???
+  !> The implementation of the Advertise subroutine, which is registered for the label_Advertise specialization. During this phase, all import and export fileds should be advertized.
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1006,9 +1006,9 @@ module fv3atm_cap_mod
 !
   end subroutine InitializeAdvertise
 
-  !> ???
+  !> Realize subroutine, which specializes label_RealizeProvided. During this phase, fields that were previously advertised should now be realized.
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1047,9 +1047,9 @@ module fv3atm_cap_mod
 
   end subroutine InitializeRealize
 
-  !> ???
+  !> ModelAdvance subroutine, which specializes label_Advance
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1078,9 +1078,9 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance
 
-  !> ???
+  !> ModelAdvance_phase1 subroutine, which specializes label_Advance 'phase1'
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1135,9 +1135,9 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance_phase1
 
-  !> ???
+  !> ModelAdvance_phase2 subroutine, which specializes label_Advance 'phase2'
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1292,9 +1292,9 @@ module fv3atm_cap_mod
 
   end subroutine ModelAdvance_phase2
 
-  !> ???
+  !> ModelSetRunClock subroutine, which specializes label_SetRunClock
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1328,9 +1328,9 @@ module fv3atm_cap_mod
 
   end subroutine ModelSetRunClock
 
-  !> ???
+  !> fv3_checkimport subroutine, which specializes label_CheckImport
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1421,9 +1421,9 @@ module fv3atm_cap_mod
 
   end subroutine fv3_checkimport
 
-  !> ???
+  !> TimestampExport_phase1 subroutine, which specializes label_TimestampExport
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
@@ -1455,9 +1455,9 @@ module fv3atm_cap_mod
 
   end subroutine TimestampExport_phase1
 
-  !> ???
+  !> ModelFinalize subroutine, which specializes label_Finalize
   !>
-  !> @param[in] gcomp ???
+  !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
   !>
   !> @author
