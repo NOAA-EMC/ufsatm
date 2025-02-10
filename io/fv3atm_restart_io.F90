@@ -842,13 +842,13 @@ contains
   subroutine phys_restart_read (GFS_Restart, Atm_block, Model, fv_domain, ignore_rst_cksum)
     implicit none
     !--- interface variable definitions
-    type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
+    type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     type(domain2d),              intent(in) :: fv_domain
     logical,                     intent(in) :: ignore_rst_cksum
     !--- local variables
-    integer :: i, j, k, nb, ix, num, nvar
+    integer :: i, j, k, nb, ix, num2, num3, ivar
     integer :: isc, iec, jsc, jec, nx, ny
     character(len=64) :: fname
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
@@ -884,17 +884,19 @@ contains
 
     !--- register the restart fields
     if(was_allocated) then
-
-      nvar = size(GFS_Restart(:)%axes)
-      do num = 1,nvar
-         if (GFS_Restart(num)%axes == 2) then
-            var2_p => phy%var2(:,:,num)
-            call register_restart_field(Phy_restart, trim(GFS_Restart(num)%name), var2_p, &
+       num2 = 0
+       num3 = 0
+       do ivar = 1,size(GFS_Restart(:)%axes)
+          num2 = num2 + 1
+          if (GFS_Restart(ivar)%axes == 2) then
+            var2_p => phy%var2(:,:,num2)
+            call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var2_p, &
                  dimensions=(/'xaxis_1','yaxis_1','Time   '/), is_optional=.true.)
          end if
-         if (GFS_Restart(num)%axes == 3) then
-            var3_p => phy%var3(:,:,:,num)
-            call register_restart_field(Phy_restart, trim(GFS_restart(num)%name), var3_p, &
+         if (GFS_Restart(ivar)%axes == 3) then
+            num3 = num3 + 1
+            var3_p => phy%var3(:,:,:,num3)
+            call register_restart_field(Phy_restart, trim(GFS_restart(ivar)%name), var3_p, &
                  dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/), is_optional=.true.)
          end if
       enddo
@@ -919,18 +921,18 @@ contains
   subroutine phys_restart_write (GFS_Restart, Atm_block, Model, fv_domain, timestamp)
     implicit none
     !--- interface variable definitions
-    type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
+    type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     type(domain2d),              intent(in) :: fv_domain
     character(len=32), optional, intent(in) :: timestamp
     !--- local variables
-    integer :: i, j, k, nb, ix, num
+    integer :: i, j, k, nb, ix, num2, num3
     integer :: isc, iec, jsc, jec, nx, ny
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
     !--- used for axis data for fms2_io
-    integer :: is, ie, nvar
+    integer :: is, ie, ivar
     integer, allocatable, dimension(:) :: buffer
     character(7) :: indir='RESTART'
     character(72) :: infile
@@ -990,17 +992,20 @@ contains
       call mpp_error(FATAL, 'Error opening file '//trim(infile))
     end if
 
-    nvar = size(GFS_restart(:)%axes)
-    do num = 1,nvar
-       if (GFS_Restart(num)%axes == 2) then
-          var2_p => phy%var2(:,:,num)
-          call register_restart_field(Phy_restart, trim(GFS_Restart(num)%name), var2_p, &
+    num2 = 0
+    num3 = 0
+    do ivar = 1,size(GFS_restart(:)%axes)
+       if (GFS_Restart(ivar)%axes == 2) then
+          num2 = num2 + 1
+          var2_p => phy%var2(:,:,num2)
+          call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var2_p, &
                dimensions=(/'xaxis_1','yaxis_1','Time   '/),&
                chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1/), is_optional=.true.)
        endif
-       if (GFS_Restart(num)%axes == 3) then
-          var3_p => phy%var3(:,:,:,num)
-          call register_restart_field(Phy_restart, trim(GFS_Restart(num)%name), var3_p,&
+       if (GFS_Restart(ivar)%axes == 3) then
+          num3 = num3 + 1
+          var3_p => phy%var3(:,:,:,num3)
+          call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var3_p,&
                dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/),&
                chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1,1/), is_optional=.true.)
        endif
@@ -1049,14 +1054,15 @@ contains
   end subroutine fv3atm_restart_register
 
   !>@Copies physics restart fields from write component data structures to the model grid.
-  subroutine fv_phy_restart_output(GFS_Restart, Atm_block)
+  subroutine fv_phy_restart_output(GFS_Restart, Atm_block, Model)
 
     implicit none
 
-    type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
-    type(block_control_type),    intent(in) :: Atm_block
+    type(GFS_restart_type),   intent(inout) :: GFS_Restart(:)
+    type(block_control_type), intent(in)    :: Atm_block
+    type(GFS_control_type),   intent(in)    :: Model
 
-    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block)
+    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block, Model, restart_output=.true.)
 
   end subroutine fv_phy_restart_output
 
@@ -1181,7 +1187,7 @@ contains
     type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
 
-    integer :: nx, ny, ivar, num1, num2
+    integer :: nx, ny, ivar, num2, num3
 
     phy_data_alloc = .false.
 
@@ -1200,21 +1206,20 @@ contains
        if (GFS_restart(ivar)%axes == 2) phy%nvar2d = phy%nvar2d + 1
        if (GFS_restart(ivar)%axes == 3) phy%nvar3d = phy%nvar3d + 1
     enddo
-
     allocate (phy%var2(nx,ny,phy%nvar2d), phy%var2_names(phy%nvar2d))
     allocate (phy%var3(nx,ny,phy%npz,phy%nvar3d), phy%var3_names(phy%nvar3d))
     phy%var2 = zero
     phy%var3 = zero
-    num1 = 0
     num2 = 0
+    num3 = 0
     do ivar = 1,size(GFS_restart(:)%axes)
        if (GFS_restart(ivar)%axes == 2) then
-          num1 = num1 + 1
-          phy%var2_names(num1) = trim(GFS_Restart(ivar)%name)
+          num2 = num2 + 1
+          phy%var2_names(num2) = trim(GFS_Restart(ivar)%name)
        end if
        if (GFS_restart(ivar)%axes == 3)	then
-          num2 = num2 + 1
-          phy%var3_names(num2) = trim(GFS_Restart(ivar)%name)
+          num3 = num3 + 1
+          phy%var3_names(num3) = trim(GFS_Restart(ivar)%name)
        endif
     enddo
     phy_data_alloc = .true.
@@ -1227,14 +1232,15 @@ contains
   !! direction of the copy. For reading=.true., data is copied from the temporary arrays to the
   !! model grid (during restart read). For reading=.false., data is copied from the model grid to
   !! temporary arrays (for writing the restart).
-  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model)
+  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model, restart_output)
     use mpp_mod,            only: FATAL, mpp_error
     implicit none
     class(phy_data_type) :: phy
     logical, intent(in) :: reading
-    type(GFS_restart_type) :: GFS_Restart(:)
+    type(GFS_restart_type), intent(inout) :: GFS_Restart(:)
     type(block_control_type) :: Atm_block
-    type(GFS_control_type), optional, intent(in) :: Model
+    type(GFS_control_type), intent(in) :: Model
+    logical, optional, intent(in) :: restart_output
 
     integer :: i, j, k, ivar, nb, ix, im, num2, num3
 
@@ -1248,7 +1254,7 @@ contains
       return ! should never get here
     endif
 
-    !--- place the data into the contiguous GFS containers
+    !--- place the data into the contiguous GFS containers.
     if(reading) then
        ! 2D
        num2 = 0
@@ -1256,29 +1262,27 @@ contains
        do ivar = 1,size(GFS_restart(:)%axes)
           if (GFS_restart(ivar)%axes == 2) then
              num2 = num2 + 1
-             print*,'SWALES Reading 2D variable: ',trim(GFS_restart(ivar)%name)
-             !$omp parallel do default(shared) private(i, j, nb, ix, im, ivar, num2)
+             !$omp parallel do default(shared) private(i, j, nb, ix, im)
              do nb = 1,Atm_block%nblks
                 do ix = 1, Atm_block%blksz(nb)
                    im = Model%chunk_begin(nb)+ix-1
                    i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
                    j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                   GFS_Restart(ivar)%data(1)%var2(im) = phy%var2(i,j,num2)
+                   GFS_Restart(ivar)%data%var2(im) = phy%var2(i,j,num2)
                 enddo
              enddo
           endif
           ! 3D
           if (GFS_restart(ivar)%axes == 3) then
              num3 = num3 + 1
-             print*,'SWALES Reading 3D variable: ',trim(GFS_restart(ivar)%name)
-             !$omp parallel do default(shared) private(i, j, k, nb, ix, im, ivar, num3)
+             !$omp parallel do default(shared) private(i, j, k, nb, ix, im)
              do nb = 1,Atm_block%nblks
                 do k=1,phy%npz
                    do ix = 1, Atm_block%blksz(nb)
                       im = Model%chunk_begin(nb)+ix-1
                       i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
                       j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                      GFS_Restart(ivar)%data(1)%var3(im,k) = phy%var3(i,j,k,num3)
+                      GFS_Restart(ivar)%data%var3(im,k) = phy%var3(i,j,k,num3)
                    enddo
                 enddo
              enddo
@@ -1292,29 +1296,27 @@ contains
           ! 2D
           if (GFS_restart(ivar)%axes == 2) then
              num2 = num2 + 1
-             print*,'SWALES Writing 2D variable: ',trim(GFS_restart(ivar)%name)
-             !$omp parallel do default(shared) private(i, j, nb, ix, im, ivar, num2)
+             !$omp parallel do default(shared) private(i, j, nb, ix, im)
              do nb = 1,Atm_block%nblks
                 do ix = 1, Atm_block%blksz(nb)
                    im = Model%chunk_begin(nb)+ix-1
                    i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
                    j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                   phy%var2(i,j,num2) = GFS_Restart(ivar)%data(1)%var2(im)
+                   phy%var2(i,j,num2) = GFS_Restart(ivar)%data%var2(im)
                 enddo
              enddo
           endif
           ! 3D
           if (GFS_restart(ivar)%axes == 3) then
              num3 = num3 + 1
-             print*,'SWALES Writing 3D variable: ',trim(GFS_restart(ivar)%name)
-             !$omp parallel do default(shared) private(i, j, k, nb, ix, im, ivar, num3)
+             !$omp parallel do default(shared) private(i, j, k, nb, ix, im)
              do nb = 1,Atm_block%nblks
                 do k=1,phy%npz
                    do ix = 1, Atm_block%blksz(nb)
                       im = Model%chunk_begin(nb)+ix-1
                       i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
                       j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                      phy%var3(i,j,k,num3) = GFS_Restart(ivar)%data(1)%var3(im,k)
+                      phy%var3(i,j,k,num3) = GFS_Restart(ivar)%data%var3(im,k)
                    enddo
                 enddo
              enddo
@@ -1323,7 +1325,7 @@ contains
     endif
 
     !--- if restart from init time, reset accumulated diag fields
-    if(reading .and. present(Model)) then
+    if(reading .and. present(restart_output)) then
        if(Model%phour < 1.e-7) then
           do ivar = 1,size(GFS_restart(:)%axes)
              if (GFS_restart(ivar)%reset == .true.) then
@@ -1333,7 +1335,7 @@ contains
                       im = Model%chunk_begin(nb)+ix-1
                       i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
                       j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                      GFS_Restart(ivar)%data(1)%var2(im) = zero
+                      GFS_Restart(ivar)%data%var2(im) = zero
                    enddo
                 enddo
              endif

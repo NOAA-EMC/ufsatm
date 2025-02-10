@@ -10,16 +10,16 @@ module GFS_restart
   use GFS_diagnostics,  only: GFS_externaldiag_type
 
   type var_subtype
-     real(kind=kind_phys), dimension(:),   pointer :: var2(:)   => null()
-     real(kind=kind_phys), dimension(:,:), pointer :: var3(:,:) => null()
+     real(kind=kind_phys), dimension(:),   pointer :: var2 => null()
+     real(kind=kind_phys), dimension(:,:), pointer :: var3 => null()
   end type var_subtype
 
   type GFS_restart_type
-     integer           :: axes     !< Rank of data (2D or 3D).
-     logical           :: diag     !< True for diagnostic field.
-     logical           :: reset    !< If true, zero out diagnostic field.
-     character(len=32) :: name     !< variable name as it will appear in the restart file.
-     type(var_subtype) :: data(1)  !< Holds pointers to contiguous data.
+     integer           :: axes  !< Rank of data (2D or 3D).
+     logical           :: diag  !< True for diagnostic field.
+     logical           :: reset !< If true, zero out diagnostic field.
+     character(len=32) :: name  !< variable name as it will appear in the restart file.
+     type(var_subtype) :: data  !< Holds pointers to contiguous data.
   end type GFS_restart_type
 
   public GFS_restart_type, GFS_restart_populate
@@ -39,8 +39,8 @@ module GFS_restart
 !     Restart%diag           [logical]  Flag to indicate diagnostic variable             !
 !     Restart%reset          [logical]  Flag to indicate diagnostics need to be reset    !
 !     Restart%name           [char=32]  Variable name in restart file                    !
-!     Restart%data(1)%var2(:)   [real*8 ]  pointer to 2D data (im)                       !
-!     Restart%data(1)%var3(:,:) [real*8 ]  pointer to 3D data (im,levs)                  !
+!     Restart%data%var2(:)   [real*8 ]  pointer to 2D data (im)                          !
+!     Restart%data%var3(:,:) [real*8 ]  pointer to 3D data (im,levs)                     !
 !----------------------------------------------------------------------------------------!
     type(GFS_restart_type),     intent(inout), allocatable :: Restart(:)
     type(GFS_control_type),     intent(in)    :: Model
@@ -97,7 +97,7 @@ module GFS_restart
         endif
       endif
     enddo
-
+  
     ! Number of required 2D restart variables.
     num2d = 3 + Model%ntot2d + Model%nctp + ndiag_rst
 
@@ -152,7 +152,7 @@ module GFS_restart
 
     ! Number of required 3D restart variables.
     num3d = Model%ntot3d
-
+    
     ! Do we have any 3D restart varaibles dependent on physics scheme?
     if (Model%num_dfi_radar>0) then
        num3d = num3d + Model%num_dfi_radar
@@ -191,432 +191,434 @@ module GFS_restart
         endif
       enddo
     endif
-    print*,'SWALES GFS_restart_populate num2d+num3d = ',num2d+num3d
+
     !--- Allocate Restart data type.
     allocate (Restart(num2d+num3d))
     Restart(:)%diag  = .false.
     Restart(:)%reset = .false.
+    idx = 0
 
     !--- Cldprop variables
-    Restart(1)%name = 'cv'
-    Restart(1)%axes = 2
-    Restart(1)%data(1)%var2 => Cldprop%cv(:)
-    Restart(2)%name = 'cvt'
-    Restart(2)%axes = 2
-    Restart(2)%data(1)%var2 => Cldprop%cvt(:)
-    Restart(3)%name = 'cvb'
-    Restart(3)%axes = 2
-    Restart(3)%data(1)%var2 => Cldprop%cvb(:)
+    idx = idx + 1
+    Restart(idx)%name = 'cv'
+    Restart(idx)%axes = 2
+    Restart(idx)%data%var2 => Cldprop%cv(:)
+    
+    idx = idx + 1
+    Restart(idx)%name = 'cvt'
+    Restart(idx)%axes = 2
+    Restart(idx)%data%var2 => Cldprop%cvt(:)
+
+    idx = idx + 1
+    Restart(idx)%name = 'cvb'
+    Restart(idx)%axes = 2
+    Restart(idx)%data%var2 => Cldprop%cvb(:)
 
     !--- phy_f2d variables
-    offset = 3
     do num = 1,Model%ntot2d
+      idx = idx + 1
        !--- set the variable name
       write(c2,'(i2.2)') num
-      Restart(num+offset)%name = 'phy_f2d_'//c2
-      Restart(num+offset)%axes = 2
-      Restart(num+offset)%data(1)%var2 => Tbd%phy_f2d(:,num)
+      Restart(idx)%name = 'phy_f2d_'//c2
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Tbd%phy_f2d(:,num)
     enddo
-    offset = offset + Model%ntot2d
 
     !--- phy_fctd variables
     if (Model%nctp > 0) then
       do num = 1, Model%nctp
-       !--- set the variable name
+        idx = idx + 1
+        !--- set the variable name
         write(c2,'(i2.2)') num
-        Restart(num+offset)%name = 'phy_fctd_'//c2
-        Restart(num+offset)%axes = 2
-        Restart(num+offset)%data(1)%var2 => Tbd%phy_fctd(:,num)
+        Restart(idx)%name = 'phy_fctd_'//c2
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Tbd%phy_fctd(:,num)
       enddo
-      offset = offset + Model%nctp
     endif
 
     !--- Diagnostic variables
-    do idx = 1,ndiag_rst
-      if( ndiag_idx(idx) > 0 ) then
-        Restart(offset+idx)%name  = trim(ExtDiag(ndiag_idx(idx))%name)
-        Restart(offset+idx)%axes  = 2
-        Restart(offset+idx)%diag  = .true.
-        Restart(offset+idx)%reset = .true.
-        Restart(offset+idx)%data(1)%var2 => ExtDiag(ndiag_idx(idx))%data(1)%var2(:)
+    do num = 1,ndiag_rst
+      if( ndiag_idx(num) > 0 ) then
+        idx = idx + 1
+        Restart(idx)%name  = trim(ExtDiag(ndiag_idx(num))%name)
+        Restart(idx)%axes  = 2
+        Restart(idx)%diag  = .true.
+        Restart(idx)%reset = .true.
+        Restart(idx)%data%var2 => ExtDiag(ndiag_idx(num))%data(1)%var2(:)
       endif
     enddo
 
-    num = offset + ndiag_rst
     !--- Celluluar Automaton, 2D
     !CA
     if (Model%imfdeepcnv == 2 .and. Model%do_ca) then
-      num = num + 1
-      Restart(num)%name = 'ca_condition'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%condition(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ca_condition'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%condition(:)
     endif
     ! Unified convection
     if (Model%imfdeepcnv == Model%imfdeepcnv_c3) then
-      num = num + 1
-      Restart(num)%name = 'gf_2d_conv_act'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%conv_act(:)
-      num = num + 1
-      Restart(num)%name = 'gf_2d_conv_act_m'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%conv_act_m(:)
-      num = num + 1
-      Restart(num)%name = 'aod_gf'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Tbd%aod_gf(:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_2d_conv_act'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%conv_act(:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_2d_conv_act_m'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%conv_act_m(:)
+      idx = idx + 1
+      Restart(idx)%name = 'aod_gf'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Tbd%aod_gf(:)
     endif
     !--- RAP/HRRR-specific variables, 2D
     ! GF
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf) then
-      num = num + 1
-      Restart(num)%name = 'gf_2d_conv_act'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%conv_act(:)
-      num = num + 1
-      Restart(num)%name = 'gf_2d_conv_act_m'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%conv_act_m(:)
-      num = num + 1
-      Restart(num)%name = 'aod_gf'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Tbd%aod_gf(:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_2d_conv_act'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%conv_act(:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_2d_conv_act_m'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%conv_act_m(:)
+      idx = idx + 1
+      Restart(idx)%name = 'aod_gf'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Tbd%aod_gf(:)
     endif
     ! NoahMP
     if (Model%lsm == Model%lsm_noahmp) then
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_raincprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%raincprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_rainncprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%rainncprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_iceprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%iceprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_snowprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%snowprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_graupelprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%graupelprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_draincprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%draincprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_drainncprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%drainncprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_diceprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%diceprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_dsnowprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%dsnowprv(:)
-      num = num + 1
-      Restart(num)%name = 'noahmp_2d_dgraupelprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%dgraupelprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_raincprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%raincprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_rainncprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%rainncprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_iceprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%iceprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_snowprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%snowprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_graupelprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%graupelprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_draincprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%draincprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_drainncprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%drainncprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_diceprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%diceprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_dsnowprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%dsnowprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'noahmp_2d_dgraupelprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%dgraupelprv(:)
     endif
     ! RUC 
     if (Model%lsm == Model%lsm_ruc) then
-      num = num + 1
-      Restart(num)%name = 'ruc_2d_raincprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%raincprv(:)
-      num = num + 1
-      Restart(num)%name = 'ruc_2d_rainncprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%rainncprv(:)
-      num = num + 1
-      Restart(num)%name = 'ruc_2d_iceprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%iceprv(:)
-      num = num + 1
-      Restart(num)%name = 'ruc_2d_snowprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%snowprv(:)
-      num = num + 1
-      Restart(num)%name = 'ruc_2d_graupelprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%graupelprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ruc_2d_raincprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%raincprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ruc_2d_rainncprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%rainncprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ruc_2d_iceprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%iceprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ruc_2d_snowprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%snowprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ruc_2d_graupelprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%graupelprv(:)
     endif
     ! MYNN SFC
     if (Model%do_mynnsfclay) then
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_uustar'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%uustar(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_hpbl'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Tbd%hpbl(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_ustm'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%ustm(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_zol'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%zol(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_mol'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%mol(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_flhc'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%flhc(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_flqc'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%flqc(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_chs2'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%chs2(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_cqs2'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%cqs2(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_lh'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%lh(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_hflx'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%hflx(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_evap'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%evap(:)
-        num = num + 1
-        Restart(num)%name = 'mynn_2d_qss'
-        Restart(num)%axes = 2
-        Restart(num)%data(1)%var2 => Sfcprop%qss(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_uustar'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%uustar(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_hpbl'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Tbd%hpbl(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_ustm'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%ustm(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_zol'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%zol(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_mol'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%mol(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_flhc'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%flhc(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_flqc'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%flqc(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_chs2'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%chs2(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_cqs2'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%cqs2(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_lh'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%lh(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_hflx'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%hflx(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_evap'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%evap(:)
+        idx = idx + 1
+        Restart(idx)%name = 'mynn_2d_qss'
+        Restart(idx)%axes = 2
+        Restart(idx)%data%var2 => Sfcprop%qss(:)
     endif
     ! Save rain prev for lake if surface layer doesn't.
     if (Model%lkm>0 .and. Model%iopt_lake==Model%iopt_lake_clm .and. &
          .not.surface_layer_saves_rainprev) then
-      num = num + 1
-      Restart(num)%name = 'raincprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%raincprv(:)
-      num = num + 1
-      Restart(num)%name = 'rainncprv'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Sfcprop%rainncprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'raincprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%raincprv(:)
+      idx = idx + 1
+      Restart(idx)%name = 'rainncprv'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Sfcprop%rainncprv(:)
     endif
     ! Thompson aerosol-aware
     if (Model%imp_physics == Model%imp_physics_thompson .and. Model%ltaerosol) then
-      num = num + 1
-      Restart(num)%name = 'thompson_2d_nwfa2d'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%nwfa2d(:)
-      num = num + 1
-      Restart(num)%name = 'thompson_2d_nifa2d'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%nifa2d(:)
+      idx = idx + 1
+      Restart(idx)%name = 'thompson_2d_nwfa2d'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%nwfa2d(:)
+      idx = idx + 1
+      Restart(idx)%name = 'thompson_2d_nifa2d'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%nifa2d(:)
     endif
 
     ! Convection suppression
     if (Model%do_cap_suppress .and. Model%num_dfi_radar > 0) then
       do itime=1,Model%dfi_radar_max_intervals
         if(Model%ix_dfi_radar(itime)>0) then
-          num = num + 1
+          idx = idx + 1
           if(itime==1) then
-            Restart(num)%name = 'cap_suppress'
+            Restart(idx)%name = 'cap_suppress'
           else
-            write(Restart(num)%name,'("cap_suppress_",I0)') itime
+            write(Restart(idx)%name,'("cap_suppress_",I0)') itime
           endif
-          Restart(num)%axes = 2
-          Restart(num)%data(1)%var2 => Tbd%cap_suppress(:,Model%ix_dfi_radar(itime))
+          Restart(idx)%axes = 2
+          Restart(idx)%data%var2 => Tbd%cap_suppress(:,Model%ix_dfi_radar(itime))
         endif
       enddo
     endif
 
     ! RRFS-SD
     if (Model%rrfs_sd) then
-      num = num + 1
-      Restart(num)%name = 'ddvel_1'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%ddvel(:,1)
-      num = num + 1
-      Restart(num)%name = 'ddvel_2'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%ddvel(:,2)
-      num = num + 1
-      Restart(num)%name = 'min_fplume'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%min_fplume(:)
-      num = num + 1
-      Restart(num)%name = 'max_fplume'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%max_fplume(:)
-      num = num + 1
-      Restart(num)%name = 'rrfs_hwp'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%rrfs_hwp(:)
-      num = num + 1
-      Restart(num)%name = 'rrfs_hwp_ave'
-      Restart(num)%axes = 2
-      Restart(num)%data(1)%var2 => Coupling%rrfs_hwp_ave(:)
+      idx = idx + 1
+      Restart(idx)%name = 'ddvel_1'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%ddvel(:,1)
+      idx = idx + 1
+      Restart(idx)%name = 'ddvel_2'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%ddvel(:,2)
+      idx = idx + 1
+      Restart(idx)%name = 'min_fplume'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%min_fplume(:)
+      idx = idx + 1
+      Restart(idx)%name = 'max_fplume'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%max_fplume(:)
+      idx = idx + 1
+      Restart(idx)%name = 'rrfs_hwp'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%rrfs_hwp(:)
+      idx = idx + 1
+      Restart(idx)%name = 'rrfs_hwp_ave'
+      Restart(idx)%axes = 2
+      Restart(idx)%data%var2 => Coupling%rrfs_hwp_ave(:)
     endif
 
     !--- phy_f3d variables
     do num = 1,Model%ntot3d
-       !--- set the variable name
+      idx = idx + 1
+      !--- set the variable name
       write(c2,'(i2.2)') num
-      Restart(num)%name = 'phy_f3d_'//c2
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%phy_f3d(:,:,num)
-    enddo
-    if (Model%lrefres) then
-      num = Model%ntot3d+1
-      Restart(num)%name = 'ref_f3d'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => IntDiag%refl_10cm(:,:)
-    endif
-    if (Model%lrefres) then
-       num = Model%ntot3d+1
-    else
-       num = Model%ntot3d
-    endif
+      Restart(idx)%name = 'phy_f3d_'//c2
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%phy_f3d(:,:,num)
+   enddo
+
+   if (Model%lrefres) then
+      idx = idx + 1
+      Restart(idx)%name = 'ref_f3d'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => IntDiag%refl_10cm(:,:)
+   endif
 
     !Prognostic closure
     if(Model%progsigma)then
-       num = num + 1
-       Restart(num)%name = 'sas_3d_qgrs_dsave'
-       Restart(num)%axes = 3
-       Restart(num)%data(1)%var3 => Tbd%prevsq(:,:)
-       num = num + 1
-       Restart(num)%name = 'sas_3d_dqdt_qmicro'
-       Restart(num)%axes = 3
-       Restart(num)%data(1)%var3 => Coupling%dqdt_qmicro(:,:)
+       idx = idx + 1
+       Restart(idx)%name = 'sas_3d_qgrs_dsave'
+       Restart(idx)%axes = 3
+       Restart(idx)%data%var3 => Tbd%prevsq(:,:)
+       idx = idx + 1
+       Restart(idx)%name = 'sas_3d_dqdt_qmicro'
+       Restart(idx)%axes = 3
+       Restart(idx)%data%var3 => Coupling%dqdt_qmicro(:,:)
     endif
 
     !--Convection variable used in CB cloud fraction. Presently this
     !--is only needed in sgscloud_radpre for imfdeepcnv == imfdeepcnv_gf.
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3) then
-      num = num + 1
-      Restart(num)%name = 'cnv_3d_ud_mf'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%ud_mf(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'cnv_3d_ud_mf'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%ud_mf(:,:)
     endif
 
     !Unified convection scheme                                                                                                                                                                    
     if (Model%imfdeepcnv == Model%imfdeepcnv_c3) then
-      num = num + 1
-      Restart(num)%name = 'gf_3d_prevst'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%prevst(:,:)
-      num = num + 1
-      Restart(num)%name = 'gf_3d_prevsq'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%prevsq(:,:)
-      num = num + 1
-      Restart(num)%name = 'gf_3d_qci_conv'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Coupling%qci_conv(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_prevst'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%prevst(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_prevsq'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%prevsq(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_qci_conv'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Coupling%qci_conv(:,:)
     endif
 
     !--- RAP/HRRR-specific variables, 3D
     ! GF
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf) then
-      num = num + 1
-      Restart(num)%name = 'gf_3d_prevst'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%prevst(:,:)
-      num = num + 1
-      Restart(num)%name = 'gf_3d_prevsq'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%prevsq(:,:)
-      num = num + 1
-      Restart(num)%name = 'gf_3d_qci_conv'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Coupling%qci_conv(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_prevst'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%prevst(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_prevsq'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%prevsq(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'gf_3d_qci_conv'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Coupling%qci_conv(:,:)
     endif
     ! MYNN PBL
     if (Model%do_mynnedmf) then
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_cldfra_bl'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%cldfra_bl(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_qc_bl'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%qc_bl(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_qi_bl'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%qi_bl(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_el_pbl'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%el_pbl(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_sh3d'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%sh3d(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_qke'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%qke(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_tsq'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%tsq(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_qsq'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%qsq(:,:)
-      num = num + 1
-      Restart(num)%name = 'mynn_3d_cov'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Tbd%cov(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_cldfra_bl'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%cldfra_bl(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_qc_bl'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%qc_bl(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_qi_bl'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%qi_bl(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_el_pbl'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%el_pbl(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_sh3d'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%sh3d(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_qke'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%qke(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_tsq'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%tsq(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_qsq'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%qsq(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'mynn_3d_cov'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Tbd%cov(:,:)
     endif
 
     ! Radar-derived microphysics temperature tendencies
     if (Model%num_dfi_radar > 0) then
       do itime=1,Model%dfi_radar_max_intervals
         if(Model%ix_dfi_radar(itime)>0) then
-          num = num + 1
+          idx = idx + 1
           if(itime==1) then
-            Restart(num)%name = 'radar_tten'
+            Restart(idx)%name = 'radar_tten'
           else
-            write(Restart(num)%name,'("radar_tten_",I0)') itime
+            write(Restart(idx)%name,'("radar_tten_",I0)') itime
           endif
-          Restart(num)%axes = 3
-          Restart(num)%data(1)%var3 => Tbd%dfi_radar_tten(:,:,Model%ix_dfi_radar(itime))
+          Restart(idx)%axes = 3
+          Restart(idx)%data%var3 => Tbd%dfi_radar_tten(:,:,Model%ix_dfi_radar(itime))
         endif
       enddo
     endif
 
     if(Model%rrfs_sd) then
-      num = num + 1
-      Restart(num)%name = 'chem3d_1'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Coupling%chem3d(:,:,1)
-      num = num + 1
-      Restart(num)%name = 'chem3d_2'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Coupling%chem3d(:,:,2)
-      num = num + 1
-      Restart(num)%name = 'chem3d_3'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Coupling%chem3d(:,:,3)
-      num = num + 1
-      Restart(num)%name = 'ext550'
-      Restart(num)%axes = 3
-      Restart(num)%data(1)%var3 => Radtend%ext550(:,:)
+      idx = idx + 1
+      Restart(idx)%name = 'chem3d_1'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Coupling%chem3d(:,:,1)
+      idx = idx + 1
+      Restart(idx)%name = 'chem3d_2'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Coupling%chem3d(:,:,2)
+      idx = idx + 1
+      Restart(idx)%name = 'chem3d_3'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Coupling%chem3d(:,:,3)
+      idx = idx + 1
+      Restart(idx)%name = 'ext550'
+      Restart(idx)%axes = 3
+      Restart(idx)%data%var3 => Radtend%ext550(:,:)
     endif
 
   end subroutine GFS_restart_populate

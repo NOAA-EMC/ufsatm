@@ -1153,7 +1153,7 @@ subroutine atmos_model_restart(Atmos, timestamp)
 
     if (quilting_restart) then
        call fv_sfc_restart_output(GFS_sfcprop, Atm_block, GFS_control)
-       call fv_phy_restart_output(GFS_restart_var, Atm_block)
+       call fv_phy_restart_output(GFS_restart_var, Atm_block, GFS_Control)
        call fv_dyn_restart_output(Atm(mygrid), timestamp)
     else
        call atmosphere_restart(timestamp)
