@@ -1288,6 +1288,26 @@ contains
              enddo
           endif
        enddo
+
+       !--- if restart from init time, reset accumulated diag fields
+       if(present(restart_output)) then
+          if(Model%phour < 1.e-7) then
+             do ivar = 1,size(GFS_restart(:)%axes)
+                if (GFS_restart(ivar)%reset == .true.) then
+                   !$omp parallel do default(shared) private(i, j, nb, ix, im)
+                   do nb = 1,Atm_block%nblks
+                      do ix = 1, Atm_block%blksz(nb)
+                         im = Model%chunk_begin(nb)+ix-1
+                         i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
+                         j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+                         GFS_Restart(ivar)%data%var2(im) = zero
+                      enddo
+                   enddo
+                endif
+             enddo
+          endif
+       endif
+       
     !--- place the data into the phy%var* variables.
     else
        num2 = 0
@@ -1322,25 +1342,6 @@ contains
              enddo
           endif
        enddo
-    endif
-
-    !--- if restart from init time, reset accumulated diag fields
-    if(reading .and. present(restart_output)) then
-       if(Model%phour < 1.e-7) then
-          do ivar = 1,size(GFS_restart(:)%axes)
-             if (GFS_restart(ivar)%reset == .true.) then
-                !$omp parallel do default(shared) private(i, j, nb, ix, im)
-                do nb = 1,Atm_block%nblks
-                   do ix = 1, Atm_block%blksz(nb)
-                      im = Model%chunk_begin(nb)+ix-1
-                      i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-                      j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-                      GFS_Restart(ivar)%data%var2(im) = zero
-                   enddo
-                enddo
-             endif
-          enddo
-       endif
     endif
 
   end subroutine phy_data_transfer_data

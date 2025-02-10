@@ -63,7 +63,7 @@ module GFS_diagnostics
     real(kind=kind_phys), pointer :: dtend(:,:,:) ! Assumption: dtend is null iff all(dtidx <= 1)
     character(len=*), intent(in), optional :: desc, unit
 
-    integer :: idtend, nlev
+    integer :: idtend
 
     idtend = Model%dtidx(itrac,iprocess)
     if(idtend>=1) then
@@ -82,7 +82,6 @@ module GFS_diagnostics
        else
           ExtDiag(idx)%unit = trim(Model%dtend_var_labels(itrac)%unit)
        endif
-       nlev = size(IntDiag%dtend,2)
        ExtDiag(idx)%data%var3 => IntDiag%dtend(:,:,idtend)
     endif
   end subroutine add_dtend
@@ -136,7 +135,7 @@ module GFS_diagnostics
     type(GFS_init_type),          intent(in)    :: Init_parm
 
 !--- local variables
-    integer :: idt, idx, num, NFXR, idtend, ichem, itrac, iprocess, i, nlev
+    integer :: idt, idx, num, NFXR, idtend, ichem, itrac, iprocess, i
     character(len=2) :: xtra
     real(kind=kind_phys), parameter :: cn_one = 1._kind_phys
     real(kind=kind_phys), parameter :: cn_100 = 100._kind_phys
@@ -145,7 +144,6 @@ module GFS_diagnostics
     character(len=30) :: namestr, descstr
 
     NFXR = Model%NFXR
-    nlev = size(Statein%qgrs,2)
     
     ExtDiag(:)%id = -99
     ExtDiag(:)%axes = -99

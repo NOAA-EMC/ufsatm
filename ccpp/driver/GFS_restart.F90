@@ -244,7 +244,7 @@ module GFS_restart
         Restart(idx)%axes  = 2
         Restart(idx)%diag  = .true.
         Restart(idx)%reset = .true.
-        Restart(idx)%data%var2 => ExtDiag(ndiag_idx(num))%data(1)%var2(:)
+        Restart(idx)%data%var2 => ExtDiag(ndiag_idx(num))%data%var2(:)
       endif
     enddo
 

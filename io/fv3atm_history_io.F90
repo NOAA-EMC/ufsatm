@@ -245,7 +245,7 @@ CONTAINS
             endif
           endif
         else if (diag(idx)%axes == 3) then
-          hist%levo(idx) = size(Diag(idx)%data(1)%var3, dim=2)
+          hist%levo(idx) = size(Diag(idx)%data%var3, dim=2)
           if( index(trim(diag(idx)%intpl_method),'bilinear') > 0 ) then
             hist%nstt(idx) = nrgst_bl + 1
             nrgst_bl  = nrgst_bl + hist%levo(idx)
@@ -337,7 +337,7 @@ CONTAINS
         endif
         if_2d: if (diag(idx)%axes == 2) then
           ! Integer data
-          int_or_real: if (associated(Diag(idx)%data(1)%int2)) then
+          int_or_real: if (associated(Diag(idx)%data%int2)) then
             if (trim(Diag(idx)%intpl_method) == 'nearest_stod') then
               var2(1:nx,1:ny) = 0._kind_phys
               do j = 1, ny
@@ -347,9 +347,9 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  var2(i,j) = real(Diag(idx)%data(1)%int2(im), kind=kind_phys)
+                  var2(i,j) = real(Diag(idx)%data%int2(im), kind=kind_phys)
                 enddo
-             enddo
+              enddo
               call hist%store_data(Diag(idx)%id, var2, Time, idx, Diag(idx)%intpl_method, Diag(idx)%name)
             else
               call mpp_error(FATAL, 'Interpolation method ' // trim(Diag(idx)%intpl_method) // ' for integer variable ' &
@@ -367,8 +367,8 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  if (Diag(idx)%data(1)%var21(im) > 0._kind_phys) &
-                       var2(i,j) = max(0._kind_phys,min(1._kind_phys,Diag(idx)%data(1)%var2(im)/Diag(idx)%data(1)%var21(im)))*lcnvfac
+                  if (Diag(idx)%data%var21(im) > 0._kind_phys) &
+                       var2(i,j) = max(0._kind_phys,min(1._kind_phys,Diag(idx)%data%var2(im)/Diag(idx)%data%var21(im)))*lcnvfac
                 enddo
               enddo
             elseif (trim(Diag(idx)%mask) == 'land_ice_only') then
@@ -381,7 +381,7 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  if (Diag(idx)%data(1)%var21(im) /= 0) var2(i,j) = Diag(idx)%data(1)%var2(im)*lcnvfac
+                  if (Diag(idx)%data%var21(im) /= 0) var2(i,j) = Diag(idx)%data%var2(im)*lcnvfac
                 enddo
               enddo
             elseif (trim(Diag(idx)%mask) == 'land_only') then
@@ -394,7 +394,7 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  if (Diag(idx)%data(1)%var21(im) == 1) var2(i,j) = Diag(idx)%data(1)%var2(im)*lcnvfac
+                  if (Diag(idx)%data%var21(im) == 1) var2(i,j) = Diag(idx)%data%var2(im)*lcnvfac
                 enddo
               enddo
             elseif (trim(Diag(idx)%mask) == 'cldmask') then
@@ -407,7 +407,7 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  if (Diag(idx)%data(1)%var21(im)*100. > 0.5) var2(i,j) = Diag(idx)%data(1)%var2(im)*lcnvfac
+                  if (Diag(idx)%data%var21(im)*100. > 0.5) var2(i,j) = Diag(idx)%data%var2(im)*lcnvfac
                 enddo
               enddo
             elseif (trim(Diag(idx)%mask) == 'cldmask_ratio') then
@@ -420,8 +420,8 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  if (Diag(idx)%data(1)%var21(im)*100.*lcnvfac > 0.5) var2(i,j) = Diag(idx)%data(1)%var2(im)/ &
-                       Diag(idx)%data(1)%var21(im)
+                  if (Diag(idx)%data%var21(im)*100.*lcnvfac > 0.5) var2(i,j) = Diag(idx)%data%var2(im)/ &
+                       Diag(idx)%data%var21(im)
                 enddo
               enddo
             elseif (trim(Diag(idx)%mask) == 'pseudo_ps') then
@@ -433,7 +433,7 @@ CONTAINS
                     nb = Atm_block%blkno(ii,jj)
                     ix = Atm_block%ixp(ii,jj)
                     im = Model%chunk_begin(nb)+ix-1
-                    var2(i,j) = (Diag(idx)%data(1)%var2(im)/stndrd_atmos_ps)**(rdgas/grav*stndrd_atmos_lapse)
+                    var2(i,j) = (Diag(idx)%data%var2(im)/stndrd_atmos_ps)**(rdgas/grav*stndrd_atmos_lapse)
                   enddo
                 enddo
               else
@@ -444,7 +444,7 @@ CONTAINS
                     nb = Atm_block%blkno(ii,jj)
                     ix = Atm_block%ixp(ii,jj)
                     im = Model%chunk_begin(nb)+ix-1
-                    var2(i,j) = Diag(idx)%data(1)%var2(im)
+                    var2(i,j) = Diag(idx)%data%var2(im)
                   enddo
                 enddo
               endif
@@ -456,7 +456,7 @@ CONTAINS
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
                   im = Model%chunk_begin(nb)+ix-1
-                  var2(i,j) = Diag(idx)%data(1)%var2(im)*lcnvfac
+                  var2(i,j) = Diag(idx)%data%var2(im)*lcnvfac
                 enddo
               enddo
            endif if_mask
@@ -482,9 +482,9 @@ CONTAINS
                 im = Model%chunk_begin(nb)+ix-1
                 ! flip only 3d variables with vertical dimension == levs (atm model levels)
                 if (levo_3d == levs) then
-                  var3(i,j,k) = Diag(idx)%data(1)%var3(im,levo_3d-k+1)*lcnvfac
+                  var3(i,j,k) = Diag(idx)%data%var3(im,levo_3d-k+1)*lcnvfac
                 else
-                  var3(i,j,k) = Diag(idx)%data(1)%var3(im,        k  )*lcnvfac
+                  var3(i,j,k) = Diag(idx)%data%var3(im,        k  )*lcnvfac
                 endif
               enddo
             enddo
