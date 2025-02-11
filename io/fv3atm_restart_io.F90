@@ -1293,7 +1293,7 @@ contains
        if(present(restart_output)) then
           if(Model%phour < 1.e-7) then
              do ivar = 1,size(GFS_restart(:)%axes)
-                if (GFS_restart(ivar)%reset == .true.) then
+                if (GFS_restart(ivar)%reset) then
                    !$omp parallel do default(shared) private(i, j, nb, ix, im)
                    do nb = 1,Atm_block%nblks
                       do ix = 1, Atm_block%blksz(nb)

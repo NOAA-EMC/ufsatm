@@ -4161,6 +4161,7 @@ module GFS_diagnostics
          ExtDiag(idx)%data%var2 => var3d(:,k)
       enddo var_z_loop
 
+      deallocate(fullname)
     end subroutine link_all_levels
   end subroutine clm_lake_externaldiag_populate
 
