@@ -13,5 +13,4 @@
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
-# branch = develop
-  hash = 78f369b
+  branch = develop
