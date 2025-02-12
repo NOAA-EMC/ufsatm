@@ -19,7 +19,13 @@ module fv3atm_restart_io_mod
                                 read_restart, write_restart, write_data,     &
                                 get_global_io_domain_indices, get_dimension_size, &
                                 global_att_exists, get_global_attribute
-  use mpp_domains_mod,    only: domain2d
+#ifdef ENABLE_PARALLELRESTART
+  use mpp_domains_mod,    only: domain2d, mpp_get_domain_tile_commid, mpp_copy_domain, &
+                                  mpp_define_io_domain, mpp_get_layout
+#else
+  use mpp_domains_mod,    only: domain2d, mpp_copy_domain, &
+                                  mpp_define_io_domain, mpp_get_layout
+#endif
   use fv3atm_common_io,   only: create_2d_field_and_add_to_bundle, &
        create_3d_field_and_add_to_bundle, copy_from_gfs_data, axis_type
   use fv3atm_sfc_io
@@ -532,6 +538,7 @@ contains
   !!  Also calculates sncovr if it is not present in the restart file.
   subroutine sfc_prop_restart_read (Sfcprop, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
     use fv3atm_rrfs_sd_io
+    use atmosphere_mod,     only: Atm,mygrid
     implicit none
     !--- interface variable definitions
     type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
@@ -558,12 +565,25 @@ contains
 
     type(FmsNetcdfDomainFile_t) :: Oro_restart, Sfc_restart, dust12m_restart, emi_restart, rrfssd_restart
     type(FmsNetcdfDomainFile_t) :: Oro_ls_restart, Oro_ss_restart
+    type(domain2D) :: domain_for_read
+    integer :: read_layout(2)
 
     !--- OROGRAPHY FILE
 
     !--- open file
+#ifdef ENABLE_PARALLELRESTART
+    Oro_restart%use_collective = .true.
+    call mpp_get_layout(Atm(mygrid)%domain, read_layout)
+    call mpp_copy_domain(Atm(mygrid)%domain, domain_for_read)
+    call mpp_define_io_domain(domain_for_read, read_layout)
+    Oro_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    infile=trim(indir)//'/'//trim(fn_oro)
+    amiopen=open_file(Oro_restart, trim(infile), 'read', domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     infile=trim(indir)//'/'//trim(fn_oro)
     amiopen=open_file(Oro_restart, trim(infile), 'read', domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if (.not.amiopen) call mpp_error( FATAL, 'Error with opening file '//trim(infile) )
 
     call oro%register(Model,Oro_restart,Atm_block)
@@ -669,8 +689,16 @@ contains
     !--- SURFACE FILE
 
     !--- open file
+#ifdef ENABLE_PARALLELRESTART
+    Sfc_restart%use_collective = .true.
+    Sfc_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    infile=trim(indir)//'/'//trim(fn_srf)
+    amiopen=open_file(Sfc_restart, trim(infile), "read", domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     infile=trim(indir)//'/'//trim(fn_srf)
     amiopen=open_file(Sfc_restart, trim(infile), "read", domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if( .not.amiopen ) call mpp_error(FATAL, 'Error opening file'//trim(infile))
 
     if (global_att_exists(Sfc_restart, "file_version")) then
@@ -840,6 +868,7 @@ contains
   !! restart variables with the GFDL FMS restart subsystem.
   !! Calls a GFDL FMS routine to restore the data from a restart file.
   subroutine phys_restart_read (GFS_Restart, Atm_block, Model, fv_domain, ignore_rst_cksum)
+    use atmosphere_mod,     only: Atm,mygrid
     implicit none
     !--- interface variable definitions
     type(GFS_restart_type),      intent(in) :: GFS_Restart
@@ -859,6 +888,8 @@ contains
 
     type(phy_data_type) :: phy
     type(FmsNetcdfDomainFile_t) :: Phy_restart
+    type(domain2D) :: domain_for_read
+    integer :: read_layout(2)
 
     isc = Atm_block%isc
     iec = Atm_block%iec
@@ -871,7 +902,17 @@ contains
 
     !--- open restart file and register axes
     fname = trim(indir)//'/'//trim(fn_phy)
+#ifdef ENABLE_PARALLELRESTART
+    Phy_restart%use_collective = .true.
+    call mpp_get_layout(Atm(mygrid)%domain, read_layout)
+    call mpp_copy_domain(Atm(mygrid)%domain, domain_for_read)
+    call mpp_define_io_domain(domain_for_read, read_layout)
+    Phy_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    amiopen=open_file(Phy_restart, trim(fname), 'read', domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     amiopen=open_file(Phy_restart, trim(fname), 'read', domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if( amiopen ) then
       call register_axis(Phy_restart, 'xaxis_1', 'X')
       call register_axis(Phy_restart, 'yaxis_1', 'Y')
