@@ -3119,7 +3119,6 @@
   dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics,1:number_of_gases_for_multi_gases_physics)
   type = real
   kind = kind_dyn
-  active = (number_of_gases_for_multi_gases_physics > 0)
 [qv]
   standard_name = water_vapor_specific_humidity_at_Lagrangian_surface
   long_name = water vapor specific humidity updated by fast physics at Lagrangian surface
