@@ -961,7 +961,7 @@ module GFS_diagnostics
   if (Model%cplaqm) then
 
 !IVAI: canopy arrays read via aqm_emis_read
-    if (associated(IntDiag(1)%claie)) then
+    if (associated(IntDiag%claie)) then
 !      print*, 'GFS_diagnostics: claie ', IntDiag(1)%claie
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -971,11 +971,11 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%claie
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%claie(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%cfch)) then
+    if (associated(IntDiag%cfch)) then
 !      print*, 'GFS_diagnostics: cfch   ', IntDiag(1)%cfch
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -985,11 +985,11 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%cfch
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%cfch(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%cfrt)) then
+    if (associated(IntDiag%cfrt)) then
 !      print*, 'GFS_diagnostics: cfrt ', IntDiag(1)%cfrt
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -999,11 +999,11 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%cfrt
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%cfrt(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%cclu)) then
+    if (associated(IntDiag%cclu)) then
 !      print*, 'GFS_diagnostics: cclu ', IntDiag(1)%cclu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -1013,12 +1013,12 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%cclu
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%cclu(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%cpopu)) then
-      print*, 'GFS_diagnostics: cpopu ', IntDiag(1)%cpopu
+    if (associated(IntDiag%cpopu)) then
+!      print*, 'GFS_diagnostics: cpopu ', IntDiag(1)%cpopu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CPOPU'
@@ -1027,12 +1027,12 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%cpopu
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%cpopu(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
 ! IVAI: photdiag fields
-    if (associated(IntDiag(1)%coszens)) then
+    if (associated(IntDiag%coszens)) then
 !      print*, 'GFS_diagnostics: coszens ', IntDiag(1)%coszens
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -1042,11 +1042,11 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%coszens
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%coszens(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%jo3o1d)) then
+    if (associated(IntDiag%jo3o1d)) then
 !      print*, 'GFS_diagnostics: jo3o1d ', IntDiag(1)%jo3o1d
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -1056,11 +1056,11 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%jo3o1d
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%jo3o1d(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
-    if (associated(IntDiag(1)%jno2)) then
+    if (associated(IntDiag%jno2)) then
 !      print*, 'GFS_diagnostics: jno2 ', IntDiag(1)%jno2
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -1070,7 +1070,7 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
-        ExtDiag(idx)%data(nb)%var2 => IntDiag(nb)%jno2
+        ExtDiag(idx)%data(nb)%var2 => IntDiag%jno2(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
 
@@ -4218,7 +4218,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_sfc'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%canopylaixy(:)
+      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopylaixy(Model%chunk_begin(nb):Model%chunk_end(nb))
     enddo
   endif
 
@@ -4231,7 +4231,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_sfc'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%canopyfchxy(:)
+      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopyfchxy(Model%chunk_begin(nb):Model%chunk_end(nb))
     enddo
   endif
 
@@ -4244,7 +4244,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_sfc'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%canopyfrtxy(:)
+      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopyfrtxy(Model%chunk_begin(nb):Model%chunk_end(nb))
     enddo
   endif
 
@@ -4257,7 +4257,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_sfc'
     allocate (ExtDiag(idx)%data(nblks))
     do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop(nb)%canopycluxy(:)
+      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopycluxy(Model%chunk_begin(nb):Model%chunk_end(nb))
     enddo
   endif
 
