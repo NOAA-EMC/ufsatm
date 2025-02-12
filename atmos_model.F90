@@ -1488,7 +1488,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%claie(ix) = claie(i,j)
+            GFS_IntDiag%claie(ix) = claie(i,j)
           enddo
         enddo
 
@@ -1498,7 +1498,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%cfch(ix) = cfch(i,j)
+            GFS_IntDiag%cfch(ix) = cfch(i,j)
           enddo
         enddo
 
@@ -1508,7 +1508,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%cfrt(ix) = cfrt(i,j)
+            GFS_IntDiag%cfrt(ix) = cfrt(i,j)
           enddo
         enddo
 
@@ -1518,7 +1518,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%cclu(ix) = cclu(i,j)
+            GFS_IntDiag%cclu(ix) = cclu(i,j)
           enddo
         enddo
 
@@ -1528,7 +1528,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%cpopu(ix) = cpopu(i,j)
+            GFS_IntDiag%cpopu(ix) = cpopu(i,j)
           enddo
         enddo
 !IVAI: case ('import') photdiag arrays
@@ -1538,7 +1538,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%coszens(ix) = coszens(i,j)
+            GFS_IntDiag%coszens(ix) = coszens(i,j)
           enddo
         enddo
 
@@ -1548,7 +1548,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%jo3o1d(ix) = jo3o1d(i,j)
+            GFS_IntDiag%jo3o1d(ix) = jo3o1d(i,j)
           enddo
         enddo
 
@@ -1558,7 +1558,7 @@ subroutine update_atmos_chemistry(state, rc)
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_Data(nb)%IntDiag%jno2(ix) = jno2(i,j)
+            GFS_IntDiag%jno2(ix) = jno2(i,j)
           enddo
         enddo
 !IVAI
