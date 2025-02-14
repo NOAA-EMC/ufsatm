@@ -173,8 +173,10 @@ if (MPAS)
     string(REPLACE " " ";" MPAS_CORES ${MPAS_CORES})
     set(MPAS_CORES ${MPAS_CORES} CACHE STRING "MPAS cores to build. Options: ${MPAS_ALL_CORES}" FORCE)
   endif()
-  set(DO_MPASDA OFF)
-  set(DO_PHYSICS FALSE)
+  set(DO_MPASDA        OFF)
+  set(DO_PHYSICS       OFF)
+  set(MPAS_USE_MPI_F08 TRUE)
+  add_definitions(-DMPAS_USE_MPI_F08)
 
   # Source files for MPAS dynamical core drivers.
   set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/ufs_mpas.F90)
@@ -188,11 +190,15 @@ if (MPAS)
 
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
-    ${MPAS_MAIN_SRC}
+    mpas/mpas_cap.F90
+    mpas/mpas_model.F90
+    mpas/module_mpas_config.F90
+    mpas/module_fcst_grid_comp.F90
+    cpl/module_cplscalars.F90
     ${MPAS_SUBDRIVER_SRC}
     ${MPAS_NUOPC_CAP}
     )
-  add_dependencies(${DYCORE_TARGET} mpas)
+  add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
 endif()
 
 ###############################################################################
@@ -215,10 +221,9 @@ if (FV3)
 endif()
 
 if (MPAS)
-  target_link_libraries(${DYCORE_TARGET} PUBLIC mpas)
-#                                       mpasccpp
-#  				       stochastic_physics
-# 				       fms)
+  target_link_libraries(${DYCORE_TARGET} PUBLIC mpas
+                                         mpasccpp
+					 fms)
 endif()
 
 # Always include EMC libraries in dycore install

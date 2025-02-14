@@ -12,14 +12,14 @@ program ufs_mpas
 
    implicit none
 
-   type (core_type), pointer :: corelist => null()
-   type (domain_type), pointer :: domain => null()
+   !type (core_type), pointer :: corelist => null()
+   !type (domain_type), pointer :: domain => null()
 
-   call mpas_init(corelist, domain)
+   !call mpas_init(corelist, domain)
 
-   call mpas_run(domain) 
+   !call mpas_run(domain) 
 
-   call mpas_finalize(corelist, domain)
+   !call mpas_finalize(corelist, domain)
 
    stop
 
