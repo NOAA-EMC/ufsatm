@@ -507,7 +507,7 @@ module stochastic_physics_wrapper_mod
     !> `data_out`.
     !>
     !> @param[in] blksz    The block size of the data.
-    !> @param[in] data_in  The input data field to be transferred.
+    !> @param[in] data_in  The input 2D data field to be transferred.
     !> @param[out] data_out The output data field after processing.
     !>
     !> @author Dominikus Heinzeller @date 8/6/21
