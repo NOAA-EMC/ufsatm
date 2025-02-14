@@ -16,9 +16,9 @@ module stochastic_physics_wrapper_mod
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sppt_wts 
   !> Allocatable 3D array to store stochastic humidity weights
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: shum_wts 
-  !> Array of stochastic kinetic energy backscatter weights
+  !> Array of stochastic u wind components of the kinetic energy backscatter scheme.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebu_wts 
-  !> Array of weights for the Stochastic Kinetic Energy Backscatter (SKEB) scheme.
+  !> Array of stochastic v wind components of the kinetic energy backscatter scheme.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts 
   !> Surface weights array used in stochastic physics calculations.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts 
@@ -47,34 +47,45 @@ module stochastic_physics_wrapper_mod
   ! For cellular automata
   !> Sea surface temperature (SST) array, allocated dynamically.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst 
-  !> Logical mask array for stochastic physics processes
+  !> Land mask array for stochastic physics processes.
+  !> The array is allocatable and saved across subroutine calls.  
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk 
-  !> A 2D real array to store lake data, with kind specified by kind_phys.
+  !> A 2D real array to store lake data.
   !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: lake 
   !> Allocatable array to store the u-component of wind (zonal wind) 
   !> with dimensions (latitude, longitude, vertical levels).
+  !> The array is allocatable and saved across subroutine calls.  
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: uwind 
-  !> Allocatable array to store the v-component of wind (velocity in the y-direction)
+  !> Allocatable array to store the v-component of wind (velocity in the y-direction).
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: vwind 
   !> Array to store the height values with physical kind precision.
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: height 
-  !> 2D real array to store the stochastic perturbations, allocated dynamically and saved across subroutine calls
+  !> 2D real array to store the stochastic perturbations.
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: dx 
-  !> A 2D real array used to store physical conditions.
+  !> A 2D real array used to store 2-dim grid spacing variable
   !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition 
   !> Allocatable 2D array to store deep convection coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl 
   !> Array for storing turbulence coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_turb_cpl 
   !> Array for shallow convection coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_shal_cpl 
   !> Allocatable 2D array for coupling data, saved across subroutine calls
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl 
   !> 2D array for coupling data in stochastic physics module
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca2_cpl 
   !> Allocatable 2D array for coupling data in stochastic physics
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca3_cpl 
 
 
