@@ -488,7 +488,7 @@ module stochastic_physics_wrapper_mod
 
   contains
 
-    !> Transfers a field to the stochastics module.
+    !> Transfers a 2D field to the stochastics module.
     !>
     !> This subroutine takes an input field and transfers it to the 
     !> stochastics module for further processing. The input data is 
