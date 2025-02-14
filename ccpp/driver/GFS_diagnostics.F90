@@ -366,6 +366,18 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
+    ExtDiag(idx)%name = 'DSWRFCI'
+    ExtDiag(idx)%desc = 'instantaneous surface downward shortwave flux assuming clear sky'
+    ExtDiag(idx)%unit = 'w/m**2'
+    ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
+    allocate (ExtDiag(idx)%data(nblks))
+    do nb = 1,nblks
+      ExtDiag(idx)%data(nb)%var2 => IntDiag%dswsfcci(Model%chunk_begin(nb):Model%chunk_end(nb))
+    enddo    
+    
+    idx = idx + 1
+    ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'USWRF'
     ExtDiag(idx)%desc = 'averaged surface upward shortwave flux'
     ExtDiag(idx)%unit = 'W/m**2'
