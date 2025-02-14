@@ -64,6 +64,14 @@ if(NOT PARALLEL_NETCDF)
   list(APPEND _fv3atm_defs_private NO_PARALLEL_NETCDF)
 endif()
 
+if(ENABLE_PARALLELRESTART)
+  list(APPEND _fv3atm_defs_private ENABLE_PARALLELRESTART)
+endif()
+
+if(ENABLE_RRFS_WAR)
+  list(APPEND _fv3atm_defs_private ENABLE_RRFS_WAR)
+endif()
+
 if(MOVING_NEST)
   list(APPEND _fv3atm_defs_private MOVING_NEST)
   if(NOT HYDRO)
