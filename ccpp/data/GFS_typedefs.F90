@@ -1993,9 +1993,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: tsnowpb(:)     => null()   !< accumulated surface snowfall in bucket (m)
     real (kind=kind_phys), pointer :: rhonewsn1(:)   => null()   !< precipitation ice density outside RUC LSM (kg/m3)
 
-    !--- TKE used by convection schemes
-    real (kind=kind_phys), pointer :: tkeh(:,:)      => null()   !< vertical turbulent kinetic energy (m2/s2) at the model layer interfaces
-
     !--- MYNN variables
     real (kind=kind_phys), pointer :: edmf_a     (:,:)   => null()  !
     real (kind=kind_phys), pointer :: edmf_w     (:,:)   => null()  !
@@ -7955,9 +7952,6 @@ module GFS_typedefs
     allocate (Diag%refl_10cm(IM,Model%levs))
     allocate (Diag%max_hail_diam_sfc(IM))
 
-    !--- Vertical turbulent kinetic energy at model layer interfaces
-    allocate (Diag%tkeh(IM,Model%levs))
-
     !--- New PBL Diagnostics
     allocate (Diag%dkt(IM,Model%levs))
     allocate (Diag%dku(IM,Model%levs))
@@ -8294,9 +8288,6 @@ module GFS_typedefs
 
 !
 !-----------------------------
-
-! Vertical turbulent kinetic energy at modle layer interfaces
-    Diag%tkeh = zero
 
 ! Extra PBL diagnostics
     Diag%dkt = zero
