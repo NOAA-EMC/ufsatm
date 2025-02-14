@@ -508,7 +508,7 @@ module stochastic_physics_wrapper_mod
     !>
     !> @param[in] blksz    The block size of the data.
     !> @param[in] data_in  The input 2D data field to be transferred.
-    !> @param[out] data_out The output data field after processing.
+    !> @param[out] data_out The output 2D data field after processing.
     !>
     !> @author Dominikus Heinzeller @date 8/6/21
     subroutine transfer_field_to_stochastics(blksz, data_in, data_out)
