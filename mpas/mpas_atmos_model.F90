@@ -5,20 +5,22 @@
 !>
 ! ###########################################################################################
 module mpas_model_mod
-  use fms2_io_mod,   only: file_exists
-  use fms_mod,       only: check_nml_error
-  use time_manager_mod,   only: time_type, get_time, get_date, &
-                                operator(+), operator(-), real_to_time_type
-  use mpp_mod,       only: input_nml_file
-  use mpi_f08,       only: MPI_Comm
-  use MPAS_typedefs, only: kind_phys, r8 => kind_dbl_prec
+  use fms2_io_mod,        only: file_exists
+  use fms_mod,            only: check_nml_error
+  use time_manager_mod,   only: time_type, get_time, get_date, operator(+), operator(-)
+  use mpp_mod,            only: input_nml_file
+  use mpi_f08,            only: MPI_Comm
+  use MPAS_typedefs,      only: kind_phys, r8 => kind_dbl_prec
+  use mpas_derived_types, only: core_type, domain_type, MPAS_Clock_type
+  use atm_core_interface
 
   implicit none
 
   private
 
-  public mpas_model_init, atmos_data_type
-
+  public :: mpas_model_init, mpas_model_end, atmos_data_type
+  public :: corelist, domain_ptr
+  
   type atmos_data_type
      integer                       :: axes(4)            ! axis indices (returned by diag_manager) for the atmospheric grid
                                                          ! (they correspond to the x, y, pfull, phalf axes)
@@ -50,26 +52,61 @@ module mpas_model_mod
      !type(grid_box_type)           :: grid               ! hold grid information needed for 2nd order conservative flux exchange
      !type(GFS_externaldiag_type), pointer, dimension(:) :: Diag
   end type atmos_data_type
+
+  type(core_type),       pointer :: corelist   => null()
+  type(domain_type),     pointer :: domain_ptr => null()
+  type(MPAS_Clock_type), pointer :: clock      => null()
   
 contains
   ! #########################################################################################
-  !
+  ! Procedure to initialize UWM with MPAS dynamical core.
   ! #########################################################################################
-  subroutine mpas_model_init(mpicomm)
-    use ufs_mpas_subdriver, only: mpas_init_phase1, domain_ptr
-    type(MPI_Comm), intent(in) :: mpicomm
-    integer, dimension(2) :: logUnits
+  subroutine mpas_model_init(mpicomm, time_start, time_end, total_time)
+    use mpas_pool_routines, only : mpas_pool_add_config
 
+    ! Inputs
+    integer, intent(in) :: time_start(6), time_end(6)
+    integer, intent(in) :: total_time
+    type(MPI_Comm), intent(in) :: mpicomm
+
+    ! Locals
+    integer, dimension(2) :: logUnits
+    integer :: ndate, tod
+
+    print*,'SWALES mpas_init_phase1 A'
     ! Set up MPAS framework/infrastructure.
     call mpas_init_phase1(mpicomm, logUnits)
+    print*,'SWALES mpas_init_phase1 B'
 
     ! Read MPAS namelist.
     if (file_exists('input.nml')) then
        call read_mpas_namelist('input.nml', domain_ptr%configs)
     end if
-    
-  end subroutine mpas_model_init
+    print*,'SWALES mpas_init_phase1 C'
 
+    ! Set config_start_time
+    ndate = time_start(1)*10000 + time_start(2)*100 + time_start(3)
+    tod   = time_start(4)*3600  + time_start(5)*60  + time_start(6)
+    call mpas_pool_add_config(domain_ptr%configs, 'config_start_time', date2yyyymmdd(ndate)//'_'//sec2hms(tod))
+
+    ! Set config_stop_time
+    ndate = time_end(1)*10000   + time_end(2)*100   + time_end(3)
+    tod	  = time_end(4)*3600	+ time_end(5)*60    + time_end(6)
+    call mpas_pool_add_config(domain_ptr%configs, 'config_stop_time', date2yyyymmdd(ndate)//'_'//sec2hms(tod))
+
+    ! Set config_run_duration
+    call mpas_pool_add_config(domain_ptr%configs, 'config_run_duration', trim(int2str(1))//'_'//sec2hms(total_time))
+    print*,'SWALES mpas_init_phase1 D'
+
+  end subroutine mpas_model_init
+  
+  ! #########################################################################################
+  ! Procedure to finalize model.
+  ! #########################################################################################
+  subroutine mpas_model_end(Atmos)
+    type (atmos_data_type), intent(inout) :: Atmos
+  end subroutine mpas_model_end
+  
   ! #########################################################################################
   ! Procedure to read MPAS namelist(s).
   !
@@ -212,5 +249,97 @@ contains
     endif
 
   end subroutine read_mpas_namelist
+
+  ! #########################################################################################
+  !
+  ! #########################################################################################
+  subroutine mpas_init_phase1(mpicomm, logUnits)
+    use mpas_domain_routines, only : mpas_allocate_domain
+    use mpas_framework,       only : mpas_framework_init_phase1
+    use atm_core_interface,   only : atm_setup_core, atm_setup_domain
+
+    ! Inputs
+    type(MPI_Comm), intent(in) :: mpicomm
+    integer, dimension(2), intent(in) :: logUnits
+    ! Locals
+    integer :: ierr
+
+    allocate(corelist, stat=ierr)
+    if( ierr /= 0 ) stop
+    nullify(corelist%next)
+
+    allocate(corelist%domainlist, stat=ierr)
+    if( ierr /= 0 ) stop
+    nullify(corelist%domainlist%next)
+
+    domain_ptr => corelist%domainlist
+    domain_ptr%core => corelist
+
+    call mpas_allocate_domain(domain_ptr)
+    domain_ptr%domainID = 0
+
+    ! Initialize MPAS infrastructure
+    call mpas_framework_init_phase1(domain_ptr%dminfo, external_comm=mpicomm)
+    call atm_setup_core(corelist)
+    call atm_setup_domain(domain_ptr)
+
+  end subroutine mpas_init_phase1
+
+  
+  ! #########################################################################################
+  !
+  ! #########################################################################################
+  character(len=10) function date2yyyymmdd (date)
+    ! Input arguments
+    integer, intent(in) :: date
+
+    ! Local workspace
+    integer :: year    ! year of yyyy-mm-dd
+    integer :: month   ! month of yyyy-mm-dd
+    integer :: day     ! day of yyyy-mm-dd
+
+    year  = date / 10000
+    month = (date - year*10000) / 100
+    day   = date - year*10000 - month*100
+
+    write(date2yyyymmdd,80) year, month, day
+80  format(i4.4,'-',i2.2,'-',i2.2)
+
+  end function date2yyyymmdd
+  ! #########################################################################################
+  !
+  ! #########################################################################################
+  character(len=8) function sec2hms (seconds)
+
+    ! Input arguments
+    integer, intent(in) :: seconds
+
+    ! Local workspace
+    integer :: hours     ! hours of hh:mm:ss
+    integer :: minutes   ! minutes of hh:mm:ss
+    integer :: secs      ! seconds of hh:mm:ss
+
+    hours   = seconds / 3600
+    minutes = (seconds - hours*3600) / 60
+    secs    = (seconds - hours*3600 - minutes*60)
+
+    write(sec2hms,80) hours, minutes, secs
+80  format(i2.2,':',i2.2,':',i2.2)
+
+  end function sec2hms
+  
+  ! #########################################################################################
+  !
+  ! #########################################################################################
+  character(len=10) function int2str(n)
+
+    ! return default integer as a left justified string
+    ! arguments
+    integer, intent(in) :: n
+    !----------------------------------------------------------------------------
+
+    write(int2str,'(i0)') n
+     
+  end function int2str
   
 end module mpas_model_mod

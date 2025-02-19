@@ -43,118 +43,7 @@ endif()
 
 # Pnetcdf
 if(NOT PARALLEL_NETCDF)
-
   list(APPEND _ufsatm_defs_private NO_PARALLEL_NETCDF)
-endif()
-
-if(ENABLE_PARALLELRESTART)
-  list(APPEND _ufsatm_defs_private ENABLE_PARALLELRESTART)
-endif()
-
-if(ENABLE_RRFS_WAR)
-  list(APPEND _ufsatm_defs_private ENABLE_RRFS_WAR)
-endif()
-
-if(MOVING_NEST)
-  list(APPEND _ufsatm_defs_private MOVING_NEST)
-  if(NOT HYDRO)
-    list(APPEND _ufsatm_defs_private MOIST_CAPPA USE_COND)
-  endif()
-
-  if(DEBUG)
-    list(APPEND _ufsatm_defs_private DEBUG)
-  endif()
-  if(GFS_PHYS)
-    list(APPEND _ufsatm_defs_private GFS_PHYS)
-  endif()
-  if(GFS_TYPES)
-    list(APPEND _ufsatm_defs_private GFS_TYPES)
-  endif()
-  if(USE_GFSL63)
-    list(APPEND _ufsatm_defs_private USE_GFSL63)
-  endif()
-  if(INTERNAL_FILE_NML)
-    list(APPEND _ufsatm_defs_private INTERNAL_FILE_NML)
-  endif()
-  if(ENABLE_QUAD_PRECISION)
-    list(APPEND _ufsatm_defs_private ENABLE_QUAD_PRECISION)
-  endif()
-  if(32BIT)
-    list(APPEND _ufsatm_defs_private OVERLOAD_R4 OVERLOAD_R8)
-  endif()
-
-  list(APPEND moving_nest_srcs
-    moving_nest/bounding_box.F90
-    moving_nest/fv_tracker.F90
-    moving_nest/fv_moving_nest.F90
-    moving_nest/fv_moving_nest_main.F90
-    moving_nest/fv_moving_nest_physics.F90
-    moving_nest/fv_moving_nest_types.F90
-    moving_nest/fv_moving_nest_utils.F90
-  )
-else()
-   list(APPEND moving_nest_srcs "")
-endif()
-
-add_library(fv3atm
-  atmos_model.F90
-  fv3_cap.F90
-  module_fv3_config.F90
-  module_fcst_grid_comp.F90
-  stochastic_physics/stochastic_physics_wrapper.F90
-  cpl/module_block_data.F90
-  cpl/module_cplfields.F90
-  cpl/module_cap_cpl.F90
-  cpl/module_cplscalars.F90
-  io/fv3atm_common_io.F90
-  io/fv3atm_clm_lake_io.F90
-  io/fv3atm_rrfs_sd_io.F90
-  io/fv3atm_sfc_io.F90
-  io/fv3atm_oro_io.F90
-  io/fv3atm_history_io.F90
-  io/fv3atm_restart_io.F90
-  io/module_write_netcdf.F90
-  io/module_write_restart_netcdf.F90
-  io/module_fv3_io_def.F90
-  io/module_write_internal_state.F90
-  io/module_wrt_grid_comp.F90
-  ${moving_nest_srcs}
-  ${POST_SRC}
-)
-
-add_dependencies(fv3atm fv3 fv3ccpp stochastic_physics)
-
-list(APPEND _ufsatm_defs_private GFS_PHYS
-                                 INTERNAL_FILE_NML
-                                 use_WRTCOMP)
-
-target_compile_definitions(fv3atm PRIVATE "${_ufsatm_defs_private}")
-
-set_target_properties(fv3atm PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
-target_include_directories(fv3atm INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>
-                                            $<INSTALL_INTERFACE:mod>)
-
-if(MULTI_GASES)
-  list(APPEND _ufsatm_defs_private MULTI_GASES)
-endif()
-
-target_link_libraries(fv3atm PUBLIC fv3
-                                    fv3ccpp
-                                    stochastic_physics
-                                    fms)
-
-target_link_libraries(fv3atm PUBLIC w3emc::w3emc_d
-                                    sp::sp_d
-                                    bacio::bacio_4
-                                    esmf)
-
-if(INLINE_POST)
-  target_link_libraries(fv3atm PUBLIC upp::upp)
-endif()
-
-if(OPENMP)
-  target_link_libraries(fv3atm PUBLIC OpenMP::OpenMP_Fortran)
->>>>>>> b1e4667da5e7c08fa1ff489a75ff32bd267c91cf
 endif()
 
 if(BUILD_TESTING)
@@ -290,24 +179,19 @@ if (MPAS)
   add_definitions(-DMPAS_USE_MPI_F08)
 
   # Source files for MPAS dynamical core drivers.
-  set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/ufs_mpas.F90)
-  set(MPAS_SUBDRIVER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/mpas/ufs_mpas_subdriver.F90)
-
-  # MPAS NUOPC cap.
-  set(MPAS_NUOPC_CAP     ${CMAKE_CURRENT_SOURCE_DIR}/mpas/mpas_cap.F90)
+  set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas.F)
+  set(MPAS_SUBDRIVER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas_subdriver.F)
 
   # MPAS dynamical core
   add_subdirectory(mpas)
 
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
-    mpas/mpas_cap.F90
-    mpas/mpas_model.F90
+    mpas/mpas_atmos_model.F90
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
+    mpas/mpas_nuopc_cap.F90
     cpl/module_cplscalars.F90
-    ${MPAS_SUBDRIVER_SRC}
-    ${MPAS_NUOPC_CAP}
     )
   add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
 endif()
