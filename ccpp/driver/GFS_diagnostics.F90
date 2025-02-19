@@ -319,10 +319,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'w/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => IntDiag%dswsfcci(Model%chunk_begin(nb):Model%chunk_end(nb))
-    enddo    
+    ExtDiag(idx)%data%var2 => IntDiag%dswsfcci(:)
     
     idx = idx + 1
     ExtDiag(idx)%axes = 2

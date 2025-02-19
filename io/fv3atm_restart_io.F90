@@ -950,7 +950,7 @@ contains
     call read_restart(Phy_restart, ignore_checksum=ignore_rst_cksum)
     call close_file(Phy_restart)
 
-    call phy%transfer_data(.true., GFS_Restart, Atm_block, Model)
+    call phy%transfer_data(.true., GFS_Restart, Atm_block, Model, .true.)
 
   end subroutine phys_restart_read
 
@@ -963,10 +963,10 @@ contains
     implicit none
     !--- interface variable definitions
     type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
-    type(block_control_type),    intent(in) :: Atm_block
-    type(GFS_control_type),      intent(in) :: Model
-    type(domain2d),              intent(in) :: fv_domain
-    character(len=32), optional, intent(in) :: timestamp
+    type(block_control_type),    intent(in   ) :: Atm_block
+    type(GFS_control_type),      intent(in   ) :: Model
+    type(domain2d),              intent(in   ) :: fv_domain
+    character(len=32), optional, intent(in   ) :: timestamp
     !--- local variables
     integer :: i, j, k, nb, ix, num2, num3
     integer :: isc, iec, jsc, jec, nx, ny
@@ -1054,7 +1054,7 @@ contains
     nullify(var2_p)
     nullify(var3_p)
 
-    call phy%transfer_data(.false., GFS_Restart, Atm_block, Model)
+    call phy%transfer_data(.false., GFS_Restart, Atm_block, Model, .false.)
 
     call write_restart(Phy_restart)
     call close_file(Phy_restart)
@@ -1100,10 +1100,10 @@ contains
     implicit none
 
     type(GFS_restart_type),   intent(inout) :: GFS_Restart(:)
-    type(block_control_type), intent(in)    :: Atm_block
-    type(GFS_control_type),   intent(in)    :: Model
+    type(block_control_type), intent(in   ) :: Atm_block
+    type(GFS_control_type),   intent(in   ) :: Model
 
-    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block, Model, restart_output=.true.)
+    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block, Model, .false.)
 
   end subroutine fv_phy_restart_output
 
@@ -1273,7 +1273,7 @@ contains
   !! direction of the copy. For reading=.true., data is copied from the temporary arrays to the
   !! model grid (during restart read). For reading=.false., data is copied from the model grid to
   !! temporary arrays (for writing the restart).
-  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model, restart_output)
+  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model, reset_diag)
     use mpp_mod,            only: FATAL, mpp_error
     implicit none
     class(phy_data_type) :: phy
@@ -1281,7 +1281,7 @@ contains
     type(GFS_restart_type), intent(inout) :: GFS_Restart(:)
     type(block_control_type) :: Atm_block
     type(GFS_control_type), intent(in) :: Model
-    logical, optional, intent(in) :: restart_output
+    logical, intent(in) :: reset_diag
 
     integer :: i, j, k, ivar, nb, ix, im, num2, num3
 
@@ -1311,8 +1311,10 @@ contains
                    j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
                    GFS_Restart(ivar)%data%var2(im) = phy%var2(i,j,num2)
                    !--- if restart from init time, reset accumulated diag fields
-                   if (GFS_restart(ivar)%reset .and. (present(restart_output)) .and. Model%phour < 1.e-7) then
-                      GFS_Restart(ivar)%data%var2(im) = zero
+                   if (reset_diag) then
+                      if (GFS_restart(ivar)%reset .and. Model%phour < 1.e-7) then
+                         GFS_Restart(ivar)%data%var2(im) = zero
+                      endif
                    endif
                 enddo
              enddo
