@@ -43,11 +43,11 @@ module fv3atm_sfc_io
   type Sfc_io_data_type
     integer, public :: nvar2o = 0 !< Number of 2d NSSTM variables in restart
     integer, public :: nvar3 = 0 !< Number of 3d non-NoahMP variables in restart
-    integer, public :: nvar2r = 0 !< ???
+    integer, public :: nvar2r = 0 !< number of 2d RUC lsm variables
     integer, public :: nvar2mp = 0 !< Number of 2d Noah MP variables in restart
     integer, public :: nvar3mp = 0 !< Number of 3d Noah MP variables in restart
     integer, public :: nvar2l = 0 !< Number of Lake/Flake variables in restart
-    integer, public :: nvar2m = 0 !< ???
+    integer, public :: nvar2m = 0 !< number of 2D variables in restart that don't fall into other categories
     integer, public :: nvar_before_lake = 0 !< Number of variables before lake vars
 
     !> The lsoil flag is only meaningful when reading:;
@@ -115,7 +115,7 @@ contains
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
   !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start logical, is this a warm start?
   !>
   !> @return .true. if any nvar counts changed, or .false. otherwise.
@@ -210,7 +210,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files
   !> @param[in] Model Control structure for the GFS model.
   !> @param[in] Atm_block Atmospheric block data.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start logical, is this a warm start?
   !>
   !> @return  .true. if arrays were reallocated, and .false. otherwise.
@@ -282,7 +282,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files
   !> @param[in] Model Control structure for the GFS model.
   !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -801,7 +801,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files.
   !> @param[in] Model Control structure for the GFS model.
   !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -952,7 +952,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files.
   !> @param[in] Model Control structure for the GFS model.
   !> @param Sfc_restart FMS NetCDF object containing surface restart data.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -1067,7 +1067,7 @@ contains
   !> In addition, if override_frac_grid is provided, it will be set to Model%frac_grid.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] reading ???
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] Model Control structure for the GFS model.
   !> @param[in] Atm_block Atmospheric block data.
   !> @param[in] Sfcprop Derived type containing surface properties .

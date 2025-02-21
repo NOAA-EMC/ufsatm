@@ -1,7 +1,14 @@
 !> \file fv3atm_rrfs_sd_io.F90
-!! This file contains derived types and subroutines for RRFS-SD scheme I/O.
-!! They read and write restart files, and read emissions data.
-
+!> \brief This module handles the input/output operations for the FV3 atmospheric model
+!>        specific to the RRFS (Rapid Refresh Forecast System) SD (Stochastic 
+!>        Dynamics) configuration.
+!> 
+!> \author Samuel Trahan
+!> \date 2023
+!> 
+!> \details
+!> This module provides the necessary routines and functions to read and write restart 
+!> files for the RRFS-SD scheme.  It also reads emissions data for the RRFS-SD scheme.
 module fv3atm_rrfs_sd_io
   use block_control_mod,  only: block_control_type
   use fms2_io_mod,        only: FmsNetcdfDomainFile_t, write_data, &
@@ -29,19 +36,21 @@ module fv3atm_rrfs_sd_io
   !>\defgroup fv3atm_rrfs_sd_io module
   !> @{
 
-  !>@ Temporary data storage for reading and writing restart data for the RRFS-SD scheme.
+  !> Temporary data storage for reading and writing restart data for the RRFS-SD scheme.
+  !> The rrfs_sd_state_type stores temporary arrays used to read or
+  !> write RRFS-SD restart and axis variables.
   type rrfs_sd_state_type
-    ! The rrfs_sd_state_type stores temporary arrays used to read or
-    ! write RRFS-SD restart and axis variables.
 
+    !> 2d i,j variables
+    !> Dust emission, salt emission, antrhopogenic oc emission, fire scale coef, fire blackbody coefficient
     real(kind_phys), pointer, private, dimension(:,:) :: & ! i,j variables
          emdust=>null(), emseas=>null(), emanoc=>null(), fhist=>null(), coef_bb_dc=>null()
-
+    !> Smoke fire auxiliary input variables (i, j, fire_aux_data_levels)
     real(kind_phys), pointer, private, dimension(:,:,:) :: &
          fire_in=>null() ! i, j, fire_aux_data_levels
-
+    !> 1:Model%fire_aux_data_levels index array for metadata write
     real(kind_phys), pointer, private, dimension(:) :: &
-         fire_aux_data_levels=>null() ! 1:Model%fire_aux_data_levels index array for metadata write
+         fire_aux_data_levels=>null() 
 
   contains
     procedure, public :: register_axis => rrfs_sd_state_register_axis ! register fire_aux_data_levels axis
@@ -58,21 +67,33 @@ module fv3atm_rrfs_sd_io
 
   ! --------------------------------------------------------------------
 
-  !>@ Temporary data storage for reading RRFS-SD emissions data
+  !> Temporary data storage for reading RRFS-SD emissions data
   type rrfs_sd_emissions_type
+    !> Number of dust variables for 12-month period
     integer, private :: nvar_dust12m = 5
+    !> Number of emission variables.
     integer, private :: nvar_emi = 1
+    !> Number of fire variables.
     integer, private :: nvar_fire = 2
+    !> Number of fire variables for 2D fields.
     integer, private :: nvar_fire2d = 5
 
+    !> Names of variables in the dust12m file
     character(len=32), pointer, dimension(:), private :: dust12m_name => null()
+    !> Names of variables in the emissions file
     character(len=32), pointer, dimension(:), private :: emi_name => null()
+    !> Names of variables in the fire file
     character(len=32), pointer, dimension(:), private :: fire_name => null()
+    !> Names of variables in the fire file for 2D fields
     character(len=32), pointer, dimension(:), private :: fire_name2d => null()
 
+    !> 3d variables from the dust12m file
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: dust12m_var => null()
+    !> 3d variables from the emissions file
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: emi_var => null()
+    !> 3d variables from the fire file
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: fire_var => null()
+    !> 2d variables from the fire file
     real(kind=kind_phys), pointer, dimension(:,:,:  ), private :: fire_var2d => null()
 
   contains
@@ -98,7 +119,17 @@ contains
   ! -- RRFS_SD_STATE IMPLEMENTATION ------------------------------------
   ! --------------------------------------------------------------------
 
-  !>@ Registers the fire_aux_data_levels axis for restart I/O
+  !> -------------------------------------------------------------------
+  !> Registers the fire_aux_data_levels axis for restart I/O
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_register_axis(data,Model,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -109,8 +140,16 @@ contains
   end subroutine rrfs_sd_state_register_axis
 
   ! --------------------------------------------------------------------
-
-  !>@ Registers and writes the axis indices for the fire_aux_data_levels axis
+  !> Registers and writes the axis indices for the fire_aux_data_levels axis
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_write_axis(data,Model,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -123,8 +162,15 @@ contains
   end subroutine rrfs_sd_state_write_axis
 
   ! --------------------------------------------------------------------
-
-  !>@ Allocates temporary arrays for RRFS-SD scheme I/O and stores fire_aux_data_levels axis indices
+  !> Allocates temporary arrays for RRFS-SD scheme I/O and stores fire_aux_data_levels axis indices
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_allocate_data(data,Model)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -151,11 +197,18 @@ contains
   end subroutine rrfs_sd_state_allocate_data
 
   ! --------------------------------------------------------------------
-
-  !>@brief Fills RRFS-SD temporary arrays with reasonable defaults.
-  !> \section rrfs_sd_state_type%fill_data() procedure
-  !! Fills all temporary variables with default values.
-  !! Terrible things will happen if you don't call data%allocate_data first.
+  !> Fills all temporary variables with default values.
+  !> Terrible things will happen if you don't call data%allocate_data first.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Atm_block Atmospheric block data.
+  !> @param Sfcprop Derived type containing surface properties .
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_fill_data(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -187,11 +240,19 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Registers RRFS-SD restart variables (for read or write)
-  !> \section rrfs_sd_state_type%register_fields() procedure
-  !! Registers all restart fields needed by the RRFS-SD
-  !! Terrible things will happen if you don't call data%allocate_data
-  !! and data%register_axes first.
+  !> Registers RRFS-SD restart variables (for read or write)
+  !>
+  !> Terrible things will happen if you don't call data%allocate_data
+  !> and data%register_axes first.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
+  
   subroutine rrfs_sd_state_register_fields(data,Sfc_restart)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -226,11 +287,21 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Creates ESMF bundles for writing RRFS-SD restarts via the write component (quilt)
-  !> \section rrfs_sd_state_type%bundle_fields() procedure
-  !! Registers all restart fields needed by the RRFS-SD
-  !! Terrible things will happen if you don't call data%allocate_data
-  !! and data%register_axes first.
+  !> Creates ESMF bundles for writing RRFS-SD restarts via the write component (quilt)
+  !> 
+  !> Terrible things will happen if you don't call data%allocate_data
+  !> and data%register_axes first.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param bundle The ESMF field bundle for output to restart.
+  !> @param grid The output ESMF grid object.
+  !> @param Model Control structure for the GFS model.
+  !> @param outputfile Full path of the output file.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_bundle_fields(data, bundle, grid, Model, outputfile)
     use esmf
     use GFS_typedefs, only: GFS_control_type
@@ -255,12 +326,19 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Destructor for the rrfs_sd_state_type
-  !> \section rrfs_sd_state_type destructor() procedure
-  !! Final routine for rrfs_sd_state_type, called automatically when
-  !! an object of that type goes out of scope.  This is a wrapper
-  !! around data%deallocate_data() with necessary syntactic
-  !! differences.
+  !> Destructor for the rrfs_sd_state_type
+  !> 
+  !> Final routine for rrfs_sd_state_type, called automatically when
+  !> an object of that type goes out of scope.  This is a wrapper
+  !> around data%deallocate_data() with necessary syntactic
+  !> differences.
+  !>
+  !> @param data The data structure containing the model state information.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_final(data)
     implicit none
     type(rrfs_sd_state_type) :: data
@@ -269,11 +347,19 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Deallocates internal arrays in an rrfs_sd_state_type
-  !> \section rrfs_sd_state_type%deallocate_data() procedure
-  !! Deallocates all data used, and nullifies the pointers. The data
-  !! object can safely be used again after this call. This is also
-  !! the implementation of the rrfs_sd_state_deallocate_data final routine.
+  !> Deallocates internal arrays in an rrfs_sd_state_type
+  !> rrfs_sd_state_type%deallocate_data() procedure
+  !>
+  !> Deallocates all data used, and nullifies the pointers. The data
+  !> object can safely be used again after this call. This is also
+  !> the implementation of the rrfs_sd_state_deallocate_data final routine.
+  !>
+  !> @param data The data structure containing the model state information.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_deallocate_data(data)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -299,10 +385,21 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Copies from rrfs_sd_state_type internal arrays to the model grid.
-  !> \section rrfs_sd_state_type%copy_to_grid() procedure
-  !! This procedure is called after reading a restart, to copy restart data
-  !! from the rrfs_sd_state_type to the model grid.
+  !> Copies from rrfs_sd_state_type internal arrays to the model grid.
+  !> rrfs_sd_state_type%copy_to_grid() procedure
+  !>
+  !> This procedure is called after reading a restart, to copy restart data
+  !> from the rrfs_sd_state_type to the model grid.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Atm_block Atmospheric block data.
+  !> @param Sfcprop Derived type containing surface properties .
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_copy_to_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -332,11 +429,22 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@brief Copies from the model grid to rrfs_sd_state_type internal arrays
-  !> \section rrfs_sd_state_type%copy_from_grid() procedure
-  !! This procedure is called before writing the restart, to copy data from
-  !! the model grid to rrfs_sd_state_type internal arrays. The ESMF or FMS
-  !! restart code will write data from those arrays, not the model grid.
+  !> Copies from the model grid to rrfs_sd_state_type internal arrays
+  !> rrfs_sd_state_type%copy_from_grid() procedure
+  !>
+  !> This procedure is called before writing the restart, to copy data from
+  !> the model grid to rrfs_sd_state_type internal arrays. The ESMF or FMS
+  !> restart code will write data from those arrays, not the model grid.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Atm_block Atmospheric block data.
+  !> @param Sfcprop Derived type containing surface properties .
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_state_copy_from_grid(data, Model, Atm_block, Sfcprop)
     implicit none
     class(rrfs_sd_state_type) :: data
@@ -368,7 +476,16 @@ contains
   ! -- RRFS_SD_EMISSIONS IMPLEMENTATION --------------------------------
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the dust12m file.
+  !> Allocates temporary arrays and registers variables for reading the dust12m file.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param restart FMS NetCDF object containing surface restart data.
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_register_dust12m(data, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -413,7 +530,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Called after register_dust12m() to copy data from internal arrays to the model grid and deallocate arrays
+  !> Called after register_dust12m() to copy data from internal arrays to the model grid and deallocate arrays
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Sfcprop Derived type containing surface properties .
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_copy_dust12m(data, Model, Sfcprop, Atm_block)
     implicit none
     type(GFS_control_type),    intent(in) :: Model
@@ -453,7 +580,16 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the emissions file.
+  !> Allocates temporary arrays and registers variables for reading the emissions file.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param restart FMS NetCDF object containing surface restart data.
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_register_emi(data, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -492,7 +628,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Called after register_emi() to copy data from internal arrays to the model grid and deallocate arrays
+  !> Called after register_emi() to copy data from internal arrays to the model grid and deallocate arrays
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Sfcprop Derived type containing surface properties .
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_copy_emi(data, Model, Sfcprop, Atm_block)
     implicit none
     type(GFS_control_type),    intent(in) :: Model
@@ -528,7 +674,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Allocates temporary arrays and registers variables for reading the fire data file.
+  !> Allocates temporary arrays and registers variables for reading the fire data file.
+  !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param restart FMS NetCDF object containing surface restart data.
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_register_fire(data, Model, restart, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -607,7 +763,17 @@ contains
 
   ! --------------------------------------------------------------------
 
-  !>@ Called after register_fire() to copy data from internal arrays to the model grid and deallocate arrays
+  !> Called after register_fire() to copy data from internal arrays to the model grid and deallocate arrays
+    !>
+  !> @param data The data structure containing the model state information.
+  !> @param Model Control structure for the GFS model.
+  !> @param Sfcprop Derived type containing surface properties.
+  !> @param Atm_block Atmospheric block data.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_copy_fire(data, Model, Sfcprop, Atm_block)
     implicit none
     class(rrfs_sd_emissions_type) :: data
@@ -646,7 +812,19 @@ contains
     enddo
   end subroutine rrfs_sd_emissions_copy_fire
 
-  !>@ Destructor for rrfs_sd_emissions_type
+  !> Destructor for rrfs_sd_emissions_type
+  !>
+  !> Final routine for rrfs_sd_emissions_type, called automatically when
+  !> an object of that type goes out of scope.  This is a wrapper
+  !> around data%deallocate_data() with necessary syntactic
+  !> differences.
+  !>
+  !> @param data The data structure containing the model state information.
+  !>
+  !> @author Samuel Trahan
+  !> @date 2023
+  !>
+  !-----------------------------------------------------------------------
   subroutine rrfs_sd_emissions_final(data)
     implicit none
     type(rrfs_sd_emissions_type) :: data
@@ -671,4 +849,4 @@ contains
 
 end module fv3atm_rrfs_sd_io
 
-!> @}
+!> 
