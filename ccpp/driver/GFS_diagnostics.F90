@@ -962,7 +962,7 @@ module GFS_diagnostics
 
 !IVAI: canopy arrays read via aqm_emis_read
     if (associated(IntDiag%claie)) then
-!      print*, 'GFS_diagnostics: claie ', IntDiag(1)%claie
+!      print*, 'GFS_diagnostics: claie ', IntDiag%claie
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CLAIE'
@@ -976,7 +976,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cfch)) then
-!      print*, 'GFS_diagnostics: cfch   ', IntDiag(1)%cfch
+!      print*, 'GFS_diagnostics: cfch   ', IntDiag%cfch
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CFCH'
@@ -990,7 +990,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cfrt)) then
-!      print*, 'GFS_diagnostics: cfrt ', IntDiag(1)%cfrt
+!      print*, 'GFS_diagnostics: cfrt ', IntDiag%cfrt
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CFRT'
@@ -1004,7 +1004,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cclu)) then
-!      print*, 'GFS_diagnostics: cclu ', IntDiag(1)%cclu
+!      print*, 'GFS_diagnostics: cclu ', IntDiag%cclu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CCLU'
@@ -1018,7 +1018,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cpopu)) then
-!      print*, 'GFS_diagnostics: cpopu ', IntDiag(1)%cpopu
+!      print*, 'GFS_diagnostics: cpopu ', IntDiag%cpopu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CPOPU'
@@ -1033,7 +1033,7 @@ module GFS_diagnostics
 
 ! IVAI: photdiag fields
     if (associated(IntDiag%coszens)) then
-!      print*, 'GFS_diagnostics: coszens ', IntDiag(1)%coszens
+!      print*, 'GFS_diagnostics: coszens ', IntDiag%coszens
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'COSZENS'
@@ -1047,7 +1047,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%jo3o1d)) then
-!      print*, 'GFS_diagnostics: jo3o1d ', IntDiag(1)%jo3o1d
+!      print*, 'GFS_diagnostics: jo3o1d ', IntDiag%jo3o1d
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JO3O1D'
@@ -1061,7 +1061,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%jno2)) then
-!      print*, 'GFS_diagnostics: jno2 ', IntDiag(1)%jno2
+!      print*, 'GFS_diagnostics: jno2 ', IntDiag%jno2
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JNO2'
@@ -3609,7 +3609,8 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'canopy'
+!   ExtDiag(idx)%name = 'canopy' ! IVAI: rename to 'cnwat' (Feb21)
+    ExtDiag(idx)%name = 'cnwat'  ! IVAI: rename 'canopy' (Feb21)
     ExtDiag(idx)%desc = 'canopy water (cnwat in gfs data)'
     ExtDiag(idx)%unit = 'mm'
     ExtDiag(idx)%mod_name = 'gfs_sfc'
@@ -4208,58 +4209,6 @@ module GFS_diagnostics
     do nb = 1,nblks
       ExtDiag(idx)%data(nb)%var2 => sfcprop%xlaixy(Model%chunk_begin(nb):Model%chunk_end(nb))
     enddo
-
-  if (Model%rdcanopylai) then
-    idx = idx + 1
-    ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'canopylaixy'
-    ExtDiag(idx)%desc = 'canopy leaf area index'
-    ExtDiag(idx)%unit = 'number'
-    ExtDiag(idx)%mod_name = 'gfs_sfc'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopylaixy(Model%chunk_begin(nb):Model%chunk_end(nb))
-    enddo
-  endif
-
-  if (Model%rdcanopyfch) then
-    idx = idx + 1
-    ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'canopyfchxy'
-    ExtDiag(idx)%desc = 'canopy forest height'
-    ExtDiag(idx)%unit = 'number'
-    ExtDiag(idx)%mod_name = 'gfs_sfc'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopyfchxy(Model%chunk_begin(nb):Model%chunk_end(nb))
-    enddo
-  endif
-
-  if (Model%rdcanopyfrt) then
-    idx = idx + 1
-    ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'canopyfrtxy'
-    ExtDiag(idx)%desc = 'canopy forest fraction'
-    ExtDiag(idx)%unit = 'number'
-    ExtDiag(idx)%mod_name = 'gfs_sfc'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopyfrtxy(Model%chunk_begin(nb):Model%chunk_end(nb))
-    enddo
-  endif
-
-  if (Model%rdcanopyclu) then
-    idx = idx + 1
-    ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'canopycluxy'
-    ExtDiag(idx)%desc = 'canopy clumping index'
-    ExtDiag(idx)%unit = 'number'
-    ExtDiag(idx)%mod_name = 'gfs_sfc'
-    allocate (ExtDiag(idx)%data(nblks))
-    do nb = 1,nblks
-      ExtDiag(idx)%data(nb)%var2 => sfcprop%canopycluxy(Model%chunk_begin(nb):Model%chunk_end(nb))
-    enddo
-  endif
 
     do num = 1,Model%nvegcat
       write (xtra,'(i2)') num
@@ -5070,7 +5019,7 @@ module GFS_diagnostics
       endif
 
       endif  extended_smoke_dust_diagnostics
-      
+
       idx = idx + 1
       ExtDiag(idx)%axes = 3
       ExtDiag(idx)%name = 'ebu_smoke'

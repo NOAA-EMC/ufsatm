@@ -1678,38 +1678,6 @@
   type = real
   kind = kind_phys
   active = (control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme)
-#[canopylaixy]
-#  standard_name = canopy_leaf_area_index
-#  long_name = canopy leaf area index
-#  units = none
-#  dimensions = (horizontal_loop_extent)
-#  type = real
-#  kind = kind_phys
-#  active = (control_for_land_surface_scheme == identifier_for_noah_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .and. flag_for_reading_canopy_leaf_area_index_from_input))
-#[canopyfchxy]
-#  standard_name = canopy_forest_height
-#  long_name = canopy forest height
-#  units = m
-#  dimensions = (horizontal_loop_extent)
-#  type = real
-#  kind = kind_phys
-#  active = (control_for_land_surface_scheme == identifier_for_noah_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .and. flag_for_reading_canopy_forest_height_from_input))
-#[canopyfrtxy]
-#  standard_name = canopy_forest_fraction
-#  long_name = canopy forest fraction
-#  units = none
-#  dimensions = (horizontal_loop_extent)
-#  type = real
-#  kind = kind_phys
-#  active = (control_for_land_surface_scheme == identifier_for_noah_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .and. flag_for_reading_canopy_forest_fraction_from_input))
-#[canopycluxy]
-#  standard_name = canopy_clumping_index
-#  long_name = canopy clumping index
-#  units = none
-#  dimensions = (horizontal_loop_extent)
-#  type = real
-#  kind = kind_phys
-#  active = (control_for_land_surface_scheme == identifier_for_noah_land_surface_scheme .or. control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme .or. (control_for_land_surface_scheme == identifier_for_ruc_land_surface_scheme .and. flag_for_reading_canopy_clumping_index_from_input))
 [taussxy]
   standard_name = dimensionless_age_of_surface_snow
   long_name = non-dimensional snow age
@@ -5136,30 +5104,6 @@
 [rdlai]
   standard_name = flag_for_reading_leaf_area_index_from_input
   long_name = flag for reading leaf area index from initial conditions
-  units = flag
-  dimensions = ()
-  type = logical
-[rdcanopylai]
-  standard_name = flag_for_reading_canopy_leaf_area_index_from_input
-  long_name = flag for reading canopy leaf area index from initial conditions
-  units = flag
-  dimensions = ()
-  type = logical
-[rdcanopyfch]
-  standard_name = flag_for_reading_canopy_forest_height_from_input
-  long_name = flag for reading canopy forest height from initial conditions
-  units = flag
-  dimensions = ()
-  type = logical
-[rdcanopyfrt]
-  standard_name = flag_for_reading_canopy_forest_fraction_from_input
-  long_name = flag for reading canopy forest fraction from initial conditions
-  units = flag
-  dimensions = ()
-  type = logical
-[rdcanopyclu]
-  standard_name = flag_for_reading_canopy_clumping_index_from_input
-  long_name = flag for reading canopy clumping index from initial conditions
   units = flag
   dimensions = ()
   type = logical
@@ -8664,7 +8608,7 @@
   dimensions = (horizontal_dimension,number_of_diagnostics_variables_for_radiation)
   type = real
   kind = kind_phys
-###IVAI
+###IVAI [ccpp-arg-table]
 [claie]
   standard_name = canopy_leaf_area_index
   long_name = canopy leaf area index
@@ -8700,7 +8644,7 @@
   dimensions = (horizontal_loop_extent)
   type = real
   kind = kind_phys
-###IVAI
+###IVAI [ccpp-arg-table]
 [topfsw]
   standard_name = sw_fluxes_top_atmosphere
   long_name = sw radiation fluxes at toa

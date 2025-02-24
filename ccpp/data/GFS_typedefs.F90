@@ -354,10 +354,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: fastcpxy(:)  => null()  !<
     real (kind=kind_phys), pointer :: xsaixy  (:)  => null()  !<
     real (kind=kind_phys), pointer :: xlaixy  (:)  => null()  !<
-    real (kind=kind_phys), pointer :: canopylaixy    (:)  => null()  !<
-    real (kind=kind_phys), pointer :: canopyfchxy    (:)  => null()  !<
-    real (kind=kind_phys), pointer :: canopyfrtxy  (:)  => null()  !<
-    real (kind=kind_phys), pointer :: canopycluxy    (:)  => null()  !<
     real (kind=kind_phys), pointer :: taussxy (:)  => null()  !<
     real (kind=kind_phys), pointer :: smcwtdxy(:)  => null()  !<
     real (kind=kind_phys), pointer :: deeprechxy(:)=> null()  !<
@@ -487,12 +483,12 @@ module GFS_typedefs
 
     !--- For smoke and dust auxiliary inputs
     real (kind=kind_phys), pointer :: fire_in   (:,:)   => null()  !< fire auxiliary inputs
-    
+
     !--- Land IAU DDTs
     type(land_iau_external_data_type) :: land_iau_data
     type(land_iau_control_type)       :: land_iau_control
     type(land_iau_state_type)         :: land_iau_state
-                                        
+
     contains
       procedure :: create  => sfcprop_create  !<   allocate array data
   end type GFS_sfcprop_type
@@ -564,14 +560,14 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: evap_lnd(:)            => null()   !< sfc latent heat flux over land, converted to evaporative flux
     real (kind=kind_phys), pointer :: hflx_lnd(:)            => null()   !< sfc sensible heat flux over land
     real (kind=kind_phys), pointer :: ep_lnd(:)              => null()   !< sfc up pot latent heat flux over land
-    real (kind=kind_phys), pointer :: t2mmp_lnd(:)           => null()   !< 2 meter temperature over land 
+    real (kind=kind_phys), pointer :: t2mmp_lnd(:)           => null()   !< 2 meter temperature over land
     real (kind=kind_phys), pointer :: q2mp_lnd(:)            => null()   !< 2 meter spec humidity over land
     real (kind=kind_phys), pointer :: gflux_lnd(:)           => null()   !< soil heat flux over land
     real (kind=kind_phys), pointer :: runoff_lnd(:)          => null()   !< surface runoff over land
     real (kind=kind_phys), pointer :: drain_lnd(:)           => null()   !< subsurface runoff over land
     real (kind=kind_phys), pointer :: cmm_lnd(:)             => null()   !< surface drag wind speed for momentum
-    real (kind=kind_phys), pointer :: chh_lnd(:)             => null()   !< surface drag mass flux for heat and moisture 
-    real (kind=kind_phys), pointer :: zvfun_lnd(:)           => null()   !< function of surface roughness length and green vegetation fraction 
+    real (kind=kind_phys), pointer :: chh_lnd(:)             => null()   !< surface drag mass flux for heat and moisture
+    real (kind=kind_phys), pointer :: zvfun_lnd(:)           => null()   !< function of surface roughness length and green vegetation fraction
 
 !--- outgoing accumulated quantities
     real (kind=kind_phys), pointer :: rain_cpl  (:)  => null()   !< total rain precipitation
@@ -782,7 +778,7 @@ module GFS_typedefs
     logical              :: cplaqm          !< default no cplaqm collection
     logical              :: cplchm          !< default no cplchm collection
     logical              :: cpllnd          !< default no cpllnd collection
-    logical              :: cpllnd2atm      !< default no lnd->atm coupling 
+    logical              :: cpllnd2atm      !< default no lnd->atm coupling
     logical              :: rrfs_sd         !< default no rrfs_sd collection
     logical              :: cpl_fire        !< default no fire_behavior collection
     logical              :: use_cice_alb    !< default .false. - i.e. don't use albedo imported from the ice model
@@ -811,7 +807,7 @@ module GFS_typedefs
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
-    logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag 
+    logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag
 
 !--- radiation control parameters
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
@@ -1075,10 +1071,6 @@ module GFS_typedefs
     real(kind=kind_phys), pointer :: pores(:) => null() !< max soil moisture for a given soil type for land surface model
     real(kind=kind_phys), pointer :: resid(:) => null() !< min soil moisture for a given soil type for land surface model
     logical              :: rdlai           !< read LAI from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopylai     !< read canopy LAI from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyfch     !< read canopy FCH from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyfrt     !< read canopy FRT from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyclu     !< read canopy CLU from input file (for RUC LSM or NOAH LSM WRFv4)
     logical              :: ua_phys         !< flag for using University of Arizona? extension to NOAH LSM WRFv4
     logical              :: usemonalb       !< flag to read surface diffused shortwave albedo from input file for NOAH LSM WRFv4
     real(kind=kind_phys) :: aoasis          !< potential evaporation multiplication factor for NOAH LSM WRFv4
@@ -1232,7 +1224,7 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
-    logical              :: gf_coldstart     !< flag for cold start GF 
+    logical              :: gf_coldstart     !< flag for cold start GF
     integer              :: conv_cf_opt      !< option for convection scheme cloud fraction computation
                                              !< 0: Chaboureau-Bechtold
                                              !< 1: Xu-Randall
@@ -1640,9 +1632,9 @@ module GFS_typedefs
     real(kind=kind_phys), pointer :: si(:)  !< vertical sigma coordinate for model initialization
     real(kind=kind_phys)          :: sec    !< seconds since model initialization
 
-!--- Increment grid    
+!--- Increment grid
     logical              :: increment_file_on_native_grid ! increment on native grid else Gaussian grid
-    
+
 !--- IAU
     integer              :: iau_offset
     real(kind=kind_phys) :: iau_delthrs     ! iau time interval (to scale increments) in hours
@@ -1675,17 +1667,17 @@ module GFS_typedefs
 
 ! !--- Land IAU
 !   !> land iau setting read from namelist
-!     logical               :: do_land_iau               
-!     real(kind=kind_phys)  :: land_iau_delthrs                  
-!     character(len=240)    :: land_iau_inc_files(7)             
-!     real(kind=kind_phys)  :: land_iau_fhrs(7)              
-!     logical               :: land_iau_filter_increments 
-!     integer               :: lsoil_incr 
+!     logical               :: do_land_iau
+!     real(kind=kind_phys)  :: land_iau_delthrs
+!     character(len=240)    :: land_iau_inc_files(7)
+!     real(kind=kind_phys)  :: land_iau_fhrs(7)
+!     logical               :: land_iau_filter_increments
+!     integer               :: lsoil_incr
 !     logical               :: land_iau_upd_stc
-!     logical               :: land_iau_upd_slc 
-!     logical               :: land_iau_do_stcsmc_adjustment 
-!     real(kind=kind_phys)  :: land_iau_min_T_increment 
-    
+!     logical               :: land_iau_upd_slc
+!     logical               :: land_iau_do_stcsmc_adjustment
+!     real(kind=kind_phys)  :: land_iau_min_T_increment
+
     contains
       procedure :: init            => control_initialize
       procedure :: init_chemistry  => control_chemistry_initialize
@@ -2631,21 +2623,9 @@ module GFS_typedefs
     endif
     if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp .or. Model%lsm == Model%lsm_ruc) then
       allocate (Sfcprop%xlaixy   (IM))
-      allocate (Sfcprop%canopylaixy   (IM))
-      allocate (Sfcprop%canopyfchxy   (IM))
-      allocate (Sfcprop%canopyfrtxy (IM))
-      allocate (Sfcprop%canopycluxy   (IM))
       Sfcprop%xlaixy     = clear_val
-      Sfcprop%canopylaixy     = clear_val
-      Sfcprop%canopyfchxy     = clear_val
-      Sfcprop%canopyfrtxy   = clear_val
-      Sfcprop%canopycluxy     = clear_val
     else
-      allocate (Sfcprop%xlaixy        (0))
-      allocate (Sfcprop%canopylaixy   (0))
-      allocate (Sfcprop%canopyfchxy   (0))
-      allocate (Sfcprop%canopyfrtxy   (0))
-      allocate (Sfcprop%canopycluxy   (0))
+      allocate (Sfcprop%xlaixy   (0))
     end if
     if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp) then
       allocate (Sfcprop%rca      (IM))
@@ -2696,11 +2676,6 @@ module GFS_typedefs
       allocate (Sfcprop%stblcpxy (IM))
       allocate (Sfcprop%fastcpxy (IM))
       allocate (Sfcprop%xsaixy   (IM))
-      allocate (Sfcprop%xlaixy   (IM))
-      allocate (Sfcprop%canopylaixy   (IM))
-      allocate (Sfcprop%canopyfchxy   (IM))
-      allocate (Sfcprop%canopyfrtxy (IM))
-      allocate (Sfcprop%canopycluxy   (IM))
       allocate (Sfcprop%taussxy  (IM))
       allocate (Sfcprop%smcwtdxy (IM))
       allocate (Sfcprop%deeprechxy (IM))
@@ -2735,11 +2710,6 @@ module GFS_typedefs
       Sfcprop%stblcpxy   = clear_val
       Sfcprop%fastcpxy   = clear_val
       Sfcprop%xsaixy     = clear_val
-      Sfcprop%xlaixy     = clear_val
-      Sfcprop%canopylaixy     = clear_val
-      Sfcprop%canopyfchxy     = clear_val
-      Sfcprop%canopyfrtxy   = clear_val
-      Sfcprop%canopycluxy     = clear_val
       Sfcprop%taussxy    = clear_val
       Sfcprop%smcwtdxy   = clear_val
       Sfcprop%deeprechxy = clear_val
@@ -2816,27 +2786,6 @@ module GFS_typedefs
        Sfcprop%fire_heat_flux  = clear_val
        Sfcprop%frac_grid_burned= clear_val
        !
-       if (Model%rdlai) then
-          allocate (Sfcprop%xlaixy (IM))
-          Sfcprop%xlaixy = clear_val
-       end if
-       if (Model%rdcanopylai) then
-          allocate (Sfcprop%canopylaixy (IM))
-          Sfcprop%canopylaixy = clear_val
-       end if
-       if (Model%rdcanopyfch) then
-          allocate (Sfcprop%canopyfchxy (IM))
-          Sfcprop%canopyfchxy = clear_val
-       end if
-       if (Model%rdcanopyfrt) then
-          allocate (Sfcprop%canopyfrtxy (IM))
-          Sfcprop%canopyfrtxy = clear_val
-       end if
-       if (Model%rdcanopyclu) then
-          allocate (Sfcprop%canopycluxy (IM))
-          Sfcprop%canopycluxy = clear_val
-       end if
-
     end if
 
     allocate (Sfcprop%rmol   (IM ))
@@ -2976,8 +2925,8 @@ module GFS_typedefs
         write(0,'(a)') trim(errmsg)
         stop
       endif
-    endif   
-    
+    endif
+
   end subroutine sfcprop_create
 
 
@@ -3073,7 +3022,7 @@ module GFS_typedefs
       Coupling%psurfi_cpl  = clear_val
       Coupling%nswsfci_cpl = clear_val
     endif
-     
+
     if (Model%cplflx .or. Model%cpl_fire .or. (Model%cplaqm .and. .not.Model%cplflx)) then
       allocate (Coupling%dtsfci_cpl  (IM))
       allocate (Coupling%dqsfci_cpl  (IM))
@@ -3084,7 +3033,7 @@ module GFS_typedefs
       Coupling%t2mi_cpl    = clear_val
       Coupling%q2mi_cpl    = clear_val
     endif
-    
+
     if (Model%cplflx .or. Model%cpllnd) then
       allocate (Coupling%dlwsfci_cpl (IM))
       allocate (Coupling%dswsfci_cpl (IM))
@@ -3207,7 +3156,7 @@ module GFS_typedefs
       Coupling%slmsk_cpl   = clear_val  !< pointer to sfcprop%slmsk
     endif
 
-    ! -- Coupling options to retrive land fluxes from external land component 
+    ! -- Coupling options to retrive land fluxes from external land component
     if (Model%cpllnd .and. Model%cpllnd2atm) then
       allocate (Coupling%sncovr1_lnd (IM))
       allocate (Coupling%qsurf_lnd   (IM))
@@ -3687,11 +3636,7 @@ module GFS_typedefs
     integer              :: lsoil_lsm      =  -1             !< number of soil layers internal to land surface model; -1 use lsoil
     integer              :: lsnow_lsm      =  3              !< maximum number of snow layers internal to land surface model
     logical              :: exticeden      = .false.         !< Use variable precip ice density for NOAH LSM if true or original formulation
-    logical              :: rdlai          = .false.         !< read LAI from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopylai    = .false.         !< read canopy LAI from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyfch    = .false.         !< read canopy FCH from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyfrt    = .false.         !< read canopy FRT from input file (for RUC LSM or NOAH LSM WRFv4)
-    logical              :: rdcanopyclu    = .false.         !< read canopy CLU from input file (for RUC LSM or NOAH LSM WRFv4)
+    logical              :: rdlai          = .false.         !< read LAI from input file at cold start (for RUC LSM or NOAH LSM WRFv4)
     logical              :: ua_phys        = .false.         !< flag for using University of Arizona? extension to NOAH LSM WRFv4
     logical              :: usemonalb      = .true.          !< flag to read surface diffused shortwave albedo from input file for NOAH LSM WRFv4
     real(kind=kind_phys) :: aoasis         = 1.0             !< potential evaporation multiplication factor for NOAH LSM WRFv4
@@ -4011,7 +3956,7 @@ module GFS_typedefs
 
 !--- Increment grid
     logical               :: increment_file_on_native_grid = .false. ! increment on native grid else Gaussian grid
-    
+
 !--- IAU options
     real(kind=kind_phys)  :: iau_delthrs      = 0           !< iau time interval (to scale increments)
     character(len=240)    :: iau_inc_files(7) = ''          !< list of increment files
@@ -4058,7 +4003,7 @@ module GFS_typedefs
     integer              :: ichoice         = 0 !< flag for closure of C3/GF deep convection
     integer              :: ichoicem        = 13!< flag for closure of C3/GF mid convection
     integer              :: ichoice_s       = 3 !< flag for closure of C3/GF shallow convection
-    logical              :: gf_coldstart  = .false.   !< flag for cold start GF 
+    logical              :: gf_coldstart  = .false.   !< flag for cold start GF
 
 !-- chem nml variables for RRFS-SD
     real(kind=kind_phys) :: dust_drylimit_factor  = 1.0
@@ -4103,7 +4048,7 @@ module GFS_typedefs
 
 !--- NRL h2o photochemistry physics
     integer              :: kh2oc        = 29       !< File identifier for h2o photochemistry data.
-    
+
 !--- aerosol scavenging factors
     integer, parameter :: max_scav_factors = 183
     character(len=40)  :: fscav_aero(max_scav_factors) = ''
@@ -4113,10 +4058,10 @@ module GFS_typedefs
 
   ! !> land iau setting read from namelist
   !   logical               :: do_land_iau                   = .false.
-  !   real(kind=kind_phys)  :: land_iau_delthrs              = 0           
-  !   character(len=240)    :: land_iau_inc_files(7)         = ''          
-  !   real(kind=kind_phys)  :: land_iau_fhrs(7)              = -1          
-  !   logical               :: land_iau_filter_increments    = .false.     
+  !   real(kind=kind_phys)  :: land_iau_delthrs              = 0
+  !   character(len=240)    :: land_iau_inc_files(7)         = ''
+  !   real(kind=kind_phys)  :: land_iau_fhrs(7)              = -1
+  !   logical               :: land_iau_filter_increments    = .false.
   !   integer               :: lsoil_incr                    = 4
   !   logical               :: land_iau_upd_stc              = .false.
   !   logical               :: land_iau_upd_slc              = .false.
@@ -4136,7 +4081,7 @@ module GFS_typedefs
                           !--- coupling parameters
                                cplflx, cplice, cplocn2atm, cplwav, cplwav2atm, cplaqm,      &
                                cplchm, cpllnd, cpllnd2atm, cpl_imp_mrg, cpl_imp_dbg,        &
-                               cpl_fire, rrfs_sd, use_cice_alb,                             & 
+                               cpl_fire, rrfs_sd, use_cice_alb,                             &
 #ifdef IDEA_PHYS
                                lsidea, weimer_model, f107_kp_size, f107_kp_interval,        &
                                f107_kp_skip_size, f107_kp_data_size, f107_kp_read_in_start, &
@@ -4178,7 +4123,6 @@ module GFS_typedefs
                                avg_max_length,                                              &
                           !--- land/surface model control
                                lsm, lsoil, lsoil_lsm, lsnow_lsm, kice, rdlai,               &
-                               rdcanopylai, rdcanopyfch, rdcanopyfrt,rdcanopyclu,         &
                                nmtvr, ivegsrc, use_ufo, iopt_thcnd, ua_phys, usemonalb,     &
                                aoasis, fasdas, exticeden, nvegcat, nsoilcat,                &
                           !    Noah MP options
@@ -4288,11 +4232,11 @@ module GFS_typedefs
                           !--- GSL lightning threat indices
                                lightning_threat !,                                            &
                           ! !--- land_iau_nml
-                          !      do_land_iau, land_iau_delthrs, land_iau_inc_files,           & 
+                          !      do_land_iau, land_iau_delthrs, land_iau_inc_files,           &
                           !      land_iau_fhrs, land_iau_filter_increments, lsoil_incr,       &
                           !      land_iau_upd_stc, land_iau_upd_slc,                          &
-                          !      land_iau_do_stcsmc_adjustment, land_iau_min_T_increment                                    
-   
+                          !      land_iau_do_stcsmc_adjustment, land_iau_min_T_increment
+
 
 !--- other parameters
     integer :: nctp    =  0                !< number of cloud types in CS scheme
@@ -4865,30 +4809,6 @@ module GFS_typedefs
     Model%rdlai = rdlai
     if (Model%rdlai .and. .not. Model%lsm == Model%lsm_ruc) then
       write(0,*) 'Logic error: rdlai = .true. only works with RUC LSM'
-      stop
-    end if
-    ! Flag to read canopy leaf area index from input files (initial conditions)
-    Model%rdcanopylai = rdcanopylai
-    if (Model%rdcanopylai .and. .not. Model%lsm == Model%lsm_ruc .and. .not. Model%lsm == Model%lsm_noah) then
-      write(0,*) 'Logic error: rdcanopylai = .true. only works with RUC and NOAH LSM'
-      stop
-    end if
-    ! Flag to read canopy forest height from input files (initial conditions)
-    Model%rdcanopyfch = rdcanopyfch
-    if (Model%rdcanopyfch .and. .not. Model%lsm == Model%lsm_ruc .and. .not. Model%lsm == Model%lsm_noah) then
-      write(0,*) 'Logic error: rdcanopyfch = .true. only works with RUC and NOAH LSM'
-      stop
-    end if
-    ! Flag to read canopy forest fraction from input files (initial conditions)
-    Model%rdcanopyfrt = rdcanopyfrt
-    if (Model%rdcanopyfrt .and. .not. Model%lsm == Model%lsm_ruc .and. .not. Model%lsm == Model%lsm_noah) then
-      write(0,*) 'Logic error: rdcanopyfrt = .true. only works with RUC and NOAH LSM'
-      stop
-    end if
-    ! Flag to read canopy clumping index from input files (initial conditions)
-    Model%rdcanopyclu = rdcanopyclu
-    if (Model%rdcanopyclu .and. .not. Model%lsm == Model%lsm_ruc .and. .not. Model%lsm == Model%lsm_noah) then
-      write(0,*) 'Logic error: rdcanopyclu = .true. only works with RUC and NOAH LSM'
       stop
     end if
 
@@ -5806,7 +5726,7 @@ module GFS_typedefs
        Model%levh2o    = 1
        Model%h2o_coeff = 1
     end if
-    
+
 !--- quantities to be used to derive phy_f*d totals
     Model%nshoc_2d         = nshoc_2d
     Model%nshoc_3d         = nshoc_3d
@@ -5837,7 +5757,7 @@ module GFS_typedefs
     if (Model%me == Model%master) then
       print *,'in atm phys init, phour=',Model%phour,'fhour=',Model%fhour,'zhour=',Model%zhour,'kdt=',Model%kdt
     endif
-    
+
 
     if(Model%hydrostatic .and. Model%lightning_threat) then
       write(0,*) 'Turning off lightning threat index for hydrostatic run.'
@@ -6442,7 +6362,7 @@ module GFS_typedefs
 !     Model%do_land_iau = do_land_iau
 !     Model%iau_delthrs = land_iau_delthrs
 !     Model%iau_inc_files = land_iau_inc_files
-!     Model%iaufhrs = land_iau_fhrs   
+!     Model%iaufhrs = land_iau_fhrs
 !     Model%iau_filter_increments = land_iau_filter_increments
 !     Model%lsoil_incr = lsoil_incr
 !     Model%upd_stc = land_iau_upd_stc
@@ -6898,10 +6818,6 @@ module GFS_typedefs
       print *, ' lsm               : ', Model%lsm
       print *, ' lsoil             : ', Model%lsoil
       print *, ' rdlai             : ', Model%rdlai
-      print *, ' rdcanopylai       : ', Model%rdcanopylai
-      print *, ' rdcanopyfch       : ', Model%rdcanopyfch
-      print *, ' rdcanopyfrt       : ', Model%rdcanopyfrt
-      print *, ' rdcanopyclu       : ', Model%rdcanopyclu
       print *, ' lsoil_lsm         : ', Model%lsoil_lsm
       if (Model%lsm==Model%lsm_noahmp) then
         print *, ' lsnow_lsm         : ', Model%lsnow_lsm
@@ -7221,7 +7137,6 @@ module GFS_typedefs
       print *, ' first_time_step   : ', Model%first_time_step
       print *, ' restart           : ', Model%restart
       print *, ' lsm_cold_start    : ', Model%lsm_cold_start
-      print *, ' hydrostatic       : ', Model%hydrostatic
       print *, ' do_canopy         : ', Model%do_canopy
       print *, ' '
       print *, 'lightning threat indexes'
@@ -8029,7 +7944,7 @@ module GFS_typedefs
       allocate (Diag%ldv3dt_ngw (IM,Model%levs) )
       allocate (Diag%ldt3dt_ngw (IM,Model%levs) )
     endif
-    
+
     allocate (Diag%dudt_ogw  (IM,Model%levs))
     if (Model%do_ugwp_v1 .or. Model%ldiag_ugwp) then
       allocate (Diag%dvdt_ogw  (IM,Model%levs))
