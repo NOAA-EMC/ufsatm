@@ -1,9 +1,14 @@
-!>  \file fv3atm_common_io.F90
-!! A set of routines commonly accessed by other io/fv3atm
-!! modules. This should not be accessed by other code. Most of the
-!! routines in this file copy data between x-y-z arrays and
-!! block-decomposed (nb-ix-z) atmosphere arrays.
+!> @file
+!> @brief A set of routines commonly accessed by other io/fv3atm modules.
+!> @author Samuel Trahan @date Jun 20, 2023
 
+!> @brief A set of routines commonly accessed by other io/fv3atm modules.
+!>
+!> This should not be accessed by other code. Most of the
+!> routines in this file copy data between x-y-z arrays and
+!> block-decomposed (nb-ix-z) atmosphere arrays.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_common_io
   use GFS_typedefs, only: kind_phys
 
@@ -32,19 +37,16 @@ module fv3atm_common_io
   public :: get_nx_ny_from_atm
 
 #ifdef CCPP_32BIT
-  character(len=5), parameter, public :: axis_type = 'float'
+  character(len=5), parameter, public :: axis_type = 'float' !< ???
 #else
-  character(len=6), parameter, public :: axis_type = 'double'
+  character(len=6), parameter, public :: axis_type = 'double' !< ???
 #endif
 
-  !>\defgroup fv3atm_common_io FV3ATM Common I/O Utilities Module
-  !> @{
-
-  !>@ These subroutines copy data from x-y-z arrays to nb-ix-z grid arrays.
-  !! \section copy_from_GFS_Data interface
-  !!  There are different combinations of decomposition, copy methods,
-  !!  and datatypes. All are combined together into copy_from_GFS_Data
-  !!  for convenience
+  !> These subroutines copy data from x-y-z arrays to nb-ix-z grid arrays.
+  !> 
+  !> There are different combinations of decomposition, copy methods,
+  !> and datatypes. All are combined together into copy_from_GFS_Data()
+  !> for convenience
   interface copy_from_GFS_Data
     module procedure copy_from_GFS_Data_2d_phys2phys, &
          copy_from_GFS_Data_3d_phys2phys, &
@@ -54,11 +56,11 @@ module fv3atm_common_io
          copy_from_GFS_Data_2d_stack_phys2phys
   end interface copy_from_GFS_Data
 
-  !>@ These subroutines copy data from nb-ix-z grid arrays to x-y-z arrays.
-  !!  \section copy_to_GFS_Data interface
-  !!  There are different combinations of decomposition, copy methods,
-  !!  and datatypes. All are combined together into copy_to_GFS_Data
-  !!  for convenience
+  !> These subroutines copy data from nb-ix-z grid arrays to x-y-z arrays.
+  !>
+  !> There are different combinations of decomposition, copy methods,
+  !> and datatypes. All are combined together into copy_to_GFS_Data()
+  !> for convenience.
   interface copy_to_GFS_Data
     module procedure copy_to_GFS_Data_2d_phys2phys, &
          copy_to_GFS_Data_3d_phys2phys, &
@@ -68,15 +70,16 @@ module fv3atm_common_io
          copy_to_GFS_Data_2d_stack_phys2phys
   end interface copy_to_GFS_Data
 
-  !>@brief These subroutines copy data in either direction between nb-ix-z grid arrays and x-y-z arrays.
-  !> \section GFS_data_transfer interface functions.
-  !! This interface allows a single subroutine to handle both reading
-  !! and writing restart files. The direction is controled by the "to"
-  !! argument (first argument) which is true when copying from x-y-z
-  !! arrays to nb-ix-z arrays.
-  !! There are different combinations of decomposition, copy methods,
-  !! and datatypes. All are combined together into copy_to_GFS_Data
-  !! for convenience
+  !> @brief These subroutines copy data in either direction between
+  !> nb-ix-z grid arrays and x-y-z arrays.
+  !>
+  !> This interface allows a single subroutine to handle both reading
+  !> and writing restart files. The direction is controled by the "to"
+  !> argument (first argument) which is true when copying from x-y-z
+  !> arrays to nb-ix-z arrays.
+  !> There are different combinations of decomposition, copy methods,
+  !> and datatypes. All are combined together into copy_to_GFS_Data()
+  !> for convenience.
   interface GFS_data_transfer
     module procedure GFS_data_transfer_2d_phys2phys, &
          GFS_data_transfer_3d_phys2phys, &
@@ -88,7 +91,14 @@ module fv3atm_common_io
 
 contains
 
-  !>@brief Convenience function to get the x and y dimensions of the grid from Atm_block
+  !> Convenience function to get the x and y dimensions of the grid
+  !> from Atm_block.
+  !>
+  !> @param Atm_block ???
+  !> @param nx ???
+  !> @param ny ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine get_nx_ny_from_atm(Atm_block, nx, ny)
     use block_control_mod,  only: block_control_type
     implicit none
@@ -107,7 +117,18 @@ contains
     endif
   end subroutine get_nx_ny_from_atm
 
-  !>@brief copies from the ix-indexed var_block to the 2d x-y real(kind_phys) var2d array
+  !> Copies from the ix-indexed var_block to the 2d x-y
+  !> real(kind_phys) var2d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_phys2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -122,7 +143,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_2d_phys2phys
 
-  !>@brief copies from the ix-k-indexed var_block to the 3d x-y-z real(kind_phys) var3d array
+  !> Copies from the ix-k-indexed var_block to the 3d x-y-z real(kind_phys) var3d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -139,7 +170,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_3d_phys2phys
 
-  !>@brief copies from the ix-k-indexed var_block to the 3d x-y-z integer var2d array
+  !> Copies from the ix-k-indexed var_block to the 3d x-y-z integer var2d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_int2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc, var_block(:)
@@ -153,7 +194,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_2d_int2phys
 
-  !>@brief copies a range of levels from the ix-k-indexed var_block to the x-y real(kind_phys) var3d array
+  !> Copies a range of levels from the ix-k-indexed var_block to the x-y real(kind_phys) var3d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_stack_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     ! For copying phy_f2d and phy_fctd
     implicit none
@@ -171,7 +222,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_2d_stack_phys2phys
 
-  !>@brief copies from the ix-k-indexed var_block to the x-y integer var3d array
+  !> Copies from the ix-k-indexed var_block to the x-y integer var3d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_int2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), var_block(:,:), isc, jsc
@@ -187,7 +248,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_3d_int2phys
 
-  !>@brief copies a range of levels from from the ix-k-indexed var_block to the x-y-z real(kind_phys) var3d array
+  !> Copies a range of levels from from the ix-k-indexed var_block to the x-y-z real(kind_phys) var3d array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_slice_phys2phys(ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc, k1, k2
@@ -204,7 +275,17 @@ contains
     enddo
   end subroutine copy_from_GFS_Data_3d_slice_phys2phys
 
-  !>@brief copies from x-y real(kind_phys) var2d array to the ix-indexed var_block array
+  !> Copies from x-y real(kind_phys) var2d array to the ix-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_phys2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -219,7 +300,17 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_2d_phys2phys
 
-  !>@brief copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array
+  !> Copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -236,7 +327,17 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_3d_phys2phys
 
-  !>@brief copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array
+  !> Copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_stack_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     ! For copying phy_f2d and phy_fctd
     implicit none
@@ -254,7 +355,19 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_2d_stack_phys2phys
 
-  !>@brief copies a range of levels from the x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array
+  !> Copies a range of levels from the x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[in] k1 ???
+  !> @param[in] k2 ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_slice_phys2phys(ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc, k1, k2
@@ -271,7 +384,17 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_3d_slice_phys2phys
 
-  !>@brief copies from x-y integer var2d array to the ix-indexed var_block array
+  !> Copies from x-y integer var2d array to the ix-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_int2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -286,7 +409,17 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_2d_int2phys
 
-  !>@brief copies from x-y-z integer var3d array to the ix-k-indexed var_block array
+  !> Copies from x-y-z integer var3d array to the ix-k-indexed var_block array.
+  !>
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_int2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     integer, intent(in) :: ii1(:), jj1(:), isc, jsc
@@ -301,12 +434,23 @@ contains
     enddo
   end subroutine copy_to_GFS_Data_3d_int2phys
 
-  !>@brief copies between the ix-indexed var_block array and x-y real(kind_phys) var2d array.
-  !> \section GFS_data_transfer_2d_phys2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies between the ix-indexed var_block array and x-y real(kind_phys) var2d array.
+  !>
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_2d_phys2phys(to,ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     logical, intent(in) :: to
@@ -322,12 +466,24 @@ contains
     end if
   end subroutine GFS_data_transfer_2d_phys2phys
 
-  !>@brief copies between the ix-k-indexed var_block array and x-y-z real(kind_phys) var3d array.
-  !> \section GFS_data_transfer_3d_phys2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies between the ix-k-indexed var_block array and x-y-z
+  !> real(kind_phys) var3d array.
+  !>
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_phys2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     logical, intent(in) :: to
@@ -343,12 +499,26 @@ contains
     endif
   end subroutine GFS_data_transfer_3d_phys2phys
 
-  !>@brief copies a range of levels between the ix-k-indexed var_block array and x-y-z real(kind_phys) var3d array.
-  !> \section GFS_data_transfer_3d_slice_phys2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies a range of levels between the ix-k-indexed var_block array
+  !> and x-y-z real(kind_phys) var3d array.
+    !>
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[in] k1 ???
+  !> @param[in] k2 ???
+  !> @param[inout] var3d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_slice_phys2phys(to,ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
     implicit none
     logical, intent(in) :: to
@@ -364,12 +534,23 @@ contains
     endif
   end subroutine GFS_data_transfer_3d_slice_phys2phys
 
-  !>@brief copies between the ix-indexed var_block array and x-y integer var2d array.
-  !> \section GFS_data_transfer_2d_int2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies between the ix-indexed var_block array and x-y integer var2d array.
+  !> 
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_2d_int2phys(to,ii1,jj1,isc,jsc,nt,var2d,var_block)
     implicit none
     logical, intent(in) :: to
@@ -385,12 +566,23 @@ contains
     endif
   end subroutine GFS_data_transfer_2d_int2phys
 
-  !>@brief copies between the ix-k-indexed var_block array and x-y-z integer var3d array.
-  !> \section GFS_data_transfer_3d_int2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies between the ix-k-indexed var_block array and x-y-z integer var3d array.
+  !> 
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_int2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
     implicit none
     logical, intent(in) :: to
@@ -406,12 +598,24 @@ contains
     endif
   end subroutine GFS_data_transfer_3d_int2phys
 
-  !>@brief copies a range of levels between the ix-k-indexed var_block array and x-y-z real(kind_phys) var3d array.
-  !> \section GFS_Data_transfer_2d_stack_phys2phys subroutine from the GFS_data_transfer interface
-  !! This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
-  !! If to=true, then data is copied to var_block (the GFS_Data structures) but if
-  !! to=false, it is copied from the var_block arrays. This allows the same subroutine
-  !! to both read and write, preventing error-prone code duplication.
+  !> Copies a range of levels between the ix-k-indexed var_block array
+  !> and x-y-z real(kind_phys) var3d array.
+  !>
+  !> This is a wrapper around copy_to_GFS_Data and copy_from_GFS_Data routines.
+  !> If to=true, then data is copied to var_block (the GFS_Data structures) but if
+  !> to=false, it is copied from the var_block arrays. This allows the same subroutine
+  !> to both read and write, preventing error-prone code duplication.
+  !>
+  !> @param[in] to ???
+  !> @param[in] ii1 ???
+  !> @param[in] jj1 ???
+  !> @param[in] isc ???
+  !> @param[in] jsc ???
+  !> @param[inout] nt ???
+  !> @param[inout] var2d ???
+  !> @param[inout] var_block ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_Data_transfer_2d_stack_phys2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
     ! For copying phy_f2d and phy_fctd
     implicit none
@@ -429,7 +633,15 @@ contains
     end if
   end subroutine GFS_Data_transfer_2d_stack_phys2phys
 
-  !>@brief adds a 2D restart array to an ESMF bundle for quilting restarts.
+  !> Add a 2D restart array to an ESMF bundle for quilting restarts.
+  !>
+  !> @param[in] temp_r2d ???
+  !> @param[in] field_name ???
+  !> @param[in] outputfile ???
+  !> @param[in] grid ???
+  !> @param[inout] bundle ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine create_2d_field_and_add_to_bundle(temp_r2d, field_name, outputfile, grid, bundle)
 
     use esmf
@@ -459,7 +671,17 @@ contains
 
   end subroutine create_2d_field_and_add_to_bundle
 
-  !>@brief adds a 3D restart array and its vertical axis to an ESMF bundle for quilting restarts.
+  !> Add a 3D restart array and its vertical axis to an ESMF bundle for quilting restarts.
+  !>
+  !> @param[in] temp_r3d ???
+  !> @param[in] field_name ???
+  !> @param[in] axis_name ???
+  !> @param[in] axis_values ???
+  !> @param[in] outputfile ???
+  !> @param[in] grid ???
+  !> @param[inout] bundle ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine create_3d_field_and_add_to_bundle(temp_r3d, field_name, axis_name, axis_values, outputfile, grid, bundle)
 
     use esmf
@@ -493,7 +715,13 @@ contains
 
   end subroutine create_3d_field_and_add_to_bundle
 
-  !>@brief adds a vertical axis to an ESMF bundle for quilting restarts.
+  !> Add a vertical axis to an ESMF bundle for quilting restarts.
+  !>
+  !> @param[in] field ???
+  !> @param[in] axis_name ???
+  !> @param[in] axis_values ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine add_zaxis_to_field(field, axis_name, axis_values)
 
     use esmf
@@ -521,4 +749,3 @@ contains
   end subroutine add_zaxis_to_field
 
 end module fv3atm_common_io
-!> @}

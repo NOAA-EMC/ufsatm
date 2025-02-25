@@ -9,7 +9,7 @@
 !> Return error to ESMF and finalize it.
 #define NC_ERR_STOP(status) \
     if (status /= nf90_noerr) write(0,*) "file: ", __FILE__, " line: ", __LINE__, trim(nf90_strerror(status)); \
-    if (status /= nf90_noerr) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (status /= nf90_noerr) call ESMF_Finalize(endflag=ESMF_END_ABORT) !< ???
 
 !> @brief Output routines for writing history files.
 !>
@@ -949,7 +949,15 @@ contains
 
   end subroutine get_grid_attr
 
-!----------------------------------------------------------------------------------------
+  !> Get dimlen if it exists.
+  !>
+  !> @param[in] ncid NetCDF file ID.
+  !> @param[in] dim_name Dimension name.
+  !> @param[in] grid ESMF output grid.
+  !> @param[in] dim_len dimension length.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine get_dimlen_if_exists(ncid, dim_name, grid, dim_len, rc)
 
     integer, intent(in)             :: ncid
@@ -1082,5 +1090,4 @@ contains
 
   end subroutine write_dim
 
-!----------------------------------------------------------------------------------------
 end module module_write_netcdf

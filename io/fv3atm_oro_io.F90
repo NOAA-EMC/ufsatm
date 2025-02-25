@@ -1,5 +1,10 @@
-!> \file fv3atm_oro_io.F90
-!! This file defines routines to read orography files for the fv3atm.
+!> @file
+!> @brief Define routines to read orography files for the fv3atm.
+!> @author Samuel Trahan @date Jun 20, 2023
+
+!> @brief Define routines to read orography files for the fv3atm.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_oro_io
 
   use block_control_mod,  only: block_control_type
@@ -11,46 +16,60 @@ module fv3atm_oro_io
   implicit none
   private
 
-  public :: Oro_io_data_type, Oro_io_register, Oro_io_copy, Oro_io_final
-  public :: Oro_scale_io_data_type, Oro_scale_io_register, Oro_scale_io_copy, Oro_scale_io_final
+  public :: Oro_io_data_type !> ???
+  public :: Oro_io_register !> ???
+  public :: Oro_io_copy !> ???
+  public :: Oro_io_final !> ???
+  public :: Oro_scale_io_data_type !> ???
+  public :: Oro_scale_io_register !> ???
+  public :: Oro_scale_io_copy !> ???
+  public :: Oro_scale_io_final !> ???
 
-  !>\defgroup fv3atm_oro_io FV3ATM Orography I/O Module
-  !> @{
-  !>@ Storage of working arrays for reading orography data.
+  !> Storage of working arrays for reading orography data.
   type Oro_io_data_type
-    character(len=32),    pointer, private, dimension(:)       :: name2 => null()
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var2  => null()
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3v => null()
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3s => null()
+    character(len=32),    pointer, private, dimension(:)       :: name2 => null() !> ???
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var2  => null() !> ???
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3v => null() !> ???
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3s => null() !> ???
   contains
     procedure, public :: register => Oro_io_register
     procedure, public :: copy => Oro_io_copy
     final :: Oro_io_final
   end type Oro_io_data_type
 
-  !>@ Storage of working arrays for reading large-scale and small-scale orography data for gravity wave drag schemes.
+  !> Storage of working arrays for reading large-scale and small-scale
+  !> orography data for gravity wave drag schemes.
   type Oro_scale_io_data_type
-    character(len=32),    pointer, private, dimension(:)       :: name => null()
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var  => null()
+    character(len=32),    pointer, private, dimension(:)       :: name => null() !> ???
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var  => null() !> ???
   contains
     procedure, public :: register => Oro_scale_io_register
     procedure, public :: copy => Oro_scale_io_copy
     final :: Oro_scale_io_final
   end type Oro_scale_io_data_type
 
-  !>@ Number of two-dimensional orography fields (excluding large- and small-scale)
-  integer, parameter :: nvar_oro_2d  = 19
+  !> Number of two-dimensional orography fields (excluding large- and
+  !> small-scale).
+  integer, parameter :: nvar_oro_2d  = 19 
 
-  !>@ Number of large-scale and small-scale orography fields
+  !> Number of large-scale and small-scale orography fields.
   integer, parameter :: nvar_oro_scale = 10
 
 contains
 
-  !>@brief Registers axes and fields for non-quilt restart reading of non-scaled orography variables.
-  !> \section oro_io_data_type%register procedure
-  !! Calls FMS restart register functions for axes and
-  !! variables in the non-scaled orography data. The scaled data is
-  !! handled by another function. This includes both 2D and 3D fields.
+  !> Registers axes and fields for non-quilt restart reading of
+  !> non-scaled orography variables.
+  !>
+  !> Calls FMS restart register functions for axes and
+  !> variables in the non-scaled orography data. The scaled data is
+  !> handled by another function. This includes both 2D and 3D fields.
+  !>
+  !> @param[in] oro ???
+  !> @param[in] Model ???
+  !> @param[in] Oro_restart ???
+  !> @param[in] Atm_block
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_register(oro, Model, Oro_restart, Atm_block)
     implicit none
     class(Oro_io_data_type) :: oro
@@ -66,7 +85,7 @@ contains
 
     call get_nx_ny_from_atm(Atm_block, nx, ny)
 
-    ! This #define reduces code length by a lot
+    !> This define reduces code length by a lot
 #define WARN_DISASSOCIATE(name) \
     if(associated(name)) then ; \
       write(0,*) 'Internal error. Called oro%register twice. Will try to keep going anyway.' ; \
@@ -133,10 +152,17 @@ contains
 
   end subroutine Oro_io_register
 
-  !>@brief Copies orography data from temporary arrays back to Sfcprop grid arrays.
-  !> \section oro_io_data_type%copy procedure
-  !! After reading the restart, data is on temporary arrays with x-y data storage.
-  !! This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
+  !> Copies orography data from temporary arrays back to Sfcprop grid arrays.
+  !>
+  !> After reading the restart, data is on temporary arrays with x-y data storage.
+  !> This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
+  !>
+  !> @param[in] oro ???
+  !> @param[in] Model ???
+  !> @param[in] Sfcprop ???
+  !> @param[in] Atm_block
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_copy(oro, Model, Sfcprop, Atm_block)
     implicit none
     class(Oro_io_data_type) :: oro
@@ -216,7 +242,11 @@ contains
 
   end subroutine Oro_io_copy
 
-  !>@brief Destructor for Oro_io_data_type
+  !> Destructor for Oro_io_data_type
+  !>
+  !> @param[in] oro ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_final(oro)
     implicit none
     type(Oro_io_data_type) :: oro
@@ -236,11 +266,19 @@ contains
 #undef IF_ASSOC_DEALLOC_NULL
   end subroutine Oro_io_final
 
-  !>@brief Registers axes and fields for non-quilt restart reading of scaled orography variables.
-  !> \section Calls FMS restart register functions for axes and
-  !! variables in the large-scale or small-scale orography data. The
-  !! scaled data is handled by another function. Each scale needs its
-  !! own instance of oro_scale_io_data_type.
+  !> Registers axes and fields for non-quilt restart reading of scaled
+  !> orography variables.
+  !>
+  !> variables in the large-scale or small-scale orography data. The
+  !> scaled data is handled by another function. Each scale needs its
+  !> own instance of oro_scale_io_data_type.
+  !>
+  !> @param[in] oro_scale ???
+  !> @param[in] Model ???
+  !> @param[in] Oro_scale_restart ???
+  !> @param[in] Atm_block
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_scale_io_register(oro_scale, Model, Oro_scale_restart, Atm_block)
     implicit none
     class(Oro_scale_io_data_type) :: oro_scale
@@ -288,11 +326,19 @@ contains
     enddo
   end subroutine Oro_scale_io_register
 
-  !>@brief Copies scaled orography data from temporary arrays back to Sfcprop grid arrays.
-  !> \section Oro_scale_io_data_type%copy procedure
-  !! After reading the restart, data is on temporary arrays with x-y data storage.
-  !! This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
-  subroutine Oro_scale_io_copy(oro_scale, Model, Sfcprop, Atm_block, first_index)
+  !> Copies scaled orography data from temporary arrays back to
+  !> Sfcprop grid arrays.
+  !> 
+  !> After reading the restart, data is on temporary arrays with x-y data storage.
+  !> This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
+  !>
+  !> @param[in] oro ???
+  !> @param[in] Sfcprop ???
+  !> @param[in] Atm_block
+  !> @param[in] first_index ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
+  subroutine Oro_scale_io_copy(oro_scale, Sfcprop, Atm_block, first_index)
     implicit none
     class(Oro_scale_io_data_type) :: oro_scale
     type(GFS_control_type),   intent(in) :: Model
@@ -316,7 +362,11 @@ contains
     enddo
   end subroutine Oro_scale_io_copy
 
-  !>@brief Oro_scale_io_data_type destructor
+  !> Oro_scale_io_data_type destructor.
+  !>
+  !> @param[in] oro_scale ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_scale_io_final(oro_scale)
     implicit none
     type(Oro_scale_io_data_type) :: oro_scale
@@ -333,4 +383,3 @@ contains
 #undef IF_ASSOC_DEALLOC_NULL
   end subroutine Oro_scale_io_final
 end module fv3atm_oro_io
-!> @}
