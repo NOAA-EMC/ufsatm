@@ -1,7 +1,13 @@
-!> \file fv3atm_history_io.F90
-!! This file defines routines used to output atmosphere diagnostic
-!! (history) data from the physics and surface fields, both for quilt
-!! and non-quilt output.
+!> @file 
+!> Routines used to output atmosphere diagnostic (history) data from
+!> the physics and surface fields, for quilt and non-quilt output.
+!> @author Samuel Trahan @date Jun 20, 2023
+
+!> @brief Routines used to output atmosphere diagnostic (history) data
+!> from the physics and surface fields, for quilt and non-quilt
+!> output.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_history_io_mod
 
   !
@@ -32,22 +38,21 @@ module fv3atm_history_io_mod
   public  fv_phys_bundle_setup
 #endif
 
-  !>\defgroup fv3atm_history_io_mod FV3ATM History I/O Module
-  !> @{
-
-  !>@ The maximum allowed number of diagnostic fields that can be defined in any given model run.
-  !! This does not include rrfs-sd or clm lake, which have their own data structures.
+  !> The maximum allowed number of diagnostic fields that can be
+  !> defined in any given model run. This does not include rrfs-sd or
+  !> clm lake, which have their own data structures.
   integer, parameter, public :: DIAG_SIZE = 800
 
-  real, parameter :: missing_value = 9.99e20_kind_phys
-  real, parameter :: stndrd_atmos_ps = 101325.0_kind_phys
-  real, parameter :: stndrd_atmos_lapse = 0.0065_kind_phys
-  real, parameter :: drythresh = 1.e-4_kind_phys
-  real, parameter :: zero = 0.0_kind_phys, one = 1.0_kind_phys
+  real, parameter :: missing_value = 9.99e20_kind_phys !< Missing value.
+  real, parameter :: stndrd_atmos_ps = 101325.0_kind_phys !< Standard atmospheric surface pressure.
+  real, parameter :: stndrd_atmos_lapse = 0.0065_kind_phys !< Standard atmospheric lapse rate.
+  real, parameter :: drythresh = 1.e-4_kind_phys !< ???
+  real, parameter :: zero = 0.0_kind_phys !< Zero.
+  real, parameter :: one = 1.0_kind_phys !< One.
 
-  !>@ Storage type for temporary data during output of diagnostic (history) files
+  !> Storage type for temporary data during output of diagnostic (history) files.
   type history_type
-    integer :: tot_diag_idx = 0
+    integer :: tot_diag_idx = 0 !< ???
 
     integer :: isco=0,ieco=0,jsco=0,jeco=0,num_axes_phys=0
     integer :: ncld=0, nsoil=0, nsoil_lsm=0, imp_physics=0, landsfcmdl=0
@@ -57,19 +62,29 @@ module fv3atm_history_io_mod
     integer,dimension(:),        pointer         :: nstt => null()
     integer,dimension(:),        pointer         :: nstt_vctbl => null()
     integer,dimension(:),        pointer         :: all_axes => null()
+    !> ???
     character(20),dimension(:),  pointer         :: axis_name => null()
+    !> ???
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_bl => null()
+    !> ???
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_nb => null()
+    !> ???
     real(4), dimension(:,:,:,:), pointer         :: buffer_phys_windvect => null()
+    !> ???
     real(kind=kind_phys),dimension(:,:),pointer  :: lon => null()
+    !> ???
     real(kind=kind_phys),dimension(:,:),pointer  :: lat => null()
+    !> ???
     real(kind=kind_phys),dimension(:,:),pointer  :: uwork => null()
+    !> ???
     real(kind=kind_phys),dimension(:,:,:),pointer:: uwork3d => null()
+    !> ???
     logical                    :: uwork_set = .false.
+    !> ???
     character(128)             :: uwindname = "(noname)"
 
     !--- miscellaneous other variables
-    logical :: use_wrtgridcomp_output = .FALSE.
+    logical :: use_wrtgridcomp_output = .FALSE. !< ???
   contains
     procedure :: register => history_type_register
     procedure :: output => history_type_output
@@ -82,19 +97,30 @@ module fv3atm_history_io_mod
 #endif
   end type history_type
 
-  !>@ This shared_history_data instance of history_type is shared between all calls to public module subroutines.
+  !> This shared_history_data instance of history_type is shared
+  !> between all calls to public module subroutines.
   type(history_type) :: shared_history_data
 
 CONTAINS
 
-  !>@brief Registers diagnostic variables with the FMS diagnostic manager.
-  !> \section fv3atm_diag_register subroutine
-  !! Creates and populates a data type which is then used to "register"
-  !! diagnostic variables with the GFDL FMS diagnostic manager.
-  !! includes short & long names, units, conversion factors, etc.
-  !! there is no copying of data, but instead a clever use of pointers.
-  !! calls a GFDL FMS routine to register diagnositcs and compare against
-  !! the diag_table to determine what variables are to be output.
+  !> Registers diagnostic variables with the FMS diagnostic manager.
+  !>
+  !> Creates and populates a data type which is then used to "register"
+  !> diagnostic variables with the GFDL FMS diagnostic manager.
+  !> includes short & long names, units, conversion factors, etc.
+  !> there is no copying of data, but instead a clever use of pointers.
+  !> calls a GFDL FMS routine to register diagnositcs and compare against
+  !> the diag_table to determine what variables are to be output.
+  !>
+  !> @param[inout] Diag ???
+  !> @param[in] Time ???
+  !> @param[in] Atm_block ???
+  !> @param[in] Model ???
+  !> @param[in] xlon ???
+  !> @param[in] xlat ???
+  !> @param[in] axes ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_diag_register(Diag, Time, Atm_block, Model, xlon, xlat, axes)
     use physcons,  only: con_g
     implicit none
@@ -110,10 +136,26 @@ CONTAINS
     call shared_history_data%register(Diag, Time, Atm_block, Model, xlon, xlat, axes)
   end subroutine fv3atm_diag_register
 
-  !>@brief Transfers diagnostic data to the FMS diagnostic manager
-  !> \section fv3atm_diag_output subroutine
-  !! This routine transfers diagnostic data to the FMS diagnostic
-  !!  manager for eventual output to the history files.
+  !> Transfers diagnostic data to the FMS diagnostic manager.
+  !>
+  !> This routine transfers diagnostic data to the FMS diagnostic
+  !> manager for eventual output to the history files.
+  !>
+  !> @param[in] time ???
+  !> @param[inout] diag ???
+  !> @param[in] atm_block ???
+  !> @param[in] nx ???
+  !> @param[in] ny ???
+  !> @param[in] levs ???
+  !> @param[in] ntcw ???
+  !> @param[in] ntoz ???
+  !> @param[in] dt ???
+  !> @param[in] time_int ???
+  !> @param[in] time_intfull ???
+  !> @param[in] time_radsw ???
+  !> @param[in] time_radlw ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_diag_output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
        dt, time_int, time_intfull, time_radsw, time_radlw)
     !--- subroutine interface variable definitions
@@ -133,11 +175,21 @@ CONTAINS
   end subroutine fv3atm_diag_output
 
 #ifdef use_WRTCOMP
-  !>@brief Sets up the ESMF bundle to use for quilt diagnostic output
-  !> \section fv_phys_bundle_setup subroutine
-  !! This part of the write component (quilt) sets up the ESMF bundles
-  !! to use for writing diagnostic output. It is only defined when the
-  !! write component is enabled at compile time.
+  !> Sets up the ESMF bundle to use for quilt diagnostic output.
+  !>
+  !> This part of the write component (quilt) sets up the ESMF bundles
+  !> to use for writing diagnostic output. It is only defined when the
+  !> write component is enabled at compile time.
+  !>
+  !> @param[inout] Diag ???
+  !> @param[in] axes ???
+  !> @param[in] phys_bundle ???
+  !> @param[in] fcst_grid ???
+  !> @param[in] quilting ???
+  !> @param[in] nbdlphys ???
+  !> @param[in] rc Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv_phys_bundle_setup(Diag, axes, phys_bundle, fcst_grid, quilting, nbdlphys, rc)
     !
     !-------------------------------------------------------------
@@ -161,10 +213,21 @@ CONTAINS
   end subroutine fv_phys_bundle_setup
 #endif
 
-  !>@brief Private implementation of fv3atm_diag_register. Do not call directly.
-  !> \section history_type%register procedure
-  !! This is the history_type%register procedure, which provides the internal
-  !! implementation of fv3atm_diag_register. Do not call this directly.
+  !> Private implementation of fv3atm_diag_register(); do not call directly.
+  !>
+  !> This is the history_type%register procedure, which provides the internal
+  !> implementation of fv3atm_diag_register(). Do not call this directly.
+  !>
+  !> @param hist ???
+  !> @param[inout] Diag ???
+  !> @param[in] Time ???
+  !> @param[in] Atm_block ???
+  !> @param[in] Model ???
+  !> @param[in] xlon ???
+  !> @param[in] xlat ???
+  !> @param[in] axes ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_register(hist, Diag, Time, Atm_block, Model, xlon, xlat, axes)
     use physcons,  only: con_g
     implicit none
@@ -276,11 +339,29 @@ CONTAINS
 
   end subroutine history_type_register
 
-  !>@brief Internal implementation of fv3atm_diag_output
-  !> \section history_type%output procedure
-  !! This is history_type%output, which provides the internal
-  !! implementation of the public fv3atm_diag_output routine. Never
-  !! call this directly.
+  !> Internal implementation of fv3atm_diag_output
+  !> This is history_type%output, which provides the internal
+  !> implementation of the public fv3atm_diag_output routine.
+  !>
+  !> Never call this directly.
+  !>
+  !>
+  !> @param hist ???
+  !> @param[in] time ???
+  !> @param[in] diag ???
+  !> @param[in] atm_block ???
+  !> @param[in] nx ???
+  !> @param[in] ny ???
+  !> @param[in] levs ???
+  !> @param[in] ntcw ???
+  !> @param[in] ntoz ???
+  !> @param[in] dt ???
+  !> @param[in] time_int ???
+  !> @param[in] time_intfull ???
+  !> @param[in] time_radsw ???
+  !> @param[in] time_radlw ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_output(hist, time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
        dt, time_int, time_intfull, time_radsw, time_radlw)
     !--- subroutine interface variable definitions
@@ -486,10 +567,21 @@ CONTAINS
     end do history_loop
   end subroutine history_type_output
 
-  !>@brief Part of the internal implementation of history_type_output (history_type%output)
-  !> \section history_type%store_data procedure
-  !! This routine copies data from an x-y array to internal buffers for later output.
-  !! Never call this subroutine directly; call fv3atm_diag_output instead.
+  !> This routine copies data from an x-y array to internal buffers for later output.
+  !>
+  !> This is part of the internal implementation of
+  !> history_type_output (history_type%output).  Never call this
+  !> subroutine directly; call fv3atm_diag_output instead.
+  !>
+  !> @param hist ???
+  !> @param[inout] id ???
+  !> @param[in] work ???
+  !> @param[in] Time ???
+  !> @param[in] idx ???
+  !> @param[in] intpl_method ???
+  !> @param[in] fldname ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data(hist,id, work, Time, idx, intpl_method, fldname)
     implicit none
     class(history_type)                 :: hist
@@ -574,10 +666,22 @@ CONTAINS
     !
   end subroutine history_type_store_data
 
-  !>@brief Part of the internal implementation of history_type_output (history_type%output)
-  !> \section history_type%store_data3D procedure
-  !! This routine copies data from an x-y-z array to internal buffers for later output.
-  !! Never call this subroutine directly; call fv3atm_diag_output instead.
+  !> Copy data from an x-y-z array to internal buffers for later
+  !> output.
+  !>
+  !> This is part of the internal implementation of
+  !> history_type_output (history_type%output) Never call this
+  !> subroutine directly; call fv3atm_diag_output instead.
+  !>
+  !> @param hist ???
+  !> @param[inout] id ???
+  !> @param[in] work ???
+  !> @param[in] Time ???
+  !> @param[in] idx ???
+  !> @param[in] intpl_method ???
+  !> @param[in] fldname ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data3D(hist, id, work, Time, idx, intpl_method, fldname)
     implicit none
     class(history_type)                 :: hist
@@ -684,12 +788,22 @@ CONTAINS
   end subroutine history_type_store_data3D
 
 #ifdef use_WRTCOMP
-  !>@brief Sets up the ESMF bundle to use for quilt diagnostic output
-  !> \section history_type%bundle_setup procedure
-  !! This part of the write component (quilt) sets up the ESMF bundles
-  !! to use for writing diagnostic output. It is only defined when the
-  !! write component is enabled at compile time.
-
+  !> Set up the ESMF bundle to use for quilt diagnostic output.
+  !>
+  !> This part of the write component (quilt) sets up the ESMF bundles
+  !> to use for writing diagnostic output. It is only defined when the
+  !> write component is enabled at compile time.
+  !>
+  !> @param hist ???
+  !> @param[in] Diag ???
+  !> @param[in] axes ???
+  !> @param[in] phys_bundle ???
+  !> @param[in] fcst_grid ???
+  !> @param[in] quilting ???
+  !> @param[in] nbdlphys ???
+  !> @param[in] rc Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_bundle_setup(hist, Diag, axes, phys_bundle, fcst_grid, quilting, nbdlphys, rc)
     ! set esmf bundle for phys output fields
     use esmf
@@ -987,11 +1101,31 @@ CONTAINS
 
   end subroutine history_type_bundle_setup
 
-  !>@brief Adds one field to an ESMF field bundle for later output. Internal subroutine; do not call this directly.
-  !> \section history_type%add_field_to_phybundle procedure
-  !! This is part of the internal implementation of history_type_bundle_setup (history_type%bundle_setup).
-  !! It sets attributes for and logs information about a single ESMF field. Do not call this subroutine directly.
-  !! Call fv_phys_bundle_setup instead.
+  !> Add one field to an ESMF field bundle for later output. Internal
+  !> subroutine; do not call this directly.
+  !>
+  !> This is part of the internal implementation of
+  !> history_type_bundle_setup (history_type%bundle_setup).  It sets
+  !> attributes for and logs information about a single ESMF field. Do
+  !> not call this subroutine directly.  Call fv_phys_bundle_setup
+  !> instead.
+  !>
+  !> @param hist ???
+  !> @param[in] var_name ???
+  !> @param[in] long_name ???
+  !> @param[in] units ???
+  !> @param[in] cell_methods ???
+  !> @param[in] axes ???
+  !> @param[in] phys_grid ???
+  !> @param[in] kstt ???
+  !> @param[inout] phys_bundle ???
+  !> @param[in] output_file ???
+  !> @param[in] intpl_method ???
+  !> @param[in] range ???
+  !> @param[in] l2dvector ???
+  !> @param[out] rcd Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_add_field_to_phybundle(hist,var_name,long_name,units,cell_methods, axes,phys_grid, &
        kstt,levo,phys_bundle,output_file,intpl_method,range,l2dvector,rcd)
     !
@@ -1191,14 +1325,21 @@ CONTAINS
 
   end subroutine history_type_add_field_to_phybundle
 
-  !>@brief Private subroutine to search a field list for a specific name.
-  !> \section history_type%find_output_name procedure
-  !! Searches the GFS_Diagnostic-generated field list for a
-  !! specific name and retrieves the name that should be used for
-  !! outputting the variable. This is part of the internal
-  !! implementation of history_type_bundle_setup
-  !! (history_type%bundle_setup) and should not be called
-  !! directly. Call fv_phys_bundle_setup instead.
+  !> Private subroutine to search a field list for a specific name.
+  !>
+  !> Searches the GFS_Diagnostic-generated field list for a
+  !> specific name and retrieves the name that should be used for
+  !> outputting the variable. This is part of the internal
+  !> implementation of history_type_bundle_setup
+  !> (history_type%bundle_setup) and should not be called
+  !> directly. Call fv_phys_bundle_setup instead.
+  !>
+  !> @param hist ???
+  !> @param[in] module_name ???
+  !> @param[in] field_name ???
+  !> @param[out] output_name ???
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_find_output_name(hist,module_name,field_name,output_name)
     implicit none
     class(history_type)          :: hist
@@ -1229,4 +1370,3 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 end module fv3atm_history_io_mod
-!> @}
