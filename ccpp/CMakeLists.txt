@@ -14,14 +14,14 @@ set(PROJECT "CCPP-UFS")
 if (FV3)
   message(STATUS "Build CCPP interface to FV3 dynamical core")
   set(CCPP_TARGET fv3ccpp)
-  set(CCPP_PREBUILD_CONFIG ../fv3/ccpp/config/ccpp_prebuild_config.py)
+  set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config_fv3.py)
   set(DYCORE_CCPP_SRCS
         GFS_diagnostics.F90
         GFS_restart.F90
         GFS_init.F90
         CCPP_driver.F90
         )
-  list(TRANSFORM DYCORE_CCPP_SRCS PREPEND ../ccpp/driver/)
+  list(TRANSFORM DYCORE_CCPP_SRCS PREPEND driver/)
   
   # Add dycore-specific preprocessor flag (needed for some physics schemes)
   add_definitions(-DFV3)
@@ -34,14 +34,11 @@ endif()
 if (MPAS)
   message(STATUS "Build CCPP interface to MPAS dynamical core")
   set(CCPP_TARGET mpasccpp)
-  set(CCPP_PREBUILD_CONFIG ../mpas/ccpp/config/ccpp_prebuild_config.py)
+  set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config_mpas.py)
   set(DYCORE_CCPP_SRCS
-        GFS_diagnostics.F90
-        GFS_restart.F90
-        GFS_init.F90
 	CCPP_driver.F90
         )
-      list(TRANSFORM DYCORE_CCPP_SRCS PREPEND ../ccpp/driver/)
+      list(TRANSFORM DYCORE_CCPP_SRCS PREPEND driver/)
   add_definitions(-DFV3)
 endif()
 
@@ -151,7 +148,7 @@ add_library(
 
 # Compile GFS_diagnostics.F90 without optimization, this leads to out of memory errors on wcoss_dell_p3
 if (FV3)
-  set_property(SOURCE ../fv3/ccpp/driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
+  set_property(SOURCE driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
 endif()
 
 target_link_libraries(${CCPP_TARGET} PUBLIC ccpp_framework)

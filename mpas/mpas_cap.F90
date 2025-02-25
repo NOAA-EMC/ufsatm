@@ -1,5 +1,5 @@
 ! ###########################################################################################
-!> \file mpas_nuopc_cap.F90
+!> \file mpas_cap.F90
 !>
 !> This file contains the NUOPC Cap for the UWM Atmosphere with the MPAS dynamical core.
 !>
@@ -20,8 +20,7 @@ module mpasatm_cap_mod
                                     label_Finalize,                                         &
                                     NUOPC_ModelGet
 
-  use module_mpas_config,     only: quilting, quilting_restart, output_fh, dt_atmos,        &
-                                    calendar, cpl_grid_id, cplprint_flag, first_kdt
+  use module_mpas_config,     only: output_fh, dt_atmos, calendar, cpl_grid_id, cplprint_flag
 
   use module_fcst_grid_comp,  only: fcstSS => SetServices
 
@@ -249,7 +248,6 @@ contains
     call ESMF_TimeIntervalSet(timeStep, s=dt_atmos, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    first_kdt = 1
     if( mype == 0) lprint = .true.
 
     ! #######################################################################################

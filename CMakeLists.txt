@@ -187,10 +187,10 @@ if (MPAS)
 
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
-    mpas/mpas_atmos_model.F90
+    mpas/atmos_model.F90
+    mpas/mpas_cap.F90
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
-    mpas/mpas_nuopc_cap.F90
     cpl/module_cplscalars.F90
     )
   add_dependencies(${DYCORE_TARGET} mpas mpasccpp)

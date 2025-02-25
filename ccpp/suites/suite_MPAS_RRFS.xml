@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <suite name="MPAS_RRFS" version="1">
-  <!-- <init></init> -->
   <group name="time_vary">
   </group>
   <group name="radiation">
   </group>
   <group name="physics">
   </group>
-  <!-- <finalize></finalize> -->
 </suite>

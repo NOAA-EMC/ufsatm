@@ -15,7 +15,7 @@ module module_fcst_grid_comp
                                 operator (>), operator (/=), operator (/), operator (==),   &
                                 operator (*), THIRTY_DAY_MONTHS, JULIAN, GREGORIAN, NOLEAP, &
                                 NO_CALENDAR, date_to_string, get_date, get_time
-  use mpas_model_mod,     only: mpas_model_init, mpas_model_end, atmos_data_type
+  use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_data_type
   use constants_mod,      only: constants_init
   use fms_mod,            only: error_mesg, fms_init, fms_end, write_version_number,        &
                                 uppercase
@@ -25,10 +25,7 @@ module module_fcst_grid_comp
   use sat_vapor_pres_mod, only: sat_vapor_pres_init
   use diag_manager_mod,   only: diag_manager_init, diag_manager_end,                        &
                                 diag_manager_set_time_end
-  use fms2_io_mod,        only: FmsNetcdfFile_t, open_file, close_file, variable_exists,    &
-                                read_data
-  use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, quilting,             &
-                                quilting_restart, calendar, cpl_grid_id, cplprint_flag
+  use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar
 
   implicit none
   private
@@ -114,8 +111,8 @@ contains
     ! Timing info (debug mode)
     tbeg1 = mpi_wtime()
     
-!    call ESMF_VMGetCurrent(vm=vm,rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    call ESMF_VMGetCurrent(vm=vm,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
                     petCount=fcst_ntasks, rc=rc)
@@ -249,10 +246,10 @@ contains
 
     ! #######################################################################################
     ! Initialize component models.
-    ! mpas_model_init() calls the MPAS dycore initialization.
+    ! atmos_model_init() calls the MPAS dycore initialization.
     ! #######################################################################################
     call get_time(Time_end - Time_init, total_inttime)
-    call mpas_model_init(fcst_mpi_comm, date_init, date_end, total_inttime)
+    call atmos_model_init(fcst_mpi_comm, mpp_root_pe(), mpp_pe(), date_init, date_end, total_inttime, calendar)
 
     ! Timing info (debug mode)
     if (mype == 0) write(*,*)'PASS(fcst_initialize): Time is ', mpi_wtime() - tbeg1
@@ -333,7 +330,7 @@ contains
      ! Timing info (debug mode)
     tbeg1 = mpi_wtime()
     
-    call mpas_model_end (Atmos)
+    call atmos_model_end (Atmos)
     call diag_manager_end (Atmos%Time)
     call fms_end
 
