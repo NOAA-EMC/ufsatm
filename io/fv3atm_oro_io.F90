@@ -16,13 +16,25 @@ module fv3atm_oro_io
   implicit none
   private
 
-  public :: Oro_io_data_type !> ???
-  public :: Oro_io_register !> ???
-  public :: Oro_io_copy !> ???
-  public :: Oro_io_final !> ???
-  public :: Oro_scale_io_data_type !> ???
-  public :: Oro_scale_io_register !> ???
-  public :: Oro_scale_io_copy !> ???
+  !> Storage of working arrays for reading orography data
+  public :: Oro_io_data_type
+  !> Registers axes and fields for non-quilt restart reading of
+  !> non-scaled orography variables.
+  public :: Oro_io_register
+  !> Copies orography data from temporary arrays back to Sfcprop grid arrays.
+  public :: Oro_io_copy 
+  !> Destructor for Oro_io_data_type
+  public :: Oro_io_final 
+  !> Storage of working arrays for reading large-scale and small-scale
+  !> orography data for gravity wave drag schemes.
+  public :: Oro_scale_io_data_type
+  !> Registers axes and fields for non-quilt restart reading of scaled
+  !> orography variables.
+  public :: Oro_scale_io_register
+  !> Copies scaled orography data from temporary arrays back to
+  !> Sfcprop grid arrays.
+  public :: Oro_scale_io_copy 
+  !> Oro_scale_io_data_type destructor.
   public :: Oro_scale_io_final !> ???
 
   !> Storage of working arrays for reading orography data.
@@ -64,10 +76,10 @@ contains
   !> variables in the non-scaled orography data. The scaled data is
   !> handled by another function. This includes both 2D and 3D fields.
   !>
-  !> @param[in] oro ???
-  !> @param[in] Model ???
-  !> @param[in] Oro_restart ???
-  !> @param[in] Atm_block
+  !> @param[in] oro Storage of working arrays for reading orography data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Oro_restart FMS restart file handle for restart orography data.
+  !> @param[in] Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_register(oro, Model, Oro_restart, Atm_block)
@@ -157,10 +169,10 @@ contains
   !> After reading the restart, data is on temporary arrays with x-y data storage.
   !> This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
   !>
-  !> @param[in] oro ???
-  !> @param[in] Model ???
-  !> @param[in] Sfcprop ???
-  !> @param[in] Atm_block
+  !> @param[in] oro Storage of working arrays for reading orography data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param[in] Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_copy(oro, Model, Sfcprop, Atm_block)
@@ -244,7 +256,7 @@ contains
 
   !> Destructor for Oro_io_data_type
   !>
-  !> @param[in] oro ???
+  !> @param[in] oro Storage of working arrays for reading orography data.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_io_final(oro)
@@ -273,10 +285,10 @@ contains
   !> scaled data is handled by another function. Each scale needs its
   !> own instance of oro_scale_io_data_type.
   !>
-  !> @param[in] oro_scale ???
-  !> @param[in] Model ???
-  !> @param[in] Oro_scale_restart ???
-  !> @param[in] Atm_block
+  !> @param[in] oro_scale Storage of working arrays for oro data for gravity wave drag schemes.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Oro_scale_restart FMS restart file handle for restart scaled orography data.
+  !> @param[in] Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_scale_io_register(oro_scale, Model, Oro_scale_restart, Atm_block)
@@ -332,10 +344,10 @@ contains
   !> After reading the restart, data is on temporary arrays with x-y data storage.
   !> This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
   !>
-  !> @param[in] oro ???
-  !> @param[in] Sfcprop ???
-  !> @param[in] Atm_block
-  !> @param[in] first_index ???
+  !> @param[in] oro Storage of working arrays for reading orography data.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] first_index Starding index of relevant data in second dimension of Sfcprop%hprime. 
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_scale_io_copy(oro_scale, Sfcprop, Atm_block, first_index)
@@ -364,7 +376,7 @@ contains
 
   !> Oro_scale_io_data_type destructor.
   !>
-  !> @param[in] oro_scale ???
+  !> @param[in] oro_scale Storage of working arrays for reading scaled orography data.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Oro_scale_io_final(oro_scale)

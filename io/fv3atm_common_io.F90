@@ -23,12 +23,12 @@ module fv3atm_common_io
        copy_to_GFS_Data_2d_int2phys, copy_to_GFS_Data_3d_int2phys
 
   public :: GFS_data_transfer
-  public :: GFS_data_transfer_2d_phys2phys, &
-       GFS_data_transfer_3d_phys2phys, &
-       GFS_data_transfer_2d_int2phys, &
-       GFS_data_transfer_3d_int2phys, &
-       GFS_data_transfer_3d_slice_phys2phys, &
-       GFS_data_transfer_2d_stack_phys2phys
+  public :: GFS_data_transfer_2d_phys2phys, & 
+       GFS_data_transfer_3d_phys2phys, & 
+       GFS_data_transfer_2d_int2phys, & 
+       GFS_data_transfer_3d_int2phys, & 
+       GFS_data_transfer_3d_slice_phys2phys, & 
+       GFS_data_transfer_2d_stack_phys2phys 
 
   public :: create_2d_field_and_add_to_bundle
   public :: create_3d_field_and_add_to_bundle
@@ -94,9 +94,9 @@ contains
   !> Convenience function to get the x and y dimensions of the grid
   !> from Atm_block.
   !>
-  !> @param Atm_block ???
-  !> @param nx ???
-  !> @param ny ???
+  !> @param Atm_block Physics block layout information.
+  !> @param nx Number of x dimension points on Atm_block grid.
+  !> @param ny Number of y dimension points on Atm_block grid.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine get_nx_ny_from_atm(Atm_block, nx, ny)
@@ -120,13 +120,13 @@ contains
   !> Copies from the ix-indexed var_block to the 2d x-y
   !> real(kind_phys) var2d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_phys2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -145,13 +145,13 @@ contains
 
   !> Copies from the ix-k-indexed var_block to the 3d x-y-z real(kind_phys) var3d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -172,13 +172,13 @@ contains
 
   !> Copies from the ix-k-indexed var_block to the 3d x-y-z integer var2d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_int2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -196,13 +196,13 @@ contains
 
   !> Copies a range of levels from the ix-k-indexed var_block to the x-y real(kind_phys) var3d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_2d_stack_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -224,13 +224,13 @@ contains
 
   !> Copies from the ix-k-indexed var_block to the x-y integer var3d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_int2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -250,13 +250,13 @@ contains
 
   !> Copies a range of levels from from the ix-k-indexed var_block to the x-y-z real(kind_phys) var3d array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_from_GFS_Data_3d_slice_phys2phys(ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
@@ -277,13 +277,13 @@ contains
 
   !> Copies from x-y real(kind_phys) var2d array to the ix-indexed var_block array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_phys2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -302,13 +302,13 @@ contains
 
   !> Copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -329,13 +329,13 @@ contains
 
   !> Copies from x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_stack_phys2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -357,15 +357,15 @@ contains
 
   !> Copies a range of levels from the x-y-z real(kind_phys) var3d array to the ix-k-indexed var_block array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[in] k1 ???
-  !> @param[in] k2 ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[in] k1 Starting vertical index for slice.
+  !> @param[in] k2 Ending vertical index for slice.
+  !> @param[inout] var3d 3-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_slice_phys2phys(ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
@@ -386,13 +386,13 @@ contains
 
   !> Copies from x-y integer var2d array to the ix-indexed var_block array.
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_2d_int2phys(ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -441,14 +441,14 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_2d_phys2phys(to,ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -474,14 +474,14 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3-d x-y-x array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_phys2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -507,16 +507,16 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[in] k1 ???
-  !> @param[in] k2 ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+   !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[in] k1 Starting vertical index for slice.
+  !> @param[in] k2 Ending vertical index for slice.
+  !> @param[inout] var3d 3-d x-y-x array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_slice_phys2phys(to,ii1,jj1,isc,jsc,nt,k1,k2,var3d,var_block)
@@ -541,14 +541,14 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_2d_int2phys(to,ii1,jj1,isc,jsc,nt,var2d,var_block)
@@ -573,14 +573,14 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 2-d x-y-z array.
+  !> @param[inout] var_block Blocked ix-k-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_data_transfer_3d_int2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -606,14 +606,14 @@ contains
   !> to=false, it is copied from the var_block arrays. This allows the same subroutine
   !> to both read and write, preventing error-prone code duplication.
   !>
-  !> @param[in] to ???
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var2d ???
-  !> @param[inout] var_block ???
+  !> @param[in] to Copy to (.true.) or from (.false.) or to GFS_Data structures?
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var2d 2-d x-y array.
+  !> @param[inout] var_block Blocked ix-indexed array.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine GFS_Data_transfer_2d_stack_phys2phys(to,ii1,jj1,isc,jsc,nt,var3d,var_block)
@@ -635,11 +635,11 @@ contains
 
   !> Add a 2D restart array to an ESMF bundle for quilting restarts.
   !>
-  !> @param[in] temp_r2d ???
-  !> @param[in] field_name ???
-  !> @param[in] outputfile ???
-  !> @param[in] grid ???
-  !> @param[inout] bundle ???
+  !> @param[in] temp_r2d Pointer to a 2d array.
+  !> @param[in] field_name Field name corresponding to the 2d array.
+  !> @param[in] outputfile Full path to the output file.
+  !> @param[in] grid ESMF restart output grid object.
+  !> @param[inout] bundle ESMF field bundle object holding the restart fields.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine create_2d_field_and_add_to_bundle(temp_r2d, field_name, outputfile, grid, bundle)
@@ -673,13 +673,13 @@ contains
 
   !> Add a 3D restart array and its vertical axis to an ESMF bundle for quilting restarts.
   !>
-  !> @param[in] temp_r3d ???
-  !> @param[in] field_name ???
-  !> @param[in] axis_name ???
-  !> @param[in] axis_values ???
-  !> @param[in] outputfile ???
-  !> @param[in] grid ???
-  !> @param[inout] bundle ???
+  !> @param[in] temp_r3d Pointer to a 3d array.
+  !> @param[in] field_name Field name corresponding to the 3d array.
+  !> @param[in] axis_name Name of the vertical axis.
+  !> @param[in] axis_values Vertical axis values.
+  !> @param[in] outputfile Full path to the output file.
+  !> @param[in] grid ESMF restart output grid object.
+  !> @param[inout] bundle ESMF field bundle object holding the restart fields.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine create_3d_field_and_add_to_bundle(temp_r3d, field_name, axis_name, axis_values, outputfile, grid, bundle)
@@ -717,9 +717,9 @@ contains
 
   !> Add a vertical axis to an ESMF bundle for quilting restarts.
   !>
-  !> @param[in] field ???
-  !> @param[in] axis_name ???
-  !> @param[in] axis_values ???
+  !> @param[in] field ESMF field object to add vertical axis to.
+  !> @param[in] axis_name Name of the vertical axis.
+  !> @param[in] axis_values Vertical axis values.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine add_zaxis_to_field(field, axis_name, axis_values)

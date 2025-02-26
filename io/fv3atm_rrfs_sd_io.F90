@@ -123,7 +123,7 @@ contains
   !> Registers the fire_aux_data_levels axis for restart I/O
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
   !> @param Sfc_restart FMS NetCDF object containing surface restart data.
   !>
   !> @author Samuel Trahan
@@ -143,7 +143,7 @@ contains
   !> Registers and writes the axis indices for the fire_aux_data_levels axis
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
   !> @param Sfc_restart FMS NetCDF object containing surface restart data.
   !>
   !> @author Samuel Trahan
@@ -165,7 +165,7 @@ contains
   !> Allocates temporary arrays for RRFS-SD scheme I/O and stores fire_aux_data_levels axis indices
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -201,9 +201,9 @@ contains
   !> Terrible things will happen if you don't call data%allocate_data first.
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Atm_block Atmospheric block data.
-  !> @param Sfcprop Derived type containing surface properties .
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Atm_block Physics block layout information.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -295,7 +295,7 @@ contains
   !> @param data The data structure containing the model state information.
   !> @param bundle The ESMF field bundle for output to restart.
   !> @param grid The output ESMF grid object.
-  !> @param Model Control structure for the GFS model.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
   !> @param outputfile Full path of the output file.
   !>
   !> @author Samuel Trahan
@@ -392,9 +392,9 @@ contains
   !> from the rrfs_sd_state_type to the model grid.
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Atm_block Atmospheric block data.
-  !> @param Sfcprop Derived type containing surface properties .
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Atm_block Physics block layout information.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -437,9 +437,9 @@ contains
   !> restart code will write data from those arrays, not the model grid.
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Atm_block Atmospheric block data.
-  !> @param Sfcprop Derived type containing surface properties .
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Atm_block Physics block layout information.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -480,7 +480,7 @@ contains
   !>
   !> @param data The data structure containing the model state information.
   !> @param restart FMS NetCDF object containing surface restart data.
-  !> @param Atm_block Atmospheric block data.
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -533,9 +533,9 @@ contains
   !> Called after register_dust12m() to copy data from internal arrays to the model grid and deallocate arrays
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Sfcprop Derived type containing surface properties .
-  !> @param Atm_block Atmospheric block data.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -584,7 +584,7 @@ contains
   !>
   !> @param data The data structure containing the model state information.
   !> @param restart FMS NetCDF object containing surface restart data.
-  !> @param Atm_block Atmospheric block data.
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -631,9 +631,9 @@ contains
   !> Called after register_emi() to copy data from internal arrays to the model grid and deallocate arrays
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Sfcprop Derived type containing surface properties .
-  !> @param Atm_block Atmospheric block data.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -677,9 +677,9 @@ contains
   !> Allocates temporary arrays and registers variables for reading the fire data file.
   !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
   !> @param restart FMS NetCDF object containing surface restart data.
-  !> @param Atm_block Atmospheric block data.
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023
@@ -766,9 +766,9 @@ contains
   !> Called after register_fire() to copy data from internal arrays to the model grid and deallocate arrays
     !>
   !> @param data The data structure containing the model state information.
-  !> @param Model Control structure for the GFS model.
-  !> @param Sfcprop Derived type containing surface properties.
-  !> @param Atm_block Atmospheric block data.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfcprop Surface properties that may be read in and/or updated by climatology or observations.
+  !> @param Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan
   !> @date 2023

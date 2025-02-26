@@ -114,7 +114,7 @@ contains
   !> of various types. These determine array sizes.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start logical, is this a warm start?
   !>
@@ -208,8 +208,8 @@ contains
   !> will be unknown.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
-  !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] Atm_block Atmospheric block data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start logical, is this a warm start?
   !>
@@ -280,7 +280,7 @@ contains
   !> Registers all axes for reading or writing restarts using FMS (non-quilt).
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
@@ -345,7 +345,7 @@ contains
   !> when writing FMS (non-quilt) restarts.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -418,7 +418,7 @@ contains
   !> Fills the name3d array with all surface 3D field names.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -457,7 +457,7 @@ contains
   !> nvar2m if needed.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -626,7 +626,7 @@ contains
   !>  This routine is for v2 coldstart files.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] warm_start Is this a warm start run?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -799,7 +799,7 @@ contains
   !> Registers 2D fields with FMS for reading or writing non-quilt restart files
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
@@ -950,7 +950,7 @@ contains
   !> restart files.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param Sfc_restart FMS NetCDF object containing surface restart data.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
   !> @param[in] warm_start Is this a warm start run?
@@ -1040,7 +1040,7 @@ contains
   !> Initializes some surface fields with reasonable defaults
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_init_fields(sfc,Model)
@@ -1068,9 +1068,9 @@ contains
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
   !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
-  !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] Atm_block Atmospheric block data.
-  !> @param[in] Sfcprop Derived type containing surface properties .
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
   !> @param[in] warm_start Is this a warm start run?
   !> @param[in] override_frac_grid Override fractional grid choice with Model%frac_grid ?
   !>
@@ -1553,9 +1553,9 @@ contains
   !> calling transfer() with reading=.true.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] Atm_block Atmospheric block data.
-  !> @param[in] Sfcprop Derived type containing surface properties .
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
   !> @param[in] warm_start Is this a warm start run?
   !> @param[in] override_frac_grid Output file ESMF grid object.
   !>
@@ -1579,9 +1579,9 @@ contains
   !> calling transfer() with reading=.false.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
-  !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] Atm_block Atmospheric block data.
-  !> @param[in] Sfcprop Derived type containing surface properties 
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations 
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_copy_from_grid(sfc, Model, Atm_block, Sfcprop)
@@ -1600,9 +1600,9 @@ contains
   !> Calculates values and applies safeguards after reading restart data.
   !>
   !> @param sfc Internal data storage type for reading and writing surface restart files
-  !> @param[in] Model Control structure for the GFS model.
-  !> @param[in] Atm_block Atmospheric block data.
-  !> @param[in] Sfcprop Derived type containing surface properties 
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations 
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_apply_safeguards(sfc, Model, Atm_block, Sfcprop)
@@ -2075,7 +2075,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files.
   !> @param[inout] bundle ESMF_FieldBundle containing 2d fields for output.
   !> @param[inout] grid Output file ESMF grid object.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] outputfile Full path to target output file.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -2132,7 +2132,7 @@ contains
   !> @param sfc Internal data storage type for reading and writing surface restart files.
   !> @param[inout] bundle ESMF_FieldBundle containing 3d fields for output.
   !> @param[inout] grid Output file ESMF grid object.
-  !> @param[in] Model Control structure for the GFS model.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[in] outputfile Full path to target output file.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023

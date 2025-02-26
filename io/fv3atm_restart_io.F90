@@ -116,13 +116,13 @@ contains
   !> Calls sfc_prop_restart_read and phys_restart_read to read all
   !> surface and physics restart files.
   !>
-  !> @param[inout] GFS_Sfcprop ???
-  !> @param[inout] GFS_Restart ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] warm_start ???
-  !> @param[in] ignore_rst_cksum ???
+  !> @param[inout] GFS_Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param[inout] GFS_Restart Derived type containing physics restart data.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] warm_start Is warm start run?
+  !> @param[in] ignore_rst_cksum Ignore checksums in restart files?
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_restart_read (GFS_Sfcprop, GFS_Restart, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
@@ -146,12 +146,12 @@ contains
   !> Writes surface and physics restart fields without using the write
   !> component (quilt).
   !>
-  !> @param[inout] GFS_Sfcprop ???
-  !> @param[inout] GFS_Restart ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] timestamp ???
+  !> @param[inout] GFS_Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param[inout] GFS_Restart Derived type containing physics restart data.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] timestamp Timestamp to append to intermediate restart files.
   !>
   !> Calls sfc_prop_restart_write and phys_restart_write to write
   !> surface and physics restart fields. This pauses the model to
@@ -177,16 +177,16 @@ contains
 
   !> ???
   !> 
-  !> @param[in] Model ???
-  !> @param[in] GFS_Statein ???
-  !> @param[in] GFS_Stateout ???
-  !> @param[in] GFS_Grid ???
-  !> @param[in] GFS_Tbd ???
-  !> @param[in] GFS_Cldprop ???
-  !> @param[in] GFS_Sfcprop ???
-  !> @param[in] GFS_Radtend ???
-  !> @param[in] GFS_Coupling ???
-  !> @param[in] Atm_block ???
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] GFS_Statein  Prognostic state data provided to ccpp from dycore.
+  !> @param[in] GFS_Stateout Prognostic state data returned to dycore from ccpp.
+  !> @param[in] GFS_Grid Internal grid data needed for interpolations and length-scale calculations.
+  !> @param[in] GFS_Tbd Data not yet assigned to a defined container.
+  !> @param[in] GFS_Cldprop Cloud properties and tendencies needed by radiation from physics.
+  !> @param[in] GFS_Sfcprop Surface properties that may be read in and/or updated by climatology or observations.
+  !> @param[in] GFS_Radtend Radiation tendencies needed in physics
+  !> @param[in] GFS_Coupling Fields to/from other coupled components (e.g. land/ice/ocean/etc.).
+  !> @param[in] Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_checksum (Model, GFS_Statein, GFS_Stateout, GFS_Grid, GFS_Tbd, GFS_Cldprop, GFS_Sfcprop, GFS_Radtend, GFS_Coupling, Atm_block)
@@ -577,12 +577,12 @@ contains
   !> Calls an FMS routine to restore the data from a restart file.
   !> Also calculates sncovr if it is not present in the restart file.
   !>
-  !> @param[inout] Sfcprop ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] warm_start ???
-  !> @param[in] ignore_rst_cksum ???
+  !> @param[inout] Sfcprop Surface properties that may be read in and/or updated by climatology or observations
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model  Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] warm_start Logical flag indicating whether this is a warm start.
+  !> @param[in] ignore_rst_cksum Logical flag indicating whether to ignore checksums in the restart file.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine sfc_prop_restart_read (Sfcprop, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
@@ -803,11 +803,11 @@ contains
   !> subsystem. Takes an optional argument to append timestamps for intermediate
   !> restarts.
   !>
-  !> @param[inout] Sfcprop ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] timestamp ???
+  !> @param[inout] Sfcprop surface properties that may be read in and/or updated by climatology or observations.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] timestamp Optional timestamp to append to the restart filename.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine sfc_prop_restart_write (Sfcprop, Atm_block, Model, fv_domain, timestamp)
@@ -903,11 +903,11 @@ contains
   !> restart variables with the GFDL FMS restart subsystem.
   !> Calls a GFDL FMS routine to restore the data from a restart file.
   !>
-  !> @param[inout] GFS_Restart ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] ignore_rst_cksum ???
+  !> @param[inout] GFS_Restart Contains information about the restart variables.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] ignore_rst_cksum Logical flag indicating whether to ignore checksums in the restart file.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine phys_restart_read (GFS_Restart, Atm_block, Model, fv_domain, ignore_rst_cksum)
@@ -984,11 +984,11 @@ contains
   !> subsystem. Takes an optional argument to append timestamps for intermediate
   !> restarts.
   !>
-  !> @param[in] GFS_Restart ???
-  !> @param[in] Atm_block ???
-  !> @param[in] Model ???
-  !> @param[in] fv_domain ???
-  !> @param[in] timestamp ???
+  !> @param[in] GFS_Restart Contains information about the restart variables
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] fv_domain Contains domain decomposition information for cubed sphere grid.
+  !> @param[in] timestamp Optional timestamp to append to the restart filename.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine phys_restart_write (GFS_Restart, Atm_block, Model, fv_domain, timestamp)
@@ -1089,10 +1089,10 @@ contains
   !> 
   !> Allocates all data buffers and sets variable names for surface and physics restarts.
   !>
-  !> @param[inout] Sfcprop ???
-  !> @param[inout] GFS_Restart ???
-  !> @param[in] Atm_block ???
-  !> @param[inout] Model ???
+  !> @param[inout] Sfcprop Surface properties that may be read in and/or updated by climatology or observations.
+  !> @param[inout] GFS_Restart Contains information about the restart variables.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[inout] Model Model control parameters input from a nml and/or derived from others.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_restart_register (Sfcprop, GFS_restart, Atm_block, Model)
@@ -1128,8 +1128,8 @@ contains
   !> Copies physics restart fields from write component data
   !> structures to the model grid.
   !>
-  !> @param[in] GFS_Restart ???
-  !> @param[in] Atm_block ???
+  !> @param[in] GFS_Restart Contains information about the restart variables.
+  !> @param[in] Atm_block Physics block layout information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv_phy_restart_output(GFS_Restart, Atm_block)
@@ -1146,9 +1146,9 @@ contains
   !> Copies physics restart fields from the model grid to write
   !> component data structures.
   !>
-  !> @param[in] Sfcprop ???
-  !> @param[in] Atm_block ???
-  !> @param[in] Model ???
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv_sfc_restart_output(Sfcprop, Atm_block, Model)
@@ -1171,8 +1171,8 @@ contains
 
   !> Creates the ESMF bundle for physics restart data.
   !>
-  !> @param[inout] bundle ???
-  !> @param[inout] grid ???
+  !> @param[inout] bundle ESMF field bundle for physics restart data.
+  !> @param[inout] grid ESMF grid for physics restart data.
   !> @param[out] rc Return code.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -1227,9 +1227,9 @@ contains
 
   !> Creates the ESMF bundle for surface restart data.
   !>
-  !> @param[inout] bundle ???
-  !> @param[inout] grid ???
-  !> @param[in] Model ???
+  !> @param[inout] bundle ESMF field bundle for surface restart data.
+  !> @param[inout] grid ESMF grid for surface restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !> @param[out] rc Return code.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -1272,11 +1272,17 @@ contains
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-  !>@brief Allocates and fills internal data structures for quilt or non-quilt physics restart I/O
-  !> \section phy_data_type%alloc procedure
-  !! Allocates the variable and variable name data structures in the phy_data_type.
-  !! Also, copies the GFS_Restart names to the phy_data_type arrays.
-  !! Do not call from outside this module; it is part of the internal implementation.
+  !> Allocates and fills internal data structures for quilt or non-quilt physics restart I/O
+  !> 
+  !> Allocates the variable and variable name data structures in the phy_data_type.
+  !> Also, copies the GFS_Restart names to the phy_data_type arrays.
+  !> Do not call from outside this module; it is part of the internal implementation.
+  !>
+  !> @param[inout] phy Storage for reading and writing physics restart files.
+  !> @param[in] GFS_Restart Contains information about the restart variables.
+  !> @param[in] Atm_block Physics block layout information.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   logical function phy_data_alloc(phy, GFS_Restart, Atm_block)
     use fv3atm_common_io, only: get_nx_ny_from_atm
     implicit none
@@ -1321,11 +1327,11 @@ contains
   !> reading=.false., data is copied from the model grid to temporary
   !> arrays (for writing the restart).
   !> 
-  !> @param phy ???
-  !> @param[in] reading ???
-  !> @param GFS_Restart ???
-  !> @param Atm_block ???
-  !> @param[in] Model ???
+  !> @param phy Storage for reading and writing physics restart files.
+  !> @param[in] reading Logical flag indicating the direction of the copy (true=to model grid, false=from model grid).
+  !> @param GFS_Restart Contains information about the restart variables.
+  !> @param Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model)
@@ -1430,7 +1436,7 @@ contains
 
   !> Destructor for phy_data_type.
   !>
-  !> @param phy ???  
+  !> @param phy Storage for reading and writing physics restart files.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine phy_data_final(phy)
