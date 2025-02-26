@@ -1372,7 +1372,7 @@ subroutine update_atmos_chemistry(state, rc)
         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-!IVAI: case ('import') canopy arrays read in via 'aqm_emiss_read'
+!IVAI: case ('import') canopy arrays read in via 'aqm_emis_read'
 
         call cplFieldGet(state,'inst_tracer_diag_claie', farrayPtr2d=claie, rc=localrc)
         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1481,84 +1481,117 @@ subroutine update_atmos_chemistry(state, rc)
             GFS_IntDiag%aod(im) = aod(i,j)
           enddo
         enddo
-!IVAI: case ('import') canopy arrays read in via aqm_emiss_read
+!IVAI: case ('import') canopy arrays read in via aqm_emis_read
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, claie) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%claie(ix) = claie(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%claie(im) = claie(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfch) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%cfch(ix) = cfch(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%cfch(im) = cfch(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfrt) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%cfrt(ix) = cfrt(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%cfrt(im) = cfrt(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cclu) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%cclu(ix) = cclu(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%cclu(im) = cclu(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cpopu) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%cpopu(ix) = cpopu(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%cpopu(im) = cpopu(i,j)
           enddo
         enddo
+
 !IVAI: case ('import') photdiag arrays
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, coszens) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%coszens(ix) = coszens(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%coszens(im) = coszens(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, jo3o1d) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%jo3o1d(ix) = jo3o1d(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%jo3o1d(im) = jo3o1d(i,j)
           enddo
         enddo
 
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, jno2) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
         do j = 1, nj
           jb = j + Atm_block%jsc - 1
           do i = 1, ni
             ib = i + Atm_block%isc - 1
             nb = Atm_block%blkno(ib,jb)
             ix = Atm_block%ixp(ib,jb)
-            GFS_IntDiag%jno2(ix) = jno2(i,j)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%jno2(im) = jno2(i,j)
           enddo
         enddo
 !IVAI
@@ -1570,7 +1603,7 @@ subroutine update_atmos_chemistry(state, rc)
         if (GFS_control%cplaqm) &
           write(6,'("update_atmos: ",a,": aod  - min/max    ",3g16.6)') &
             trim(state), minval(aod), maxval(aod)
-!IVAI: case ('import') canopy arrays read via aqm_emiss_read
+!IVAI: case ('import') canopy arrays read via aqm_emis_read
         if (GFS_control%cplaqm) &
           write(6,'("update_atmos: ",a,": claie - min/max    ",3g16.6)') &
             trim(state), minval(claie), maxval(claie)
@@ -3492,7 +3525,7 @@ end subroutine update_atmos_chemistry
             !--- Instantaneous quantities
             ! Instantaneous mean layer pressure (Pa)
             case ('inst_pres_levels')
-              call block_data_copy_or_fill(datar83d, GFS_statein%prsl, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)  
+              call block_data_copy_or_fill(datar83d, GFS_statein%prsl, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous geopotential at model layer centers (m2 s-2)
             case ('inst_geop_levels')
               call block_data_copy_or_fill(datar83d, GFS_statein%phil, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
@@ -3504,7 +3537,7 @@ end subroutine update_atmos_chemistry
               call block_data_copy_or_fill(datar83d, GFS_statein%vgrs, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous surface roughness length (cm)
             case ('inst_surface_roughness')
-              call block_data_copy(datar82d, GFS_sfcprop%zorl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)            
+              call block_data_copy(datar82d, GFS_sfcprop%zorl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous u wind (m/s) 10 m above ground
             case ('inst_zonal_wind_height10m')
               call block_data_copy(datar82d, GFS_coupling%u10mi_cpl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
