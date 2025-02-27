@@ -4,10 +4,11 @@
 cmake_minimum_required(VERSION 3.19)
 
 # Handle user build options.
-option(ENABLE_DOCS "Enable generation of doxygen-based documentation." OFF)
+option(ENABLE_FV3ATM_DOCS "Enable generation of doxygen-based documentation." OFF)
 
 # Determine whether or not to generate documentation.
-if(ENABLE_DOCS)
+if(ENABLE_FV3ATM_DOCS)
+  message(STATUS "We will build the fv3atm doxygen documentation.")
   find_package(Doxygen REQUIRED)
   add_subdirectory(docs)
 endif()
@@ -61,6 +62,14 @@ endif()
 
 if(NOT PARALLEL_NETCDF)
   list(APPEND _fv3atm_defs_private NO_PARALLEL_NETCDF)
+endif()
+
+if(ENABLE_PARALLELRESTART)
+  list(APPEND _fv3atm_defs_private ENABLE_PARALLELRESTART)
+endif()
+
+if(ENABLE_RRFS_WAR)
+  list(APPEND _fv3atm_defs_private ENABLE_RRFS_WAR)
 endif()
 
 if(MOVING_NEST)
