@@ -2192,15 +2192,14 @@ module GFS_typedefs
 
 !IVAI
     ! Diagnostics for coupled air quality model
+    real (kind=kind_phys), pointer :: coszens(:)  => null()    ! Cosine SZA for photolysis
+    real (kind=kind_phys), pointer :: jo3o1d(:)   => null()    ! instantaneous O3O1D photolysis rate
+    real (kind=kind_phys), pointer :: jno2  (:)   => null()    ! instantaneous NO2   photolysis rate
     real (kind=kind_phys), pointer :: claie(:)    => null()    ! Leaf Area Index ECCC
     real (kind=kind_phys), pointer :: cfch (:)    => null()    ! Forest Canopy Height
     real (kind=kind_phys), pointer :: cfrt (:)    => null()    ! Forest Fraction
     real (kind=kind_phys), pointer :: cclu (:)    => null()    ! Clumping Index
     real (kind=kind_phys), pointer :: cpopu(:)    => null()    ! Population density
-
-    real (kind=kind_phys), pointer :: coszens(:)  => null()    ! Cosine SZA for photolysis
-    real (kind=kind_phys), pointer :: jo3o1d(:)   => null()    ! instantaneous O3O1D photolysis rate
-    real (kind=kind_phys), pointer :: jno2  (:)   => null()    ! instantaneous NO2   photolysis rate
 !IVAI
 
     ! Auxiliary output arrays for debugging
@@ -8061,6 +8060,16 @@ module GFS_typedefs
     ! -- initialize diagnostic variables
     if (Model%cplaqm) then
 
+!IVAI: photdiag arrays
+      allocate (Diag%coszens(IM))
+      Diag%coszens= zero
+
+      allocate (Diag%jo3o1d(IM))
+      Diag%jo3o1d = zero
+
+      allocate (Diag%jno2(IM))
+      Diag%jno2 = zero
+
 !IVAI: canopy arrays read via aqm_emis_read
       allocate (Diag%claie(IM))
       Diag%claie = zero
@@ -8077,17 +8086,7 @@ module GFS_typedefs
       allocate (Diag%cpopu (IM))
       Diag%cpopu  = zero
 
-!IVAI: photdiag arrays
-      allocate (Diag%coszens(IM))
-      Diag%coszens= zero
-
-      allocate (Diag%jo3o1d(IM))
-      Diag%jo3o1d = zero
-
-      allocate (Diag%jno2(IM))
-      Diag%jno2 = zero
-
-    end if
+    end if ! (Model%cplaqm)
 !IVAI
 
     ! Auxiliary arrays in output for debugging

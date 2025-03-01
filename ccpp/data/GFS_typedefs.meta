@@ -8613,35 +8613,35 @@
   standard_name = canopy_leaf_area_index
   long_name = canopy leaf area index
   units = none
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [cfch]
   standard_name = canopy_forest_height
   long_name = canopy forest height
   units = m
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [cfrt]
   standard_name = canopy_forest_fraction
   long_name = canopy forest fraction
   units = none
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [cclu]
   standard_name = canopy_clumping_index
   long_name = canopy clumping index
   units = none
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [cpopu]
   standard_name = canopy_population_density
   long_name = population density used for canopy correction
-  units = people km-2
-  dimensions = (horizontal_loop_extent)
+  units = km-2
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 ###IVAI [ccpp-arg-table]
