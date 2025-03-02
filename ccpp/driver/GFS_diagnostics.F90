@@ -982,7 +982,7 @@ module GFS_diagnostics
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JO3O1D'
       ExtDiag(idx)%desc = 'photolysis rate O3 for canopy correction'
-      ExtDiag(idx)%unit = 'numerical'
+      ExtDiag(idx)%unit = 'min-1'
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
@@ -996,7 +996,7 @@ module GFS_diagnostics
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JNO2'
       ExtDiag(idx)%desc = 'photolysis rate NO2 for canopy correction'
-      ExtDiag(idx)%unit = 'numerical'
+      ExtDiag(idx)%unit = 'min-1'
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
@@ -1025,7 +1025,7 @@ module GFS_diagnostics
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CFCH'
       ExtDiag(idx)%desc = 'Forest Canopy Height'
-      ExtDiag(idx)%unit = 'numerical'
+      ExtDiag(idx)%unit = 'm'
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
@@ -1067,7 +1067,7 @@ module GFS_diagnostics
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CPOPU'
       ExtDiag(idx)%desc = 'Population Density for canopy correction'
-      ExtDiag(idx)%unit = 'numerical'
+      ExtDiag(idx)%unit = 'km-2'
       ExtDiag(idx)%mod_name = 'gfs_phys'
       allocate (ExtDiag(idx)%data(nblks))
       do nb = 1,nblks
