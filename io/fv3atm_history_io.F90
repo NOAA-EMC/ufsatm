@@ -46,45 +46,55 @@ module fv3atm_history_io_mod
   real, parameter :: missing_value = 9.99e20_kind_phys !< Missing value.
   real, parameter :: stndrd_atmos_ps = 101325.0_kind_phys !< Standard atmospheric surface pressure.
   real, parameter :: stndrd_atmos_lapse = 0.0065_kind_phys !< Standard atmospheric lapse rate.
-  real, parameter :: drythresh = 1.e-4_kind_phys !< ???
+  real, parameter :: drythresh = 1.e-4_kind_phys !< This appears to be unused. Can we delete?
   real, parameter :: zero = 0.0_kind_phys !< Zero.
   real, parameter :: one = 1.0_kind_phys !< One.
 
   !> Storage type for temporary data during output of diagnostic (history) files.
   type history_type
-    integer :: tot_diag_idx = 0 !< ???
-
+    !< Total number of diagnostics to output. 
+    integer :: tot_diag_idx = 0 
+    !> Starting and ending indices for the current diagnostic. 
+    !> Number of axes for the current diagnostic.
     integer :: isco=0,ieco=0,jsco=0,jeco=0,num_axes_phys=0
+    !> Number of cloud species; number of soil levels; number of soil levels in the LSM; 
+    !> microphysics scheme; land surface model.
     integer :: ncld=0, nsoil=0, nsoil_lsm=0, imp_physics=0, landsfcmdl=0
+    !> Dianostic reset freqency in hours.
     real(4) :: fhzero=0.
+    !> Time step for the current diagnostic.
     real(4) :: dtp=0
+    !> Number of vertical levels for the current diagnostic.
     integer,dimension(:),        pointer         :: levo => null()
+    !> Number of variables for bilinear interpolation.
     integer,dimension(:),        pointer         :: nstt => null()
+    !> Number of variables for vector bilinear interpolation.
     integer,dimension(:),        pointer         :: nstt_vctbl => null()
+    !> All possible axis names.
     integer,dimension(:),        pointer         :: all_axes => null()
-    !> ???
+    !> Names for variable axes.
     character(20),dimension(:),  pointer         :: axis_name => null()
-    !> ???
+    !> Pointer to variables for bilinear interpolation.
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_bl => null()
-    !> ???
+    !> Pointer to variables for nearest-stod interpolation.
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_nb => null()
-    !> ???
+    !> Pointer to vector variables for bilinear interpolation.
     real(4), dimension(:,:,:,:), pointer         :: buffer_phys_windvect => null()
-    !> ???
+    !> Pointer to longitude data for vector interpolation.
     real(kind=kind_phys),dimension(:,:),pointer  :: lon => null()
-    !> ???
+    !> Pointer to latitude data for vector interpolation.
     real(kind=kind_phys),dimension(:,:),pointer  :: lat => null()
-    !> ???
+    !> Pointer to temporary work variable for 2D u wind data. 
     real(kind=kind_phys),dimension(:,:),pointer  :: uwork => null()
-    !> ???
+    !> Pointer to temporary work variable for 3D u wind data.
     real(kind=kind_phys),dimension(:,:,:),pointer:: uwork3d => null()
-    !> ???
+    !> Does current work variable contain u wind information?
     logical                    :: uwork_set = .false.
-    !> ???
+    !> Current name for u wind variable.
     character(128)             :: uwindname = "(noname)"
 
     !--- miscellaneous other variables
-    logical :: use_wrtgridcomp_output = .FALSE. !< ???
+    logical :: use_wrtgridcomp_output = .FALSE. !< Use the write component for output?
   contains
     procedure :: register => history_type_register
     procedure :: output => history_type_output
@@ -112,13 +122,13 @@ CONTAINS
   !> calls a GFDL FMS routine to register diagnositcs and compare against
   !> the diag_table to determine what variables are to be output.
   !>
-  !> @param[inout] Diag ???
-  !> @param[in] Time ???
-  !> @param[in] Atm_block ???
-  !> @param[in] Model ???
-  !> @param[in] xlon ???
-  !> @param[in] xlat ???
-  !> @param[in] axes ???
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] Time Model time.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] xlon Longitude array.
+  !> @param[in] xlat Latitude array.
+  !> @param[in] axes Axis information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_diag_register(Diag, Time, Atm_block, Model, xlon, xlat, axes)
@@ -141,19 +151,19 @@ CONTAINS
   !> This routine transfers diagnostic data to the FMS diagnostic
   !> manager for eventual output to the history files.
   !>
-  !> @param[in] time ???
-  !> @param[inout] diag ???
-  !> @param[in] atm_block ???
-  !> @param[in] nx ???
-  !> @param[in] ny ???
-  !> @param[in] levs ???
-  !> @param[in] ntcw ???
-  !> @param[in] ntoz ???
-  !> @param[in] dt ???
-  !> @param[in] time_int ???
-  !> @param[in] time_intfull ???
-  !> @param[in] time_radsw ???
-  !> @param[in] time_radlw ???
+  !> @param[in] time Model time.
+  !> @param[inout] diag Diag Container for write component configuration.
+  !> @param[in] atm_block Physics block layout information.
+  !> @param[in] nx Number of grid points on write grid in the x direction.
+  !> @param[in] ny Number of grid points on write grid the y direction.
+  !> @param[in] levs Number of vertical levels on write grid.
+  !> @param[in] ntcw Not used. Remove?
+  !> @param[in] ntoz Not used. Remove?
+  !> @param[in] dt Model time step.
+  !> @param[in] time_int Model integration time since last diag reset.
+  !> @param[in] time_intfull Total model integration time.
+  !> @param[in] time_radsw Time since last shortwave radiation update.
+  !> @param[in] time_radlw Time since last longwave radiation update.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_diag_output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
@@ -181,12 +191,12 @@ CONTAINS
   !> to use for writing diagnostic output. It is only defined when the
   !> write component is enabled at compile time.
   !>
-  !> @param[inout] Diag ???
-  !> @param[in] axes ???
-  !> @param[in] phys_bundle ???
-  !> @param[in] fcst_grid ???
-  !> @param[in] quilting ???
-  !> @param[in] nbdlphys ???
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] axes Axis information.
+  !> @param[in] phys_bundle ESMF bundle for physics output fields.
+  !> @param[in] fcst_grid Write component ESMF grid.
+  !> @param[in] quilting Whether to use quilted output (write component).
+  !> @param[in] nbdlphys Number of variables in phys_bundle.
   !> @param[in] rc Return code.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -218,14 +228,14 @@ CONTAINS
   !> This is the history_type%register procedure, which provides the internal
   !> implementation of fv3atm_diag_register(). Do not call this directly.
   !>
-  !> @param hist ???
-  !> @param[inout] Diag ???
-  !> @param[in] Time ???
-  !> @param[in] Atm_block ???
-  !> @param[in] Model ???
-  !> @param[in] xlon ???
-  !> @param[in] xlat ???
-  !> @param[in] axes ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] Time Model time.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] xlon Longitude array.
+  !> @param[in] xlat Latitude array.
+  !> @param[in] axes Axis information.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_register(hist, Diag, Time, Atm_block, Model, xlon, xlat, axes)
@@ -346,20 +356,20 @@ CONTAINS
   !> Never call this directly.
   !>
   !>
-  !> @param hist ???
-  !> @param[in] time ???
-  !> @param[in] diag ???
-  !> @param[in] atm_block ???
-  !> @param[in] nx ???
-  !> @param[in] ny ???
-  !> @param[in] levs ???
-  !> @param[in] ntcw ???
-  !> @param[in] ntoz ???
-  !> @param[in] dt ???
-  !> @param[in] time_int ???
-  !> @param[in] time_intfull ???
-  !> @param[in] time_radsw ???
-  !> @param[in] time_radlw ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] time Model time.
+  !> @param[in] diag Container for write component configuration.
+  !> @param[in] atm_block Physics block layout information.
+  !> @param[in] nx Number of grid points on write grid in the x direction.
+  !> @param[in] ny Number of grid points on write grid the y direction.
+  !> @param[in] levs Number of vertical levels on write grid.
+  !> @param[in] ntcw Not used. Remove?
+  !> @param[in] ntoz Not used. Remove?
+  !> @param[in] dt Model time step.
+  !> @param[in] time_int Model integration time since last diag reset.
+  !> @param[in] time_intfull Total model integration time.
+  !> @param[in] time_radsw Time since last shortwave radiation update.
+  !> @param[in] time_radlw Time since last longwave radiation update.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_output(hist, time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
@@ -573,13 +583,13 @@ CONTAINS
   !> history_type_output (history_type%output).  Never call this
   !> subroutine directly; call fv3atm_diag_output instead.
   !>
-  !> @param hist ???
-  !> @param[inout] id ???
-  !> @param[in] work ???
-  !> @param[in] Time ???
-  !> @param[in] idx ???
-  !> @param[in] intpl_method ???
-  !> @param[in] fldname ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] id Variable ID.
+  !> @param[in] work Data to store.
+  !> @param[in] Time Model time.
+  !> @param[in] idx Index of the diagnostic variable.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in] fldname Field name.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data(hist,id, work, Time, idx, intpl_method, fldname)
@@ -673,13 +683,13 @@ CONTAINS
   !> history_type_output (history_type%output) Never call this
   !> subroutine directly; call fv3atm_diag_output instead.
   !>
-  !> @param hist ???
-  !> @param[inout] id ???
-  !> @param[in] work ???
-  !> @param[in] Time ???
-  !> @param[in] idx ???
-  !> @param[in] intpl_method ???
-  !> @param[in] fldname ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] id Variable ID.
+  !> @param[in] work Data to store.
+  !> @param[in] Time Model time.
+  !> @param[in] idx Index of the diagnostic variable.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in] fldname Field name.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data3D(hist, id, work, Time, idx, intpl_method, fldname)
@@ -794,13 +804,13 @@ CONTAINS
   !> to use for writing diagnostic output. It is only defined when the
   !> write component is enabled at compile time.
   !>
-  !> @param hist ???
-  !> @param[in] Diag ???
-  !> @param[in] axes ???
-  !> @param[in] phys_bundle ???
-  !> @param[in] fcst_grid ???
-  !> @param[in] quilting ???
-  !> @param[in] nbdlphys ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] Diag Container for write component configuration.
+  !> @param[in] axes Axis information.
+  !> @param[in] phys_bundle ESMF bundle for physics output fields.
+  !> @param[in] fcst_grid ESMF grid for the forecast model.
+  !> @param[in] quilting Whether to use quilted output (write component).
+  !> @param[in] nbdlphys Number of variables in phys_bundle.
   !> @param[in] rc Return code.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -1110,19 +1120,20 @@ CONTAINS
   !> not call this subroutine directly.  Call fv_phys_bundle_setup
   !> instead.
   !>
-  !> @param hist ???
-  !> @param[in] var_name ???
-  !> @param[in] long_name ???
-  !> @param[in] units ???
-  !> @param[in] cell_methods ???
-  !> @param[in] axes ???
-  !> @param[in] phys_grid ???
-  !> @param[in] kstt ???
-  !> @param[inout] phys_bundle ???
-  !> @param[in] output_file ???
-  !> @param[in] intpl_method ???
-  !> @param[in] range ???
-  !> @param[in] l2dvector ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] var_name Variable name.
+  !> @param[in] long_name Variable long name.
+  !> @param[in] units Units of the variable.
+  !> @param[in] cell_methods 
+  !> @param[in] axes Variable axes.
+  !> @param[in] phys_grid ESMF grid for the physics fields.
+  !> @param[in] kstt Starting index of vertical dimension.
+  !> @param[in] levo Number of vertical levels.
+  !> @param[inout] phys_bundle ESMF field bundle for physics output fields.
+  !> @param[in] output_file Full path to output write component file.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in;optional] range Not used. Remove.
+  !> @param[in] l2dvector Whether the field is a 2D vector.
   !> @param[out] rcd Return code.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
@@ -1334,10 +1345,10 @@ CONTAINS
   !> (history_type%bundle_setup) and should not be called
   !> directly. Call fv_phys_bundle_setup instead.
   !>
-  !> @param hist ???
-  !> @param[in] module_name ???
-  !> @param[in] field_name ???
-  !> @param[out] output_name ???
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] module_name Name of module containing variable.
+  !> @param[in] field_name Name of variable in model.
+  !> @param[out] output_name Name of variable to use in output file.
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_find_output_name(hist,module_name,field_name,output_name)
