@@ -8,12 +8,14 @@ module atmos_model_mod
   use fms2_io_mod,        only: file_exists
   use fms_mod,            only: check_nml_error
   use time_manager_mod,   only: time_type, get_time, get_date, operator(+), operator(-)
+  use field_manager_mod,  only: MODEL_ATMOS
+  use tracer_manager_mod, only: get_number_tracers, get_tracer_names, get_tracer_index, NO_TRACER
   use mpp_mod,            only: input_nml_file, mpp_error, FATAL
   use mpi_f08,            only: MPI_Comm, MPI_CHARACTER, MPI_INTEGER, MPI_REAL8, MPI_LOGICAL
   use MPAS_typedefs,      only: kind_phys, r8 => kind_dbl_prec
   use mpas_derived_types, only: core_type, domain_type, MPAS_Clock_type
   use atm_core_interface
-  use module_mpas_config, only: pio_subsystems
+  use module_mpas_config, only: pio_subsystems, fh_init
   implicit none
 
   private
@@ -43,10 +45,13 @@ contains
   subroutine atmos_model_init(mpicomm, master, me, time_start, time_end, total_time, calendar)
     use mpas_pool_routines,   only : mpas_pool_add_config
     use mpas_framework,       only : mpas_framework_init_phase1, mpas_framework_init_phase2
-    use mpas_domain_routines, only : mpas_allocate_domain
+    use mpas_domain_routines, only : mpas_allocate_domain, mpas_pool_get_dimension
+    use mpas_bootstrapping,   only : mpas_bootstrap_framework_phase1, mpas_bootstrap_framework_phase2
     use atm_core_interface,   only : atm_setup_core, atm_setup_domain
     use mpas_stream_inquiry,  only : MPAS_stream_inquiry_new_streaminfo
-    use pio_types,            only : iosystem_desc_t
+    use mpas_atm_threading,   only : mpas_atm_threading_init
+    use mpas_derived_types,   only : mpas_pool_type
+    use pio_types,            only : iosystem_desc_t, file_desc_t
     
     ! Inputs
     integer,        intent(in) :: time_start(6), time_end(6)
@@ -56,8 +61,16 @@ contains
 
     ! Locals
     integer, dimension(2) :: logUnits
-    integer :: ndate1, ndate2, tod, ierr
+    integer :: i, ndate1, ndate2, tod, ierr, ntracers
     type (iosystem_desc_t), pointer :: pio_subsystem
+    type (file_desc_t),     pointer :: fh_ini
+    character(len=32), allocatable, target :: tracer_names(:)
+    integer,           allocatable, target :: tracer_types(:)
+    character(len=StrKIND) :: mesh_filename
+    integer :: mesh_iotype
+    type (mpas_pool_type), pointer :: state
+    integer, pointer :: nVertLevels, maxEdges, maxEdges2, num_scalars
+    
 
     allocate(corelist, stat=ierr)
     if( ierr /= 0 ) stop
@@ -148,6 +161,57 @@ contains
        call mpp_error(FATAL, 'Clock setup failed for '//trim(domain_ptr%core%coreName))
     end if
 
+    !
+    ! Get the number of tracers.
+    !
+    call get_number_tracers(MODEL_ATMOS, num_tracers=ntracers)
+    allocate (tracer_names(ntracers), tracer_types(ntracers))
+    do i = 1, ntracers
+       call get_tracer_names(MODEL_ATMOS, i, tracer_names(i))
+    enddo
+    print*,'SWALES ntracers = ',ntracers
+    
+    !
+    ! Adding a config named 'cam_pcnst' with the number of constituents will indicate to
+    ! MPAS-A setup code that it is operating as a CAM dycore, and that it is necessary to
+    ! allocate scalars separately from other Registry-defined fields
+    !
+    call mpas_pool_add_config(domain_ptr%configs, 'cam_pcnst', ntracers)
+
+    mesh_iotype   = MPAS_IO_NETCDF  ! Not actually used
+    mesh_filename = 'external mesh file'
+    fh_ini => fh_init(1)
+!    call mpas_bootstrap_framework_phase1(domain_ptr, mesh_filename, mesh_iotype, pio_file_desc=fh_ini)
+
+    !
+    ! Finalize the setup of blocks and fields
+    !
+!    call mpas_bootstrap_framework_phase2(domain_ptr, pio_file_desc=fh_ini)
+
+    !
+    ! Setup threading
+    !
+!    call mpas_atm_threading_init(domain_ptr%blocklist, ierr)
+    if ( ierr /= 0 ) then
+       call mpp_error(FATAL, 'Threading setup failed for core '//trim(domain_ptr % core % coreName))
+    end if
+
+!    !
+!    ! Set up inner dimensions used by arrays in optimized dynamics routines
+!    !
+!    call mpas_pool_get_subpool(domain%blocklist%structs, 'state', state)
+!    call mpas_pool_get_dimension(state, 'nVertLevels', nVertLevels)
+!    call mpas_pool_get_dimension(state, 'maxEdges', maxEdges)
+!    call mpas_pool_get_dimension(state, 'maxEdges2', maxEdges2)
+!    call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
+!    call mpas_atm_set_dims(nVertLevels, maxEdges, maxEdges2, num_scalars)
+!
+!    !
+!    ! Set "local" clock to point to the clock contained in the domain type
+!    !
+!    clock => domain % clock
+!      mpas_log_info => domain % logInfo
+    
   end subroutine atmos_model_init
   
   ! #########################################################################################

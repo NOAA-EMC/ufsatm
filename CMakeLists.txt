@@ -191,7 +191,6 @@ if (MPAS)
     mpas/mpas_cap.F90
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
-    cpl/module_cplscalars.F90
     )
   add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
 endif()
