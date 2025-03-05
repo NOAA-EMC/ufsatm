@@ -9407,6 +9407,22 @@
   type = real
   kind = kind_phys
   active = (flag_for_diagnostics_3D .and. flag_for_nrl_2015_ozone_scheme)
+[dqv_dt_prd]
+  standard_name = water_vapor_tendency_due_to_production_and_loss_rate
+  long_name = water_vapor tendency due to production and loss rate
+  units = kg kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_diagnostics_3D)
+[dqv_dt_qvmx]
+  standard_name = water_vapor_tendency_due_to_water_vapor_mixing_ratio
+  long_name = water_vapor tendency due to water_vapor mixing ratio
+  units = kg kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_diagnostics_3D)
 [refl_10cm]
   standard_name = radar_reflectivity_10cm
   long_name = instantaneous refl_10cm

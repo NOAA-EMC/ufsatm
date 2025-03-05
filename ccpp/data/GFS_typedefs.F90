@@ -2199,6 +2199,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: do3_dt_temp(:,:) => null()
     real (kind=kind_phys), pointer :: do3_dt_ohoz(:,:) => null()
 
+    !--- NRL WV photochemistry diagnostics
+    real (kind=kind_phys), pointer :: dqv_dt_prd(:, :)  => null()
+    real (kind=kind_phys), pointer :: dqv_dt_qvmx(:, :) => null()
+
     contains
       procedure :: create    => diag_create
       procedure :: rad_zero  => diag_rad_zero
@@ -5532,6 +5536,10 @@ module GFS_typedefs
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_physics,.true.)
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_non_physics,.true.)
 
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_prod_loss, h2o_phys)
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_ozmix, h2o_phys)
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_photochem, h2o_phys)
+
           if(.not.Model%do_mynnedmf .and. .not. Model%satmedmf) then
             call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_pbl,have_pbl)
             call fill_dtidx(Model,dtend_select,100+Model%ntcw,Model%index_of_process_pbl,have_pbl)
@@ -7878,6 +7886,10 @@ module GFS_typedefs
          allocate (Diag%do3_dt_temp(IM, Model%levs))
          allocate (Diag%do3_dt_ohoz(IM, Model%levs))
       endif
+      if (Model%h2o_phys) then
+         allocate (Diag%dqv_dt_prd( IM, Model%levs))
+         allocate (Diag%dqv_dt_qvmx(IM, Model%levs))
+      end if
     endif
 
 ! UGWP
@@ -8215,6 +8227,10 @@ module GFS_typedefs
          Diag%do3_dt_temp = zero
          Diag%do3_dt_ohoz = zero
       endif
+      if (Model%h2o_phys) then
+         Diag%dqv_dt_prd  = zero
+         Diag%dqv_dt_qvmx = zero
+      end if
     endif
 
 !
