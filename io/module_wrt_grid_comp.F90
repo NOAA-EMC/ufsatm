@@ -2597,6 +2597,10 @@
       enddo
      enddo
 
+     if (typekind == ESMF_TYPEKIND_R4) then
+        deallocate(lon)
+     endif
+
      call ESMF_LogWrite("call recover field get coord 2",ESMF_LOGMSG_INFO,rc=RC)
 
      call ESMF_GridGetCoord(fieldgrid, coordDim=2, array=lat_array, rc=rc)
@@ -2630,6 +2634,10 @@
         latloc(i,j) = lat(i,j) * pi/180.d0
       enddo
      enddo
+
+     if (typekind == ESMF_TYPEKIND_R4) then
+        deallocate(lat)
+     endif
 !
      allocate(fcstField(fieldCount))
      call ESMF_LogWrite("call recover field get fcstField",ESMF_LOGMSG_INFO,rc=RC)
@@ -2752,6 +2760,8 @@
      enddo
 !
      deallocate(fcstField)
+     deallocate(lonloc)
+     deallocate(latloc)
      rc = 0
 
    end subroutine recover_fields
