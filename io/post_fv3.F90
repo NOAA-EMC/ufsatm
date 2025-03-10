@@ -71,7 +71,7 @@ module post_fv3
       integer,allocatable  :: istagrp(:),iendgrp(:),jstagrp(:),jendgrp(:)
       integer,save         :: kpo,kth,kpv
       logical,save         :: first_run=.true.
-      logical,save         :: read_postcntrl=.false.
+      logical,save         :: read_postcntrl=.true.
       real(4),dimension(komax),save :: po, th, pv
       character(255)       :: post_fname
       integer,save         :: iostatusD3D=-1
@@ -143,7 +143,6 @@ module post_fv3
 !-----------------------------------------------------------------------
 !
       first_grbtbl = first_run
-      read_postcntrl = .true.
 !
 !-----------------------------------------------------------------------
 !*** fill post variables with values from forecast results
@@ -162,20 +161,6 @@ module post_fv3
           call read_xml()
         else if(ifhr > 0) then
           filenameflat = 'postxconfig-NT.txt'
-          if(associated(paramset)) then
-            if(size(paramset)>0) then
-              do i=1,size(paramset)
-                if (associated(paramset(i)%param)) then
-                  if (size(paramset(i)%param)>0) then
-                    deallocate(paramset(i)%param)
-                    nullify(paramset(i)%param)
-                  endif
-                endif
-              enddo
-            endif
-            deallocate(paramset)
-            nullify(paramset)
-          endif
           num_pset = 0
           call read_xml()
           read_postcntrl = .false.

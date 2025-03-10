@@ -12,5 +12,7 @@
   branch = ufs/dev
 [submodule "upp"]
   path = upp
-  url = https://github.com/NOAA-EMC/UPP
-  branch = develop
+  #url = https://github.com/NOAA-EMC/UPP
+  #branch = develop
+  url = https://github.com/DusanJovic-NOAA/UPP
+  branch = memcheck_fixes
