@@ -1379,6 +1379,8 @@ module fv3atm_cap_mod
         write(msgString,'(A,2i4,l3)') "fv3_checkimport "//trim(fldname),n,nf,importFieldsValid(nf)
         call ESMF_LogWrite(msgString,ESMF_LOGMSG_INFO,rc=rc)
       enddo
+
+      deallocate(fieldList)
     endif
 
   end subroutine fv3_checkimport
