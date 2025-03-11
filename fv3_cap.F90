@@ -1251,6 +1251,9 @@ module fv3atm_cap_mod
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     end if
 
+    call ESMF_ClockDestroy(clock_out, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
     timep2re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase2: ")
