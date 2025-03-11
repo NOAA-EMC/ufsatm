@@ -2474,7 +2474,6 @@ module GFS_typedefs
     allocate (Sfcprop%slope_save (IM))
     allocate (Sfcprop%shdmin     (IM))
     allocate (Sfcprop%shdmax     (IM))
-    allocate (Sfcprop%snoalb     (IM))
     allocate (Sfcprop%tg3        (IM))
     allocate (Sfcprop%vfrac      (IM))
     allocate (Sfcprop%vtype      (IM))
@@ -2494,7 +2493,6 @@ module GFS_typedefs
     Sfcprop%slope_save = zero
     Sfcprop%shdmin     = clear_val
     Sfcprop%shdmax     = clear_val
-    Sfcprop%snoalb     = clear_val
     Sfcprop%tg3        = clear_val
     Sfcprop%vfrac      = clear_val
     Sfcprop%vtype      = zero
