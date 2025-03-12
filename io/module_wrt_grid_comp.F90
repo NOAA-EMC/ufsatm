@@ -3264,7 +3264,7 @@
 
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call ESMF_StateDestroy(ioState(i), noGarbage=.true., rc=rc)
+        call ESMF_StateDestroy(ioState(i), rc=rc)
 
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__))  return
       else
@@ -4219,9 +4219,6 @@
 
     ! alias the Attributes on field level
     call ESMF_AttributeCopy(field, tileField, attcopy=ESMF_ATTCOPY_REFERENCE, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    call ESMF_GridDestroy(tileGrid, noGarbage=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! local garbage collection
