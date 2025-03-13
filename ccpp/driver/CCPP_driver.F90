@@ -204,17 +204,17 @@ module CCPP_driver
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
           ! Process-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_process_split"), ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_process_split", ierr=ierr2)
           if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_process_split"), &
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_process_split", &
                                       ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
             write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
             ierr = ierr + ierr2
           endif
           ! Time-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_time_split"), ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_time_split", ierr=ierr2)
           if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_time_split"), &
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_time_split", &
                                       ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
             write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
             ierr = ierr + ierr2
