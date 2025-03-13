@@ -23,7 +23,7 @@
       <scheme>GFS_rrtmg_post</scheme>
     </subcycle>
   </group>
-  <group name="physics">
+  <group name="physics_process_split">
     <subcycle loop="1">
       <scheme>GFS_suite_interstitial_phys_reset</scheme>
       <scheme>GFS_suite_stateout_reset</scheme>
@@ -60,6 +60,10 @@
       <scheme>unified_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
+    </subcycle>
+  </group>
+  <group name="physics_time_split">
+    <subcycle loop="1">
       <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>

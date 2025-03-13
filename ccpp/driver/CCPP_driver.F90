@@ -132,14 +132,22 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_init for "physics"---required for Land IAU
-      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics", ierr=ierr)
+      ! call timestep_init for "physics_process_split"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics_process_split", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics_process_split"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
-      end if      
-            
+      end if
+
+      ! call timestep_init for "physics_time_split"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics_time_split", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics_time_split"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if
+
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! DH* 20210104 - this block of code will be removed once the CCPP framework    !
       ! fully supports handling diagnostics through its metadata, work in progress   !
@@ -194,12 +202,31 @@ module CCPP_driver
             ntX = nt
         end if
         !--- Call CCPP radiation/physics/stochastics group
-        call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
-        if (ierr2/=0) then
-           write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                                     ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-           write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-           ierr = ierr + ierr2
+        if (trim(step)=="physics") then
+          ! Process-split physics
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_process_split"), ierr=ierr2)
+          if (ierr2/=0) then
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_process_split"), &
+                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+            ierr = ierr + ierr2
+          endif
+          ! Time-split physics
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics_time_split"), ierr=ierr2)
+          if (ierr2/=0) then
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics_time_split"), &
+                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+            ierr = ierr + ierr2
+          endif
+        else
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
+          if (ierr2/=0) then
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
+                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+            ierr = ierr + ierr2
+          endif
         end if
       end do
 !$OMP end do
@@ -222,13 +249,21 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_finalize for "physics"---required for Land IAU
-      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr)
+      ! call timestep_finalize for "physics_process_split"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics_process_split", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics_process_split"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
-      end if      
+      end if
+
+      ! call timestep_finalize for "physics_time_split"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics_time_split", ierr=ierr)
+      if (ierr/=0) then
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics_time_split"
+        write(0,'(a)') trim(cdata_domain%errmsg)
+        return
+      end if
 
     ! Physics finalize
     else if (trim(step)=="physics_finalize") then
