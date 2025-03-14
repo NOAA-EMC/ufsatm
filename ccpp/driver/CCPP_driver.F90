@@ -186,7 +186,7 @@ module CCPP_driver
 !$OMP          default (none)                              &
 !$OMP          shared (nblks, nthrdsX, non_uniform_blocks, &
 !$OMP                  cdata_block, ccpp_suite, step,      &
-!$OMP                  GFS_Interstitial)                   &
+!$OMP                  GFS_Control, GFS_Interstitial)      &
 !$OMP          private (nb, nt, ntX, ierr2)                &
 !$OMP          reduction (+:ierr)
 #ifdef _OPENMP
