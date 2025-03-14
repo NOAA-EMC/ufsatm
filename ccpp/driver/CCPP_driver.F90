@@ -132,18 +132,18 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_init for "phys-ps"---required for Land IAU
-      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys-ps", ierr=ierr)
+      ! call timestep_init for "phys_ps"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ps", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys-ps"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ps"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if
 
-      ! call timestep_init for "phys-ts"---required for Land IAU
-      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys-ts", ierr=ierr)
+      ! call timestep_init for "phys_ts"---required for Land IAU
+      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ts", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys-ts"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ts"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if
@@ -204,17 +204,17 @@ module CCPP_driver
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
           ! Process-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys-ps", ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
           if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys-ps", &
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ps", &
                                       ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
             write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
             ierr = ierr + ierr2
           endif
           ! Time-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys-ts", ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
           if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys-ts", &
+            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ts", &
                                       ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
             write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
             ierr = ierr + ierr2
@@ -249,18 +249,18 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_finalize for "phys-ps"---required for Land IAU
-      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys-ps", ierr=ierr)
+      ! call timestep_finalize for "phys_ps"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys-ps"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ps"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if
 
-      ! call timestep_finalize for "phys-ts"---required for Land IAU
-      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys-ts", ierr=ierr)
+      ! call timestep_finalize for "phys_ts"---required for Land IAU
+      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr)
       if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys-ts"
+        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ts"
         write(0,'(a)') trim(cdata_domain%errmsg)
         return
       end if

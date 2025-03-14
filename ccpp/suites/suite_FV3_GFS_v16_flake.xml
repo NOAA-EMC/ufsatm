@@ -28,7 +28,7 @@
       <scheme>GFS_rrtmg_post</scheme>
     </subcycle>
   </group>
-  <group name="phys-ps">
+  <group name="phys_ps">
     <subcycle loop="1">
       <scheme>GFS_suite_interstitial_phys_reset</scheme>
       <scheme>GFS_suite_stateout_reset</scheme>
@@ -68,7 +68,7 @@
       <scheme>GFS_suite_stateout_update</scheme>
     </subcycle>
   </group>
-  <group name="phys-ts">
+  <group name="phys_ts">
     <subcycle loop="1">
       <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
