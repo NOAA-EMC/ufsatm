@@ -12,7 +12,6 @@
   </group>
   <group name="radiation">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_rad_reset</scheme>
       <scheme>GFS_rrtmgp_pre</scheme>
       <scheme>GFS_radiation_surface</scheme>
       <scheme>GFS_rrtmgp_cloud_mp</scheme>
@@ -26,7 +25,6 @@
   </group>
   <group name="phys_ps">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_phys_reset</scheme>
       <scheme>GFS_suite_stateout_reset</scheme>
       <scheme>get_prs_fv3</scheme>
       <scheme>GFS_suite_interstitial_1</scheme>

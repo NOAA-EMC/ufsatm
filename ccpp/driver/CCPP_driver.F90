@@ -13,7 +13,8 @@ module CCPP_driver
                                 cdata_block,                         &
                                 ccpp_suite,                          &
                                 GFS_control,                         &
-                                GFS_Intdiag
+                                GFS_Intdiag,                         &
+                                GFS_Interstitial
 
   implicit none
 
@@ -184,8 +185,9 @@ module CCPP_driver
 !$OMP parallel num_threads (nthrds)                        &
 !$OMP          default (none)                              &
 !$OMP          shared (nblks, nthrdsX, non_uniform_blocks, &
-!$OMP                  cdata_block,ccpp_suite, step)       &
-!$OMP          private (nb,nt,ntX,ierr2)                   &
+!$OMP                  cdata_block, ccpp_suite, step,      &
+!$OMP                  GFS_Interstitial)                   &
+!$OMP          private (nb, nt, ntX, ierr2)                &
 !$OMP          reduction (+:ierr)
 #ifdef _OPENMP
       nt = omp_get_thread_num()+1
@@ -203,6 +205,8 @@ module CCPP_driver
         end if
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
+          ! Reset GFS_Interstitial DDT physics fields for this thread
+          call GFS_Interstitial(ntX)%phys_reset(GFS_control)
           ! Process-split physics
           call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
           if (ierr2/=0) then
@@ -220,6 +224,11 @@ module CCPP_driver
             ierr = ierr + ierr2
           endif
         else
+          if (trim(step)=="radiation") then
+            ! Reset GFS_Interstitial DDT radiation fields for this thread
+            call GFS_Interstitial(ntX)%rad_reset(GFS_control)
+          end if
+          ! Radiation
           call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
           if (ierr2/=0) then
             write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
