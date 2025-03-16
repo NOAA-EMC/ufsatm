@@ -1,7 +1,7 @@
 [submodule "atmos_cubed_sphere"]
   path = atmos_cubed_sphere
   url = https://github.com/hafs-community/GFDL_atmos_cubed_sphere
-  branch = support/HAFS
+  branch = production/hafs.v2.1
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
@@ -13,4 +13,4 @@
 [submodule "upp"]
   path = upp
   url = https://github.com/hafs-community/UPP
-  branch = feature/hafsv2p1_baseline
+  branch = production/hafs.v2.1
