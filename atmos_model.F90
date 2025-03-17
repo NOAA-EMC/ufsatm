@@ -705,9 +705,8 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    Init_parm%restart         = Atm(mygrid)%flagstruct%warm_start
    Init_parm%hydrostatic     = Atm(mygrid)%flagstruct%hydrostatic
 
-   ! allocate required to work around GNU compiler bug 100886 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100886
    allocate(Init_parm%input_nml_file, mold=input_nml_file)
-   Init_parm%input_nml_file  => input_nml_file
+   Init_parm%input_nml_file = input_nml_file
    Init_parm%fn_nml='using internal file'
 
    call GFS_initialize (GFS_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
@@ -3344,7 +3343,7 @@ end subroutine update_atmos_chemistry
             !--- Instantaneous quantities
             ! Instantaneous mean layer pressure (Pa)
             case ('inst_pres_levels')
-              call block_data_copy_or_fill(datar83d, GFS_statein%prsl, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)  
+              call block_data_copy_or_fill(datar83d, GFS_statein%prsl, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous geopotential at model layer centers (m2 s-2)
             case ('inst_geop_levels')
               call block_data_copy_or_fill(datar83d, GFS_statein%phil, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
@@ -3356,7 +3355,7 @@ end subroutine update_atmos_chemistry
               call block_data_copy_or_fill(datar83d, GFS_statein%vgrs, zeror8, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous surface roughness length (cm)
             case ('inst_surface_roughness')
-              call block_data_copy(datar82d, GFS_sfcprop%zorl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)            
+              call block_data_copy(datar82d, GFS_sfcprop%zorl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             ! Instantaneous u wind (m/s) 10 m above ground
             case ('inst_zonal_wind_height10m')
               call block_data_copy(datar82d, GFS_coupling%u10mi_cpl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
