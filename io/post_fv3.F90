@@ -71,7 +71,7 @@ module post_fv3
       integer,allocatable  :: istagrp(:),iendgrp(:),jstagrp(:),jendgrp(:)
       integer,save         :: kpo,kth,kpv
       logical,save         :: first_run=.true.
-      logical,save         :: read_postcntrl=.true.
+      logical,save         :: read_postcntrl=.false.
       real(4),dimension(komax),save :: po, th, pv
       character(255)       :: post_fname
       integer,save         :: iostatusD3D=-1
@@ -143,6 +143,7 @@ module post_fv3
 !-----------------------------------------------------------------------
 !
       first_grbtbl = first_run
+      read_postcntrl = .true.
 !
 !-----------------------------------------------------------------------
 !*** fill post variables with values from forecast results
