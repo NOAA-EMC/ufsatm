@@ -4651,6 +4651,7 @@ module GFS_typedefs
     Model%doGP_lwscat         = doGP_lwscat
     Model%doGP_sgs_cnv        = doGP_sgs_cnv
     Model%doGP_sgs_mynn       = doGP_sgs_mynn
+    Model%doGP_smearclds      = doGP_smearclds
     Model%rrtmgp_lw_phys_blksz   = rrtmgp_lw_phys_blksz
     Model%rrtmgp_sw_phys_blksz   = rrtmgp_sw_phys_blksz
     if (Model%do_RRTMGP) then
