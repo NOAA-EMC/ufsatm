@@ -8,7 +8,7 @@
   branch = main
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
+  url = https://github.com/Qingfu-Liu/ccpp-physics
   branch = ufs/dev
 [submodule "upp"]
   path = upp
