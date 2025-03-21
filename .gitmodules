@@ -8,8 +8,8 @@
   branch = main
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  url = https://github.com/MicroTed/ccpp-physics
+  branch = nssl3m-update2025a
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
