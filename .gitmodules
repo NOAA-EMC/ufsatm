@@ -9,7 +9,7 @@
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/hafs-community/ccpp-physics
-  branch = feature/hafsv2p1_phase3
+  branch = production/hafs.v2.1
 [submodule "upp"]
   path = upp
   url = https://github.com/hafs-community/UPP
