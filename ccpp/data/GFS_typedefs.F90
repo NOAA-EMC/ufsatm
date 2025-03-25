@@ -1204,6 +1204,7 @@ module GFS_typedefs
     integer              :: imfshalcnv_c3       = 5 !< flag for the Community Convective Cloud (C3) scheme
     logical              :: hwrf_samfdeep           !< flag for HWRF SAMF deepcnv scheme (HWRF)
     logical              :: progsigma               !< flag for prognostic area fraction in samf ddepcnv scheme (GFS)
+    logical              :: progomega               !< flag for prognostic vertical velocity in samf ddepcnv scheme (GFS)
     integer              :: imfdeepcnv      !< flag for mass-flux deep convection scheme
                                             !<     1: July 2010 version of SAS conv scheme
                                             !<           current operational version as of 2016
@@ -1504,6 +1505,7 @@ module GFS_typedefs
     integer              :: nthz            !< tracer index for hail reflectivity
     integer              :: ntke            !< tracer index for kinetic energy
     integer              :: ntsigma         !< tracer index for updraft area fraction
+    integer              :: ntomega         !< tracer index for updraft velocity
     integer              :: nto             !< tracer index for oxygen ion
     integer              :: nto2            !< tracer index for oxygen
     integer              :: ntwa            !< tracer index for water friendly aerosol
@@ -3221,7 +3223,7 @@ module GFS_typedefs
        allocate (Coupling%dqdt_qmicro (IM,Model%levs))
        Coupling%dqdt_qmicro = clear_val
     endif
-
+    
     !--- stochastic physics option
     if (Model%do_sppt .or. Model%ca_global) then
       allocate (Coupling%sppt_wts  (IM,Model%levs))
@@ -3762,7 +3764,8 @@ module GFS_typedefs
 
     logical              :: hwrf_samfdeep     = .false.               !< flag for HWRF SAMF deepcnv scheme
     logical              :: hwrf_samfshal     = .false.               !< flag for HWRF SAMF shalcnv scheme
-    logical              :: progsigma         = .false.               !< flag for prognostic updraft area fraction closure in saSAS or Unified conv.
+    logical              :: progsigma         = .false.               !< flag for prognostic updraft area fraction closure in saSAS or C3
+    logical              :: progomega         = .false.               !< flag for prognostic updraft velocity in saSAS or C3
     integer              :: conv_cf_opt       =  0                    !< option for convection scheme cloud fraction computation
     logical              :: do_mynnedmf       = .false.               !< flag for MYNN-EDMF
     logical              :: do_mynnsfclay     = .false.               !< flag for MYNN Surface Layer Scheme
@@ -4145,9 +4148,9 @@ module GFS_typedefs
                                do_ugwp_v1, do_ugwp_v1_orog_only,  do_ugwp_v1_w_gsldrag,     &
                                ugwp_seq_update, var_ric, coef_ric_l, coef_ric_s, hurr_pbl,  &
                                do_myjsfc, do_myjpbl,                                        &
-                               hwrf_samfdeep, hwrf_samfshal,progsigma,betascu,betamcu,      &
-                               betadcu,h2o_phys, pdfcld, shcnvcw, redrag, hybedmf, satmedmf,&
-                               sigmab_coldstart,                                            &
+                               hwrf_samfdeep, hwrf_samfshal,progsigma,progomega,betascu,    &
+                               betamcu, betadcu,h2o_phys, pdfcld, shcnvcw, redrag,          &
+                               hybedmf, satmedmf, sigmab_coldstart,                         &
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
                                xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
                                isatmedmf, conv_cf_opt, do_deep, jcap,                       &
@@ -4968,7 +4971,7 @@ module GFS_typedefs
     Model%hwrf_samfdeep = hwrf_samfdeep
     Model%hwrf_samfshal = hwrf_samfshal
 
-    !--prognostic closure - moisture coupling                                                                                 
+    !--prognostic closure - check                                                                                 
     if ((progsigma .and. imfdeepcnv/=2) .and. (progsigma .and. imfdeepcnv/=5)) then
        write(*,*) 'Logic error: progsigma requires imfdeepcnv=2 or 5'
        stop
@@ -4979,6 +4982,13 @@ module GFS_typedefs
     Model%betadcu = betadcu
     Model%sigmab_coldstart = sigmab_coldstart 
 
+    !--prognostic closure - check
+    if (progomega .and. imfdeepcnv/=2) then
+       write(*,*) 'Logic error: progomega requires imfdeepcnv=2'
+       stop
+    end if
+    Model%progomega = progomega
+    
     if (oz_phys .and. oz_phys_2015) then
        write(*,*) 'Logic error: can only use one ozone physics option (oz_phys or oz_phys_2015), not both. Exiting.'
        stop
@@ -5266,6 +5276,7 @@ module GFS_typedefs
     Model%nthz             = get_tracer_index(Model%tracer_names, 'hail_ref',   Model%me, Model%master, Model%debug)
     Model%ntke             = get_tracer_index(Model%tracer_names, 'sgs_tke',    Model%me, Model%master, Model%debug)
     Model%ntsigma          = get_tracer_index(Model%tracer_names, 'sigmab',     Model%me, Model%master, Model%debug)
+    Model%ntomega          = get_tracer_index(Model%tracer_names, 'omegab',     Model%me, Model%master, Model%debug)
     Model%nqrimef          = get_tracer_index(Model%tracer_names, 'q_rimef',    Model%me, Model%master, Model%debug)
     Model%ntwa             = get_tracer_index(Model%tracer_names, 'liq_aero',   Model%me, Model%master, Model%debug)
     Model%ntia             = get_tracer_index(Model%tracer_names, 'ice_aero',   Model%me, Model%master, Model%debug)
@@ -7066,6 +7077,7 @@ module GFS_typedefs
       print *, ' nthz              : ', Model%nthz
       print *, ' ntke              : ', Model%ntke
       print *, ' ntsigma           : ', Model%ntsigma
+      print *, ' ntomega           : ', Model%ntomega
       print *, ' nto               : ', Model%nto
       print *, ' nto2              : ', Model%nto2
       print *, ' ntwa              : ', Model%ntwa
