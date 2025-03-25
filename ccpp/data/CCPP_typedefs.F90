@@ -1018,15 +1018,23 @@ contains
     if (Model%ntke > 0) Interstitial%ntkev = Interstitial%nvdiff
 
     if (Model%ntiw > 0) then
-      if (Model%ntclamt > 0 .and. Model%ntsigma <= 0) then
-        Interstitial%nn = Model%ntrac - 2
-      elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0) then
-        Interstitial%nn = Model%ntrac - 2
-      elseif  (Model%ntclamt > 0 .and. Model%ntsigma > 0) then
-        Interstitial%nn = Model%ntrac - 3
-      else
-        Interstitial%nn = Model%ntrac - 1
-      endif
+        if (Model%ntclamt > 0 .and. Model%ntsigma > 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 4
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma > 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma <= 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma <= 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 2
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 2
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma <= 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 2
+        else
+           Interstitial%nn = Model%ntrac - 1
+        endif
     elseif (Model%ntcw > 0) then
       Interstitial%nn = Model%ntrac
     else
@@ -1046,7 +1054,7 @@ contains
                   n /= Model%nthl  .and. n /= Model%nthnc .and. n /= Model%ntgv    .and. &
                   n /= Model%nthv  .and. n /= Model%ntccn .and. n /= Model%ntccna  .and. &
                   n /= Model%ntrz  .and. n /= Model%ntgz  .and. n /= Model%nthz    .and. &
-                  n /= Model%ntsigma)
+                  n /= Model%ntsigma .and.  n /= Model%ntomega)
         Interstitial%otsptflag(n) = ltest
         if ( ltest ) then
           tracers = tracers + 1
@@ -1624,8 +1632,8 @@ contains
     else
       Interstitial%ngas  = 0
     end if
-    allocate (Interstitial%rilist(0:Interstitial%ngas))
-    allocate (Interstitial%cpilist(0:Interstitial%ngas))
+    allocate(Interstitial%rilist(0:Interstitial%ngas))
+    allocate(Interstitial%cpilist(0:Interstitial%ngas))
     if (present(rilist)) then
       Interstitial%rilist  = rilist(0:Interstitial%ngas)
       Interstitial%cpilist = cpilist(0:Interstitial%ngas)
