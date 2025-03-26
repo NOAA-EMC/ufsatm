@@ -61,15 +61,15 @@ module GFS_restart
     !--- local variables
     integer :: idx, ndiag_rst
     integer :: ndiag_idx(20), itime
-    integer :: nblks, num, nb, max_rstrt, offset 
+    integer :: nblks, num, nb, max_rstrt, offset
     character(len=2) :: c2 = ''
     logical :: surface_layer_saves_rainprev
-    
+
     nblks = size(Init_parm%blksz)
     max_rstrt = size(Restart%name2d)
 
     !--- check if continuous accumulated total precip and total cnvc precip are
-    !requested in output 
+    !requested in output
     ndiag_rst = 0
     ndiag_idx(1:20) = 0
     do idx=1, size(ExtDiag)
@@ -130,7 +130,7 @@ module GFS_restart
       Restart%num2d = Restart%num2d + 10
       surface_layer_saves_rainprev = .true.
     endif
-    ! RUC 
+    ! RUC
     if (Model%lsm == Model%lsm_ruc) then
       Restart%num2d = Restart%num2d + 5
       surface_layer_saves_rainprev = .true.
@@ -179,7 +179,7 @@ module GFS_restart
       Restart%num3d = Restart%num3d + 9
     endif
     if (Model%rrfs_sd) then
-      Restart%num3d = Restart%num3d + 4
+      Restart%num3d = Restart%num3d + 5
     endif
     !Prognostic area fraction
     if (Model%progsigma) then
@@ -347,7 +347,7 @@ module GFS_restart
         Restart%data(nb,num)%var2p => Sfcprop%dgraupelprv(Model%chunk_begin(nb):Model%chunk_end(nb))
       enddo
     endif
-    ! RUC 
+    ! RUC
     if (Model%lsm == Model%lsm_ruc) then
       num = num + 1
       Restart%name2d(num) = 'ruc_2d_raincprv'
@@ -568,7 +568,7 @@ module GFS_restart
       enddo
     endif
 
-    !Unified convection scheme                                                                                                                                                                    
+    !Unified convection scheme
     if (Model%imfdeepcnv == Model%imfdeepcnv_c3) then
       num = num + 1
       Restart%name3d(num) = 'gf_3d_prevst'
@@ -688,6 +688,11 @@ module GFS_restart
       Restart%name3d(num) = 'chem3d_3'
       do nb = 1,nblks
         Restart%data(nb,num)%var3p => Coupling%chem3d(Model%chunk_begin(nb):Model%chunk_end(nb),:,3)
+      enddo
+      num = num + 1
+      Restart%name3d(num) = 'ebu_smoke'
+      do nb = 1,nblks
+        Restart%data(nb,num)%var3p => Coupling%ebu_smoke(Model%chunk_begin(nb):Model%chunk_end(nb),:)
       enddo
       num = num + 1
       Restart%name3d(num) = 'ext550'
