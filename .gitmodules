@@ -10,8 +10,8 @@
   path = ccpp/physics
   #url = https://github.com/ufs-community/ccpp-physics
   #branch = ufs/dev
-  url = https://github.com/grantfirl/ccpp-physics
-  branch = tempo_dev_gjf
+  url = https://github.com/AndersJensen-NOAA/ccpp-physics
+  branch = tempo_dev
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
