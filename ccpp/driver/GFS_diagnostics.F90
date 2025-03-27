@@ -955,7 +955,7 @@ module GFS_diagnostics
 !--- air quality diagnostics ---
   if (Model%cplaqm) then
     if (associated(IntDiag%aod)) then
-      print*, 'GFS_diagnostics: aod ', IntDiag%aod
+!      print*, 'GFS_diagnostics: aod ', IntDiag%aod
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'aod'
@@ -975,7 +975,7 @@ module GFS_diagnostics
 
 ! IVAI: photdiag fields
     if (associated(IntDiag%coszens)) then
-      print*, 'GFS_diagnostics: coszens ', IntDiag%coszens
+!      print*, 'GFS_diagnostics: coszens ', IntDiag%coszens
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'COSZENS'
@@ -989,7 +989,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%jo3o1d)) then
-      print*, 'GFS_diagnostics: jo3o1d ', IntDiag%jo3o1d
+!      print*, 'GFS_diagnostics: jo3o1d ', IntDiag%jo3o1d
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JO3O1D'
@@ -1003,7 +1003,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%jno2)) then
-      print*, 'GFS_diagnostics: jno2 ', IntDiag%jno2
+!      print*, 'GFS_diagnostics: jno2 ', IntDiag%jno2
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'JNO2'
@@ -1018,7 +1018,7 @@ module GFS_diagnostics
 
 !IVAI: canopy arrays read via aqm_emis_read
     if (associated(IntDiag%claie)) then
-      print*, 'GFS_diagnostics: claie ', IntDiag%claie
+!      print*, 'GFS_diagnostics: claie ', IntDiag%claie
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CLAIE'
@@ -1032,7 +1032,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cfch)) then
-      print*, 'GFS_diagnostics: cfch   ', IntDiag%cfch
+!      print*, 'GFS_diagnostics: cfch   ', IntDiag%cfch
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CFCH'
@@ -1046,7 +1046,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cfrt)) then
-      print*, 'GFS_diagnostics: cfrt ', IntDiag%cfrt
+!      print*, 'GFS_diagnostics: cfrt ', IntDiag%cfrt
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CFRT'
@@ -1060,7 +1060,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cclu)) then
-      print*, 'GFS_diagnostics: cclu ', IntDiag%cclu
+!      print*, 'GFS_diagnostics: cclu ', IntDiag%cclu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CCLU'
@@ -1074,7 +1074,7 @@ module GFS_diagnostics
     endif
 
     if (associated(IntDiag%cpopu)) then
-      print*, 'GFS_diagnostics: cpopu ', IntDiag%cpopu
+!      print*, 'GFS_diagnostics: cpopu ', IntDiag%cpopu
       idx = idx + 1
       ExtDiag(idx)%axes = 2
       ExtDiag(idx)%name = 'CPOPU'
