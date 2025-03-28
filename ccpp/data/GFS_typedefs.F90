@@ -1265,6 +1265,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: betascu         !< Tuning parameter for prog. closure shallow clouds
     real(kind=kind_phys) :: betamcu         !< Tuning parameter for prog. closure midlevel clouds 
     real(kind=kind_phys) :: betadcu         !< Tuning parameter for prog. closure deep clouds 
+    logical              :: sigmab_coldstart !< flag to cold start sigmab
 
     !--- MYNN parameters/switches
     logical              :: do_mynnedmf
@@ -1801,7 +1802,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hpbl     (:)     => null()  !< Planetary boundary layer height
     real (kind=kind_phys), pointer :: ud_mf  (:,:)     => null()  !< updraft mass flux
 
-!-- Diagnostic variable that passes to dyn_core (Samuel)
+!-- Diagnostic variable that passes to dyn_core (SA-3D-TKE)
     real (kind=kind_phys), pointer :: dku3d_h  (:,:)     => null()  !< Horizontal eddy diffusitivity for momentum
     real (kind=kind_phys), pointer :: dku3d_e  (:,:)     => null()  !< Eddy diffusitivity for momentum for tke
 
@@ -3813,6 +3814,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: betascu           = 8.0 !< Tuning parameter for prog. closure shallow clouds
     real(kind=kind_phys) :: betamcu           = 1.0 !< Tuning parameter for prog. closure midlevel clouds
     real(kind=kind_phys) :: betadcu           = 2.0 !< Tuning parameter for prog. closure deep clouds
+    logical              :: sigmab_coldstart  = .false. !< flag to cold start sigmab
     ! *DH
     logical              :: do_myjsfc         = .false.               !< flag for MYJ surface layer scheme
     logical              :: do_myjpbl         = .false.               !< flag for MYJ PBL scheme
@@ -4167,6 +4169,7 @@ module GFS_typedefs
                                do_myjsfc, do_myjpbl,                                        &
                                hwrf_samfdeep, hwrf_samfshal,progsigma,betascu,betamcu,      &
                                betadcu,h2o_phys, pdfcld, shcnvcw, redrag, hybedmf, satmedmf,&
+                               sigmab_coldstart,                                            &
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
                                xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
                                isatmedmf, conv_cf_opt, do_deep, jcap,                       &
@@ -4998,6 +5001,7 @@ module GFS_typedefs
     Model%betascu = betascu
     Model%betamcu = betamcu
     Model%betadcu = betadcu
+    Model%sigmab_coldstart = sigmab_coldstart 
 
     if (oz_phys .and. oz_phys_2015) then
        write(*,*) 'Logic error: can only use one ozone physics option (oz_phys or oz_phys_2015), not both. Exiting.'
@@ -5152,7 +5156,7 @@ module GFS_typedefs
     Model%diag_flux        = diag_flux
 !--- flux method in 2-m diagnostics (for stable conditions)
     Model%diag_log         = diag_log
-!--- 3D vertical diffusion option
+!--- SA-3D-TKE option
     Model%sa3dtke          = sa3dtke
 
 !--- vertical diffusion
@@ -7035,6 +7039,7 @@ module GFS_typedefs
       print *, 'betascu            : ', Model%betascu
       print *, 'betamcu            : ', Model%betamcu
       print *, 'betadcu            : ', Model%betadcu
+      print *, 'sigmab_coldstart   : ', Model%sigmab_coldstart
       print *, ' '
       print *, 'cellular automata'
       print *, ' nca               : ', Model%nca
@@ -7363,7 +7368,7 @@ module GFS_typedefs
     allocate (Tbd%hpbl (IM))
     Tbd%hpbl     = clear_val
 
-! Allocate dku for dyn_core (Samuel)
+! Allocate horizontal component of dku for dyn_core (SA-3D-TKE)
     allocate (Tbd%dku3d_h (IM,Model%levs))
     Tbd%dku3d_h    = clear_val
     allocate (Tbd%dku3d_e (IM,Model%levs))

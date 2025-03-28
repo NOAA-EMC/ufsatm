@@ -270,7 +270,8 @@ subroutine update_atmos_radiation_physics (Atmos)
     call set_atmosphere_pelist()
     call mpp_clock_begin(getClock)
     if (GFS_control%do_skeb) call atmosphere_diss_est (GFS_control%skeb_npass) !  do smoothing for SKEB
-    call atmos_phys_driver_statein (GFS_Control, GFS_Statein, Atm_block, flip_vc)
+    ! SA-3D-TKE added GFS_Tbd (kyf)
+    call atmos_phys_driver_statein (GFS_Control, GFS_Statein, GFS_Tbd, Atm_block, flip_vc)
     call mpp_clock_end(getClock)
 
 !--- if dycore only run, set up the dummy physics output state as the input state
@@ -753,7 +754,8 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    endif
    ! Populate the GFS_Statein container with the prognostic state
    ! in Atm_block, which contains the initial conditions/restart data.
-   call atmos_phys_driver_statein (GFS_control, GFS_statein, Atm_block, flip_vc)
+   ! SA-3D-TKE added GFS_Tbd (kyf)
+   call atmos_phys_driver_statein (GFS_control, GFS_statein, GFS_Tbd, Atm_block, flip_vc)
 
    ! When asked to calculate 3-dim. tendencies, set Stateout variables to
    ! Statein variables here in order to capture the first call to dycore
