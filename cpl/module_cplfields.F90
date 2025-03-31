@@ -125,6 +125,8 @@ module module_cplfields
     FieldInfo("inst_temp_height_lowest_from_phys        ", "s"), &
     FieldInfo("inst_exner_function_height_lowest        ", "s"), &
     FieldInfo("surface_friction_velocity                ", "s"), &
+    ! FieldInfo("fraction_of_vegetation_category          ", "s"), &
+    ! FieldInfo("number_of_vegetation_categories          ", "s"), &
 
 
     !  For JEDI
@@ -274,7 +276,10 @@ module module_cplfields
     "leaf_area_index                 ", &
     "soil_type                       ", &
     "temperature_of_soil_layer       ", &
-    "height                          "  &
+    "height                          ", &
+    "vegetation_type                 " &
+    ! "number_of_vegetation_categories ", &
+    ! "fraction_of_vegetation_category "  &
     ]
 
   ! Methods
