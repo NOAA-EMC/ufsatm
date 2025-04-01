@@ -158,7 +158,8 @@ endif()
 target_link_libraries(fv3atm PUBLIC fv3
                                     fv3ccpp
                                     stochastic_physics
-                                    fms)
+                                    fms
+                                    ufs_utils)
 
 target_link_libraries(fv3atm PUBLIC w3emc::w3emc_d
                                     sp::sp_d

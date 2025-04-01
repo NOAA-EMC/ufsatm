@@ -79,6 +79,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
   use atmos_model_mod,        only: setup_exportdata
   use CCPP_data,              only: GFS_control
+  use ufs_trace_mod
 !
 !-----------------------------------------------------------------------
 !
@@ -107,7 +108,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
   integer :: frestart(999)
 
-  integer :: mype
+  integer :: mype = -1
 !
 !-----------------------------------------------------------------------
 !
@@ -124,7 +125,17 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     type(ESMF_GridComp)  :: fcst_comp
     integer, intent(out) :: rc
 
+    type(ESMF_VM)               :: vm
+
     rc = ESMF_SUCCESS
+
+    call ESMF_GridCompGet(fcst_comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_VMGet(vm, localpet=mype, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (mype == 0) call ufs_trace_init()
 
     call ESMF_GridCompSetEntryPoint(fcst_comp, ESMF_METHOD_INITIALIZE, &
                                     userRoutine=fcst_initialize, phase=1, rc=rc)
@@ -618,6 +629,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
     timeis = mpi_wtime()
     rc     = ESMF_SUCCESS
+    if (mype == 0) call ufs_trace("fv3", "fcst_initialize", "B")
 !
     call ESMF_VMGetCurrent(vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1160,6 +1172,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                          ntracers=numTracers)
 
       if (mype == 0) write(*,*)'fcst_initialize total time: ', mpi_wtime() - timeis
+    if (mype == 0) call ufs_trace("fv3", "fcst_initialize", "E")
 !
 !-----------------------------------------------------------------------
 !
@@ -1220,6 +1233,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
+    if (mype == 0) call ufs_trace("fv3", "fcst_advertise", "B")
     call ESMF_VMGetCurrent(vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -1234,6 +1248,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !-----------------------------------------------------------------------
 !
+    if (mype == 0) call ufs_trace("fv3", "fcst_advertise", "E")
    end subroutine fcst_advertise
 !
 !-----------------------------------------------------------------------
@@ -1261,6 +1276,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
+    if (mype == 0) call ufs_trace("fv3", "fcst_realize", "B")
     call ESMF_VMGetCurrent(vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -1276,6 +1292,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !-----------------------------------------------------------------------
 !
+    if (mype == 0) call ufs_trace("fv3", "fcst_realize", "E")
    end subroutine fcst_realize
 !
 !-----------------------------------------------------------------------
@@ -1305,6 +1322,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_run_phase_1", "B")
       tbeg1 = mpi_wtime()
       rc    = ESMF_SUCCESS
 !
@@ -1344,6 +1362,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_run_phase_1", "E")
    end subroutine fcst_run_phase_1
 !
 !-----------------------------------------------------------------------
@@ -1377,6 +1396,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_run_phase_2", "B")
       tbeg1 = mpi_wtime()
       rc    = ESMF_SUCCESS
 !
@@ -1453,6 +1473,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_run_phase_2", "E")
    end subroutine fcst_run_phase_2
 !
 !-----------------------------------------------------------------------
@@ -1480,6 +1501,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_finalize", "B")
       tbeg1 = mpi_wtime()
       rc    = ESMF_SUCCESS
 
@@ -1493,6 +1515,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !-----------------------------------------------------------------------
 !
+      if (mype == 0) call ufs_trace("fv3", "fcst_finalize", "E")
   end subroutine fcst_finalize
 !
 !#######################################################################
