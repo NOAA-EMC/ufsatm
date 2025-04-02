@@ -205,7 +205,7 @@ type(DYCORE_data_type),    allocatable :: DYCORE_Data(:)  ! number of blocks
 !  GFS containers
 !----------------
 type(GFS_externaldiag_type), target :: GFS_Diag(DIAG_SIZE)
-type(GFS_restart_type)              :: GFS_restart_var
+type(GFS_restart_type)     , allocatable, target :: GFS_restart_var(:)
 
 !--------------
 ! IAU container
@@ -1023,7 +1023,7 @@ subroutine update_atmos_model_state (Atmos, rc)
       call atmosphere_nggps_diag(Atmos%Time)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
                             GFS_control%levs, 1, 1, 1.0_GFS_kind_phys, time_int, time_intfull, &
-                            GFS_control%fhswr, GFS_control%fhlwr)
+                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control)
     endif
 
     !---  find current fhzero
@@ -1153,7 +1153,7 @@ subroutine atmos_model_restart(Atmos, timestamp)
 
     if (quilting_restart) then
        call fv_sfc_restart_output(GFS_sfcprop, Atm_block, GFS_control)
-       call fv_phy_restart_output(GFS_restart_var, Atm_block)
+       call fv_phy_restart_output(GFS_restart_var, Atm_block, GFS_Control)
        call fv_dyn_restart_output(Atm(mygrid), timestamp)
     else
        call atmosphere_restart(timestamp)
