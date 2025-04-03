@@ -1,6 +1,6 @@
 [submodule "atmos_cubed_sphere"]
   path = atmos_cubed_sphere
-  url = https://github.com/LarissaReames-NOAA/GFDL_atmos_cubed_sphere.git
+  url = https://github.com/MicroTed/GFDL_atmos_cubed_sphere.git
   branch = ideal-periodic
 [submodule "ccpp/framework"]
   path = ccpp/framework
