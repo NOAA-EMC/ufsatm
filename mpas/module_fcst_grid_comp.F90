@@ -16,6 +16,7 @@ module module_fcst_grid_comp
                                 operator (*), THIRTY_DAY_MONTHS, JULIAN, GREGORIAN, NOLEAP, &
                                 NO_CALENDAR, date_to_string, get_date, get_time
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_data_type
+  use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics
   use constants_mod,      only: constants_init
   use fms_mod,            only: error_mesg, fms_init, fms_end, write_version_number,        &
                                 uppercase
@@ -101,7 +102,7 @@ contains
     type(ESMF_Config) :: cf
     real(kind=8) :: mpi_wtime, tbeg1
     logical :: fexist
-    integer :: initClock, total_inttime, io_unit, calendar_type_res, date_res(6), date_init_res(6)
+    integer :: initClock, io_unit, calendar_type_res, date_res(6), date_init_res(6)
     integer,dimension(6) :: date, date_end, days
     type(time_type) :: Time_init, Time, Time_step, Time_end, Time_restart, Time_step_restart
 
@@ -248,8 +249,7 @@ contains
     ! Initialize component models.
     ! atmos_model_init() calls the MPAS dycore initialization.
     ! #######################################################################################
-    call get_time(Time_end - Time_init, total_inttime)
-    call atmos_model_init(fcst_mpi_comm, mpp_root_pe(), mpp_pe(), date_init, date_end, total_inttime, calendar)
+    call atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, fcst_mpi_comm, calendar)
 
     ! Timing info (debug mode)
     if (mype == 0) write(*,*)'PASS(fcst_initialize): Time is ', mpi_wtime() - tbeg1
@@ -306,7 +306,9 @@ contains
     n_atmsteps = seconds/dt_atmos
 
     ! Call forecast integration subroutines...
-
+    call atmos_model_dynamics (Atmos)
+    call atmos_model_radiation_physics (Atmos)
+    
     ! Timing info (debug mode)
     if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS(fcstRUN phase 1), n_atmsteps = ', &
                                                n_atmsteps,' time is ',mpi_wtime()-tbeg1

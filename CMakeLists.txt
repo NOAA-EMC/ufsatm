@@ -175,8 +175,10 @@ if (MPAS)
   endif()
   set(DO_MPASDA        OFF)
   set(DO_PHYSICS       OFF)
-  set(MPAS_USE_MPI_F08 TRUE)
   add_definitions(-DMPAS_USE_MPI_F08)
+  add_definitions(-DMPAS_PIO_SUPPORT)
+  add_definitions(-DMPAS_CAM_DYCORE)
+  add_definitions(-DMPAS_UFS_DYCORE)
 
   # Source files for MPAS dynamical core drivers.
   set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas.F)
@@ -189,8 +191,11 @@ if (MPAS)
   add_library(${DYCORE_TARGET}
     mpas/atmos_model.F90
     mpas/mpas_cap.F90
+    mpas/ufs_mpas_subdriver.F90
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
+    ccpp/data/MPAS_typedefs.F90
+    ccpp/driver/MPAS_init.F90
     )
   add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
 endif()

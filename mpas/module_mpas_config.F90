@@ -26,5 +26,9 @@ module module_mpas_config
   !> PIO
   type(iosystem_desc_t), dimension(1), target, public :: pio_subsystems
   type(file_desc_t),     dimension(1), target, public :: fh_init
+  integer :: pio_iotype
+  character(len=256)  :: ic_file_path
+  !type(file_desc_t), pointer :: fh_init(1) => null()
+  !type(file_desc_t) :: fh_init
   
 end module module_mpas_config
