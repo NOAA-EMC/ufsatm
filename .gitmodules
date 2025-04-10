@@ -14,7 +14,5 @@
   branch = memcheck_fixes
 [submodule "upp"]
   path = upp
-  #url = https://github.com/NOAA-EMC/UPP
-  #branch = develop
-  url = https://github.com/DusanJovic-NOAA/UPP
-  branch = memcheck_fixes
+  url = https://github.com/NOAA-EMC/UPP
+  branch = develop
