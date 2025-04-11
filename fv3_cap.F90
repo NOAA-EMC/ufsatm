@@ -1015,6 +1015,9 @@ module fv3atm_cap_mod
 
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
+    call ESMF_ConfigDestroy(cf, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, init time=',MPI_Wtime()-timeis,mype
 !-----------------------------------------------------------------------
 !
@@ -1290,6 +1293,9 @@ module fv3atm_cap_mod
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     end if
 
+    call ESMF_ClockDestroy(clock_out, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
     timep2re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase2: ")
@@ -1415,6 +1421,8 @@ module fv3atm_cap_mod
         write(msgString,'(A,2i4,l3)') "fv3_checkimport "//trim(fldname),n,nf,importFieldsValid(nf)
         call ESMF_LogWrite(msgString,ESMF_LOGMSG_INFO,rc=rc)
       enddo
+
+      deallocate(fieldList)
     endif
 
   end subroutine fv3_checkimport
