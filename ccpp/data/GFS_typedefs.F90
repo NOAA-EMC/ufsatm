@@ -3707,7 +3707,7 @@ module GFS_typedefs
     logical              :: do_ugwp_v1_orog_only = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
     logical              :: do_ugwp_v1_w_gsldrag = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
 !--- vay-2018
-    logical              :: do_ngw_ec            = .false.      !< flag for ecmwf ngwd
+    logical              :: do_ngw_ec            = .false.      !< flag for ecmwf ngwd algorithm
     logical              :: ldiag_ugwp      = .false.                 !< flag for UGWP diag fields
     logical              :: ugwp_seq_update = .false.                 !< flag for updating winds between UGWP steps
     logical              :: do_ugwp         = .false.                 !< flag do UGWP+RF
