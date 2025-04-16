@@ -19,6 +19,7 @@ module module_write_netcdf
   use mpi_f08
   use esmf
   use netcdf
+
   use module_fv3_io_def,only : ideflate, quantize_mode, quantize_nsd, zstandard_level, &
                                ichunk2d,jchunk2d,ichunk3d,jchunk3d,kchunk3d, &
                                dx,dy,lon1,lat1,lon2,lat2, &
@@ -29,10 +30,11 @@ module module_write_netcdf
   public write_netcdf
 
   logical :: par !< True if parallel I/O should be used.
+  logical :: metadata_as_fieldbundlewrite !< True for 6 files cubed sphere
 
-  integer, parameter :: netcdf_file_type = NF90_NETCDF4 !< NetCDF file type HDF5
-  ! integer, parameter :: netcdf_file_type = NF90_64BIT_DATA !< NetCDF file type CDF5
-  ! integer, parameter :: netcdf_file_type = NF90_64BIT_OFFSET !< NetCDF file type CDF2
+  integer :: netcdf_file_type = NF90_NETCDF4 !< NetCDF file type HDF5
+  ! integer :: netcdf_file_type = NF90_64BIT_DATA !< NetCDF file type CDF5
+  ! integer :: netcdf_file_type = NF90_64BIT_OFFSET !< NetCDF file type CDF2
 
 contains
 
@@ -49,22 +51,22 @@ contains
   !> @author Dusan Jovic @date Nov 1, 2017
   subroutine write_netcdf(wrtfb, filename, &
                           use_parallel_netcdf, comm, mype, &
-                          grid_id, rc)
+                          grid_id, nc_file_type, rc)
 !
-    use mpi_f08
-
     type(ESMF_FieldBundle), intent(in) :: wrtfb
     character(*), intent(in)           :: filename
     logical, intent(in)                :: use_parallel_netcdf
     type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, intent(in)                :: grid_id
+    integer, optional,intent(in)       :: nc_file_type
     integer, optional,intent(out)      :: rc
-!
+
 !** local vars
     integer, parameter :: NF90_NODIMSCALE_ATTACH = int(Z'40000')
     integer :: i,j,t, istart,iend,jstart,jend
     integer :: im, jm, lm, lsoil
+    integer :: nproc
 
     integer, dimension(:), allocatable              :: fldlev
 
@@ -78,7 +80,7 @@ contains
     real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_3d
     real(ESMF_KIND_R8), dimension(:,:,:,:), pointer :: array_r8_3d_cube
 
-    real(8), dimension(:), allocatable :: x,y
+    real(ESMF_KIND_R8), dimension(:), allocatable :: x,y
     integer :: fieldCount, fieldDimCount, gridDimCount
     integer, dimension(:), allocatable   :: ungriddedLBound, ungriddedUBound
     integer, dimension(:), allocatable   :: start_idx
@@ -94,11 +96,11 @@ contains
     character(len=ESMF_MAXSTR) :: attName, fldName
 
     integer :: varival
-    real(4) :: varr4val
-    real(8) :: varr8val
+    real(ESMF_KIND_R4) :: varr4val
+    real(ESMF_KIND_R8) :: varr8val
     character(len=ESMF_MAXSTR) :: varcval
 
-    integer :: ncerr,ierr
+    integer :: ncerr, ierr
     integer :: ncid
     integer :: oldMode
     integer :: dim_len
@@ -110,18 +112,22 @@ contains
     integer :: xtype
     integer :: quant_mode
     integer :: ishuffle
-    logical shuffle
+    logical :: shuffle
 
-    logical :: is_cubed_sphere
-    integer :: rank, deCount, localDeCount, dimCount, tileCount
+    logical :: is_cubed_sphere, is_cubed_sphere_tiled
+    integer :: rank, deCount, localDeCount, dimCount, tileCount, tile_number
     integer :: my_tile, start_i, start_j
     integer, dimension(:,:), allocatable :: minIndexPDe, maxIndexPDe
     integer, dimension(:,:), allocatable :: minIndexPTile, maxIndexPTile
-    integer, dimension(:), allocatable :: deToTileMap, localDeToDeMap
+    integer, dimension(:), allocatable :: deToTileMap, localDeToDeMap, rootPet
     logical :: do_io
     integer :: par_access
     character(len=ESMF_MAXSTR) :: output_grid_name
-!
+
+    character(256) :: actualFileName
+    integer :: idx
+    type(MPI_Comm) :: io_comm
+
     interface
       function nf_set_log_level(new_level) result(status)
         integer, intent(in) :: new_level
@@ -131,13 +137,18 @@ contains
 
     ! ncerr = nf_set_log_level(3); NC_ERR_STOP(ncerr)
 
+    io_comm = comm
+
     is_cubed_sphere = .false.
+    is_cubed_sphere_tiled = .false.
     tileCount = 0
     my_tile = 0
     start_i = -10000000
     start_j = -10000000
 
     par = use_parallel_netcdf
+
+    if (present(nc_file_type)) netcdf_file_type = nc_file_type
 
     if (netcdf_file_type /= NF90_NETCDF4) then
        par = .false.
@@ -147,7 +158,8 @@ contains
        end if
     end if
 
-    do_io = par .or. (mype==0)
+    call MPI_Comm_Size(comm, nproc, ierr)
+    if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
     call ESMF_FieldBundleGet(wrtfb, fieldCount=fieldCount, rc=rc); ESMF_ERR_RETURN(rc)
     call ESMF_AttributeGet(wrtfb, convention="NetCDF", purpose="FV3", &
@@ -158,7 +170,7 @@ contains
     allocate(varids(fieldCount))
 
     call ESMF_FieldBundleGet(wrtfb, fieldList=fcstField, grid=wrtgrid, &
-!                             itemorderflag=ESMF_ITEMORDER_ADDORDER, &
+                             ! itemorderflag=ESMF_ITEMORDER_ADDORDER, &
                              rc=rc); ESMF_ERR_RETURN(rc)
 
     call ESMF_GridGet(wrtgrid, dimCount=gridDimCount, rc=rc); ESMF_ERR_RETURN(rc)
@@ -167,7 +179,7 @@ contains
        call ESMF_FieldGet(fcstField(i), dimCount=fieldDimCount, array=array, rc=rc); ESMF_ERR_RETURN(rc)
 
        if (fieldDimCount > 3) then
-          if (mype==0) write(0,*)"write_netcdf: Only 2D and 3D fields are supported!"
+          if (mype == 0) write(0,*)"write_netcdf: Only 2D and 3D fields are supported!"
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
 
@@ -199,8 +211,14 @@ contains
 
           is_cubed_sphere = (tileCount == 6)
           my_tile = deToTileMap(localDeToDeMap(1)+1)
-          im = maxIndexPTile(1,1)
-          jm = maxIndexPTile(2,1)
+
+          allocate(rootPet(tileCount))
+          do t=1,tileCount
+             rootPet(t) = (t - 1) * nproc / tileCount
+          end do
+
+          im = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
+          jm = maxIndexPTile(2,1) - minIndexPTile(2,1) + 1
           start_i = minIndexPDe(1,localDeToDeMap(1)+1)
           start_j = minIndexPDe(2,localDeToDeMap(1)+1)
           if (.not. par) then
@@ -211,22 +229,46 @@ contains
              start_i = mod(start_i, im)
              start_j = mod(start_j, jm)
           end if
+
+          deallocate(minIndexPDe)
+          deallocate(maxIndexPDe)
+          deallocate(minIndexPTile)
+          deallocate(maxIndexPTile)
+          deallocate(deToTileMap)
+          deallocate(localDeToDeMap)
+
        end if
 
        if (fieldDimCount > gridDimCount) then
-         allocate(ungriddedLBound(fieldDimCount-gridDimCount))
-         allocate(ungriddedUBound(fieldDimCount-gridDimCount))
-         call ESMF_FieldGet(fcstField(i), &
-                            ungriddedLBound=ungriddedLBound, &
-                            ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
-         fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
-                     ungriddedLBound(fieldDimCount-gridDimCount) + 1
-         deallocate(ungriddedLBound)
-         deallocate(ungriddedUBound)
+          allocate(ungriddedLBound(fieldDimCount-gridDimCount))
+          allocate(ungriddedUBound(fieldDimCount-gridDimCount))
+          call ESMF_FieldGet(fcstField(i), &
+                             ungriddedLBound=ungriddedLBound, &
+                             ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
+          fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
+                      ungriddedLBound(fieldDimCount-gridDimCount) + 1
+          deallocate(ungriddedLBound)
+          deallocate(ungriddedUBound)
        else if (fieldDimCount == 2) then
-         fldlev(i) = 1
+          fldlev(i) = 1
        end if
     end do
+
+    ! For cubed sphere grid, number of i/o tasks must be divisible by 6
+    if (is_cubed_sphere .and. mod(nproc,6) /= 0) then
+       if (mype == 0) write(0,*)"write_netcdf: For cubed sphere grid, number of i/o tasks must be divisible by 6. nproc = ",nproc
+       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    end if
+
+    if (is_cubed_sphere .and. .not. use_parallel_netcdf) then
+       is_cubed_sphere = .false.
+       is_cubed_sphere_tiled = .true.  ! 6 files, one per each tile
+    end if
+
+    metadata_as_fieldbundlewrite = .false.
+    if (is_cubed_sphere_tiled .or. (trim(output_grid_name) == 'cubed_sphere' .and. tileCount == 1) ) then
+       metadata_as_fieldbundlewrite = .true.
+    end if
 
     lm = maxval(fldlev(:))
     call get_dimlen_if_exists(ncid, "zsoil", wrtgrid, lsoil, rc)
@@ -239,29 +281,43 @@ contains
 
     ! for serial output allocate 'global' arrays
     if (.not. par) then
-       ! allocate(array_r4(im,jm))
        allocate(array_r8(im,jm))
-       ! allocate(array_r4_3d(im,jm,lm))
-       allocate(array_r8_3d(im,jm,lm))
-       if (is_cubed_sphere) then
-          ! allocate(array_r4_cube(im,jm,tileCount))
-          allocate(array_r8_cube(im,jm,tileCount))
-          ! allocate(array_r4_3d_cube(im,jm,lm,tileCount))
-          allocate(array_r8_3d_cube(im,jm,lm,tileCount))
+    end if
+
+    do_io = par .or. (mype == 0)
+
+    if (is_cubed_sphere_tiled) then
+       do t=1, tileCount
+          if (mype == rootPet(t)) do_io = .true.
+       end do
+       call MPI_Comm_Split(comm, my_tile, rootPet(my_tile), io_comm, ierr)
+       if (ierr /= 0) then
+         write(0,*)'Internal error: MPI_Comm_Split ', ierr
+         call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
     end if
+
+    tile_number = my_tile
 
     ! create netcdf file and enter define mode
     if (do_io) then
 
+       actualFileName = trim(filename)
+       if (is_cubed_sphere_tiled) then
+          idx = index(trim(filename), ".nc", .true.)
+          write(actualFileName, fmt='(a,i1,a)') trim(fileName(:idx-1))//".tile", tile_number, ".nc"
+       end if
+
        if (par) then
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(IOR(NF90_CLOBBER,netcdf_file_type),NF90_NODIMSCALE_ATTACH),&
-                  comm=comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
+                  comm=io_comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
        else
-          ncerr = nf90_create(trim(filename),&
+          call ESMF_LogWrite("Creating : "//trim(actualFileName), ESMF_LOGMSG_INFO, rc=rc)
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(IOR(NF90_CLOBBER,netcdf_file_type),NF90_NODIMSCALE_ATTACH),&
                   ncid=ncid); NC_ERR_STOP(ncerr)
+          call ESMF_LogWrite("Created  : "//trim(actualFileName), ESMF_LOGMSG_INFO, rc=rc)
        end if
 
        ! disable auto filling.
@@ -270,24 +326,44 @@ contains
        ! define dimensions [grid_xt, grid_yt, nchars, (pfull/phalf), (tile), time]
        ncerr = nf90_def_dim(ncid, "grid_xt", im, im_dimid); NC_ERR_STOP(ncerr)
        ncerr = nf90_def_dim(ncid, "grid_yt", jm, jm_dimid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_def_dim(ncid, "nchars", 20, ch_dimid); NC_ERR_STOP(ncerr)
+
+       ! define coordinate variables
+       if (metadata_as_fieldbundlewrite) then
+          ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, [im_dimid,jm_dimid], im_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "long_name", "T-cell longitude"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "units", "degrees_E"); NC_ERR_STOP(ncerr)
+       else
+          ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, im_dimid, im_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
+       end if
+
+       if (metadata_as_fieldbundlewrite) then
+          ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, [im_dimid,jm_dimid], jm_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "long_name", "T-cell latitude"); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "units", "degrees_N"); NC_ERR_STOP(ncerr)
+       else
+          ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, jm_dimid, jm_varid); NC_ERR_STOP(ncerr)
+          ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
+       end if
+
        if (lm > 1) then
-         call add_dim(ncid, "pfull", pfull_dimid, pfull_varid, wrtgrid, mype, rc)
-         call add_dim(ncid, "phalf", phalf_dimid, phalf_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "pfull", pfull_dimid, pfull_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "phalf", phalf_dimid, phalf_varid, wrtgrid, mype, rc)
        end if
        if (lsoil > 1) then
-         call add_dim(ncid, "zsoil", lsoil_dimid, lsoil_varid, wrtgrid, mype, rc)
+          call add_dim(ncid, "zsoil", lsoil_dimid, lsoil_varid, wrtgrid, mype, rc)
        end if
        if (is_cubed_sphere) then
           ncerr = nf90_def_dim(ncid, "tile", tileCount, tile_dimid); NC_ERR_STOP(ncerr)
        end if
+       if (metadata_as_fieldbundlewrite) then
+          time_unlimited = .true.
+       end if
        call add_dim(ncid, "time", time_dimid, time_varid, wrtgrid, mype, rc)
+       ncerr = nf90_def_dim(ncid, "nchars", 20, ch_dimid); NC_ERR_STOP(ncerr)
 
-       ! define coordinate variables
-       ncerr = nf90_def_var(ncid, "grid_xt", NF90_DOUBLE, im_dimid, im_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, im_varid, "cartesian_axis", "X"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_def_var(ncid, "grid_yt", NF90_DOUBLE, jm_dimid, jm_varid); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, jm_varid, "cartesian_axis", "Y"); NC_ERR_STOP(ncerr)
        if (is_cubed_sphere) then
           ncerr = nf90_def_var(ncid, "tile", NF90_INT, tile_dimid, tile_varid); NC_ERR_STOP(ncerr)
           ncerr = nf90_put_att(ncid, tile_varid, "long_name", "cubed-sphere face"); NC_ERR_STOP(ncerr)
@@ -317,23 +393,25 @@ contains
           ncerr = nf90_put_att(ncid, jm_varid, "units", "meters"); NC_ERR_STOP(ncerr)
        end if
 
-       ! define longitude variable
-       if (is_cubed_sphere) then
-          ncerr = nf90_def_var(ncid, "lon", NF90_DOUBLE, [im_dimid,jm_dimid,tile_dimid], lon_varid); NC_ERR_STOP(ncerr)
-       else
-          ncerr = nf90_def_var(ncid, "lon", NF90_DOUBLE, [im_dimid,jm_dimid           ], lon_varid); NC_ERR_STOP(ncerr)
-       end if
-       ncerr = nf90_put_att(ncid, lon_varid, "long_name", "T-cell longitude"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, lon_varid, "units", "degrees_E"); NC_ERR_STOP(ncerr)
+       if (.not.metadata_as_fieldbundlewrite) then
+         ! define longitude variable
+         if (is_cubed_sphere) then
+            ncerr = nf90_def_var(ncid, "lon", NF90_DOUBLE, [im_dimid,jm_dimid,tile_dimid], lon_varid); NC_ERR_STOP(ncerr)
+         else
+            ncerr = nf90_def_var(ncid, "lon", NF90_DOUBLE, [im_dimid,jm_dimid           ], lon_varid); NC_ERR_STOP(ncerr)
+         end if
+         ncerr = nf90_put_att(ncid, lon_varid, "long_name", "T-cell longitude"); NC_ERR_STOP(ncerr)
+         ncerr = nf90_put_att(ncid, lon_varid, "units", "degrees_E"); NC_ERR_STOP(ncerr)
 
-       ! define latitude variable
-       if (is_cubed_sphere) then
-          ncerr = nf90_def_var(ncid, "lat", NF90_DOUBLE, [im_dimid,jm_dimid,tile_dimid], lat_varid); NC_ERR_STOP(ncerr)
-       else
-          ncerr = nf90_def_var(ncid, "lat", NF90_DOUBLE, [im_dimid,jm_dimid           ], lat_varid); NC_ERR_STOP(ncerr)
+         ! define latitude variable
+         if (is_cubed_sphere) then
+            ncerr = nf90_def_var(ncid, "lat", NF90_DOUBLE, [im_dimid,jm_dimid,tile_dimid], lat_varid); NC_ERR_STOP(ncerr)
+         else
+            ncerr = nf90_def_var(ncid, "lat", NF90_DOUBLE, [im_dimid,jm_dimid           ], lat_varid); NC_ERR_STOP(ncerr)
+         end if
+         ncerr = nf90_put_att(ncid, lat_varid, "long_name", "T-cell latitude"); NC_ERR_STOP(ncerr)
+         ncerr = nf90_put_att(ncid, lat_varid, "units", "degrees_N"); NC_ERR_STOP(ncerr)
        end if
-       ncerr = nf90_put_att(ncid, lat_varid, "long_name", "T-cell latitude"); NC_ERR_STOP(ncerr)
-       ncerr = nf90_put_att(ncid, lat_varid, "units", "degrees_N"); NC_ERR_STOP(ncerr)
 
        if (par) then
           ncerr = nf90_var_par_access(ncid, im_varid, NF90_COLLECTIVE); NC_ERR_STOP(ncerr)
@@ -350,19 +428,16 @@ contains
 
        ! define variables (fields)
        if (is_cubed_sphere) then
-          allocate(dimids_2d(4))
-          allocate(dimids_3d(5), dimids_soil(5))
           dimids_2d =                  [im_dimid,jm_dimid,            tile_dimid,time_dimid]
           if (lm > 1) dimids_3d =      [im_dimid,jm_dimid,pfull_dimid,tile_dimid,time_dimid]
           if (lsoil > 1) dimids_soil = [im_dimid,jm_dimid,lsoil_dimid,tile_dimid,time_dimid]
        else
-          allocate(dimids_2d(3))
-          allocate(dimids_3d(4), dimids_soil(4))
           dimids_2d =                  [im_dimid,jm_dimid,                       time_dimid]
           if (lm > 1) dimids_3d =      [im_dimid,jm_dimid,pfull_dimid,           time_dimid]
           if (lsoil > 1) dimids_soil = [im_dimid,jm_dimid,lsoil_dimid,           time_dimid]
        end if
 
+       ! define variables (fields)
        do i=1, fieldCount
          call ESMF_FieldGet(fcstField(i), name=fldName, rank=rank, typekind=typekind, rc=rc); ESMF_ERR_RETURN(rc)
 
@@ -377,7 +452,7 @@ contains
              dimids = dimids_3d
            endif
          else
-           if (mype==0) write(0,*)'Unsupported rank ', rank
+           if (mype == 0) write(0,*)'Unsupported rank ', rank
            call ESMF_Finalize(endflag=ESMF_END_ABORT)
          end if
 
@@ -386,7 +461,7 @@ contains
          else if (typekind == ESMF_TYPEKIND_R8) then
            xtype = NF90_DOUBLE
          else
-           if (mype==0) write(0,*)'Unsupported typekind ', typekind
+           if (mype == 0) write(0,*)'Unsupported typekind ', typekind
            call ESMF_Finalize(endflag=ESMF_END_ABORT)
          end if
 
@@ -399,6 +474,8 @@ contains
             if (rank == 2 .and. ichunk2d(grid_id) > 0 .and. jchunk2d(grid_id) > 0) then
                if (is_cubed_sphere) then
                   chunksizes = [im, jm, 1, 1]
+               else if (is_cubed_sphere_tiled) then
+                  chunksizes = [im, jm, 1]
                else
                   chunksizes = [ichunk2d(grid_id), jchunk2d(grid_id),            1]
                end if
@@ -406,6 +483,8 @@ contains
             else if (rank == 3 .and. ichunk3d(grid_id) > 0 .and. jchunk3d(grid_id) > 0 .and. kchunk3d(grid_id) > 0) then
                if (is_cubed_sphere) then
                   chunksizes = [im, jm, 1, 1, 1]
+               else if (is_cubed_sphere_tiled) then
+                  chunksizes = [im, jm, 1, 1]
                else
                   chunksizes = [ichunk3d(grid_id), jchunk3d(grid_id), min(kchunk3d(grid_id),fldlev(i)), 1]
                end if
@@ -436,7 +515,7 @@ contains
               else if (trim(quantize_mode(grid_id)) == 'quantize_bitround') then
                 quant_mode = 3
               else
-                if (mype==0) write(0,*)'Unknown quantize_mode ', trim(quantize_mode(grid_id))
+                if (mype == 0) write(0,*)'Unknown quantize_mode ', trim(quantize_mode(grid_id))
                 call ESMF_Finalize(endflag=ESMF_END_ABORT)
               endif
 
@@ -463,19 +542,19 @@ contains
               cycle
            end if
 
-           if (attTypeKind==ESMF_TYPEKIND_I4) then
+           if (attTypeKind == ESMF_TYPEKIND_I4) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varival, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
               ncerr = nf90_put_att(ncid, varids(i), trim(attName), varival); NC_ERR_STOP(ncerr)
 
-           else if (attTypeKind==ESMF_TYPEKIND_R4) then
+           else if (attTypeKind == ESMF_TYPEKIND_R4) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varr4val, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
               ncerr = nf90_put_att(ncid, varids(i), trim(attName), varr4val); NC_ERR_STOP(ncerr)
 
-           else if (attTypeKind==ESMF_TYPEKIND_R8) then
+           else if (attTypeKind == ESMF_TYPEKIND_R8) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varr8val, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
@@ -484,7 +563,7 @@ contains
                  ncerr = nf90_put_att(ncid, varids(i), trim(attName), varr8val); NC_ERR_STOP(ncerr)
               end if
 
-           else if (attTypeKind==ESMF_TYPEKIND_CHARACTER) then
+           else if (attTypeKind == ESMF_TYPEKIND_CHARACTER) then
               call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
                                      name=trim(attName), value=varcval, &
                                      rc=rc); ESMF_ERR_RETURN(rc)
@@ -520,31 +599,34 @@ contains
     !
     ! write lon,lat variables
     !
-    if (allocated(start_idx)) deallocate(start_idx)
     if (is_cubed_sphere) then
-       allocate(start_idx(3))
        start_idx = [start_i, start_j, my_tile]
     else
-       allocate(start_idx(2))
        start_idx = [start_i, start_j]
     end if
 
     ! write lon (lon_varid)
     if (par) then
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
+       if (do_io .and. .not.is_cubed_sphere_tiled) then
        ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
+       end if
     else
        call ESMF_GridGetCoord(wrtgrid, coordDim=1, array=array, rc=rc); ESMF_ERR_RETURN(rc)
        if (is_cubed_sphere) then
+          allocate(array_r8_cube(im,jm,tileCount))
           do t=1,tileCount
              call ESMF_ArrayGather(array, array_r8_cube(:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
           end do
-          if (do_io) then
+          if (do_io .and. .not.metadata_as_fieldbundlewrite) then
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
+          deallocate(array_r8_cube)
        else
-          call ESMF_ArrayGather(array, array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-          if (do_io) then
+          do t=1,tileCount
+             call ESMF_ArrayGather(array, array_r8, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+          end do
+          if (do_io .and. .not.metadata_as_fieldbundlewrite) then
              ncerr = nf90_put_var(ncid, lon_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        endif
@@ -569,12 +651,16 @@ contains
           end do
           ncerr = nf90_put_var(ncid, im_varid, values=x); NC_ERR_STOP(ncerr)
        else if (trim(output_grid_name) == 'cubed_sphere') then
-          do i=1,im
-             x(i) = i
-          end do
-          ncerr = nf90_put_var(ncid, im_varid, values=x); NC_ERR_STOP(ncerr)
+          if (is_cubed_sphere) then
+             do i=1,im
+                x(i) = i
+             end do
+             ncerr = nf90_put_var(ncid, im_varid, values=x); NC_ERR_STOP(ncerr)
+          else
+             ncerr = nf90_put_var(ncid, im_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
+          end if
        else
-          if (mype==0) write(0,*)'unknown output_grid ', trim(output_grid_name)
+          if (mype == 0) write(0,*)'unknown output_grid ', trim(output_grid_name)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
     end if
@@ -582,19 +668,25 @@ contains
     ! write lat (lat_varid)
     if (par) then
        call ESMF_GridGetCoord(wrtgrid, coordDim=2, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
+       if (do_io .and. .not.is_cubed_sphere_tiled) then
        ncerr = nf90_put_var(ncid, lat_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
+       end if
     else
        call ESMF_GridGetCoord(wrtgrid, coordDim=2, array=array, rc=rc); ESMF_ERR_RETURN(rc)
        if (is_cubed_sphere) then
+          allocate(array_r8_cube(im,jm,tileCount))
           do t=1,tileCount
              call ESMF_ArrayGather(array, array_r8_cube(:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
           end do
-          if (do_io) then
+          if (do_io .and. .not.metadata_as_fieldbundlewrite) then
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
           end if
+          deallocate(array_r8_cube)
        else
-          call ESMF_ArrayGather(array, array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-          if (do_io) then
+          do t=1,tileCount
+             call ESMF_ArrayGather(array, array_r8, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+          end do
+          if (do_io .and. .not.metadata_as_fieldbundlewrite) then
              ncerr = nf90_put_var(ncid, lat_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
           end if
        endif
@@ -616,12 +708,16 @@ contains
           end do
           ncerr = nf90_put_var(ncid, jm_varid, values=y); NC_ERR_STOP(ncerr)
        else if (trim(output_grid_name) == 'cubed_sphere') then
-          do j=1,jm
-             y(j) = j
-          end do
-          ncerr = nf90_put_var(ncid, jm_varid, values=y); NC_ERR_STOP(ncerr)
+          if (is_cubed_sphere) then
+             do j=1,jm
+                y(j) = j
+             end do
+             ncerr = nf90_put_var(ncid, jm_varid, values=y); NC_ERR_STOP(ncerr)
+          else
+             ncerr = nf90_put_var(ncid, jm_varid, values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
+          end if
        else
-          if (mype==0) write(0,*)'unknown output_grid ', trim(output_grid_name)
+          if (mype == 0) write(0,*)'unknown output_grid ', trim(output_grid_name)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
     end if
@@ -645,12 +741,9 @@ contains
 
        if (rank == 2) then
 
-         if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            allocate(start_idx(4))
             start_idx = [start_i,start_j,my_tile,1]
          else
-            allocate(start_idx(3))
             start_idx = [start_i,start_j,        1]
          end if
 
@@ -671,7 +764,9 @@ contains
                   deallocate(array_r4_cube)
                else
                   allocate(array_r4(im,jm))
-                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -685,14 +780,18 @@ contains
             else
                if (is_cubed_sphere) then
                   call ESMF_FieldGet(fcstField(i), array=array, rc=rc); ESMF_ERR_RETURN(rc)
+                  allocate(array_r8_cube(im,jm,tileCount))
                   do t=1,tileCount
                      call ESMF_ArrayGather(array, array_r8_cube(:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
                   end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
+                  deallocate(array_r8_cube)
                else
-                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
                   if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
@@ -702,12 +801,9 @@ contains
 
       else if (rank == 3) then
 
-         if (allocated(start_idx)) deallocate(start_idx)
          if (is_cubed_sphere) then
-            allocate(start_idx(5))
             start_idx = [start_i,start_j,1,my_tile,1]
          else
-            allocate(start_idx(4))
             start_idx = [start_i,start_j,1,        1]
          end if
 
@@ -722,14 +818,16 @@ contains
                   do t=1,tileCount
                      call ESMF_ArrayGather(array, array_r4_3d_cube(:,:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
                   end do
-                  if (mype==0) then
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                   deallocate(array_r4_3d_cube)
                else
                   allocate(array_r4_3d(im,jm,fldlev(i)))
-                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-                  if (mype==0) then
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
                   deallocate(array_r4_3d)
@@ -742,24 +840,30 @@ contains
             else
                if (is_cubed_sphere) then
                   call ESMF_FieldGet(fcstField(i), array=array, rc=rc); ESMF_ERR_RETURN(rc)
+                  allocate(array_r8_3d_cube(im,jm,lm,tileCount))
                   do t=1,tileCount
                      call ESMF_ArrayGather(array, array_r8_3d_cube(:,:,:,t), rootPet=0, tile=t, rc=rc); ESMF_ERR_RETURN(rc)
                   end do
-                  if (mype==0) then
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d_cube, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
+                  deallocate(array_r8_3d_cube)
                else
-                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-                  if (mype==0) then
+                  allocate(array_r8_3d(im,jm,fldlev(i)))
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+                  if (do_io) then
                      ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                   end if
+                  deallocate(array_r8_3d)
                end if
             end if
          end if ! end typekind
 
       else
 
-         if (mype==0) write(0,*)'Unsupported rank ', rank
+         if (mype == 0) write(0,*)'Unsupported rank ', rank
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
       end if ! end rank
@@ -767,22 +871,7 @@ contains
     end do ! end fieldCount
 
     if (.not. par) then
-       ! deallocate(array_r4)
        deallocate(array_r8)
-       ! deallocate(array_r4_3d)
-       deallocate(array_r8_3d)
-       if (is_cubed_sphere) then
-          ! deallocate(array_r4_cube)
-          deallocate(array_r8_cube)
-          ! deallocate(array_r4_3d_cube)
-          deallocate(array_r8_3d_cube)
-       end if
-    end if
-
-    if (do_io) then
-       deallocate(dimids_2d)
-       deallocate(dimids_3d)
-       deallocate(dimids_soil)
     end if
 
     deallocate(fcstField)
@@ -831,12 +920,22 @@ contains
                              attnestflag=ESMF_ATTNEST_OFF, attributeIndex=i, name=attName, &
                              typekind=typekind, itemCount=itemCount, rc=rc); ESMF_ERR_RETURN(rc)
 
-      if (typekind==ESMF_TYPEKIND_I4) then
+      if (typekind == ESMF_TYPEKIND_I4) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attname), value=varival_i4, rc=rc); ESMF_ERR_RETURN(rc)
+         ! FIXME Temporary hack while we are trying to create identical files as ESMF_FieldBundleWrite
+         if (metadata_as_fieldbundlewrite .and. &
+             (trim(attname) == 'imp_physics' .or. &
+              trim(attname) == 'landsfcmdl' .or. &
+              trim(attname) == 'ncnsto' .or. &
+              trim(attname) == 'ncld' .or. &
+              trim(attname) == 'nsoil')) then
+         ncerr = nf90_put_att(ncid, nf90_global, trim(attname), int(varival_i4,kind=2)); NC_ERR_STOP(ncerr)
+         else
          ncerr = nf90_put_att(ncid, nf90_global, trim(attname), varival_i4); NC_ERR_STOP(ncerr)
+         endif
 
-      else if (typekind==ESMF_TYPEKIND_I8) then
+      else if (typekind == ESMF_TYPEKIND_I8) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attname), value=varival_i8, rc=rc); ESMF_ERR_RETURN(rc)
          if (netcdf_file_type == NF90_64BIT_OFFSET) then
@@ -848,28 +947,28 @@ contains
             ncerr = nf90_put_att(ncid, nf90_global, trim(attname), varival_i8); NC_ERR_STOP(ncerr)
          end if
 
-      else if (typekind==ESMF_TYPEKIND_R4) then
+      else if (typekind == ESMF_TYPEKIND_R4) then
          allocate (varr4list(itemCount))
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), valueList=varr4list, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), varr4list); NC_ERR_STOP(ncerr)
          deallocate(varr4list)
 
-      else if (typekind==ESMF_TYPEKIND_R8) then
+      else if (typekind == ESMF_TYPEKIND_R8) then
          allocate (varr8list(itemCount))
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), valueList=varr8list, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), varr8list); NC_ERR_STOP(ncerr)
          deallocate(varr8list)
 
-      else if (typekind==ESMF_TYPEKIND_CHARACTER) then
+      else if (typekind == ESMF_TYPEKIND_CHARACTER) then
          call ESMF_AttributeGet(fldbundle, convention="NetCDF", purpose="FV3", &
                                 name=trim(attName), value=varcval, rc=rc); ESMF_ERR_RETURN(rc)
          ncerr = nf90_put_att(ncid, NF90_GLOBAL, trim(attName), trim(varcval)); NC_ERR_STOP(ncerr)
 
       else
 
-         if (mype==0) write(0,*)'Unsupported typekind ', typekind
+         if (mype == 0) write(0,*)'Unsupported typekind ', typekind
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
       end if
 
@@ -914,20 +1013,20 @@ contains
                              attnestflag=ESMF_ATTNEST_OFF, attributeIndex=i, name=attName, &
                              typekind=typekind, itemCount=n, rc=rc); ESMF_ERR_RETURN(rc)
 
-      if (index(trim(attName), trim(prefix)//":")==1) then
+      if (index(trim(attName), trim(prefix)//":") == 1) then
          ind = len(trim(prefix)//":")
 
-         if (typekind==ESMF_TYPEKIND_I4) then
+         if (typekind == ESMF_TYPEKIND_I4) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varival, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varival); NC_ERR_STOP(ncerr)
 
-         else if (typekind==ESMF_TYPEKIND_R4) then
+         else if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varr4val, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varr4val); NC_ERR_STOP(ncerr)
 
-         else if (typekind==ESMF_TYPEKIND_R8) then
+         else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varr8val, rc=rc); ESMF_ERR_RETURN(rc)
             if (trim(attName) /= '_FillValue') then
@@ -936,7 +1035,7 @@ contains
               ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), varr8val); NC_ERR_STOP(ncerr)
             end if
 
-         else if (typekind==ESMF_TYPEKIND_CHARACTER) then
+         else if (typekind == ESMF_TYPEKIND_CHARACTER) then
             call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                                    name=trim(attName), value=varcval, rc=rc); ESMF_ERR_RETURN(rc)
             ncerr = nf90_put_att(ncid, varid, trim(attName(ind+1:len(attName))), trim(varcval)); NC_ERR_STOP(ncerr)
@@ -1006,14 +1105,14 @@ contains
       ncerr = nf90_def_dim(ncid, trim(dim_name), n, dimid); NC_ERR_STOP(ncerr)
     end if
 
-    if (typekind==ESMF_TYPEKIND_R8) then
+    if (typekind == ESMF_TYPEKIND_R8) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_REAL8, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
-    else if (typekind==ESMF_TYPEKIND_R4) then
+    else if (typekind == ESMF_TYPEKIND_R4) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_REAL4, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
-    else if (typekind==ESMF_TYPEKIND_I4) then
+    else if (typekind == ESMF_TYPEKIND_I4) then
       ncerr = nf90_def_var(ncid, dim_name, NF90_INT4, dimids=[dimid], varid=dim_varid); NC_ERR_STOP(ncerr)
     else
-      if (mype==0) write(0,*)'Error in module_write_netcdf.F90(add_dim) unknown typekind for ',trim(dim_name)
+      if (mype == 0) write(0,*)'Error in module_write_netcdf.F90(add_dim) unknown typekind for ',trim(dim_name)
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
     if (par) then
@@ -1057,26 +1156,26 @@ contains
                            attnestflag=ESMF_ATTNEST_OFF, name=dim_name, &
                            typekind=typekind, itemCount=n, rc=rc); ESMF_ERR_RETURN(rc)
 
-    if (typekind==ESMF_TYPEKIND_R8) then
+    if (typekind == ESMF_TYPEKIND_R8) then
        allocate(valueListR8(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListR8, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListR8); NC_ERR_STOP(ncerr)
        deallocate(valueListR8)
-    else if (typekind==ESMF_TYPEKIND_R4) then
+    else if (typekind == ESMF_TYPEKIND_R4) then
        allocate(valueListR4(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListR4, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListR4); NC_ERR_STOP(ncerr)
        deallocate(valueListR4)
-    else if (typekind==ESMF_TYPEKIND_I4) then
+    else if (typekind == ESMF_TYPEKIND_I4) then
        allocate(valueListI4(n))
        call ESMF_AttributeGet(grid, convention="NetCDF", purpose="FV3", &
                               name=trim(dim_name), valueList=valueListI4, rc=rc); ESMF_ERR_RETURN(rc)
        ncerr = nf90_put_var(ncid, dim_varid, values=valueListI4); NC_ERR_STOP(ncerr)
        deallocate(valueListI4)
     else
-       if (mype==0) write(0,*)'Error in module_write_netcdf.F90(write_dim) unknown typekind for ',trim(dim_name)
+       if (mype == 0) write(0,*)'Error in module_write_netcdf.F90(write_dim) unknown typekind for ',trim(dim_name)
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
 
