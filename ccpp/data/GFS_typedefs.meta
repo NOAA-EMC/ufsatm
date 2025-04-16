@@ -84,29 +84,29 @@
   type = real
   kind = kind_phys
 [ugrs]
-  standard_name = x_wind
-  long_name = zonal wind
+  standard_name = physics_timestep_initial_x_wind
+  long_name = zonal wind at the beginning of the physics timestep
   units = m s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [ugrs(:,1)]
-  standard_name = x_wind_at_surface_adjacent_layer
-  long_name = zonal wind at lowest model layer
+  standard_name = physics_timestep_initial_x_wind_at_surface_adjacent_layer
+  long_name = zonal wind at lowest model layer at the beginning of the physics timestep
   units = m s-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [vgrs]
-  standard_name = y_wind
-  long_name = meridional wind
+  standard_name = physics_timestep_initial_y_wind
+  long_name = meridional wind at the beginning of the physics timestep
   units = m s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [vgrs(:,1)]
-  standard_name = y_wind_at_surface_adjacent_layer
-  long_name = meridional wind at lowest model layer
+  standard_name = physics_timestep_initial_y_wind_at_surface_adjacent_layer
+  long_name = meridional wind at lowest model layer at the beginning of the physics timestep
   units = m s-1
   dimensions = (horizontal_dimension)
   type = real
@@ -127,223 +127,223 @@
   type = real
   kind = kind_phys
 [tgrs]
-  standard_name = air_temperature
-  long_name = model layer mean temperature
+  standard_name = physics_timestep_initial_air_temperature
+  long_name = model layer mean temperature at the beginning of the physics timestep
   units = K
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [tgrs(:,1)]
-  standard_name = air_temperature_at_surface_adjacent_layer
-  long_name = mean temperature at lowest model layer
+  standard_name = physics_timestep_initial_air_temperature_at_surface_adjacent_layer
+  long_name = mean temperature at lowest model layer at the beginning of the physics timestep
   units = K
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [qgrs]
-  standard_name = tracer_concentration
-  long_name = model layer mean tracer concentration
+  standard_name = physics_timestep_initial_tracer_concentration
+  long_name = model layer mean tracer concentration at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_specific_humidity_in_tracer_concentration_array)]
-  standard_name = specific_humidity
-  long_name = water vapor specific humidity
+  standard_name = physics_timestep_initial_specific_humidity
+  long_name = water vapor specific humidity at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,1,index_of_specific_humidity_in_tracer_concentration_array)]
-  standard_name = specific_humidity_at_surface_adjacent_layer
-  long_name = water vapor specific humidity at lowest model layer
+  standard_name = physics_timestep_initial_specific_humidity_at_surface_adjacent_layer
+  long_name = water vapor specific humidity at lowest model layer at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_cloud_liquid_water_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = cloud_liquid_water_mixing_ratio
-  long_name = ratio of mass of cloud water to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_cloud_liquid_water_mixing_ratio
+  long_name = ratio of mass of cloud water to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,1,index_of_cloud_liquid_water_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = cloud_liquid_water_mixing_ratio_at_surface_adjacent_layer
-  long_name = ratio of mass of cloud water to mass of dry air plus vapor (without condensates) at lowest model layer
+  standard_name = physics_timestep_initial_cloud_liquid_water_mixing_ratio_at_surface_adjacent_layer
+  long_name = ratio of mass of cloud water to mass of dry air plus vapor (without condensates) at lowest model layer at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_cloud_ice_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = cloud_ice_mixing_ratio
-  long_name = ratio of mass of ice water to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_cloud_ice_mixing_ratio
+  long_name = ratio of mass of ice water to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_rain_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = rain_mixing_ratio
-  long_name = ratio of mass of rain water to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_rain_mixing_ratio
+  long_name = ratio of mass of rain water to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_snow_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = snow_mixing_ratio
-  long_name = ratio of mass of snow water to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_snow_mixing_ratio
+  long_name = ratio of mass of snow water to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_graupel_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = graupel_mixing_ratio
-  long_name = ratio of mass of graupel to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_graupel_mixing_ratio
+  long_name = ratio of mass of graupel to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_hail_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = hail_mixing_ratio
-  long_name = ratio of mass of hail to mass of dry air plus vapor (without condensates)
+  standard_name = physics_timestep_initial_hail_mixing_ratio
+  long_name = ratio of mass of hail to mass of dry air plus vapor (without condensates) at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_hail_mixing_ratio_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_ozone_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = ozone_mixing_ratio
-  long_name = ozone mixing ratio
+  standard_name = physics_timestep_initial_ozone_mixing_ratio
+  long_name = ozone mixing ratio at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_hygroscopic_aerosols_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_hygroscopic_aerosols
-  long_name = number concentration of water-friendly aerosols
+  standard_name = physics_timestep_initial_mass_number_concentration_of_hygroscopic_aerosols
+  long_name = number concentration of water-friendly aerosols at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   active = (index_of_mass_number_concentration_of_hygroscopic_aerosols_in_tracer_concentration_array > 0)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols
-  long_name = number concentration of ice-friendly aerosols
+  standard_name = physics_timestep_initial_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols
+  long_name = number concentration of ice-friendly aerosols at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   active = (index_of_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_in_tracer_concentration_array > 0)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_cloud_liquid_water_particles_in_air
-  long_name = number concentration of cloud droplets (liquid)
+  standard_name = physics_timestep_initial_mass_number_concentration_of_cloud_liquid_water_particles_in_air
+  long_name = number concentration of cloud droplets (liquid) at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_mass_number_concentration_of_cloud_ice_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_cloud_ice_water_crystals_in_air
-  long_name = number concentration of ice
+  standard_name = physics_timestep_initial_mass_number_concentration_of_cloud_ice_water_crystals_in_air
+  long_name = number concentration of ice at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_rain_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_rain_water_in_air
-  long_name = number concentration of rain
+  standard_name = physics_timestep_initial_mass_number_concentration_of_rain_water_in_air
+  long_name = number concentration of rain at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_snow_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_snow_in_air
-  long_name = number concentration of snow
+  standard_name = physics_timestep_initial_mass_number_concentration_of_snow_in_air
+  long_name = number concentration of snow at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_graupel_in_air
-  long_name = number concentration of graupel
+  standard_name = physics_timestep_initial_mass_number_concentration_of_graupel_in_air
+  long_name = number concentration of graupel at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_mass_number_concentration_of_hail_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_hail_in_air
-  long_name = number concentration of hail
+  standard_name = physics_timestep_initial_mass_number_concentration_of_hail_in_air
+  long_name = number concentration of hail at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_hail_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_reflectivity_of_rain_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_rain_in_air
-  long_name = reflectivity of rain
+  standard_name = physics_timestep_initial_reflectivity_of_rain_in_air
+  long_name = reflectivity of rain at the beginning of the physics timestep
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_reflectivity_of_rain_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_reflectivity_of_graupel_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_graupel_in_air
-  long_name = reflectivity of graupel
+  standard_name = physics_timestep_initial_reflectivity_of_graupel_in_air
+  long_name = reflectivity of graupel at the beginning of the physics timestep
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_reflectivity_of_graupel_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_reflectivity_of_hail_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_hail_in_air
-  long_name = reflectivity of hail
+  standard_name = physics_timestep_initial_reflectivity_of_hail_in_air
+  long_name = reflectivity of hail at the beginning of the physics timestep
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = (index_of_reflectivity_of_hail_in_tracer_concentration_array > 0)
 [qgrs(:,:,index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array)]
-  standard_name = cloud_condensation_nuclei_number_concentration
-  long_name = number concentration of cloud condensation nuclei
+  standard_name = physics_timestep_initial_cloud_condensation_nuclei_number_concentration
+  long_name = number concentration of cloud condensation nuclei at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = ( index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_of_activated_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array)]
-  standard_name = activated_cloud_condensation_nuclei_number_concentration
-  long_name = number concentration of activated cloud condensation nuclei
+  standard_name = physics_timestep_initial_activated_cloud_condensation_nuclei_number_concentration
+  long_name = number concentration of activated cloud condensation nuclei at the beginning of the physics timestep
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = ( index_of_activated_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_of_graupel_volume_in_tracer_concentration_array)]
-  standard_name = graupel_volume
-  long_name = graupel particle volume
+  standard_name = physics_timestep_initial_graupel_volume
+  long_name = graupel particle volume at the beginning of the physics timestep
   units = m3 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = ( index_of_graupel_volume_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_of_hail_volume_in_tracer_concentration_array)]
-  standard_name = hail_volume
-  long_name = hail particle volume
+  standard_name = physics_timestep_initial_hail_volume
+  long_name = hail particle volume at the beginning of the physics timestep
   units = m3 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
   active = ( index_of_hail_volume_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
-  standard_name = turbulent_kinetic_energy
-  long_name = turbulent kinetic energy
+  standard_name = physics_timestep_initial_turbulent_kinetic_energy
+  long_name = physics_timestep_initial_turbulent kinetic energy at the beginning of the physics timestep
   units = J
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_of_updraft_area_fraction_in_tracer_concentration_array)]
-  standard_name = prognostic_updraft_area_fraction_in_convection
-  long_name = convective updraft area fraction
+  standard_name = physics_timestep_initial_prognostic_updraft_area_fraction_in_convection
+  long_name = convective updraft area fraction at the beginning of the physics timestep
   units = frac
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
@@ -358,15 +358,15 @@
   kind = kind_phys
   active = (index_of_updraft_velocity_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_for_smoke_in_tracer_concentration_array)]
-  standard_name = smoke_tracer_concentration
-  long_name = concentration of smoke
+  standard_name = physics_timestep_initial_smoke_tracer_concentration
+  long_name = concentration of smoke at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [qgrs(:,:,index_for_dust_in_tracer_concentration_array)]
-  standard_name = dust_tracer_concentration
-  long_name = concentration of dust
+  standard_name = physics_timestep_initial_dust_tracer_concentration
+  long_name = concentration of dust at the beginning of the physics timestep
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
@@ -389,112 +389,112 @@
   name = GFS_stateout_type
   type = ddt
 [gu0]
-  standard_name = x_wind_of_new_state
+  standard_name = x_wind
   long_name = zonal wind updated by physics
   units = m s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gu0(:,1)]
-  standard_name = x_wind_of_new_state_at_surface_adjacent_layer
+  standard_name = x_wind_at_surface_adjacent_layer
   long_name = zonal wind at lowest model layer updated by physics
   units = m s-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [gv0]
-  standard_name = y_wind_of_new_state
+  standard_name = y_wind
   long_name = meridional wind updated by physics
   units = m s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gv0(:,1)]
-  standard_name = y_wind_of_new_state_at_surface_adjacent_layer
+  standard_name = y_wind_at_surface_adjacent_layer
   long_name = meridional wind at lowest model layer updated by physics
   units = m s-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [gt0]
-  standard_name = air_temperature_of_new_state
+  standard_name = air_temperature
   long_name = temperature updated by physics
   units = K
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gt0(:,1)]
-  standard_name = air_temperature_of_new_state_at_surface_adjacent_layer
+  standard_name = air_temperature_at_surface_adjacent_layer
   long_name = temperature at lowest model layer updated by physics
   units = K
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [gq0]
-  standard_name = tracer_concentration_of_new_state
+  standard_name = tracer_concentration
   long_name = tracer concentration updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_specific_humidity_in_tracer_concentration_array)]
-  standard_name = specific_humidity_of_new_state
+  standard_name = specific_humidity
   long_name = water vapor specific humidity updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,1,index_of_specific_humidity_in_tracer_concentration_array)]
-  standard_name = specific_humidity_of_new_state_at_surface_adjacent_layer
+  standard_name = specific_humidity_at_surface_adjacent_layer
   long_name = water vapor specific humidity at lowest model layer updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_ozone_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = ozone_concentration_of_new_state
+  standard_name = ozone_concentration
   long_name = ozone concentration updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_cloud_liquid_water_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = cloud_liquid_water_mixing_ratio_of_new_state
+  standard_name = cloud_liquid_water_mixing_ratio
   long_name = ratio of mass of cloud water to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_cloud_ice_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = cloud_ice_mixing_ratio_of_new_state
+  standard_name = cloud_ice_mixing_ratio
   long_name = ratio of mass of ice water to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_rain_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = rain_mixing_ratio_of_new_state
+  standard_name = rain_mixing_ratio
   long_name = ratio of mass of rain water to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_snow_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = snow_mixing_ratio_of_new_state
+  standard_name = snow_mixing_ratio
   long_name = ratio of mass of snow water to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_graupel_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = graupel_mixing_ratio_of_new_state
+  standard_name = graupel_mixing_ratio
   long_name = ratio of mass of graupel to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_hail_mixing_ratio_in_tracer_concentration_array)]
-  standard_name = hail_mixing_ratio_of_new_state
+  standard_name = hail_mixing_ratio
   long_name = ratio of mass of hail to mass of dry air plus vapor (without condensates) updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -502,14 +502,14 @@
   kind = kind_phys
   active = ( index_of_hail_mixing_ratio_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_mass_weighted_rime_factor_in_tracer_concentration_array)]
-  standard_name = mass_weighted_rime_factor_of_new_state
+  standard_name = mass_weighted_rime_factor
   long_name = mass weighted rime factor updated by physics
   units = kg kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_mass_number_concentration_of_hygroscopic_aerosols_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_hygroscopic_aerosols_of_new_state
+  standard_name = mass_number_concentration_of_hygroscopic_aerosols
   long_name = number concentration of water-friendly aerosols updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -517,7 +517,7 @@
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_hygroscopic_aerosols_in_tracer_concentration_array > 0)
 [gq0(:,:,index_of_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_of_new_state
+  standard_name = mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols
   long_name = number concentration of ice-friendly aerosols updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -525,7 +525,7 @@
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_in_tracer_concentration_array > 0)
 [gq0(:,:,index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_cloud_liquid_water_particles_in_air_of_new_state
+  standard_name = mass_number_concentration_of_cloud_liquid_water_particles_in_air
   long_name = number concentration of cloud droplets updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -533,35 +533,35 @@
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array > 0)
 [gq0(:,:,index_of_mass_number_concentration_of_cloud_ice_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_cloud_ice_water_crystals_in_air_of_new_state
+  standard_name = mass_number_concentration_of_cloud_ice_water_crystals_in_air
   long_name = number concentration of ice updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_mass_number_concentration_of_rain_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_rain_of_new_state
+  standard_name = mass_number_concentration_of_rain
   long_name = number concentration of rain updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_mass_number_concentration_of_snow_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_snow_of_new_state
+  standard_name = mass_number_concentration_of_snow
   long_name = number concentration of snow updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_graupel_of_new_state
+  standard_name = mass_number_concentration_of_graupel
   long_name = number concentration of graupel updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_mass_number_concentration_of_hail_in_tracer_concentration_array)]
-  standard_name = mass_number_concentration_of_hail_of_new_state
+  standard_name = mass_number_concentration_of_hail
   long_name = number concentration of hail updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -569,7 +569,7 @@
   kind = kind_phys
   active = ( index_of_mass_number_concentration_of_hail_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array)]
-  standard_name = cloud_condensation_nuclei_number_concentration_of_new_state
+  standard_name = cloud_condensation_nuclei_number_concentration
   long_name = number concentration of cloud condensation nuclei updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -577,7 +577,7 @@
   kind = kind_phys
   active = ( index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_activated_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array)]
-  standard_name = activated_cloud_condensation_nuclei_number_concentration_of_new_state
+  standard_name = activated_cloud_condensation_nuclei_number_concentration
   long_name = number concentration of cloud condensation nuclei updated by physics
   units = kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -585,7 +585,7 @@
   kind = kind_phys
   active = ( index_of_activated_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_graupel_volume_in_tracer_concentration_array)]
-  standard_name = graupel_volume_of_new_state
+  standard_name = graupel_volume
   long_name = graupel volume updated by physics
   units = m3 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -593,7 +593,7 @@
   kind = kind_phys
   active = ( index_of_graupel_volume_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_hail_volume_in_tracer_concentration_array)]
-  standard_name = hail_volume_of_new_state
+  standard_name = hail_volume
   long_name = hail volume updated by physics
   units = m3 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -601,7 +601,7 @@
   kind = kind_phys
   active = ( index_of_hail_volume_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_reflectivity_of_rain_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_rain_of_new_state
+  standard_name = reflectivity_of_rain
   long_name = reflectivity of rain updated by physics
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -609,7 +609,7 @@
   kind = kind_phys
   active = ( index_of_reflectivity_of_rain_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_reflectivity_of_graupel_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_graupel_of_new_state
+  standard_name = reflectivity_of_graupel
   long_name = reflectivity of graupel updated by physics
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -617,7 +617,7 @@
   kind = kind_phys
   active = ( index_of_reflectivity_of_graupel_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_reflectivity_of_hail_in_tracer_concentration_array)]
-  standard_name = reflectivity_of_hail_of_new_state
+  standard_name = reflectivity_of_hail
   long_name = reflectivity of hail updated by physics
   units = m6 kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -625,14 +625,14 @@
   kind = kind_phys
   active = ( index_of_reflectivity_of_hail_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_cloud_area_fraction_in_atmosphere_layer_in_tracer_concentration_array)]
-  standard_name = cloud_area_fraction_in_atmosphere_layer_of_new_state
+  standard_name = cloud_area_fraction_in_atmosphere_layer
   long_name = cloud fraction updated by physics
   units = frac
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [gq0(:,:,index_of_updraft_area_fraction_in_tracer_concentration_array)]
-  standard_name = updraft_area_fraction_updated_by_physics
+  standard_name = updraft_area_fraction
   long_name = convective updraft area fraction updated by physics
   units = frac
   dimensions = (horizontal_dimension,vertical_layer_dimension)
@@ -3789,6 +3789,72 @@
   long_name = initial date with different size and ordering
   units = none
   dimensions = (4)
+  type = integer 
+[tend_opt_swrad]
+  standard_name = control_for_application_method_of_shortwave_radiation_tendencies
+  long_name = control for application method of shortwave radiation tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_lwrad]
+  standard_name = control_for_application_method_of_longwave_radiation_tendencies
+  long_name = control for application method of longwave radiation tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_rad_scaler]
+  standard_name = control_for_application_method_of_radiation_timescaler_tendencies
+  long_name = control for application method of radiation timescaler tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_surface]
+  standard_name = control_for_application_method_of_surface_scheme_tendencies
+  long_name = control for application method of surface scheme tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_pbl]
+  standard_name = control_for_application_method_of_planetary_boundary_layer_tendencies
+  long_name = control for application method of planetary boundary layer tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_gwd]
+  standard_name = control_for_application_method_of_gravity_wave_drag_tendencies
+  long_name = control for application method of gravity wave drag tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_photochem]
+  standard_name = control_for_application_method_of_photochemistry_tendencies
+  long_name = control for application method of photochemistry tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_deep_conv]
+  standard_name = control_for_application_method_of_deep_convection_tendencies
+  long_name = control for application method of deep convection tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_shal_conv]
+  standard_name = control_for_application_method_of_shallow_convection_tendencies
+  long_name = control for application method of shallow convection tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_mp]
+  standard_name = control_for_application_method_of_microphysics_tendencies
+  long_name = control for application method of microphysics tendencies
+  units = 1
+  dimensions = ()
+  type = integer
+[tend_opt_stoch]
+  standard_name = control_for_application_method_of_stochastic_physics_tendencies
+  long_name = control for application method of stochastic physics tendencies
+  units = 1
+  dimensions = ()
   type = integer
 [nsswr]
   standard_name = number_of_timesteps_between_shortwave_radiation_calls
