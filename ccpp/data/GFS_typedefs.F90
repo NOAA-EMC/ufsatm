@@ -5288,7 +5288,6 @@ module GFS_typedefs
     endif
 !--- initialize parameters for atmospheric chemistry tracers
     call Model%init_chemistry(tracer_types)
-
 !--- setup aerosol scavenging factors
     call Model%init_scavenging(fscav_aero)
 
@@ -5358,6 +5357,7 @@ module GFS_typedefs
       Model%ntocb = get_tracer_index(MODEL_ATMOS, 'oc1',   verbose = (Model%me == Model%master) .and. Model%debug)
       Model%ntocl = get_tracer_index(MODEL_ATMOS, 'oc2',   verbose = (Model%me == Model%master) .and. Model%debug)
     end if
+
 
     ! Lake & fractional grid safety checks
     if(Model%me==Model%master) then
@@ -5431,6 +5431,7 @@ module GFS_typedefs
            endif
         endif
 
+
         call label_dtend_tracer(Model,Model%index_of_temperature,'temp','temperature','K s-1')
         call label_dtend_tracer(Model,Model%index_of_x_wind,'u','x wind','m s-2')
         call label_dtend_tracer(Model,Model%index_of_y_wind,'v','y wind','m s-2')
@@ -5463,7 +5464,6 @@ module GFS_typedefs
         call label_dtend_tracer(Model,100+Model%ntia,'ice_aero','number concentration of ice-friendly aerosols','kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto,'o_ion','oxygen ion concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto2,'o2','oxygen concentration','kg kg-1 s-1')
-
         call label_dtend_cause(Model,Model%index_of_process_pbl,'pbl','tendency due to PBL')
         call label_dtend_cause(Model,Model%index_of_process_dcnv,'deepcnv','tendency due to deep convection')
         call label_dtend_cause(Model,Model%index_of_process_scnv,'shalcnv','tendency due to shallow convection')
@@ -5513,7 +5513,6 @@ module GFS_typedefs
        call fill_dtidx(Model,dtend_select,Model%index_of_y_wind,Model%index_of_process_physics)
        call fill_dtidx(Model,dtend_select,Model%index_of_x_wind,Model%index_of_process_non_physics)
        call fill_dtidx(Model,dtend_select,Model%index_of_y_wind,Model%index_of_process_non_physics)
-
        if(qdiag3d) then
           call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_scnv,have_scnv)
           call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_dcnv,have_dcnv)
@@ -5577,7 +5576,6 @@ module GFS_typedefs
           enddo
        endif
     end if
-
     IF ( Model%imp_physics == Model%imp_physics_nssl2mccn ) THEN ! recognize this option for compatibility
        Model%imp_physics = Model%imp_physics_nssl
        nssl_ccn_on = .true.
@@ -5720,7 +5718,6 @@ module GFS_typedefs
        Model%levh2o    = 1
        Model%h2o_coeff = 1
     end if
-
 !--- quantities to be used to derive phy_f*d totals
     Model%nshoc_2d         = nshoc_2d
     Model%nshoc_3d         = nshoc_3d
@@ -6363,7 +6360,6 @@ module GFS_typedefs
 !     Model%upd_slc = land_iau_upd_slc
 !     Model%do_stcsmc_adjustment = land_iau_do_stcsmc_adjustment
 !     Model%min_T_increment = land_iau_min_T_increment
-
     call Model%print ()
 
   end subroutine control_initialize
@@ -6491,7 +6487,7 @@ module GFS_typedefs
   subroutine control_scavenging_initialize(Model, fscav)
 
     use field_manager_mod,      only: MODEL_ATMOS
-    use tracer_manager_mod, only: get_tracer_index
+    use tracer_manager_mod, only: get_tracer_index, NO_TRACER
 
     !--- interface variables
     class(GFS_control_type)      :: Model
@@ -6526,13 +6522,14 @@ module GFS_typedefs
         if (j > 1) then
           read(fscav(i)(j+1:), *, iostat=ios) tem
           if (ios /= 0) cycle
-          n = get_tracer_index(MODEL_ATMOS, adjustl(fscav(i)(:j-1)), verbose = (Model%me == Model%master) .and. Model%debug) &
-              - Model%ntchs + 1
-          if (n > 0) Model%fscav(n) = tem
+          n = get_tracer_index(MODEL_ATMOS, adjustl(fscav(i)(:j-1)), verbose = (Model%me == Model%master) .and. Model%debug)
+          if (n /= NO_TRACER)  then
+            n = n - Model%ntchs + 1
+            if (n > 0) Model%fscav(n) = tem
+          endif
         endif
       enddo
     endif
-
   end subroutine control_scavenging_initialize
 
 
