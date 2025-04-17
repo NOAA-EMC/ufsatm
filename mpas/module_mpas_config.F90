@@ -1,5 +1,10 @@
+! #########################################################################################
+!
+! MPAS configuration information
+!
+! #########################################################################################
 module module_mpas_config
-
+  use MPAS_typedefs, only: r8 => kind_dbl_prec
   use mpi_f08
   use pio, only : iosystem_desc_t, file_desc_t
   use esmf
@@ -23,12 +28,39 @@ module module_mpas_config
   !> Calendar type
   character(17)            :: calendar='                 '
 
+  !> Files (Should come from namelist. ToDo)
+  character(len=256) :: mesh_filename = "x1.40962.grid.nc" ! This is not actually used during INIT.
+  character(len=256) :: ic_filename   = "mpas.init.nc"
+
   !> PIO
-  type(iosystem_desc_t), dimension(1), target, public :: pio_subsystems
-  type(file_desc_t),     dimension(1), target, public :: fh_init
+  type(iosystem_desc_t), pointer :: pio_subsystem
   integer :: pio_iotype
-  character(len=256)  :: ic_file_path
-  !type(file_desc_t), pointer :: fh_init(1) => null()
-  !type(file_desc_t) :: fh_init
+  integer :: pio_ioformat
+  integer :: pio_stride
+  integer :: pio_numiotasks
+  character(len=256)  :: ic_file_path = "mpas.init.nc"
+
+  !> MPAS Grid information
+  integer, pointer :: nCellsSolve      ! number of cells that a task solves
+  integer, pointer :: nEdgesSolve      ! number of edges (velocity) that a task solves
+  integer, pointer :: nVerticesSolve   ! number of vertices (vorticity) that a task solves
+  integer, pointer :: nVertLevelsSolve
+  real(r8), target, allocatable :: zref(:)
+  real(r8), target, allocatable :: zref_edge(:)
+  real(r8), target, allocatable :: pref(:)
+  real(r8), target, allocatable :: pref_edge(:)
+
+  !> sphere_radius is a global attribute in the MPAS initial file.  It is needed to
+  !> normalize the cell areas to a unit sphere.
+  real(r8) :: sphere_radius
+
+  integer :: maxNCells     ! maximum number of cells for any task (nCellsSolve <= maxNCells)
+  integer :: maxEdges      ! maximum number of edges per cell
+  integer :: nVertLevels   ! number of vertical layers (midpoints)
+
+  !> Global gridded data
+  integer :: nCells_g      ! global number of cells/columns
+  integer :: nEdges_g      ! global number of edges
+  integer :: nVertices_g   ! global number of vertices
   
 end module module_mpas_config

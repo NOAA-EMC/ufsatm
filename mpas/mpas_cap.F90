@@ -19,9 +19,8 @@ module mpasatm_cap_mod
                                     label_TimestampExport,                                  &
                                     label_Finalize,                                         &
                                     NUOPC_ModelGet
-
-  use module_mpas_config,     only: output_fh, dt_atmos, calendar
-
+  use module_mpas_config,     only: output_fh, dt_atmos, calendar, fcst_mpi_comm
+  use module_mpas_config,     only: pio_ioformat, pio_iotype, pio_subsystem, pio_stride, pio_numiotasks
   use module_fcst_grid_comp,  only: fcstSS => SetServices
 
   implicit none
@@ -89,6 +88,14 @@ contains
   !
   ! #########################################################################################
   subroutine InitializeAdvertise(gcomp, rc)
+    use pio,                    only: PIO_64BIT_OFFSET, PIO_64BIT_DATA
+    use pio,                    only: PIO_IOTYPE_NETCDF, PIO_IOTYPE_PNETCDF
+    use pio,                    only: PIO_IOTYPE_NETCDF4C, PIO_IOTYPE_NETCDF4P
+    use pio,                    only: PIO_REARR_BOX, PIO_REARR_SUBSET
+    use pio,                    only: PIO_REARR_COMM_P2P, PIO_REARR_COMM_COLL
+    use pio,                    only: PIO_REARR_COMM_FC_2D_ENABLE, PIO_REARR_COMM_FC_2D_DISABLE
+    use pio,                    only: PIO_REARR_COMM_FC_1D_COMP2IO, PIO_REARR_COMM_FC_1D_IO2COMP
+    use pio,                    only: pio_init, pio_setdebuglevel, pio_set_rearr_opts, pio_openfile, pio_nowrite, pio_iotask_rank
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
 
@@ -108,8 +115,21 @@ contains
     character(len=*),parameter             :: subname='(mpas_nuopc_cap:InitializeAdvertise)'
     real(kind=8)                           :: MPI_Wtime, timeis, timerhs
     integer                                :: num_threads
-    character(len=20)                      :: cvalue
     integer                                :: num_pes_fcst
+    ! PIO
+    character(len=20)       :: cvalue
+    integer                 :: pio_root
+    integer                 :: pio_rearranger
+    integer                 :: pio_debug_level
+    integer                 :: pio_rearr_comm_type
+    integer                 :: pio_rearr_comm_fcd
+    logical                 :: pio_rearr_comm_enable_hs_comp2io
+    logical                 :: pio_rearr_comm_enable_isend_comp2io
+    integer                 :: pio_rearr_comm_max_pend_req_comp2io
+    logical                 :: pio_rearr_comm_enable_hs_io2comp
+    logical                 :: pio_rearr_comm_enable_isend_io2comp
+    integer                 :: pio_rearr_comm_max_pend_req_io2comp
+    integer                 :: ret
 
     ! Initialize ESMF error message.
     rc = ESMF_SUCCESS
@@ -131,7 +151,9 @@ contains
     ! - petcount is the number of PETs
     ! - mype is the master PET (000).
     !
-    call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
+    !call ESMF_VMGet(vm, petCount=petcount, localpet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, rc=rc)
+    call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
+                    petCount=petcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! Get this Component's ESMF_infor object handle (info) and query the object handle to get
@@ -171,6 +193,300 @@ contains
 
     ! #######################################################################################
     !
+    ! PIO
+    !
+    ! #######################################################################################
+    ! pio_netcdf_format
+    call NUOPC_CompAttributeGet(gcomp, name='pio_netcdf_format', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'CLASSIC') then
+          pio_ioformat = 0
+       else if (trim(cvalue) .eq. '64BIT_OFFSET') then
+          pio_ioformat = PIO_64BIT_OFFSET
+       else if (trim(cvalue) .eq. '64BIT_DATA') then
+          pio_ioformat = PIO_64BIT_DATA
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_ioformat (CLASSIC|64BIT_OFFSET|64BIT_DATA)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = '64BIT_OFFSET'
+       pio_ioformat = PIO_64BIT_OFFSET
+    end if
+    if (mype == 0) print*,'MPAS_NUOPC_CAP : pio_ioformat = ', pio_ioformat
+
+    ! pio_typename
+    call NUOPC_CompAttributeGet(gcomp, name='pio_typename', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'NETCDF') then
+          pio_iotype = PIO_IOTYPE_NETCDF
+       else if (trim(cvalue) .eq. 'PNETCDF') then
+          pio_iotype = PIO_IOTYPE_PNETCDF
+       else if (trim(cvalue) .eq. 'NETCDF4C') then
+          pio_iotype = PIO_IOTYPE_NETCDF4C
+       else if (trim(cvalue) .eq. 'NETCDF4P') then
+          pio_iotype = PIO_IOTYPE_NETCDF4P
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_typename (NETCDF|PNETCDF|NETCDF4C|NETCDF4P)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = 'NETCDF'
+       pio_iotype = PIO_IOTYPE_NETCDF
+    end if
+    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_typename = ', trim(cvalue), pio_iotype
+
+    ! pio_root
+    call NUOPC_CompAttributeGet(gcomp, name='pio_root', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_root
+       if (pio_root < 0) then
+          pio_root = 1
+       endif
+       pio_root = min(pio_root, petCount-1)
+    else
+       pio_root = 1
+    end if
+    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_root = ', pio_root
+
+    ! pio_stride
+    call NUOPC_CompAttributeGet(gcomp, name='pio_stride', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_stride
+    else
+       pio_stride = -99
+    end if
+    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_stride = ', pio_stride
+
+    ! pio_numiotasks
+    call NUOPC_CompAttributeGet(gcomp, name='pio_numiotasks', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_numiotasks
+    else
+       pio_numiotasks = -99
+    end if
+    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
+
+    ! check for parallel IO, it requires at least two io pes
+    if (petCount > 1 .and. pio_numiotasks == 1 .and. &
+       (pio_iotype .eq. PIO_IOTYPE_PNETCDF .or. pio_iotype .eq. PIO_IOTYPE_NETCDF4P)) then
+       pio_numiotasks = 2
+       pio_stride = min(pio_stride, petCount/2)
+       if (mype == 0) then
+          print*, 'MPAS_NUOPC_CAP: parallel io requires at least two io pes - following parameters are updated:'
+          print*, 'MPAS_NUOPC_CAP: pio_stride     = ', pio_stride
+          print*, 'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
+       end if
+    endif
+
+    if (pio_root + (pio_stride)*(pio_numiotasks-1) >= petCount .or. &
+        pio_stride <= 0 .or. pio_numiotasks <= 0 .or. pio_root < 0 .or. pio_root > petCount-1) then
+       if (petCount < 100) then
+          pio_stride = max(1, petCount/4)
+       else if(petCount < 1000) then
+          pio_stride = max(1, petCount/8)
+       else
+          pio_stride = max(1, petCount/16)
+       end if
+       if(pio_stride > 1) then
+          pio_numiotasks = petCount/pio_stride
+          pio_root = min(1, petCount-1)
+       else
+          pio_numiotasks = petCount
+          pio_root = 0
+       end if
+       if (mype == 0) then
+          print*, 'MPAS_NUOPC_CAP pio_stride, iotasks or root out of bounds - resetting to defaults:'
+          print*, 'MPAS_NUOPC_CAP: pio_root = ', pio_root
+          print*, 'MPAS_NUOPC_CAP: pio_stride = ', pio_stride
+          print*, 'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
+       end if
+    end if
+
+    ! pio_rearranger
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearranger', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'BOX') then
+          pio_rearranger = PIO_REARR_BOX
+       else if (trim(cvalue) .eq. 'SUBSET') then
+          pio_rearranger = PIO_REARR_SUBSET
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_rearranger (BOX|SUBSET)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = 'SUBSET'
+       pio_rearranger = PIO_REARR_SUBSET
+    end if
+    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearranger = ', trim(cvalue), pio_rearranger
+
+    ! Initialize PIO
+    !allocate(pio_subsystem)
+    !if (mype == 0) print*,'MPAS_NUOPC_CAP: calling pio init1'
+    !call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
+    !if (mype == 0) print*,'MPAS_NUOPC_CAP: calling pio init2',pio_iotask_rank(pio_subsystem)
+    
+    ! PIO debug related options
+    ! pio_debug_level
+    call NUOPC_CompAttributeGet(gcomp, name='pio_debug_level', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_debug_level
+       if (pio_debug_level < 0 .or. pio_debug_level > 6) then
+          call ESMF_LogWrite(trim("MPAS_NUOPC_CAP: need to provide valid option for pio_debug_level (0-6)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       pio_debug_level = 0
+    end if
+    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_debug_level = ', pio_debug_level
+
+    ! set PIO debug level
+    call pio_setdebuglevel(pio_debug_level)
+
+    ! query shared PIO rearranger attributes
+    ! pio_rearr_comm_type
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_type', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'P2P') then
+          pio_rearr_comm_type = PIO_REARR_COMM_P2P
+       else if (trim(cvalue) .eq. 'COLL') then
+          pio_rearr_comm_type = PIO_REARR_COMM_COLL
+       else
+          call ESMF_LogWrite("MPAS_NUOPC_CAP: need to provide valid option for pio_rearr_comm_type (P2P|COLL)",ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = 'P2P'
+       pio_rearr_comm_type = PIO_REARR_COMM_P2P
+    end if
+    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_type = ', trim(cvalue), pio_rearr_comm_type
+
+    ! pio_rearr_comm_fcd
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_fcd', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. '2DENABLE') then
+          pio_rearr_comm_fcd = PIO_REARR_COMM_FC_2D_ENABLE
+       else if (trim(cvalue) .eq. 'IO2COMP') then
+          pio_rearr_comm_fcd = PIO_REARR_COMM_FC_1D_IO2COMP
+       else if (trim(cvalue) .eq. 'COMP2IO') then
+          pio_rearr_comm_fcd = PIO_REARR_COMM_FC_1D_COMP2IO
+       else if (trim(cvalue) .eq. '2DDISABLE') then
+          pio_rearr_comm_fcd = PIO_REARR_COMM_FC_2D_DISABLE
+       else
+          call ESMF_LogWrite("MPAS_NUOPC_CAP: need to provide valid option for pio_rearr_comm_fcd (2DENABLE|IO2COMP|COMP2IO|2DDISABLE)",ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = '2DENABLE'
+       pio_rearr_comm_fcd = PIO_REARR_COMM_FC_2D_ENABLE
+    end if
+    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_fcd = ', trim(cvalue), pio_rearr_comm_fcd
+
+    ! pio_rearr_comm_enable_hs_comp2io
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_enable_hs_comp2io', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_enable_hs_comp2io
+    else
+       pio_rearr_comm_enable_hs_comp2io = .true.
+    end if
+
+    ! pio_rearr_comm_enable_isend_comp2io
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_enable_isend_comp2io', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_enable_isend_comp2io
+    else
+       pio_rearr_comm_enable_isend_comp2io = .false.
+    end if
+
+    ! pio_rearr_comm_max_pend_req_comp2io
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_max_pend_req_comp2io', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_max_pend_req_comp2io
+    else
+       pio_rearr_comm_max_pend_req_comp2io = 0
+    end if
+
+    ! pio_rearr_comm_enable_hs_io2comp
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_enable_hs_io2comp', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_enable_hs_io2comp
+    else
+       pio_rearr_comm_enable_hs_io2comp = .false.
+    end if
+
+    ! pio_rearr_comm_enable_isend_io2comp
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_enable_isend_io2comp', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_enable_isend_io2comp
+    else
+       pio_rearr_comm_enable_isend_io2comp = .true.
+    end if
+
+    ! pio_rearr_comm_max_pend_req_io2comp
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_max_pend_req_io2comp', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_rearr_comm_max_pend_req_io2comp
+    else
+       pio_rearr_comm_max_pend_req_io2comp = 64
+    end if
+
+    ! print out PIO rearranger parameters
+    if (mype == 0) then
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_hs_comp2io    = ', pio_rearr_comm_enable_hs_comp2io
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_isend_comp2io = ', pio_rearr_comm_enable_isend_comp2io
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_max_pend_req_comp2io = ', pio_rearr_comm_max_pend_req_comp2io
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_hs_io2comp    = ', pio_rearr_comm_enable_hs_io2comp
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_isend_io2comp = ', pio_rearr_comm_enable_isend_io2comp
+       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_max_pend_req_io2comp = ', pio_rearr_comm_max_pend_req_io2comp
+    end if
+    
+    ! set PIO rearranger options
+    !if (mype == 0) print*, 'MPAS_NUOPC_CAP: calling pio_set_rearr_opts'
+    !ret = pio_set_rearr_opts(pio_subsystem, pio_rearr_comm_type, pio_rearr_comm_fcd,        &
+    !                         pio_rearr_comm_enable_hs_comp2io,                              &
+    !                         pio_rearr_comm_enable_isend_comp2io,                           &
+    !                         pio_rearr_comm_max_pend_req_comp2io,                           &
+    !                         pio_rearr_comm_enable_hs_io2comp,                              &
+    !                         pio_rearr_comm_enable_isend_io2comp,                           &
+    !                         pio_rearr_comm_max_pend_req_io2comp)
+    
+    ! #######################################################################################
+    !
     ! Get configuration variables.
     !
     ! #######################################################################################
@@ -189,7 +505,7 @@ contains
     ! Timestep (dt_atmos) and forecast length (nfhmax)
     call ESMF_ConfigGetAttribute(config=CF, value=dt_atmos, label ='dt_atmos:',   rc=rc)
     call ESMF_ConfigGetAttribute(config=CF, value=nfhmax,   label ='nhours_fcst:',rc=rc)
-    if(mype == 0) print *,'in mpas_nuopc_cap: dt_atmos=',dt_atmos,'nfhmax=',nfhmax
+    if(mype == 0) print *,'MPAS_NUOPC_CAP: dt_atmos = ',dt_atmos,', nfhmax = ',nfhmax
 
     ! Set ESMF time interval.
     call ESMF_TimeIntervalSet(timeStep, s=dt_atmos, rc=rc)
@@ -254,7 +570,7 @@ contains
     ! Determine number elements in fcstState
     call ESMF_StateGet(fcstState, itemCount=FBCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if(mype == 0) print *,'mpas_nuopc_cap: field bundles in fcstComp export state, FBCount= ',FBcount
+    if(mype == 0) print *,'MPAS_NUOPC_CAP: field bundles in fcstComp export state, FBCount= ',FBcount
 
     ! ########################################################################################
     !
@@ -267,7 +583,7 @@ contains
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
     ! Timing info (debug mode)
-    if (mype == 0) print *,'in mpas_nuopc_cap, initAdvertise time=',MPI_Wtime()-timeis,mype
+    if (mype == 0) print *,'MPAS_NUOPC_CAP, initAdvertise time=',MPI_Wtime()-timeis,mype
 
   end subroutine InitializeAdvertise
   
@@ -305,7 +621,7 @@ contains
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
     ! Timing info (debug mode)
-    if (mype == 0) print *,'in mpas_nuopc_cap, InitializeRealize time=', MPI_Wtime()-timeirs, mype
+    if (mype == 0) print *,'MPAS_NUOPC_CAP, InitializeRealize time=', MPI_Wtime()-timeirs, mype
 
   end subroutine InitializeRealize
 
@@ -327,7 +643,7 @@ contains
 
     ! Timing info (debug mode)
     timers = MPI_Wtime()
-    if(write_runtimelog .and. timere>0. .and. lprint) print *,'in mpas_nuopc_cap, time between ModelAdvance phase=', timers-timere, mype
+    if(write_runtimelog .and. timere>0. .and. lprint) print *,'MPAS_NUOPC_CAP, time between ModelAdvance phase=', timers-timere, mype
 
     ! Begin memory profiling.
     if (profile_memory) call ESMF_VMLogMemInfo("Entering MPAS ModelAdvance: ")
@@ -341,7 +657,7 @@ contains
 
     ! Timing info (debug mode)
     timere = MPI_Wtime()
-    if (mype == 0) print *,'in mpas_nuopc_cap, ModelAdvance time=', timere-timers, mype
+    if (mype == 0) print *,'MPAS_NUOPC_CAP, ModelAdvance time=', timere-timers, mype
 
   end subroutine ModelAdvance
   
@@ -366,7 +682,7 @@ contains
 
     ! Timing info (debug mode)
     timep1rs = MPI_Wtime()
-    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in mpas_nuopc_cap, time between mpas run phase2 and phase1 ', timep1rs-timep2re,mype
+    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'MPAS_NUOPC_CAP, time between mpas run phase2 and phase1 ', timep1rs-timep2re,mype
 
     ! Begin memory profiling. 
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MPAS ModelAdvance_phase1: ")
@@ -400,7 +716,7 @@ contains
 
     ! Timing info (debug mode)
     timep1re = MPI_Wtime()
-    if(write_runtimelog .and. lprint) print *,'in mpas_nuopc_cap, ModelAdvance phase1 time=', timep1re-timep1rs,mype
+    if(write_runtimelog .and. lprint) print *,'MPAS_NUOPC_CAP, ModelAdvance phase1 time=', timep1re-timep1rs,mype
 
   end subroutine ModelAdvance_phase1
 
@@ -439,7 +755,7 @@ contains
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! Timing info (debug mode) 
-    if(write_runtimelog .and. lprint) print *,'in mpas_nuopc_cap, ModelFinalize time=',MPI_Wtime()-timeffs,mype
+    if(write_runtimelog .and. lprint) print *,'MPAS_NUOPC_CAP, ModelFinalize time=',MPI_Wtime()-timeffs,mype
 
   end subroutine ModelFinalize
 

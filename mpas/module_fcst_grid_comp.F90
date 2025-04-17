@@ -100,7 +100,7 @@ contains
     type(ESMF_VM) :: VM
     type(ESMF_Time) :: CurrTime, StartTime, StopTime
     type(ESMF_Config) :: cf
-    real(kind=8) :: mpi_wtime, tbeg1
+    real(kind=8) :: tbeg1
     logical :: fexist
     integer :: initClock, io_unit, calendar_type_res, date_res(6), date_init_res(6)
     integer,dimension(6) :: date, date_end, days
@@ -340,5 +340,4 @@ contains
     if (mype == 0) write(*,*)'PASS(fcst_finalize): total is ', mpi_wtime() - tbeg1
     
   end subroutine fcst_finalize
-  !
 end module  module_fcst_grid_comp

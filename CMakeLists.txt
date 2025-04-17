@@ -175,6 +175,7 @@ if (MPAS)
   endif()
   set(DO_MPASDA        OFF)
   set(DO_PHYSICS       OFF)
+  set(MPAS_CAM_DYCORE  ON)
   add_definitions(-DMPAS_USE_MPI_F08)
   add_definitions(-DMPAS_PIO_SUPPORT)
   add_definitions(-DMPAS_CAM_DYCORE)
@@ -198,6 +199,20 @@ if (MPAS)
     ccpp/driver/MPAS_init.F90
     )
   add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
+
+  if(NOT MPAS_GIT_VERSION)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+      execute_process(COMMAND ${GIT_EXECUTABLE} describe --dirty
+                      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model"
+		      OUTPUT_VARIABLE _mpas_git_version
+		      ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+    else()
+      set(_mpas_git_version "Unknown")
+    endif()
+    set(MPAS_GIT_VERSION ${_mpas_git_version} CACHE STRING "MPAS-Model git version")
+    message(STATUS "Setting MPAS_GIT_VERSION ${_mpas_git_version}")
+  endif()
 endif()
 
 ###############################################################################

@@ -6,7 +6,7 @@ module MPAS_init
   use machine,       only: kind_phys
   use MPAS_typedefs, only: MPAS_statein_type, MPAS_stateint_type, MPAS_stateout_type
   use MPAS_typedefs, only: MPAS_init_type
-  use GFS_typedefs,  only: GFS_control_type
+  use GFS_typedefs,  only: GFS_control_type, GFS_diag_type
 
   implicit none
 
@@ -16,13 +16,14 @@ contains
   ! #########################################################################################
   ! MPAS_initialize
   ! #########################################################################################
-  subroutine MPAS_initialize (Model, Statein, Stateint, Stateout, Init)
+  subroutine MPAS_initialize (Model, Diag, Statein, Stateint, Stateout, Init)
 #ifdef _OPENMP
     use omp_lib
 #endif
 
     ! Inputs
     type(GFS_control_type),      intent(inout) :: Model
+    type(GFS_diag_type),         intent(inout) :: Diag
     type(MPAS_statein_type),     intent(inout) :: Statein
     type(MPAS_stateint_type),    intent(inout) :: Stateint
     type(MPAS_stateout_type),    intent(inout) :: Stateout
@@ -43,7 +44,6 @@ contains
 #else
     nthrds = 1
 #endif
-
     !--- set control properties (including namelist read)
     call Model%init(Init%nlunit, Init%fn_nml, Init%me, Init%master, Init%logunit, Init%isc, &
          Init%jsc, Init%nx, Init%ny, Init%levs, Init%cnx, Init%cny, Init%gnx, Init%gny,     &
@@ -55,6 +55,7 @@ contains
     call Statein%create(Model)
     call Stateout%create(Model)
     call Stateint%create(Model)
+    call Diag%create(Model)
 
   end subroutine MPAS_initialize
 

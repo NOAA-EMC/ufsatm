@@ -11,7 +11,7 @@ module atmos_model_mod
   use MPAS_typedefs,         only: MPAS_init_type, MPAS_kind_phys => kind_phys
   ! CCPP
   use CCPP_data,             only: GFS_control, MPAS_statein, MPAS_stateint, MPAS_stateout
-  use CCPP_data,             only: ccpp_suite
+  use CCPP_data,             only: GFS_intdiag, ccpp_suite
   use CCPP_driver,           only: CCPP_step
   ! FMS
   use time_manager_mod,      only: time_type, get_time, get_date, operator(+), operator(-)
@@ -24,6 +24,8 @@ module atmos_model_mod
   use mpp_mod,               only: mpp_pe, mpp_root_pe, mpp_clock_id, mpp_clock_begin
   use mpp_mod,               only: mpp_clock_end, CLOCK_COMPONENT, MPP_CLOCK_SYNC
   use fms_mod,               only: clock_flag_default
+  use fms_mod,               only: stdlog
+  use mpp_mod,               only: stdout
   implicit none
 
   private
@@ -55,11 +57,15 @@ module atmos_model_mod
 contains
   ! #########################################################################################
   !
-  ! Procedure to initialize UWM with MPAS dynamical core.
+  ! Procedure to initialize UWM ATMosphere with MPAS dynamical core.
+  !
+  ! - Read in ATMosphere namelist
   ! - Initialize MPAS framework
   ! - Read in MPAS namelist
   ! - Initialize MPAS dynamical core
-  ! - Read in UFS physics namelist
+  !   - Read in MPAS initial conditions
+  !   - Read in MPAS mesh
+  ! - Read in physics namelist
   ! - Initialize CCPP framework
   ! - Initialize CCPP Physics
   !
@@ -75,9 +81,9 @@ contains
     character(17),  intent(in) :: calendar 
 
     ! Locals
-    integer :: i, io, ierr, nConstituents
+    integer :: i, io, ierr, nConstituents, sec
     type(MPAS_init_type)  :: Init
-    integer :: times(6), timee(6), ttime
+    integer :: times(6), timee(6), ttime, logUnits(2)
     
     ! Set up timers
     setupClock = mpp_clock_id( 'Time-Step Setup       ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
@@ -87,23 +93,31 @@ contains
     mpasClock  = mpp_clock_id( 'MPAS Dycore           ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
     mpClock    = mpp_clock_id( 'Microphysics          ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
 
-    ! Start timer for this procedure.
+    ! Start timer for this procedure (init).
     call mpp_clock_begin(atmiClock)
 
     ! Set model time
-    Atmos%Time_init = Time_init
-    Atmos%Time      = Time
-    Atmos%Time_step = Time_step
+    Atmos % Time_init = Time_init
+    Atmos % Time      = Time
+    Atmos % Time_step = Time_step
+    call get_time (Atmos % Time_step, sec)
 
     ! Get forecast start/stop times (year/month/day/hour/minute/second)
     call get_date(Time_init,times(1),times(2),times(3),times(4),times(5),times(6))
     call get_date(Time_end, timee(1),timee(2),timee(3),timee(4),timee(5),timee(6))
     call get_time(Time_end - Time_init, ttime)
     
-    ! Set parameters needed for initialization
-    Init%me       = mpp_pe()
-    Init%master   = mpp_root_pe()
-    Init%mpi_comm = mpicomm
+    ! Parameters needed for initialization
+    Init%me        = mpp_pe()
+    Init%master    = mpp_root_pe()
+    Init%mpi_comm  = mpicomm
+    Init%dt_phys   = real(sec)
+    
+    ! Read in ATMosphere namelist.
+    if (file_exists('input.nml')) then
+       read(input_nml_file, nml=atmos_model_nml, iostat=io)
+       ierr = check_nml_error(io, 'atmos_model_nml')
+    endif
 
     ! Get the number of tracers.
     call get_number_tracers(MODEL_ATMOS, num_tracers=Init%nConstituents)
@@ -116,19 +130,21 @@ contains
     Init%nwat = 6
 
     ! Initialize the MPAS dynamical core. Read in MPAS dycore namelist.
-    ! Work in Progree. See ufs_mpas_subdriver.F90
-    call ufs_mpas_init(Init, times, timee, ttime, calendar)
-    allocate(Init%blksz(blocksize)) ! DJS Should come from ufs_mpas_init
-    allocate(Init%ak(Init%levs+1))  ! DJS Should come from ufs_mpas_init 
-    allocate(Init%bk(Init%levs+1))  ! DJS Should come from ufs_mpas_init 
-    Atm_block%nblks = 1             ! DJS Should come from ufs_mpas_init 
-    
-    ! Read in ATMosphere namelist.
-    if (file_exists('input.nml')) then
-       read(input_nml_file, nml=atmos_model_nml, iostat=io)
-       ierr = check_nml_error(io, 'atmos_model_nml')
-    endif
-    
+    logUnits(1) = stdout()
+    logUnits(2) = stdlog()
+    call ufs_mpas_init(Init, times, timee, ttime, calendar, logUnits)
+
+    ! Set domain description.
+    ! ### Work in Progress. Set to 1 for MPAS initialization testing. ###
+    Atm_block%nblks = 1
+    allocate(Init%blksz(Atm_block%nblks))
+    allocate(Init%ak(Init%levs+1))
+    allocate(Init%bk(Init%levs+1))
+    Init%ak(:)    = 0.0
+    Init%bk(:)    = 0.0
+    Init%blksz(:) = blocksize
+    Init%nlunit = stdlog()
+
     ! Update time (UFS specific time formatting array)
     Init%bdat(:) = 0
     call get_date (Time_init, Init%bdat(1), Init%bdat(2), Init%bdat(3), Init%bdat(5),       &
@@ -143,7 +159,7 @@ contains
     Init%fn_nml='using internal file'
 
     ! Read in physics namelist and allocate data containers.
-    call MPAS_initialize(GFS_control, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Init)
+    call MPAS_initialize(GFS_control, GFS_intdiag, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Init)
 
    ! Initialize the CCPP framework
    call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
