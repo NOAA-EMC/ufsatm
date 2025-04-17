@@ -10181,7 +10181,7 @@
   dependencies = hooks/machine.F,hooks/physcons.F90
   dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
   dependencies = photochem/module_ozphys.F90,photochem/module_h2ophys.F90
-  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90,MP/GFDL/GFDL_parse_tracers.F90
+  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90
 
 [ccpp-arg-table]
   name = GFS_typedefs
