@@ -14,7 +14,7 @@ if(ENABLE_FV3ATM_DOCS)
 endif()
 
 # Enable CI build & unit testing:
-if(BUILD_TESTING)
+if(BUILD_CI_TESTING)
   if (FV3)
     project(ufsatm_fv3 VERSION 1.0 LANGUAGES C CXX Fortran)
   endif()
@@ -51,7 +51,7 @@ if(ENABLE_RRFS_WAR)
   list(APPEND _ufsatm_defs_private ENABLE_RRFS_WAR)
 endif()
 
-if(BUILD_TESTING)
+if(BUILD_CI_TESTING)
   include(CTest)
   add_subdirectory(tests)
 endif()
