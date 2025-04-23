@@ -119,7 +119,7 @@ jobs:
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_FV3ATM_DOCS=ON ${{ env.gcov_cmake }}
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_CI_TESTING=ON ${{ matrix.cmake_opts }} -DENABLE_FV3ATM_DOCS=ON ${{ env.gcov_cmake }}
         make doxygen_doc
 
     - name: upload-docs
