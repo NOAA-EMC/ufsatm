@@ -13,7 +13,12 @@
     </subcycle>
   </group>
 
-  <group name="physics">
+  <group name="phys_ps">
+    <subcycle loop="1">
+    </subcycle>
+  </group>
+
+  <group name="phys_ts">
     <!-- Surface iteration loop -->
     <!-- End of surface iteration loop -->
     <subcycle loop="1">
