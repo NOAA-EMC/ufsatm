@@ -8,8 +8,8 @@
   </group>
   <group name="radiation">
   </group>
-  <group name="physics">
+  <group name="phys_ps">
   </group>
-  <group name="microphysics">
+  <group name="phys_ts">
   </group>
 </suite>

@@ -16,12 +16,11 @@ if (FV3)
   set(CCPP_TARGET fv3ccpp)
   set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config_fv3.py)
   set(DYCORE_CCPP_SRCS
-        GFS_diagnostics.F90
-        GFS_restart.F90
-        GFS_init.F90
+        driver/GFS_diagnostics.F90
+        driver/GFS_restart.F90
+        driver/GFS_init.F90
         CCPP_driver.F90
         )
-  list(TRANSFORM DYCORE_CCPP_SRCS PREPEND driver/)
   
   # Add dycore-specific preprocessor flag (needed for some physics schemes)
   add_definitions(-DFV3)
@@ -38,7 +37,6 @@ if (MPAS)
   set(DYCORE_CCPP_SRCS
 	CCPP_driver.F90
         )
-      list(TRANSFORM DYCORE_CCPP_SRCS PREPEND driver/)
   add_definitions(-DFV3)
 endif()
 
