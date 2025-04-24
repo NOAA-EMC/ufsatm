@@ -53,6 +53,7 @@ contains
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
     use MPAS_typedefs,              only : MPAS_init_type
+    use mpas_constants,             only : mpas_constants_compute_derived
 
     ! Inputs
     type(MPAS_init_type), intent(inout) :: Init
@@ -316,6 +317,13 @@ contains
     ! Query global grid dimensions from MPAS
     call ufs_mpas_get_global_dims(nCells_g, nEdges_g, nVertices_g, maxEdges, nVertLevels, maxNCells)
 
+    ! Setup constants
+    call mpas_constants_compute_derived()
+
+    !
+    !call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
+    !call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    
     ! #######################################################################################
     ! #######################################################################################
     !

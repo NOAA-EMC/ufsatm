@@ -161,19 +161,19 @@ contains
     ! Read in physics namelist and allocate data containers.
     call MPAS_initialize(GFS_control, GFS_intdiag, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Init)
 
-   ! Initialize the CCPP framework
-   call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
-   if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
-   
-   ! Initialize the CCPP physics
-   call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr)
-   if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
+    ! Initialize the CCPP framework
+    call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
+    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
 
-   ! Initialize stochastic physics pattern generation / cellular automata
-   ! NOT YET IMPLEMENTED
+    ! Initialize the CCPP physics
+    call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr)
+    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
-   call mpp_clock_end(atmiClock)
-   !
+    ! Initialize stochastic physics pattern generation / cellular automata
+    ! NOT YET IMPLEMENTED
+
+    call mpp_clock_end(atmiClock)
+    !
   end subroutine atmos_model_init
 
   ! #########################################################################################
