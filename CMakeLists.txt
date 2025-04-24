@@ -14,7 +14,7 @@ if(ENABLE_FV3ATM_DOCS)
 endif()
 
 # Enable CI build & unit testing:
-if(BUILD_TESTING)
+if(BUILD_CI_TESTING)
   if (FV3)
     project(ufsatm_fv3 VERSION 1.0 LANGUAGES C CXX Fortran)
   endif()
@@ -46,7 +46,15 @@ if(NOT PARALLEL_NETCDF)
   list(APPEND _ufsatm_defs_private NO_PARALLEL_NETCDF)
 endif()
 
-if(BUILD_TESTING)
+if(ENABLE_PARALLELRESTART)
+  list(APPEND _ufsatm_defs_private ENABLE_PARALLELRESTART)
+endif()
+
+if(ENABLE_RRFS_WAR)
+  list(APPEND _ufsatm_defs_private ENABLE_RRFS_WAR)
+endif()
+
+if(BUILD_CI_TESTING)
   include(CTest)
   add_subdirectory(tests)
 endif()
@@ -55,7 +63,9 @@ endif()
 ### UFSATM with FV3 dynamical core
 ###############################################################################
 if (FV3)
-  set(DYCORE_TARGET ${DYCORE_TARGET_FV3})
+  set(DYCORE_TARGET ${DYCORE_TARGET_FV3}
+    CACHE INTERNAL "DYCORE_TARGET Options: fv3atm")
+  set(DYCORE_TARGET_CAP_MOD fv3atm_cap_mod PARENT_SCOPE)
 
   # These ifdefs need to be turned ON in the dycore.
   set(use_WRTCOMP ON)
@@ -75,7 +85,7 @@ if (FV3)
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
     add_subdirectory(upp)
-    set(POST_SRC io/post_nems_routines.F90 io/post_fv3.F90)
+    set(POST_SRC fv3/io/post_nems_routines.F90 fv3/io/post_fv3.F90)
     list(APPEND _ufsatm_defs_private INLINE_POST)
   endif()
 
@@ -106,9 +116,6 @@ if (FV3)
     if(32BIT)
       list(APPEND _ufsatm_defs_private OVERLOAD_R4 OVERLOAD_R8)
     endif()
-    if(MULTI_GASES)
-      list(APPEND _ufsatm_defs_private MULTI_GASES)
-    endif()
 
     list(APPEND moving_nest_srcs
       fv3/moving_nest/bounding_box.F90
@@ -129,23 +136,23 @@ if (FV3)
     fv3/fv3_cap.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
-    stochastic_physics/stochastic_physics_wrapper.F90
+    fv3/stochastic_physics/stochastic_physics_wrapper.F90
     cpl/module_block_data.F90
     cpl/module_cplfields.F90
     cpl/module_cap_cpl.F90
     cpl/module_cplscalars.F90
-    io/fv3atm_common_io.F90
-    io/fv3atm_clm_lake_io.F90
-    io/fv3atm_rrfs_sd_io.F90
-    io/fv3atm_sfc_io.F90
-    io/fv3atm_oro_io.F90
-    io/fv3atm_history_io.F90
-    io/fv3atm_restart_io.F90
-    io/module_write_netcdf.F90
-    io/module_write_restart_netcdf.F90
-    io/module_fv3_io_def.F90
-    io/module_write_internal_state.F90
-    io/module_wrt_grid_comp.F90
+    fv3/io/fv3atm_common_io.F90
+    fv3/io/fv3atm_clm_lake_io.F90
+    fv3/io/fv3atm_rrfs_sd_io.F90
+    fv3/io/fv3atm_sfc_io.F90
+    fv3/io/fv3atm_oro_io.F90
+    fv3/io/fv3atm_history_io.F90
+    fv3/io/fv3atm_restart_io.F90
+    fv3/io/module_write_netcdf.F90
+    fv3/io/module_write_restart_netcdf.F90
+    fv3/io/module_fv3_io_def.F90
+    fv3/io/module_write_internal_state.F90
+    fv3/io/module_wrt_grid_comp.F90
     ${moving_nest_srcs}
     ${POST_SRC}
     )
@@ -216,12 +223,14 @@ endif()
 ###############################################################################
 ### Link libraries
 ###############################################################################
+
+# set target properties
 target_compile_definitions(${DYCORE_TARGET} PRIVATE "${_ufsatm_defs_private}")
 
 set_target_properties(${DYCORE_TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
 target_include_directories(${DYCORE_TARGET} INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>
                                                   $<INSTALL_INTERFACE:mod>)
-
+# link target
 if (FV3)
   target_link_libraries(${DYCORE_TARGET} PUBLIC fv3
                                          fv3ccpp
@@ -243,6 +252,7 @@ target_link_libraries(${DYCORE_TARGET} PUBLIC w3emc::w3emc_d
                                               sp::sp_d
 					      bacio::bacio_4
 					      esmf)
+
 # OpenMP
 if(OPENMP)
   target_link_libraries(${DYCORE_TARGET} PUBLIC OpenMP::OpenMP_Fortran)

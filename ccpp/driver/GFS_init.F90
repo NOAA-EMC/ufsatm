@@ -49,7 +49,6 @@ module GFS_init
     type(GFS_init_type),         intent(in)    :: Init_parm
 
     !--- local variables
-    integer :: nb
     integer :: nblks
     integer :: nt
     integer :: nthrds
