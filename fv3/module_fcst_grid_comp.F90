@@ -61,8 +61,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                     fv_srf_wnd_restart_bundle_setup, &
                                     fv_tracer_restart_bundle_setup
 
-  use fms2_io_mod,        only: FmsNetcdfFile_t, open_file, close_file, variable_exists, & 
-                                read_data
+  use fms2_io_mod,        only: FmsNetcdfFile_t, open_file, close_file, variable_exists, read_data
 
   use atmosphere_mod,     only: atmosphere_control_data
 
@@ -172,6 +171,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     character(3)          :: myGridStr
     type(ESMF_DistGrid)   :: distgrid
     type(ESMF_Array)      :: array
+
     rc = ESMF_SUCCESS
 
     call ESMF_GridCompSetEntryPoint(nest, ESMF_METHOD_INITIALIZE, userRoutine=init_dyn_fb, phase=1, rc=rc)
@@ -290,7 +290,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !                             filename='fv3cap_fv3Grid', rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !    endif
-                                !
+!
 ! Write grid to netcdf file
     if( cplprint_flag ) then
       write (myGridStr,"(I0)") mygrid
@@ -822,7 +822,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
      endif
 !-----------------------------------------------------------------------
 !---- open and close dummy file in restart dir to check if dir exists --
-!
+
       if (mpp_pe() == 0 ) then
          open( newunit=unit, file='RESTART/file', iostat=stat )
          if (stat == 0) then
