@@ -211,20 +211,20 @@ contains
     ! Call CCPP Group Radiation
     call mpp_clock_begin(radClock)
     if (GFS_control%lsswr .or. GFS_control%lslwr) then
-       call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr)
+       !call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr)
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
     call mpp_clock_end(radClock)
 
     ! Call CCPP Group Physics
     call mpp_clock_begin(physClock)
-    call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr)
+    !call CCPP_step (step="phys_ps", nblks=Atm_block%nblks, ierr=ierr)
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
 
     ! Call CCPP Timestep_finalize Group
     call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr)
+    !call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr)
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
     call mpp_clock_end(setupClock)
     
