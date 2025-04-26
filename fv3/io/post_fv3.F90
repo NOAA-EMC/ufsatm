@@ -4520,7 +4520,7 @@ module post_fv3
             if( zint(i,j,l+1)/=spval .and. zint(i,j,l)/=spval .and. pmid(i,j,l) /= spval) then
               if (abs(zint(i,j,l+1)-zint(i,j,l)) < small) then
                 zmid(i,j,l)=zint(i,j,l)
-              else( zint(i,j,l+1)/=spval .and. zint(i,j,l)/=spval .and. pmid(i,j,l) /= spval) then
+              else
                 zmid(i,j,l)=zint(i,j,l+1)+(zint(i,j,l)-zint(i,j,l+1))* &
                     (log(pmid(i,j,l))-alpint(i,j,l+1))/ &
                     (alpint(i,j,l)-alpint(i,j,l+1))
