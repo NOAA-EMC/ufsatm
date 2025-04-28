@@ -3361,7 +3361,7 @@
   dimensions = (horizontal_dimension,vertical_interface_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_rrtmgp_radiation_scheme)
+  active = (flag_for_rrtmgp_radiation_scheme .and. flag_to_calc_RRTMGP_LW_jacobian)
 [fluxlwUP_radtime]
   standard_name = RRTMGP_lw_flux_profile_upward_allsky_on_radiation_timestep
   long_name = RRTMGP upward longwave all-sky flux profile
