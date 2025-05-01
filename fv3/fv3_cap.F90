@@ -397,6 +397,7 @@ module fv3atm_cap_mod
       call ESMF_ConfigGetAttribute(config=CF, value=time_unlimited, label ='time_unlimited:', default=.false., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+      ! sync_fcst_info_to_wgc: flag to synchronize ESMF_Info from fcst grid comp to write grid comps. Needs ESMF update to allow this to be done with write grid component independently.
       call ESMF_ConfigGetAttribute(config=CF, value=sync_fcst_info_to_wgc, label ='sync_fcst_info_to_wgc:', default=.false., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
