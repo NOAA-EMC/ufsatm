@@ -260,7 +260,7 @@ contains
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
     end if
 
-    if (is_cubed_sphere .and. .not. use_parallel_netcdf) then
+    if (is_cubed_sphere .and. index(trim(filename), 'cubed_sphere_grid_') == 0) then
        is_cubed_sphere = .false.
        is_cubed_sphere_tiled = .true.  ! 6 files, one per each tile
     end if
@@ -357,9 +357,6 @@ contains
        end if
        if (is_cubed_sphere) then
           ncerr = nf90_def_dim(ncid, "tile", tileCount, tile_dimid); NC_ERR_STOP(ncerr)
-       end if
-       if (metadata_as_fieldbundlewrite) then
-          time_unlimited = .true.
        end if
        call add_dim(ncid, "time", time_dimid, time_varid, wrtgrid, mype, rc)
        ncerr = nf90_def_dim(ncid, "nchars", 20, ch_dimid); NC_ERR_STOP(ncerr)
@@ -1096,7 +1093,7 @@ contains
     if (trim(dim_name) == "time") then
       ! using an unlimited dim requires collective mode (NF90_COLLECTIVE)
       ! for parallel writes, which seems to slow things down on hera.
-      if (time_unlimited) then
+      if (time_unlimited .or. metadata_as_fieldbundlewrite) then
         ncerr = nf90_def_dim(ncid, trim(dim_name), NF90_UNLIMITED, dimid); NC_ERR_STOP(ncerr)
       else
         ncerr = nf90_def_dim(ncid, trim(dim_name), 1, dimid); NC_ERR_STOP(ncerr)
