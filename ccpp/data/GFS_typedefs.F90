@@ -1258,8 +1258,8 @@ module GFS_typedefs
 
     real(kind=kind_phys) :: rbcr            !< Critical Richardson Number in the PBL scheme
     real(kind=kind_phys) :: betascu         !< Tuning parameter for prog. closure shallow clouds
-    real(kind=kind_phys) :: betamcu         !< Tuning parameter for prog. closure midlevel clouds 
-    real(kind=kind_phys) :: betadcu         !< Tuning parameter for prog. closure deep clouds 
+    real(kind=kind_phys) :: betamcu         !< Tuning parameter for prog. closure midlevel clouds
+    real(kind=kind_phys) :: betadcu         !< Tuning parameter for prog. closure deep clouds
     logical              :: sigmab_coldstart !< flag to cold start sigmab
 
     !--- MYNN parameters/switches
@@ -2490,7 +2490,6 @@ module GFS_typedefs
     allocate (Sfcprop%slope_save (IM))
     allocate (Sfcprop%shdmin     (IM))
     allocate (Sfcprop%shdmax     (IM))
-    allocate (Sfcprop%snoalb     (IM))
     allocate (Sfcprop%tg3        (IM))
     allocate (Sfcprop%vfrac      (IM))
     allocate (Sfcprop%vtype      (IM))
@@ -2510,7 +2509,6 @@ module GFS_typedefs
     Sfcprop%slope_save = zero
     Sfcprop%shdmin     = clear_val
     Sfcprop%shdmax     = clear_val
-    Sfcprop%snoalb     = clear_val
     Sfcprop%tg3        = clear_val
     Sfcprop%vfrac      = clear_val
     Sfcprop%vtype      = zero
@@ -2982,14 +2980,16 @@ module GFS_typedefs
     if (Model%do_RRTMGP) then
        allocate (Coupling%fluxlwUP_radtime   (IM, Model%levs+1))
        allocate (Coupling%fluxlwDOWN_radtime (IM, Model%levs+1))
-       allocate (Coupling%fluxlwUP_jac       (IM, Model%levs+1))
        allocate (Coupling%htrlw              (IM, Model%levs))
        allocate (Coupling%tsfc_radtime       (IM))
        Coupling%fluxlwUP_radtime   = clear_val
        Coupling%fluxlwDOWN_radtime = clear_val
-       Coupling%fluxlwUP_jac       = clear_val
        Coupling%htrlw              = clear_val
        Coupling%tsfc_radtime       = clear_val
+       if (Model%use_LW_jacobian) then
+          allocate (Coupling%fluxlwUP_jac    (IM, Model%levs+1))
+          Coupling%fluxlwUP_jac    = clear_val
+       endif
     endif
 
     if (Model%cplflx .or. Model%do_sppt .or. Model%cplchm .or. Model%ca_global .or. Model%cpllnd .or. Model%cpl_fire) then
@@ -3237,7 +3237,7 @@ module GFS_typedefs
        allocate (Coupling%dqdt_qmicro (IM,Model%levs))
        Coupling%dqdt_qmicro = clear_val
     endif
-    
+
     !--- stochastic physics option
     if (Model%do_sppt .or. Model%ca_global) then
       allocate (Coupling%sppt_wts  (IM,Model%levs))
@@ -4274,9 +4274,8 @@ module GFS_typedefs
 
 !--- read in the namelist
 #ifdef INTERNAL_FILE_NML
-    ! allocate required to work around GNU compiler bug 100886 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100886
     allocate (Model%input_nml_file, mold=input_nml_file)
-    Model%input_nml_file => input_nml_file
+    Model%input_nml_file = input_nml_file
     read(Model%input_nml_file, nml=gfs_physics_nml)
     ! Set length (number of lines) in namelist for internal reads
     Model%input_nml_file_length = size(Model%input_nml_file)
@@ -4990,7 +4989,7 @@ module GFS_typedefs
     Model%hwrf_samfdeep = hwrf_samfdeep
     Model%hwrf_samfshal = hwrf_samfshal
 
-    !--prognostic closure - check                                                                                 
+    !--prognostic closure - check
     if ((progsigma .and. imfdeepcnv/=2) .and. (progsigma .and. imfdeepcnv/=5)) then
        write(*,*) 'Logic error: progsigma requires imfdeepcnv=2 or 5'
        stop
@@ -4999,7 +4998,7 @@ module GFS_typedefs
     Model%betascu = betascu
     Model%betamcu = betamcu
     Model%betadcu = betadcu
-    Model%sigmab_coldstart = sigmab_coldstart 
+    Model%sigmab_coldstart = sigmab_coldstart
 
     !--prognostic closure - check
     if (progomega .and. imfdeepcnv/=2) then
@@ -5007,7 +5006,7 @@ module GFS_typedefs
        stop
     end if
     Model%progomega = progomega
-    
+
     if (oz_phys .and. oz_phys_2015) then
        write(*,*) 'Logic error: can only use one ozone physics option (oz_phys or oz_phys_2015), not both. Exiting.'
        stop
@@ -5101,7 +5100,7 @@ module GFS_typedefs
     if ( Model%do_ugwp_v1_w_gsldrag) then
        if(Model%gwd_opt == 1 )then
           Model%gwd_opt =2
-	  Model%nmtvr = 24
+          Model%nmtvr = 24
        endif
        Model%do_gsl_drag_ls_bl    = .true.
        Model%do_gsl_drag_tofd     = .true.
