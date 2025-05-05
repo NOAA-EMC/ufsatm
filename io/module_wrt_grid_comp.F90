@@ -28,6 +28,8 @@
 !
       use mpi_f08
       use esmf
+      use netcdf
+
       use fms, only : fms_init, fms_end, fms_mpp_uppercase, fms_mpp_error, FATAL
       use fms, only : NO_CALENDAR, JULIAN, GREGORIAN, THIRTY_DAY_MONTHS, NOLEAP
 
@@ -524,11 +526,10 @@
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
         endif
 
-    call ESMF_ConfigGetAttribute(config=CF, value=history_file_on_native_grid, default=.false., &
-                                 label='history_file_on_native_grid:', rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        call ESMF_ConfigGetAttribute(config=CF, value=history_file_on_native_grid, default=.false., &
+                                     label='history_file_on_native_grid:', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-#if 1
         if (n == 1 .and. top_parent_is_global .and. history_file_on_native_grid) then
           do tl=1,6
             decomptile(1,tl) = 1
@@ -548,7 +549,6 @@
 
           create_wrtGrid_cubed_sphere = .false.
         endif
-#endif
 
         if ( trim(output_grid(n)) == 'cubed_sphere_grid' ) then
           !*** Create cubed sphere grid from file
@@ -989,6 +989,9 @@
               newAcceptorDG = ESMF_DistGridCreate(acceptorDG, balanceflag=.true., rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               actualWrtGrid = ESMF_GridCreate(fcstGrid, newAcceptorDG, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+              call ESMF_AttributeSet(fieldbundle, convention="NetCDF", purpose="FV3-nooutput", name="output_grid", value="restart_grid", rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             else
               actualWrtGrid = wrtGrid(grid_id)
@@ -1647,7 +1650,7 @@
 !-----------------------------------------------------------------------
 !***  local variables
 !
-      TYPE(ESMF_VM)                         :: VM
+      type(ESMF_VM)                         :: VM
       type(ESMF_FieldBundle)                :: file_bundle, mirror_bundle
       type(ESMF_StateItem_Flag)             :: itemType
       type(ESMF_Time)                       :: currtime
@@ -2338,6 +2341,10 @@
             wbeg = MPI_Wtime()
 
             if (is_restart_bundle) then ! restart bundle
+
+              call compute_fields_checksum(wrt_int_state%wrtFB(nbdl), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
               ! restart bundles are always on forecast grid, either cubed sphere or regional/nest
 
               call ESMF_FieldBundleGet(wrt_int_state%wrtFB(nbdl), grid=grid, rc=rc)
@@ -2346,6 +2353,7 @@
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
               if (tileCount == 6) then ! restart bundle is on cubed sphere
+#ifdef USE_ESMF_IO
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &
                                                 status=ESMF_FILESTATUS_REPLACE,                &
@@ -2358,10 +2366,15 @@
                                                 timeslice=step, state=optimize(nbdl)%state,    &
                                                 comps=optimize(nbdl)%comps, rc=rc)
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#else
+                call write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                          .false., wrt_mpi_comm, mype, &
+                                          rc=rc)
+#endif
               else
-                call  write_restart_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                    .true., wrt_mpi_comm, wrt_int_state%mype, &
-                                    rc)
+                call write_restart_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                          .false., wrt_mpi_comm, mype, &
+                                          rc=rc)
               endif ! cubed sphere vs. regional/nest write grid
 
               restart_written = .true.
@@ -2370,10 +2383,11 @@
             if (trim(output_grid(grid_id)) == 'cubed_sphere_grid') then
 
               if (trim(output_file(nnnn)) == 'netcdf_parallel') then
-                call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                 .true., wrt_mpi_comm,wrt_int_state%mype, &
-                                 grid_id,rc)
+                call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                 .true., wrt_mpi_comm, wrt_int_state%mype, &
+                                 grid_id, rc=rc)
               else
+#ifdef USE_ESMF_IO
                 call ESMFproto_FieldBundleWrite(gridFB, filename=trim(filename),               &
                                                 convention="NetCDF", purpose="FV3",            &
                                                 status=ESMF_FILESTATUS_REPLACE,                &
@@ -2388,15 +2402,19 @@
                                                 comps=optimize(nbdl)%comps, rc=rc)
 
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#else
+                call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                 .false., wrt_mpi_comm, wrt_int_state%mype, &
+                                 grid_id, nc_file_type=NF90_64BIT_OFFSET, rc=rc)
+#endif
               end if
 
             else if (trim(output_grid(grid_id)) == 'gaussian_grid' .or. &
                      trim(output_grid(grid_id)) == 'global_latlon') then
 
-              call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                               use_parallel_netcdf, wrt_mpi_comm,wrt_int_state%mype, &
-                               grid_id,rc)
+              call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                               use_parallel_netcdf, wrt_mpi_comm, wrt_int_state%mype, &
+                               grid_id, rc=rc)
 
             else if (trim(output_grid(grid_id)) == 'regional_latlon' .or.        &
                      trim(output_grid(grid_id)) == 'regional_latlon_moving' .or. &
@@ -2410,9 +2428,9 @@
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               endif
 
-              call write_netcdf(wrt_int_state%wrtFB(nbdl),trim(filename), &
-                                use_parallel_netcdf, wrt_mpi_comm,wrt_int_state%mype, &
-                                grid_id,rc)
+              call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
+                                use_parallel_netcdf, wrt_mpi_comm, wrt_int_state%mype, &
+                                grid_id, rc=rc)
 
             else ! unknown output_grid
 
@@ -2597,6 +2615,10 @@
       enddo
      enddo
 
+     if (typekind == ESMF_TYPEKIND_R4) then
+        deallocate(lon)
+     endif
+
      call ESMF_LogWrite("call recover field get coord 2",ESMF_LOGMSG_INFO,rc=RC)
 
      call ESMF_GridGetCoord(fieldgrid, coordDim=2, array=lat_array, rc=rc)
@@ -2630,6 +2652,10 @@
         latloc(i,j) = lat(i,j) * pi/180.d0
       enddo
      enddo
+
+     if (typekind == ESMF_TYPEKIND_R4) then
+        deallocate(lat)
+     endif
 !
      allocate(fcstField(fieldCount))
      call ESMF_LogWrite("call recover field get fcstField",ESMF_LOGMSG_INFO,rc=RC)
@@ -2752,6 +2778,8 @@
      enddo
 !
      deallocate(fcstField)
+     deallocate(lonloc)
+     deallocate(latloc)
      rc = 0
 
    end subroutine recover_fields
@@ -3015,7 +3043,7 @@
 !
 !-----------------------------------------------------------------------
 !
-
+#ifdef USE_ESMF_IO
   subroutine ESMFproto_FieldBundleWrite(fieldbundle, fileName, &
     convention, purpose, status, timeslice, state, comps, rc)
     type(ESMF_FieldBundle),     intent(in)              :: fieldbundle
@@ -4220,7 +4248,7 @@
     deallocate(deBlockList)
 
   end subroutine ESMFproto_FieldMakeSingleTile
-
+#endif
 !
 !-----------------------------------------------------------------------
   subroutine splat4(idrt,jmax,aslat)
@@ -4660,6 +4688,68 @@
 
       end subroutine print_att_list
 !
+#define ESMF_ERR_RETURN(rc) \
+    if (ESMF_LogFoundError(rc, msg="Breaking out of subroutine", line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+      subroutine compute_fields_checksum(bundle, rc)
+
+      use mpp_mod, only : mpp_chksum   ! needed for fms 2023.02
+
+      type(ESMF_FieldBundle), intent(in) :: bundle
+      integer, optional,intent(out)      :: rc
+
+      integer                            :: i
+      integer                            :: fieldCount
+      type(ESMF_Field), allocatable      :: fieldList(:)
+      character(len=ESMF_MAXSTR)         :: fieldName
+      integer                            :: rank
+      type(ESMF_TypeKind_Flag)           :: typekind
+
+      real(ESMF_KIND_R4), dimension(:,:), pointer     :: array_r4_2d
+      real(ESMF_KIND_R4), dimension(:,:,:), pointer   :: array_r4_3d
+
+      real(ESMF_KIND_R8), dimension(:,:), pointer     :: array_r8_2d
+      real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_3d
+
+      character(len=32)                  :: field_checksum
+
+      rc = ESMF_SUCCESS
+
+      call ESMF_FieldBundleGet(bundle, fieldCount=fieldCount, rc=rc); ESMF_ERR_RETURN(rc)
+
+      allocate(fieldList(fieldCount))
+
+      call ESMF_FieldBundleGet(bundle, fieldList=fieldList, rc=rc); ESMF_ERR_RETURN(rc)
+
+      do i=1, fieldCount
+         call ESMF_FieldGet(fieldList(i), name=fieldName, rank=rank, typekind=typekind, rc=rc); ESMF_ERR_RETURN(rc)
+         if (rank == 2) then
+           if (typekind == ESMF_TYPEKIND_R4) then
+              call ESMF_FieldGet(fieldList(i), localDe=0, farrayPtr=array_r4_2d, rc=rc); ESMF_ERR_RETURN(rc)
+              write(field_checksum,'(Z16)') mpp_chksum(array_r4_2d)
+           else if (typekind == ESMF_TYPEKIND_R8) then
+              call ESMF_FieldGet(fieldList(i), localDe=0, farrayPtr=array_r8_2d, rc=rc); ESMF_ERR_RETURN(rc)
+              write(field_checksum,'(Z16)') mpp_chksum(array_r8_2d)
+           end if
+        else if (rank == 3) then
+           if (typekind == ESMF_TYPEKIND_R4) then
+              call ESMF_FieldGet(fieldList(i), localDe=0, farrayPtr=array_r4_3d, rc=rc); ESMF_ERR_RETURN(rc)
+              write(field_checksum,'(Z16)') mpp_chksum(array_r4_3d)
+           else if (typekind == ESMF_TYPEKIND_R8) then
+              call ESMF_FieldGet(fieldList(i), localDe=0, farrayPtr=array_r8_3d, rc=rc); ESMF_ERR_RETURN(rc)
+              write(field_checksum,'(Z16)') mpp_chksum(array_r8_3d)
+           end if ! end typekind
+        else
+           write(0,*)'Unsupported rank ', rank
+           call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        end if ! end rank
+
+        call ESMF_AttributeSet(fieldList(i), convention="NetCDF", purpose="FV3", &
+                               name="checksum", value=trim(field_checksum), rc=rc)
+      end do ! end fieldCount
+
+      end subroutine compute_fields_checksum
+
     end module  module_wrt_grid_comp
 !
 !-----------------------------------------------------------------------

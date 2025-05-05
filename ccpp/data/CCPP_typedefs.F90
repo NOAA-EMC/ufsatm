@@ -208,8 +208,6 @@ module CCPP_typedefs
     integer                             :: nbdlw                         !<
     integer                             :: nbdsw                         !<
     real (kind=kind_phys), pointer      :: ncgl(:,:)          => null()  !<
-    real (kind=kind_phys), pointer      :: ncpi(:,:)          => null()  !<
-    real (kind=kind_phys), pointer      :: ncpl(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: ncpr(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: ncps(:,:)          => null()  !<
     integer                             :: ncstrac                       !<
@@ -287,6 +285,7 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: t2mmp(:)           => null()  !<
     real (kind=kind_phys), pointer      :: theta(:)           => null()  !<
     real (kind=kind_phys), pointer      :: tlvl(:,:)          => null()  !<
+    real (kind=kind_phys), pointer      :: tkeh(:,:)          => null()  !< vertical turbulent kinetic energy (m2/s2) at the model layer interfaces
     real (kind=kind_phys), pointer      :: tlyr(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: tprcp_ice(:)       => null()  !<
     real (kind=kind_phys), pointer      :: tprcp_land(:)      => null()  !<
@@ -367,15 +366,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: tracer(:,:,:)             => null()  !<
     real (kind=kind_phys), pointer      :: aerosolslw(:,:,:,:)       => null()  !< Aerosol radiative properties in each LW band.
     real (kind=kind_phys), pointer      :: aerosolssw(:,:,:,:)       => null()  !< Aerosol radiative properties in each SW band.
-    real (kind=kind_phys), pointer      :: cld_frac(:,:)             => null()  !< Total cloud fraction
-    real (kind=kind_phys), pointer      :: cld_lwp(:,:)              => null()  !< Cloud liquid water path
-    real (kind=kind_phys), pointer      :: cld_reliq(:,:)            => null()  !< Cloud liquid effective radius
-    real (kind=kind_phys), pointer      :: cld_iwp(:,:)              => null()  !< Cloud ice water path
-    real (kind=kind_phys), pointer      :: cld_reice(:,:)            => null()  !< Cloud ice effecive radius
-    real (kind=kind_phys), pointer      :: cld_swp(:,:)              => null()  !< Cloud snow water path
-    real (kind=kind_phys), pointer      :: cld_resnow(:,:)           => null()  !< Cloud snow effective radius
-    real (kind=kind_phys), pointer      :: cld_rwp(:,:)              => null()  !< Cloud rain water path
-    real (kind=kind_phys), pointer      :: cld_rerain(:,:)           => null()  !< Cloud rain effective radius
     real (kind=kind_phys), pointer      :: precip_frac(:,:)          => null()  !< Precipitation fraction
     real (kind=kind_phys), pointer      :: cld_cnv_frac(:,:)         => null()  !< SGS convective cloud fraction 
     real (kind=kind_phys), pointer      :: cld_cnv_lwp(:,:)          => null()  !< SGS convective cloud liquid water path
@@ -707,6 +697,7 @@ contains
     allocate (Interstitial%stress_land     (IM))
     allocate (Interstitial%stress_water    (IM))
     allocate (Interstitial%theta           (IM))
+    allocate (Interstitial%tkeh            (IM,Model%levs+1)) !Vertical turbulent kinetic energy at model layer interfaces
     allocate (Interstitial%tlvl            (IM,Model%levr+1+LTP))
     allocate (Interstitial%tlyr            (IM,Model%levr+LTP))
     allocate (Interstitial%tprcp_ice       (IM))
@@ -766,15 +757,6 @@ contains
        allocate (Interstitial%fluxswDOWN_clrsky    (IM, Model%levs+1))
        allocate (Interstitial%aerosolslw           (IM, Model%levs, Model%rrtmgp_nBandsLW, NF_AELW))
        allocate (Interstitial%aerosolssw           (IM, Model%levs, Model%rrtmgp_nBandsSW, NF_AESW))
-       allocate (Interstitial%cld_frac             (IM, Model%levs))
-       allocate (Interstitial%cld_lwp              (IM, Model%levs))
-       allocate (Interstitial%cld_reliq            (IM, Model%levs))
-       allocate (Interstitial%cld_iwp              (IM, Model%levs))
-       allocate (Interstitial%cld_reice            (IM, Model%levs))
-       allocate (Interstitial%cld_swp              (IM, Model%levs))
-       allocate (Interstitial%cld_resnow           (IM, Model%levs))
-       allocate (Interstitial%cld_rwp              (IM, Model%levs))
-       allocate (Interstitial%cld_rerain           (IM, Model%levs))
        allocate (Interstitial%precip_frac          (IM, Model%levs))
        allocate (Interstitial%cld_cnv_frac         (IM, Model%levs))
        allocate (Interstitial%cnv_cloud_overlap_param(IM, Model%levs))
@@ -861,15 +843,6 @@ contains
        allocate (Interstitial%cnv_fice   (IM,Model%levs))
        allocate (Interstitial%cnv_ndrop  (IM,Model%levs))
        allocate (Interstitial%cnv_nice   (IM,Model%levs))
-    end if
-    if (Model%do_shoc) then
-       if (.not. associated(Interstitial%qrn))  allocate (Interstitial%qrn  (IM,Model%levs))
-       if (.not. associated(Interstitial%qsnw)) allocate (Interstitial%qsnw (IM,Model%levs))
-       ! DH* updated version of shoc from May 22 2019 (not yet in CCPP) doesn't use qgl? remove?
-       if (.not. associated(Interstitial%qgl))  allocate (Interstitial%qgl  (IM,Model%levs))
-       ! *DH
-       allocate (Interstitial%ncpi (IM,Model%levs))
-       allocate (Interstitial%ncpl (IM,Model%levs))
     end if
     if (Model%lsm == Model%lsm_noahmp) then
        allocate (Interstitial%t2mmp (IM))
@@ -1045,15 +1018,23 @@ contains
     if (Model%ntke > 0) Interstitial%ntkev = Interstitial%nvdiff
 
     if (Model%ntiw > 0) then
-      if (Model%ntclamt > 0 .and. Model%ntsigma <= 0) then
-        Interstitial%nn = Model%ntrac - 2
-      elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0) then
-        Interstitial%nn = Model%ntrac - 2
-      elseif  (Model%ntclamt > 0 .and. Model%ntsigma > 0) then
-        Interstitial%nn = Model%ntrac - 3
-      else
-        Interstitial%nn = Model%ntrac - 1
-      endif
+        if (Model%ntclamt > 0 .and. Model%ntsigma > 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 4
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma > 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma <= 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt > 0 .and. Model%ntsigma <= 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 2
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 3
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma > 0 .and. Model%ntomega <= 0) then
+           Interstitial%nn = Model%ntrac - 2
+        elseif (Model%ntclamt <= 0 .and. Model%ntsigma <= 0 .and. Model%ntomega > 0) then
+           Interstitial%nn = Model%ntrac - 2
+        else
+           Interstitial%nn = Model%ntrac - 1
+        endif
     elseif (Model%ntcw > 0) then
       Interstitial%nn = Model%ntrac
     else
@@ -1068,11 +1049,12 @@ contains
       do n=2,Model%ntrac
         ltest = ( n /= Model%ntcw  .and. n /= Model%ntiw  .and. n /= Model%ntclamt .and. &
                   n /= Model%ntrw  .and. n /= Model%ntsw  .and. n /= Model%ntrnc   .and. &
+                  n /= Model%ntlnc .and. n /= Model%ntinc                          .and. &
                   n /= Model%ntsnc .and. n /= Model%ntgl  .and. n /= Model%ntgnc   .and. &
                   n /= Model%nthl  .and. n /= Model%nthnc .and. n /= Model%ntgv    .and. &
                   n /= Model%nthv  .and. n /= Model%ntccn .and. n /= Model%ntccna  .and. &
                   n /= Model%ntrz  .and. n /= Model%ntgz  .and. n /= Model%nthz    .and. &
-                  n /= Model%ntsigma)
+                  n /= Model%ntsigma .and.  n /= Model%ntomega)
         Interstitial%otsptflag(n) = ltest
         if ( ltest ) then
           tracers = tracers + 1
@@ -1176,15 +1158,6 @@ contains
       Interstitial%fluxswDOWN_clrsky    = clear_val
       Interstitial%aerosolslw           = clear_val
       Interstitial%aerosolssw           = clear_val
-      Interstitial%cld_frac             = clear_val
-      Interstitial%cld_lwp              = clear_val
-      Interstitial%cld_reliq            = clear_val
-      Interstitial%cld_iwp              = clear_val
-      Interstitial%cld_reice            = clear_val
-      Interstitial%cld_swp              = clear_val
-      Interstitial%cld_resnow           = clear_val
-      Interstitial%cld_rwp              = clear_val
-      Interstitial%cld_rerain           = clear_val
       Interstitial%precip_frac          = clear_val
       Interstitial%cld_cnv_frac         = clear_val
       Interstitial%cnv_cloud_overlap_param  = clear_val
@@ -1384,6 +1357,7 @@ contains
     Interstitial%stress_land     = Model%huge
     Interstitial%stress_water    = Model%huge
     Interstitial%theta           = clear_val
+    Interstitial%tkeh            = 0
     Interstitial%tprcp_ice       = Model%huge
     Interstitial%tprcp_land      = Model%huge
     Interstitial%tprcp_water     = Model%huge
@@ -1470,15 +1444,6 @@ contains
        Interstitial%cnv_fice  = clear_val
        Interstitial%cnv_ndrop = clear_val
        Interstitial%cnv_nice  = clear_val
-    end if
-    if (Model%do_shoc) then
-       Interstitial%qrn       = clear_val
-       Interstitial%qsnw      = clear_val
-       ! DH* updated version of shoc from May 22 2019 doesn't use qgl? remove?
-       Interstitial%qgl       = clear_val
-       ! *DH
-       Interstitial%ncpi      = clear_val
-       Interstitial%ncpl      = clear_val
     end if
     if (Model%lsm == Model%lsm_noahmp) then
        Interstitial%t2mmp     = clear_val

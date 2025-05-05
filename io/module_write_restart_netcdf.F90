@@ -9,8 +9,6 @@ module module_write_restart_netcdf
 
   use mpi_f08
   use esmf
-  use fms
-  use mpp_mod, only : mpp_chksum   ! needed for fms 2023.02
   use netcdf
   use module_fv3_io_def,only : zstandard_level
 
@@ -33,25 +31,21 @@ module module_write_restart_netcdf
     type(MPI_Comm), intent(in)         :: comm
     integer, intent(in)                :: mype
     integer, optional,intent(out)      :: rc
-!
+
 !** local vars
-    integer, parameter :: i8_kind=8
     integer :: i,j,k,t, istart,iend,jstart,jend
     integer :: im, jm, lm
+    integer :: nproc
+    integer :: nfiles, nf
 
     integer, dimension(:), allocatable              :: fldlev
 
     real(ESMF_KIND_R4), dimension(:,:), pointer     :: array_r4
-    real(ESMF_KIND_R4), dimension(:,:,:), pointer   :: array_r4_cube
     real(ESMF_KIND_R4), dimension(:,:,:), pointer   :: array_r4_3d
-    real(ESMF_KIND_R4), dimension(:,:,:,:), pointer :: array_r4_3d_cube
 
     real(ESMF_KIND_R8), dimension(:,:), pointer     :: array_r8
-    real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_cube
     real(ESMF_KIND_R8), dimension(:,:,:), pointer   :: array_r8_3d
-    real(ESMF_KIND_R8), dimension(:,:,:,:), pointer :: array_r8_3d_cube
 
-    real(8), dimension(:), allocatable :: x,y
     integer :: fieldCount, fieldDimCount, gridDimCount
     integer, dimension(:), allocatable   :: ungriddedLBound, ungriddedUBound
     integer, dimension(:), allocatable   :: start_idx
@@ -63,17 +57,9 @@ module module_write_restart_netcdf
     type(ESMF_Grid)                      :: wrtgrid
     type(ESMF_Array)                     :: array
     type(ESMF_DistGrid)                  :: distgrid
+    character(len=ESMF_MAXSTR)           :: fldName
 
-    integer :: attCount
-    character(len=ESMF_MAXSTR) :: attName, fldName
-
-    integer :: varival
-    real(4) :: varr4val, dataMin, dataMax
-    real(4), allocatable, dimension(:) :: compress_err
-    real(8) :: varr8val
-    character(len=ESMF_MAXSTR) :: varcval
-
-    integer :: ncerr,ierr
+    integer :: ncerr, ierr
     integer :: ncid
     integer :: oldMode
     integer :: dimid, dimtype
@@ -81,43 +67,50 @@ module module_write_restart_netcdf
     integer :: im_varid, im_p1_varid, jm_varid, jm_p1_varid, time_varid
     integer, dimension(:), allocatable :: dimids_2d, dimids_3d, chunksizes
     integer, dimension(:), allocatable :: varids, zaxis_dimids
-    logical shuffle
 
     logical :: get_im_jm, found_im_jm
-    integer :: rank, deCount, localDeCount, dimCount, tileCount
+    logical :: is_cubed_sphere
+    integer :: rank, deCount, localDeCount, dimCount, tileCount, tile_number
     integer :: my_tile, start_i, start_j
     integer, dimension(:,:), allocatable :: minIndexPDe, maxIndexPDe
     integer, dimension(:,:), allocatable :: minIndexPTile, maxIndexPTile
-    integer, dimension(:), allocatable :: deToTileMap, localDeToDeMap
-    logical :: do_io
+    integer, dimension(:), allocatable :: deToTileMap, localDeToDeMap, rootPet
+    logical :: do_io, do_io_tile
     integer :: par_access
 
     real(ESMF_KIND_R8), allocatable  :: valueListr8(:)
     logical :: isPresent, thereAreVerticals, is_restart_core, dynamics_restart_file
     integer :: udimCount
     character(80), allocatable :: udimList(:)
-    ! character(32), allocatable :: field_checksums(:)
     character(32) :: axis_attr_name
     character(32) :: field_checksum
-!
+
+    character(256) :: actualFileName
+    integer :: idx
+    type(MPI_Comm) :: io_comm
+
     is_restart_core = .false.
     if ( index(trim(filename),'fv_core.res') > 0 ) is_restart_core = .true.
+
+    io_comm = comm
+
+    is_cubed_sphere = .false.
     tileCount = 0
     my_tile = 0
     start_i = -10000000
     start_j = -10000000
 
     par = use_parallel_netcdf
-    do_io = par .or. (mype==0)
+
+    call MPI_Comm_Size(comm, nproc, ierr)
+    if (ierr /= 0) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
     call ESMF_FieldBundleGet(wrtfb, fieldCount=fieldCount, rc=rc); ESMF_ERR_RETURN(rc)
 
-    allocate(compress_err(fieldCount)); compress_err=-999.
     allocate(fldlev(fieldCount)) ; fldlev = 0
     allocate(fcstField(fieldCount))
     allocate(varids(fieldCount))
     allocate(zaxis_dimids(fieldCount))
-    ! allocate(field_checksums(fieldCount))
 
     call ESMF_FieldBundleGet(wrtfb, fieldList=fcstField, grid=wrtGrid, &
                              itemorderflag=ESMF_ITEMORDER_ADDORDER, &
@@ -131,7 +124,7 @@ module module_write_restart_netcdf
        call ESMF_FieldGet(fcstField(i), name=fldName, rank=rank, typekind=typekind, rc=rc); ESMF_ERR_RETURN(rc)
 
        if (fieldDimCount > 3) then
-          if (mype==0) write(0,*)"write_netcdf: Only 2D and 3D fields are supported!"
+          if (mype == 0) write(0,*)"write_restart_netcdf: Only 2D and 3D fields are supported!"
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
        end if
 
@@ -139,7 +132,7 @@ module module_write_restart_netcdf
        if (is_restart_core) then
           get_im_jm = trim(fldName) /= 'u' .and. trim(fldName) /= 'v' ! skip staggered fields
        else
-          get_im_jm = (i==1)
+          get_im_jm = (i == 1)
        end if
        if ( .not.found_im_jm .and. get_im_jm) then
           call ESMF_ArrayGet(array, &
@@ -149,11 +142,6 @@ module module_write_restart_netcdf
                              localDeCount=localDeCount, &
                              tileCount=tileCount, &
                              rc=rc); ESMF_ERR_RETURN(rc)
-
-          if (tileCount /= 1) then
-             if (mype==0) write(0,*)"write_restart_netcdf: Only tileCount==1 fields are supported!"
-             call ESMF_Finalize(endflag=ESMF_END_ABORT)
-          endif
 
           allocate(minIndexPDe(dimCount,deCount))
           allocate(maxIndexPDe(dimCount,deCount))
@@ -171,7 +159,17 @@ module module_write_restart_netcdf
                              localDeToDeMap=localDeToDeMap, &
                              rc=rc); ESMF_ERR_RETURN(rc)
 
+          is_cubed_sphere = (tileCount == 6)
           my_tile = deToTileMap(localDeToDeMap(1)+1)
+
+          ! cubed sphere grid with fewer than 6 write tasks must use serial I/O
+          if (is_cubed_sphere .and. nproc < 6) par = .false.
+
+          allocate(rootPet(tileCount))
+          do t=1,tileCount
+             rootPet(t) = (t - 1) * nproc / tileCount
+          end do
+
           im = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
           jm = maxIndexPTile(2,1) - minIndexPTile(2,1) + 1
           start_i = minIndexPDe(1,localDeToDeMap(1)+1)
@@ -180,9 +178,10 @@ module module_write_restart_netcdf
              start_i = 1
              start_j = 1
           end if
-          found_im_jm = .true.
-          start_i = mod(start_i, im) ! for cubed sphere multi-tile grid
-          start_j = mod(start_j, jm) ! for cubed sphere multi-tile grid
+          if (is_cubed_sphere) then
+             start_i = mod(start_i, im)
+             start_j = mod(start_j, jm)
+          end if
 
           deallocate(minIndexPDe)
           deallocate(maxIndexPDe)
@@ -196,36 +195,71 @@ module module_write_restart_netcdf
           else if (typekind == ESMF_TYPEKIND_R8) then
              dimtype = NF90_DOUBLE
           else
-             if (mype==0) write(0,*)'Unsupported typekind ', typekind
+             if (mype == 0) write(0,*)'Unsupported typekind ', typekind
              call ESMF_Finalize(endflag=ESMF_END_ABORT)
           end if
+
+          found_im_jm = .true.
        end if
 
        if (fieldDimCount > gridDimCount) then
-         allocate(ungriddedLBound(fieldDimCount-gridDimCount))
-         allocate(ungriddedUBound(fieldDimCount-gridDimCount))
-         call ESMF_FieldGet(fcstField(i), &
-                            ungriddedLBound=ungriddedLBound, &
-                            ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
-         fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
-                     ungriddedLBound(fieldDimCount-gridDimCount) + 1
-         deallocate(ungriddedLBound)
-         deallocate(ungriddedUBound)
+          allocate(ungriddedLBound(fieldDimCount-gridDimCount))
+          allocate(ungriddedUBound(fieldDimCount-gridDimCount))
+          call ESMF_FieldGet(fcstField(i), &
+                             ungriddedLBound=ungriddedLBound, &
+                             ungriddedUBound=ungriddedUBound, rc=rc); ESMF_ERR_RETURN(rc)
+          fldlev(i) = ungriddedUBound(fieldDimCount-gridDimCount) - &
+                      ungriddedLBound(fieldDimCount-gridDimCount) + 1
+          deallocate(ungriddedLBound)
+          deallocate(ungriddedUBound)
        else if (fieldDimCount == 2) then
-         fldlev(i) = 1
+          fldlev(i) = 1
        end if
 
     end do
 
+    do_io = par .or. (mype == 0)
+
+    nfiles = 1
+
+    if (is_cubed_sphere) then
+       if (nproc < 6) then
+          nfiles = 6
+       else ! nproc >= 6
+          do t=1, tileCount
+             if (mype == rootPet(t)) do_io = .true.
+          end do
+          call MPI_Comm_Split(comm, my_tile, rootPet(my_tile), io_comm, ierr)
+          if (ierr /= 0) then
+            write(0,*)'Internal error: MPI_Comm_Split ', ierr
+            call ESMF_Finalize(endflag=ESMF_END_ABORT)
+          end if
+       end if
+    end if
+
+    do nf = 1, nfiles
+
+    tile_number = my_tile
+    if (nfiles == 6) then
+       tile_number = nf
+       rootPet = 0
+    end if
+
     ! create netcdf file and enter define mode
     if (do_io) then
 
+       actualFileName = trim(filename)
+       if (is_cubed_sphere) then
+          idx = index(trim(filename), ".nc", .true.)
+          write(actualFileName, fmt='(a,i1,a)') trim(fileName(:idx-1))//".tile", tile_number, ".nc"
+       end if
+
        if (par) then
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   cmode=IOR(NF90_CLOBBER,NF90_NETCDF4),&
-                  comm=comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
+                  comm=io_comm%mpi_val, info = MPI_INFO_NULL%mpi_val, ncid=ncid); NC_ERR_STOP(ncerr)
        else
-          ncerr = nf90_create(trim(filename),&
+          ncerr = nf90_create(trim(actualFileName),&
                   ! cmode=IOR(NF90_CLOBBER,NF90_64BIT_OFFSET),&
                   cmode=IOR(NF90_CLOBBER,NF90_NETCDF4),&
                   ncid=ncid); NC_ERR_STOP(ncerr)
@@ -283,7 +317,7 @@ module module_write_restart_netcdf
                                    name="ESMF:ungridded_dim_labels", isPresent=isPresent, &
                                    itemCount=udimCount, rc=rc); ESMF_ERR_RETURN(rc)
             if (udimCount>1) then
-              if (mype==0) write(0,*)'udimCount>1 for ', trim(fldName)
+              if (mype == 0) write(0,*)'udimCount>1 for ', trim(fldName)
               ESMF_ERR_RETURN(-1)
             end if
             if (udimCount>0 .and. isPresent) then
@@ -319,9 +353,6 @@ module module_write_restart_netcdf
        ncerr = nf90_redef(ncid=ncid)
 
        ! define variables (fields)
-       allocate(dimids_2d(3))
-       allocate(dimids_3d(4))
-
        do i=1, fieldCount
          call ESMF_FieldGet(fcstField(i), name=fldName, rank=rank, typekind=typekind, staggerloc=staggerloc, rc=rc); ESMF_ERR_RETURN(rc)
 
@@ -332,6 +363,7 @@ module module_write_restart_netcdf
 
          ! par_access = NF90_INDEPENDENT
          par_access = NF90_COLLECTIVE   ! because of time unlimited
+
          ! define variables
          if (rank == 2) then
            dimids_2d =             [im_dimid,jm_dimid,                       time_dimid]
@@ -341,7 +373,7 @@ module module_write_restart_netcdf
            else if (typekind == ESMF_TYPEKIND_R8) then
              ncerr = nf90_def_var(ncid, trim(fldName), NF90_DOUBLE, dimids_2d, varids(i)); NC_ERR_STOP(ncerr)
            else
-             if (mype==0) write(0,*)'Unsupported typekind ', typekind
+             if (mype == 0) write(0,*)'Unsupported typekind ', typekind
              call ESMF_Finalize(endflag=ESMF_END_ABORT)
            end if
          else if (rank == 3) then
@@ -359,7 +391,7 @@ module module_write_restart_netcdf
                 dimids_3d = [im_dimid,jm_p1_dimid,zaxis_dimids(i),time_dimid]
                 chunksizes = [im, jm+1, 1, 1]
              else
-               if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
+               if (mype == 0) write(0,*)'Unsupported staggerloc ', staggerloc
                call ESMF_Finalize(endflag=ESMF_END_ABORT)
              end if
            end if
@@ -368,16 +400,20 @@ module module_write_restart_netcdf
            else if (typekind == ESMF_TYPEKIND_R8) then
              ncerr = nf90_def_var(ncid, trim(fldName), NF90_DOUBLE, dimids_3d, varids(i)); NC_ERR_STOP(ncerr)
            else
-             if (mype==0) write(0,*)'Unsupported typekind ', typekind
+             if (mype == 0) write(0,*)'Unsupported typekind ', typekind
              call ESMF_Finalize(endflag=ESMF_END_ABORT)
            end if
          else
-           if (mype==0) write(0,*)'Unsupported rank ', rank
+           if (mype == 0) write(0,*)'Unsupported rank ', rank
            call ESMF_Finalize(endflag=ESMF_END_ABORT)
          end if
          if (par) then
              ncerr = nf90_var_par_access(ncid, varids(i), par_access); NC_ERR_STOP(ncerr)
          end if
+
+         call ESMF_AttributeGet(fcstField(i), convention="NetCDF", purpose="FV3", &
+                                name="checksum", value=field_checksum, rc=rc); ESMF_ERR_RETURN(rc)
+         ncerr = nf90_put_att(ncid, varids(i), 'checksum', field_checksum); NC_ERR_STOP(ncerr)
 
          ncerr = nf90_def_var_chunking(ncid, varids(i), NF90_CHUNKED, chunksizes) ; NC_ERR_STOP(ncerr)
 
@@ -385,7 +421,7 @@ module module_write_restart_netcdf
             ncerr = nf90_def_var_zstandard(ncid, varids(i), zstandard_level(1))
             if (ncerr /= nf90_noerr) then
                if (ncerr == nf90_enofilter) then
-                  if (mype==0) write(0,*) 'Zstandard filter not found.'
+                  if (mype == 0) write(0,*) 'Zstandard filter not found.'
                end if
                NC_ERR_STOP(ncerr)
             end if
@@ -441,12 +477,17 @@ module module_write_restart_netcdf
 
          if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r4, rc=rc); ESMF_ERR_RETURN(rc)
-            write(field_checksum,'(Z16)') mpp_chksum(array_r4)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r4(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r4, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+               if (nfiles == 6) then
+                  call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet(tile_number), tile=tile_number, rc=rc); ESMF_ERR_RETURN(rc)
+               else
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r4, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+               end if
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -454,12 +495,17 @@ module module_write_restart_netcdf
             end if
          else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r8, rc=rc); ESMF_ERR_RETURN(rc)
-            write(field_checksum,'(Z16)') mpp_chksum(array_r8)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
             else
                allocate(array_r8(im,jm))
-               call ESMF_FieldGather(fcstField(i), array_r8, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
+               if (nfiles == 6) then
+                  call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet(tile_number), tile=tile_number, rc=rc); ESMF_ERR_RETURN(rc)
+               else
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r8, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+               end if
                if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8, start=start_idx); NC_ERR_STOP(ncerr)
                end if
@@ -475,7 +521,6 @@ module module_write_restart_netcdf
 
          if (typekind == ESMF_TYPEKIND_R4) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r4_3d, rc=rc); ESMF_ERR_RETURN(rc)
-            write(field_checksum,'(Z16)') mpp_chksum(array_r4_3d)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -486,18 +531,23 @@ module module_write_restart_netcdf
                else if (staggerloc == ESMF_STAGGERLOC_EDGE2) then  ! south
                  allocate(array_r4_3d(im,jm+1,fldlev(i)))
                else
-                 if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
+                 if (mype == 0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-               if (mype==0) then
+               if (nfiles == 6) then
+                  call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet(tile_number), tile=tile_number, rc=rc); ESMF_ERR_RETURN(rc)
+               else
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r4_3d, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+               end if
+               if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r4_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if
                deallocate(array_r4_3d)
             end if
          else if (typekind == ESMF_TYPEKIND_R8) then
             call ESMF_FieldGet(fcstField(i), localDe=0, farrayPtr=array_r8_3d, rc=rc); ESMF_ERR_RETURN(rc)
-            write(field_checksum,'(Z16)') mpp_chksum(array_r8_3d)
             if (par) then
                ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
             else
@@ -508,11 +558,17 @@ module module_write_restart_netcdf
                else if (staggerloc == ESMF_STAGGERLOC_EDGE2) then  ! south
                  allocate(array_r8_3d(im,jm+1,fldlev(i)))
                else
-                 if (mype==0) write(0,*)'Unsupported staggerloc ', staggerloc
+                 if (mype == 0) write(0,*)'Unsupported staggerloc ', staggerloc
                  call ESMF_Finalize(endflag=ESMF_END_ABORT)
                end if
-               call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=0, rc=rc); ESMF_ERR_RETURN(rc)
-               if (mype==0) then
+               if (nfiles == 6) then
+                  call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet(tile_number), tile=tile_number, rc=rc); ESMF_ERR_RETURN(rc)
+               else
+                  do t=1,tileCount
+                     call ESMF_FieldGather(fcstField(i), array_r8_3d, rootPet=rootPet(t), tile=t, rc=rc); ESMF_ERR_RETURN(rc)
+                  end do
+               end if
+               if (do_io) then
                   ncerr = nf90_put_var(ncid, varids(i), values=array_r8_3d, start=start_idx); NC_ERR_STOP(ncerr)
                end if
                deallocate(array_r8_3d)
@@ -521,21 +577,18 @@ module module_write_restart_netcdf
 
       else
 
-         if (mype==0) write(0,*)'Unsupported rank ', rank
+         if (mype == 0) write(0,*)'Unsupported rank ', rank
          call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
       end if ! end rank
-      if (do_io) then
-         ncerr = nf90_redef(ncid=ncid); NC_ERR_STOP(ncerr)
-         ncerr = nf90_put_att(ncid, varids(i), 'checksum', field_checksum); NC_ERR_STOP(ncerr)
-         ncerr = nf90_enddef(ncid=ncid); NC_ERR_STOP(ncerr)
-      end if
 
     end do ! end fieldCount
 
     if (do_io) then
        ncerr = nf90_close(ncid=ncid); NC_ERR_STOP(ncerr)
     end if
+
+    end do ! nf = 1, nfiles
 
 contains
 
@@ -567,7 +620,7 @@ contains
          if (ncerr == NF90_NOERR) then
            return
          else
-           if (mype==0) write(0,*) 'in write_out_ungridded_dim_atts: ERROR missing dimid for already defined ungridded dimension variable '
+           if (mype == 0) write(0,*) 'in write_out_ungridded_dim_atts: ERROR missing dimid for already defined ungridded dimension variable '
            ESMF_ERR_RETURN(-1)
         endif
       endif
@@ -582,7 +635,7 @@ contains
         allocate(valueListr8(valueCount))
         call ESMF_AttributeGet(field, convention="NetCDF", purpose="FV3-dim", name=trim(dimLabel), valueList=valueListr8, rc=rc); ESMF_ERR_RETURN(rc)
       else
-        if (mype==0) write(0,*) 'in write_out_ungridded_dim_atts: ERROR unknown typekind'
+        if (mype == 0) write(0,*) 'in write_out_ungridded_dim_atts: ERROR unknown typekind'
         ESMF_ERR_RETURN(-1)
       endif
 
