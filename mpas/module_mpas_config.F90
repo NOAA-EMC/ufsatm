@@ -6,7 +6,7 @@
 module module_mpas_config
   use MPAS_typedefs, only: r8 => kind_dbl_prec
   use mpi_f08
-  use pio, only : iosystem_desc_t, file_desc_t
+  use pio, only : iosystem_desc_t, file_desc_t, io_desc_t
   use esmf
 
   implicit none
@@ -29,7 +29,7 @@ module module_mpas_config
   character(17)            :: calendar='                 '
 
   !> Files (Should come from namelist. ToDo)
-  character(len=256) :: mesh_filename = "x1.40962.grid.nc" ! This is not actually used during INIT.
+  !character(len=256) :: mesh_filename = "external mesh file"!"x1.40962.grid.nc" ! This is not actually used during INIT.
   character(len=256) :: ic_filename   = "mpas.init.nc"
 
   !> PIO
@@ -38,13 +38,10 @@ module module_mpas_config
   integer :: pio_ioformat
   integer :: pio_stride
   integer :: pio_numiotasks
-  character(len=256)  :: ic_file_path = "mpas.init.nc"
-
+  type(file_desc_t), target :: pioid
+  type(io_desc_t) :: pio_iodesc
+  
   !> MPAS Grid information
-  integer, pointer :: nCellsSolve      ! number of cells that a task solves
-  integer, pointer :: nEdgesSolve      ! number of edges (velocity) that a task solves
-  integer, pointer :: nVerticesSolve   ! number of vertices (vorticity) that a task solves
-  integer, pointer :: nVertLevelsSolve
   real(r8), target, allocatable :: zref(:)
   real(r8), target, allocatable :: zref_edge(:)
   real(r8), target, allocatable :: pref(:)

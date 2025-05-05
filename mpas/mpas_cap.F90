@@ -20,7 +20,7 @@ module mpasatm_cap_mod
                                     label_Finalize,                                         &
                                     NUOPC_ModelGet
   use module_mpas_config,     only: output_fh, dt_atmos, calendar, fcst_mpi_comm
-  use module_mpas_config,     only: pio_ioformat, pio_iotype, pio_subsystem, pio_stride, pio_numiotasks
+  use module_mpas_config,     only: pio_ioformat, pio_iotype, pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
   use module_fcst_grid_comp,  only: fcstSS => SetServices
 
   implicit none
@@ -95,6 +95,7 @@ contains
     use pio,                    only: PIO_REARR_COMM_P2P, PIO_REARR_COMM_COLL
     use pio,                    only: PIO_REARR_COMM_FC_2D_ENABLE, PIO_REARR_COMM_FC_2D_DISABLE
     use pio,                    only: PIO_REARR_COMM_FC_1D_COMP2IO, PIO_REARR_COMM_FC_1D_IO2COMP
+    use pio,                    only: PIO_DOUBLE, PIO_REAL
     use pio,                    only: pio_init, pio_setdebuglevel, pio_set_rearr_opts, pio_openfile, pio_nowrite, pio_iotask_rank
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
@@ -336,10 +337,8 @@ contains
     if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearranger = ', trim(cvalue), pio_rearranger
 
     ! Initialize PIO
-    !allocate(pio_subsystem)
-    !if (mype == 0) print*,'MPAS_NUOPC_CAP: calling pio init1'
-    !call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
-    !if (mype == 0) print*,'MPAS_NUOPC_CAP: calling pio init2',pio_iotask_rank(pio_subsystem)
+    allocate(pio_subsystem)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
     
     ! PIO debug related options
     ! pio_debug_level

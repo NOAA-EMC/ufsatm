@@ -3,7 +3,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 ! ###########################################################################################
 !> \file module_fcst_grid_comp.F90
 !>
-!> ESMF forecast gridded component for MPAS Atmosphere.
+!> ESMF forecast gridded component for MPAS ATMosphere.
 !>
 ! ###########################################################################################
 module module_fcst_grid_comp
@@ -38,12 +38,8 @@ module module_fcst_grid_comp
   !----- coupled model data -----
   integer :: calendar_type = -99
   integer :: date_init(6)
-  integer :: numLevels     = 0
-  integer :: numSoilLayers = 0
-  integer :: numTracers    = 0
 
   integer :: mype = 0
-  integer, parameter :: iau_offset = 0
 
   public SetServices
 
@@ -241,9 +237,6 @@ contains
 
     Time_step = set_time (dt_atmos,0)
     if (mype == 0) write(*,*)'fcst_initialize, time_init=', date_init,'time=',date,'time_end=',date_end,'dt_atmos=',dt_atmos
-
-    ! Set iau offset time
-    Atmos%iau_offset    = iau_offset
 
     ! #######################################################################################
     ! Initialize component models.

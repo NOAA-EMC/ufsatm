@@ -52,9 +52,6 @@ contains
          Init%blksz, Init%ak, Init%bk, Init%restart, Init%hydrostatic, Init%mpi_comm,       &
          Init%fcst_ntasks, nthrds)
 
-    call Statein%create(Model)
-    call Stateout%create(Model)
-    call Stateint%create(Model)
     call Diag%create(Model)
 
   end subroutine MPAS_initialize

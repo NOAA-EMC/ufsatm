@@ -17,10 +17,6 @@ module CCPP_data
                              GFS_radtend_type,       &
                              GFS_coupling_type,      &
                              GFS_diag_type
-
-    use MPAS_typedefs, only: MPAS_statein_type,      &
-                             MPAS_stateint_type,     &
-                             MPAS_stateout_type
     implicit none
 
     private
@@ -40,10 +36,7 @@ module CCPP_data
            GFS_radtend,            &
            GFS_coupling,           &
            GFS_intdiag,            &
-           GFS_interstitial,       &
-           MPAS_statein,           &
-           MPAS_stateint,          &
-           MPAS_stateout
+           GFS_interstitial
 
     !-------------------------------------------------------!
     !  GFS data containers;                                 !
@@ -79,12 +72,5 @@ module CCPP_data
     !  CCPP suite name                                     !
     !------------------------------------------------------!
     character(len=256)      :: ccpp_suite='undefined'
-
-    !------------------------------------------------------!
-    ! MPAS data containers.
-    !------------------------------------------------------!
-    type(MPAS_statein_type),                                   save, target :: MPAS_statein
-    type(MPAS_stateint_type),                                  save, target :: MPAS_stateint
-    type(MPAS_stateout_type),                                  save, target :: MPAS_stateout
 
 end module CCPP_data

@@ -12,46 +12,11 @@
 [ccpp-table-properties]
   name = MPAS_statein_type
   type = ddt
-  dependencies =
+  dependencies = ../../mpas/MPAS-Model/src/framework/mpas_kind_types.F90
 
 [ccpp-arg-table]
   name = MPAS_statein_type
   type = ddt
-#[u]
-#  standard_name = x_wind_after_dycore
-#  long_name = zonal wind from dynamical core
-#  units = m s-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[v]
-#  standard_name = y_wind_after_dycore
-#  long_name = meridional wind from dynamical core
-#  units = m s-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[rho]
-#  standard_name = dry_air_density_after_dycore
-#  long_name = dry air density from dynamical core
-#  units = kg m-3
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[q]
-#  standard_name = tracer_concentration_after_dycore
-#  long_name = model layer mean tracer concentration from dynamical core
-#  units = kg kg-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
-#  type = real
-#  kind = kind_phys
-#[theta]
-#  standard_name = potential_temperature_of_air_after_dycore
-#  long_name = potential temperature of air from dynamical core
-#  units = K
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
 
 ########################################################################
 [ccpp-table-properties]
@@ -62,34 +27,6 @@
 [ccpp-arg-table]
   name = MPAS_stateint_type
   type = ddt
-#[u]
-#  standard_name = x_wind_after_microphysics
-#  long_name = zonal wind updated by microphysics
-#  units = m s-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[v]
-#  standard_name = y_wind_after_microphysics
-#  long_name = meridional wind updated by microphysics
-#  units = m s-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[temp]
-#  standard_name = air_temperature_after_microphysics
-#  long_name = temperature updated by microphysics
-#  units = K
-#  dimensions = (horizontal_dimension,vertical_layer_dimension)
-#  type = real
-#  kind = kind_phys
-#[q]
-#  standard_name = tracer_concentration_after_microphysics
-#  long_name = tracer concentration updated by microphysics
-#  units = kg kg-1
-#  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
-#  type = real
-#  kind = kind_phys
 
 ########################################################################
 [ccpp-table-properties]
@@ -100,34 +37,6 @@
 [ccpp-arg-table]
   name = MPAS_stateout_type
   type = ddt
-[u]
-  standard_name = x_wind_after_physics
-  long_name = zonal wind updated by physics
-  units = m s-1
-  dimensions = (horizontal_dimension,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-[v]
-  standard_name = y_wind_after_physics
-  long_name = meridional wind updated by physics
-  units = m s-1
-  dimensions = (horizontal_dimension,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-[temp]
-  standard_name = air_temperature_after_physics
-  long_name = temperature updated by physics
-  units = K
-  dimensions = (horizontal_dimension,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
-[q]
-  standard_name = tracer_concentration_after_physics
-  long_name = tracer concentration updated by physics
-  units = kg kg-1
-  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
-  type = real
-  kind = kind_phys
 
 ########################################################################
 [ccpp-table-properties]

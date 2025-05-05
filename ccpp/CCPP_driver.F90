@@ -45,7 +45,7 @@ module CCPP_driver
 !-------------------------------
 !  CCPP step
 !-------------------------------
-  subroutine CCPP_step (step, nblks, ierr)
+  subroutine CCPP_step (step, nblks, ierr, dynamics)
 
 #ifdef _OPENMP
     use omp_lib
@@ -56,14 +56,26 @@ module CCPP_driver
     character(len=*),         intent(in)  :: step
     integer,                  intent(in)  :: nblks
     integer,                  intent(out) :: ierr
+    character(len=*),         intent(in),optional  :: dynamics
     ! Local variables
     integer :: nb, nt, ntX
     integer :: ierr2
+    character(len=64) :: dycore
+    character(len=*), parameter :: default_dynamics = 'fv3'
+
     ! DH* 20210104 - remove kdt_rad when code to clear diagnostic buckets is removed
     integer :: kdt_rad
 
     ierr = 0
 
+    ! Which dynamical core are we using? (default is FV3)
+    if (present(dynamics)) then
+       dycore = dynamics
+    else
+       dycore = default_dynamics
+    endif
+
+    ! CCPP Framework init (same for all dynamical cores)
     if (trim(step)=="init") then
 
       ! Get and set number of OpenMP threads (module
@@ -103,7 +115,7 @@ module CCPP_driver
           cdata_block(nb,nt)%thrd_cnt = nthrdsX
         end do
       end do
-
+    ! Physics init (same for all dynamical cores)
     else if (trim(step)=="physics_init") then
 
       ! Since the physics init step is independent of the blocking structure,
@@ -118,7 +130,7 @@ module CCPP_driver
         return
       end if
 
-    ! Timestep init = time_vary
+    ! Timestep init = time_vary (dycore specific)
     else if (trim(step)=="timestep_init") then
 
       ! Since the physics timestep init step is independent of the blocking structure,
@@ -133,20 +145,39 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_init for "phys_ps"---required for Land IAU
-      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ps", ierr=ierr)
-      if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ps"
-        write(0,'(a)') trim(cdata_domain%errmsg)
-        return
-      end if
+      if (trim(dycore)=='fv3') then
+         ! call timestep_init for "phys_ps"---required for Land IAU
+         call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ps", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ps"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
 
-      ! call timestep_init for "phys_ts"---required for Land IAU
-      call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ts", ierr=ierr)
-      if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ts"
-        write(0,'(a)') trim(cdata_domain%errmsg)
-        return
+         ! call timestep_init for "phys_ts"---required for Land IAU
+         call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="phys_ts", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group phys_ts"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
+      endif
+
+      if (trim(dycore)=='mpas') then
+         ! Physics group
+         call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="physics", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group physics"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
+
+         call ccpp_physics_timestep_init(cdata_domain, suite_name=trim(ccpp_suite),group_name="microphysics", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_init for group microphysics"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
       end if
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -186,7 +217,8 @@ module CCPP_driver
 !$OMP          default (none)                              &
 !$OMP          shared (nblks, nthrdsX, non_uniform_blocks, &
 !$OMP                  cdata_block, ccpp_suite, step,      &
-!$OMP                  GFS_Control, GFS_Interstitial)      &
+!$OMP                  GFS_Control, GFS_Interstitial,      &
+!$OMP                  dycore)                             &      
 !$OMP          private (nb, nt, ntX, ierr2)                &
 !$OMP          reduction (+:ierr)
 #ifdef _OPENMP
@@ -205,38 +237,61 @@ module CCPP_driver
         end if
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
-          ! Reset GFS_Interstitial DDT physics fields for this thread
-          call GFS_Interstitial(ntX)%phys_reset(GFS_control)
-          ! Process-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
-          if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ps", &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-            ierr = ierr + ierr2
-          endif
-          ! Time-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
-          if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ts", &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-            ierr = ierr + ierr2
-          endif
-        else
-          if (trim(step)=="radiation") then
+           if (trim(dycore)=="fv3") then
+              ! Reset GFS_Interstitial DDT physics fields for this thread
+              call GFS_Interstitial(ntX)%phys_reset(GFS_control)
+              ! Process-split physics
+              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
+              if (ierr2/=0) then
+                 write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ps", &
+                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                 ierr = ierr + ierr2
+              endif
+              ! Time-split physics
+              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
+              if (ierr2/=0) then
+                 write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ts", &
+                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                 ierr = ierr + ierr2
+              endif
+           endif
+           if (trim(dycore)=="mpas") then
+              ! Physics
+              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr2)
+              if (ierr2/=0) then
+                 write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics", &
+                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                 ierr = ierr + ierr2
+              endif
+           endif
+        endif
+        if (trim(step)=="microphysics") then
+           if (trim(dycore)=="mpas") then
+              ! Microphysics
+              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr2)
+              if (ierr2/=0) then
+                 write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "microphysics", &
+                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                 ierr = ierr + ierr2
+              endif
+           endif
+        endif
+        if (trim(step)=="radiation") then
             ! Reset GFS_Interstitial DDT radiation fields for this thread
             call GFS_Interstitial(ntX)%rad_reset(GFS_control)
-          end if
-          ! Radiation
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
-          if (ierr2/=0) then
-            write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-            ierr = ierr + ierr2
-          endif
-        end if
+            ! Radiation
+            call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
+            if (ierr2/=0) then
+               write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
+                                         ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+               write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+               ierr = ierr + ierr2
+            endif
+         end if
       end do
 !$OMP end do
 
@@ -258,23 +313,40 @@ module CCPP_driver
         return
       end if
 
-      ! call timestep_finalize for "phys_ps"---required for Land IAU
-      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr)
-      if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ps"
-        write(0,'(a)') trim(cdata_domain%errmsg)
-        return
-      end if
+      if (trim(dycore)=='fv3') then
+         ! call timestep_finalize for "phys_ps"---required for Land IAU
+         call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ps"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
 
-      ! call timestep_finalize for "phys_ts"---required for Land IAU
-      call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr)
-      if (ierr/=0) then
-        write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ts"
-        write(0,'(a)') trim(cdata_domain%errmsg)
-        return
-      end if
+         ! call timestep_finalize for "phys_ts"---required for Land IAU
+         call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group phys_ts"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
+      endif
+      if (trim(dycore)=='mpas') then
+         call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group physics"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
 
-    ! Physics finalize
+         call ccpp_physics_timestep_finalize(cdata_domain, suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr)
+         if (ierr/=0) then
+            write(0,'(a)') "An error occurred in ccpp_physics_timestep_finalize for group microphysics"
+            write(0,'(a)') trim(cdata_domain%errmsg)
+            return
+         end if
+      endif
+
+    ! Physics finalize (same for all dynamical cores)
     else if (trim(step)=="physics_finalize") then
 
       ! Since the physics finalize step is independent of the blocking structure,
@@ -289,7 +361,7 @@ module CCPP_driver
         return
       end if
 
-    ! Finalize
+    ! Finalize (same for all dynamical cores)
     else if (trim(step)=="finalize") then
       ! Deallocate cdata structure for blocks and threads
       if (allocated(cdata_block)) deallocate(cdata_block)

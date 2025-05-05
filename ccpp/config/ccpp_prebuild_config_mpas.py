@@ -22,10 +22,11 @@ VARIABLE_DEFINITION_FILES = [
     'physics/physics/photochem/module_ozphys.F90',
     'physics/physics/photochem/module_h2ophys.F90',
     'physics/physics/SFC_Models/Land/Noahmp/lnd_iau_mod.F90',
-    'data/CCPP_typedefs.F90',
-    'data/GFS_typedefs.F90',
-    'data/MPAS_typedefs.F90',
-    'data/CCPP_data.F90',
+    '../ccpp/data/CCPP_typedefs.F90',
+    '../ccpp/data/GFS_typedefs.F90',
+    '../ccpp/data/MPAS_typedefs.F90',
+    '../ccpp/data/CCPP_data.F90',
+    '../ccpp/data/MPAS_data.F90'
     ]
 
 TYPEDEFS_NEW_METADATA = {
@@ -59,6 +60,9 @@ TYPEDEFS_NEW_METADATA = {
         },
     'CCPP_data' : {
         'CCPP_data' : '',
+        },
+    'MPAS_data' : {
+        'MPAS_data' : '',
         },
     'MPAS_typedefs' : {
         'MPAS_typedefs'         : '',

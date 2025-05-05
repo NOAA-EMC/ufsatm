@@ -1,26 +1,32 @@
 module ufs_mpas_subdriver
-  use mpas_derived_types, only : core_type, domain_type, MPAS_Clock_type
-  use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks
-  use module_mpas_config, only : ic_filename, mesh_filename
-  use module_mpas_config, only : pio_iotype, fcst_mpi_comm
-  use module_mpas_config, only : nCellsSolve, nEdgesSolve, nVerticesSolve, nVertLevelsSolve
+  use mpas_derived_types, only : core_type, domain_type, MPAS_Clock_type, MPAS_TimeInterval_type
+  use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
+  use module_mpas_config, only : ic_filename
+  use module_mpas_config, only : pio_iotype, fcst_mpi_comm, pioid
   use module_mpas_config, only : zref, zref_edge, sphere_radius, pref, pref_edge
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
   use module_mpas_config, only : nCells_g, nEdges_g, nVertices_g
   use pio,                only : iosystem_desc_t, file_desc_t, pio_openfile, pio_nowrite
   use pio,                only : pio_init, pio_noerr, pio_iotask_rank, PIO_REARR_BOX
-  use pio,                only : pio_global, pio_get_att
+  use pio,                only : pio_global, pio_get_att, pio_double
   use pio_types,          only : PIO_iotype_pnetcdf
   implicit none
   
   private
 
-  public :: ufs_mpas_init
+  public :: ufs_mpas_init_phase1
+  public :: ufs_mpas_init_phase2
+  public :: ufs_mpas_init_phase3
+  public :: ufs_mpas_run
+  public :: ufs_mpas_dyn_set
+  public :: ufs_mpas_open_init
+  public :: ufs_mpas_read_init
   public :: corelist, domain_ptr
 
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(MPAS_Clock_type), pointer :: clock      => null()
+  type (MPAS_TimeInterval_type)  :: timeStep
   
 contains
   ! #########################################################################################
@@ -28,27 +34,21 @@ contains
   ! Procedure to initialize UWM with MPAS dynamical core.
   !
   ! #########################################################################################
-  subroutine ufs_mpas_init(Init, time_start, time_end, total_time, calendar, logUnits)
+  subroutine ufs_mpas_init_phase1(Init, time_start, time_end, total_time, calendar, logUnits)
     use mpas_pool_routines,         only : mpas_pool_add_config, mpas_pool_get_subpool
-    use mpas_pool_routines,         only : mpas_pool_initialize_time_levels, mpas_pool_get_config
     use mpas_pool_routines,         only : mpas_pool_add_dimension, mpas_pool_get_field
     use mpas_pool_routines,         only : mpas_pool_get_array
     use mpas_framework,             only : mpas_framework_init_phase1, mpas_framework_init_phase2
     use mpas_domain_routines,       only : mpas_allocate_domain, mpas_pool_get_dimension
-    use mpas_bootstrapping,         only : mpas_bootstrap_framework_phase1, mpas_bootstrap_framework_phase2
+    use mpas_bootstrapping,         only : mpas_bootstrap_framework_phase1
+    use mpas_bootstrapping,         only : mpas_bootstrap_framework_phase2
     use mpas_rbf_interpolation,     only : mpas_rbf_interp_initialize
     use mpas_vector_reconstruction, only : mpas_init_reconstruct
     use mpas_stream_inquiry,        only : MPAS_stream_inquiry_new_streaminfo
-    use mpas_atm_threading,         only : mpas_atm_threading_init
-    use mpas_atm_dimensions,        only : mpas_atm_set_dims
-    use mpas_atm_halos,             only : atm_build_halo_groups, exchange_halo_group
-    use mpas_derived_types,         only : mpas_pool_type, MPAS_IO_NETCDF, MPAS_Time_Type, field3dReal
+    use mpas_derived_types,         only : mpas_pool_type, MPAS_IO_NETCDF, field3dReal
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_log,                   only : mpas_log_write
-    use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, MPAS_START_TIME
     use atm_core_interface,         only : atm_setup_core, atm_setup_domain
-    use atm_core,                   only : atm_mpas_init_block, core_clock => clock
-    use atm_time_integration,       only : mpas_atm_dynamics_init
     use field_manager_mod,          only : MODEL_ATMOS
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
@@ -62,29 +62,17 @@ contains
     character(17),  intent(in) :: calendar
 
     ! Locals
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init'
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase1'
     integer :: i, ndate1, ndate2, tod, ierr, ik, kk
     character(len=32), allocatable, target :: tracer_names(:)
     integer,           allocatable, target :: tracer_types(:)
     integer :: mesh_iotype
     type (mpas_pool_type), pointer :: state, mesh
     integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
-    integer, pointer :: nCells
-    type(file_desc_t), target :: pioid
-    real (kind=RKIND), pointer :: dt
-    logical, pointer :: config_do_restart
-    type (MPAS_Time_Type) :: startTime
-    character(len=StrKIND) :: startTimeStamp
+    integer, pointer :: nCells, nCellsSolve, nEdgesSolve, nVerticesSolve, nVertLevelsSolve
     type (field3dReal), pointer :: scalarsField
     real(rkind), pointer     :: rdzw(:)
     real(rkind), allocatable :: dzw(:)
-    character (len=StrKIND), pointer :: xtime
-    character (len=StrKIND), pointer :: initial_time1, initial_time2
-
-    ! Initialize PIO
-    allocate(pio_subsystem)
-    call pio_init(Init%me, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride,            &
-                  PIO_REARR_BOX, pio_subsystem)
 
     ! #######################################################################################
     ! #######################################################################################
@@ -98,20 +86,20 @@ contains
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
     if ( ierr /= 0 ) call mpp_error(FATAL,subname//": failed to allocate corelist array")
-    nullify(corelist%next)
+    nullify(corelist % next)
 
-    allocate(corelist%domainlist, stat=ierr)
+    allocate(corelist % domainlist, stat=ierr)
     if ( ierr /= 0 ) call mpp_error(FATAL,subname//": failed to allocate corelist%domainlist%next")
-    nullify(corelist%domainlist%next)
+    nullify(corelist % domainlist % next)
 
-    domain_ptr => corelist%domainlist
-    domain_ptr%core => corelist
+    domain_ptr => corelist % domainlist
+    domain_ptr % core => corelist
 
     call mpas_allocate_domain(domain_ptr)
-    domain_ptr%domainID = 0
+    domain_ptr % domainID = 0
 
     ! Initialize MPAS infrastructure
-    call mpas_framework_init_phase1(domain_ptr%dminfo, external_comm=fcst_mpi_comm)
+    call mpas_framework_init_phase1(domain_ptr % dminfo, external_comm=fcst_mpi_comm)
 
     call atm_setup_core(corelist)
     call atm_setup_domain(domain_ptr)
@@ -121,8 +109,8 @@ contains
     ! 1) domain_ptr to be allocated,
     ! 2) dmpar_init complete to access dminfo,
     ! 3) *_setup_core to assign the setup_log function pointer
-    domain_ptr%core%git_version = 'unknown'
-    domain_ptr%core%build_target = 'N/A'
+    domain_ptr % core % git_version = 'unknown'
+    domain_ptr % core % build_target = 'N/A'
     ierr = domain_ptr % core % setup_log(domain_ptr % logInfo, domain_ptr, unitNumbers=logUnits)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//": Log setup failed for MPAS-A dycore")
@@ -139,7 +127,7 @@ contains
 
     ! Read MPAS namelist.
     if (file_exists('input.nml')) then
-       call read_mpas_namelist('input.nml', domain_ptr%configs, Init%mpi_comm, Init%master, Init%me)
+       call read_mpas_namelist('input.nml', domain_ptr % configs, Init % mpi_comm, Init % master, Init % me)
     else
        call mpp_error(FATAL,subname//": Cannot find MPAS namelist file, input.nml")
     end if
@@ -147,24 +135,24 @@ contains
     ! Set forecast start time (config_start_time)
     ndate1 = time_start(1)*10000 + time_start(2)*100 + time_start(3)
     tod    = time_start(4)*3600  + time_start(5)*60  + time_start(6)
-    call mpas_pool_add_config(domain_ptr%configs, 'config_start_time', date2yyyymmdd(ndate1)//'_'//sec2hms(tod))
+    call mpas_pool_add_config(domain_ptr % configs, 'config_start_time', date2yyyymmdd(ndate1)//'_'//sec2hms(tod))
 
     ! Set forecast end time (config_stop_time)
     ndate2 = time_end(1)*10000   + time_end(2)*100   + time_end(3)
     tod	   = time_end(4)*3600    + time_end(5)*60    + time_end(6)
-    call mpas_pool_add_config(domain_ptr%configs, 'config_stop_time', date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
+    call mpas_pool_add_config(domain_ptr % configs, 'config_stop_time', date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
 
     ! Set forecaste run time (config_run_duration) #DJS2025 this is not correct. need to fix, but works for current test.
     tod = ndate2 - ndate1 -1
-    call mpas_pool_add_config(domain_ptr%configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
+    call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
 
     ! Set other MPAS required configuration information.
-    call mpas_pool_add_config(domain_ptr%configs, 'config_restart_timestamp_name', 'restart_timestamp')
-    call mpas_pool_add_config(domain_ptr%configs, 'config_IAU_option',             'off')
-    call mpas_pool_add_config(domain_ptr%configs, 'config_do_DAcycling',           .false.)
-    call mpas_pool_add_config(domain_ptr%configs, 'config_halo_exch_method',       'mpas_halo')
-    call mpas_pool_add_config(domain_ptr%configs, 'config_pio_num_iotasks',        pio_stride)
-    call mpas_pool_add_config(domain_ptr%configs, 'config_pio_stride',             pio_numiotasks)
+    call mpas_pool_add_config(domain_ptr % configs, 'config_restart_timestamp_name', 'restart_timestamp')
+    call mpas_pool_add_config(domain_ptr % configs, 'config_IAU_option',             'off')
+    call mpas_pool_add_config(domain_ptr % configs, 'config_do_DAcycling',           .false.)
+    call mpas_pool_add_config(domain_ptr % configs, 'config_halo_exch_method',       'mpas_halo')
+    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_num_iotasks',        pio_stride)
+    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_stride',             pio_numiotasks)
 
     ! #######################################################################################
     ! #######################################################################################
@@ -179,46 +167,36 @@ contains
     call mpas_framework_init_phase2(domain_ptr, io_system=pio_subsystem, calendar = trim(calendar))
 
     ! Before defining packages, initialize the stream inquiry instance for the domain
-    domain_ptr%streamInfo => MPAS_stream_inquiry_new_streaminfo()
-    if (.not. associated(domain_ptr%streamInfo)) then
-       call mpp_error(FATAL,subname//": Failed to instantiate streamInfo object for "//trim(domain_ptr%core%coreName))
+    domain_ptr % streamInfo => MPAS_stream_inquiry_new_streaminfo()
+    if (.not. associated(domain_ptr % streamInfo)) then
+       call mpp_error(FATAL,subname//": Failed to instantiate streamInfo object for "//trim(domain_ptr % core % coreName))
     end if
 
-    ierr = domain_ptr%core%define_packages(domain_ptr%packages)
+    ierr = domain_ptr % core % define_packages(domain_ptr % packages)
     if (ierr /= 0) then
-       call mpp_error(FATAL,subname//": Package definition failed for "//trim(domain_ptr%core%coreName))
+       call mpp_error(FATAL,subname//": Package definition failed for "//trim(domain_ptr % core % coreName))
     end if
 
-    ierr = domain_ptr%core%setup_packages(domain_ptr%configs,  domain_ptr%streamInfo,       &
-                                          domain_ptr%packages, domain_ptr%iocontext)
+    ierr = domain_ptr % core % setup_packages(domain_ptr % configs,  domain_ptr % streamInfo,       &
+                                              domain_ptr % packages, domain_ptr % iocontext)
     if (ierr /= 0) then
-       call mpp_error(FATAL,subname//": Package setup failed for "//trim(domain_ptr%core%coreName))
+       call mpp_error(FATAL,subname//": Package setup failed for "//trim(domain_ptr % core % coreName))
     end if
 
-    ierr = domain_ptr%core%setup_decompositions(domain_ptr%decompositions)
+    ierr = domain_ptr % core % setup_decompositions(domain_ptr % decompositions)
     if (ierr /= 0) then
-       call mpp_error(FATAL,subname//": Decomposition setup failed for "//trim(domain_ptr%core%coreName))
+       call mpp_error(FATAL,subname//": Decomposition setup failed for "//trim(domain_ptr % core % coreName))
     end if
 
-    ierr = domain_ptr%core%setup_clock(domain_ptr%clock, domain_ptr%configs)
+    ierr = domain_ptr % core % setup_clock(domain_ptr % clock, domain_ptr % configs)
     if (ierr /= 0) then
-       call mpp_error(FATAL,subname//": Clock setup failed for "//trim(domain_ptr%core%coreName))
+       call mpp_error(FATAL,subname//": Clock setup failed for "//trim(domain_ptr % core % coreName))
     end if
 
     ! Adding a config named 'cam_pcnst' with the number of constituents will indicate to
     ! MPAS-A setup code that it is operating as a UFS dycore, and that it is necessary to
     ! allocate scalars separately from other Registry-defined fields
-    call mpas_pool_add_config(domain_ptr%configs, 'cam_pcnst', Init%nwat)
-
-    ! Open MPAS Initial Condition file.
-    if (file_exists(ic_filename)) then
-       ierr = pio_openfile(pio_subsystem, pioid, pio_iotype, ic_filename, pio_nowrite)
-       if (ierr /= 0) then
-          call mpp_error(FATAL,subname//": Failed opening MPAS IC File, "//trim(ic_filename))
-       end if
-    else
-       call mpp_error(FATAL,subname//": Cannot find MPAS IC file: "//trim(ic_filename))
-    end if
+    call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Init % nwat)
 
     ! #######################################################################################
     ! #######################################################################################
@@ -230,18 +208,18 @@ contains
     ! #######################################################################################
 
     ! Call MPAS framework bootstrap phase 1
-    call mpas_bootstrap_framework_phase1(domain_ptr, mesh_filename, MPAS_IO_NETCDF, pio_file_desc=pioid)
+    call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", MPAS_IO_NETCDF, pio_file_desc=pioid)
 
     ! Finalize the setup of blocks and fields
     call mpas_bootstrap_framework_phase2(domain_ptr, pio_file_desc=pioid)
 
     ! Set up tracers (NOT YET IMPLEMENTED. ONLY ONE, QV)
-    call mpas_pool_get_subpool(domain_ptr%blocklist%structs, 'state', state)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_field(state, 'scalars', scalarsField, timeLevel=1)
     call mpas_pool_add_dimension(state, 'index_qv', 1)
     scalarsField % constituentNames(1) = 'qv'
     call mpas_pool_add_dimension(state, 'moist_start', 1)
-    call mpas_pool_add_dimension(state, 'moist_end', Init%nwat)
+    call mpas_pool_add_dimension(state, 'moist_end', Init % nwat)
 
     ! #######################################################################################
     ! #######################################################################################
@@ -252,7 +230,7 @@ contains
     ! #######################################################################################
 
     ! Read in static (IC) data
-    call ufs_mpas_read_static(pioid)
+    call ufs_mpas_read_static()
 
     ! Compute unit vectors giving the local north and east directions as well as
     ! the unit normal vector for edges
@@ -269,8 +247,8 @@ contains
     ! Initialize fields needed for reconstruction of cell-centered winds from edge-normal winds
     ! Note: This same pair of calls happens a second time later in the initialization of
     !       the MPAS-A dycore (in atm_mpas_init_block), but the redundant calls do no harm
-    call mpas_rbf_interp_initialize(mesh)
-    call mpas_init_reconstruct(mesh)
+    !call mpas_rbf_interp_initialize(mesh)
+    !call mpas_init_reconstruct(mesh)
 
     ! Compute the zeta coordinate at layer interfaces and midpoints.
     ! NOTE: Using number of levels for dycore, nVertLevelsSolve, should we be using phyiscs levels?
@@ -295,7 +273,7 @@ contains
     pref = (pref_edge(1:nVertLevelsSolve) + pref_edge(2:nVertLevelsSolve+1)) * 0.5
 
     ! Display reference coordinates.
-    if (Init%me == Init%master) then
+    if (Init % me == Init % master) then
        write(logUnits(1),'(a)')' Reference Layer Locations: '
        write(logUnits(1),'(a)')' index      height (m)              pressure (hPa) '
        do ik= 1, nVertLevelsSolve
@@ -320,20 +298,46 @@ contains
     ! Setup constants
     call mpas_constants_compute_derived()
 
-    !
-    !call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
-    !call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
-    
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase4()
-    !      MPAS - src/core_atmosphere/mpas_atm_core.F:             atm_core_init()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
+  end subroutine ufs_mpas_init_phase1
 
+  ! #########################################################################################
+  !
+  ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase4()
+  !      MPAS - src/core_atmosphere/mpas_atm_core.F:             atm_core_init()
+  !
+  ! #########################################################################################
+  subroutine ufs_mpas_init_phase2(Init)
+    use MPAS_typedefs,              only : MPAS_init_type
+    use mpas_kind_types,            only : StrKIND, RKIND
+    use mpas_derived_types,         only : mpas_pool_type, MPAS_Time_Type
+    use mpas_domain_routines,       only : mpas_pool_get_dimension
+    use mpas_pool_routines,         only : mpas_pool_get_subpool
+    use mpas_pool_routines,         only : mpas_pool_initialize_time_levels, mpas_pool_get_config
+    use mpas_pool_routines,         only : mpas_pool_get_array
+    use mpas_atm_dimensions,        only : mpas_atm_set_dims
+    use mpas_atm_threading,         only : mpas_atm_threading_init
+    use mpp_mod,                    only : FATAL, mpp_error
+    use mpas_atm_halos,             only : atm_build_halo_groups, exchange_halo_group
+    use atm_core,                   only : atm_mpas_init_block, core_clock => clock
+    use atm_time_integration,       only : mpas_atm_dynamics_init
+    use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, MPAS_START_TIME
+    ! Arguments
+    type(MPAS_init_type), intent(inout) :: Init
+    ! Locals
+    type (mpas_pool_type), pointer :: state, mesh
+    integer :: ierr
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
+    integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
+    real (kind=RKIND), pointer :: dt
+    logical, pointer :: config_do_restart
+    type (MPAS_Time_Type) :: startTime
+    character(len=StrKIND) :: startTimeStamp
+    character (len=StrKIND), pointer :: xtime
+    character (len=StrKIND), pointer :: initial_time1, initial_time2
+
+    !
     ! Setup threading
+    !
     call mpas_atm_threading_init(domain_ptr%blocklist, ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//": Threading setup failed for core "//trim(domain_ptr % core % coreName))
@@ -342,13 +346,13 @@ contains
     !
     ! Set up inner dimensions used by arrays in optimized dynamics routines
     !
-    call mpas_pool_get_subpool(domain_ptr%blocklist%structs, 'state', state)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_dimension(state, 'nVertLevels', nVertLevels1)
     call mpas_pool_get_dimension(state, 'maxEdges', maxEdges1)
     call mpas_pool_get_dimension(state, 'maxEdges2', maxEdges2)
     call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
     call mpas_atm_set_dims(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
-    Init%levs = nVertLevels1
+    Init % levs = nVertLevels1
 
     !
     ! Set "local" clock to point to the clock contained in the domain type
@@ -384,6 +388,9 @@ contains
 
     call exchange_halo_group(domain_ptr, 'initialization:u')
 
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+
     call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, domain_ptr % blocklist, mesh, dt)
 
     call mpas_pool_get_array(state, 'xtime', xtime, 1)
@@ -403,8 +410,230 @@ contains
     !
     call mpas_atm_dynamics_init(domain_ptr)
 
-  end subroutine ufs_mpas_init
+  end subroutine ufs_mpas_init_phase2
 
+  ! #########################################################################################
+  !
+  ! #########################################################################################
+  subroutine ufs_mpas_init_phase3(statein)
+    use mpas_derived_types, only : mpas_pool_type
+    use mpas_kind_types,    only : RKIND
+    use MPAS_typedefs,      only : MPAS_statein_type
+    use mpas_pool_routines, only : mpas_pool_get_array, mpas_pool_get_config, mpas_pool_get_subpool
+    use mpas_timekeeping,   only : MPAS_set_timeInterval
+
+    ! Arguments
+    type(MPAS_statein_type), intent(inout) :: statein
+    ! locals
+    type(mpas_pool_type), pointer :: tend_physics_pool
+    integer :: ierr
+    real (kind=RKIND), pointer :: dt
+    
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_ru_physics',     statein % ru_tend)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', statein % rtheta_tend)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    statein % rho_tend)
+
+    ! Set dycore time interval.
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
+    call mpas_set_timeInterval(timeStep, dt=dt, ierr=ierr)
+
+  end subroutine ufs_mpas_init_phase3
+
+  ! #########################################################################################
+  ! Routine to call MPAS dynamical core
+  ! Loop over dynamical time-step(s) and increment MPAS state (timelevel=2)
+  ! #########################################################################################
+  subroutine ufs_mpas_run()
+    use atm_core,           only : atm_do_timestep
+    use mpas_derived_types, only : MPAS_Time_type, mpas_pool_type
+    use mpas_timekeeping,   only : MPAS_set_timeInterval
+    use mpas_kind_types,    only : StrKIND, RKIND
+    use mpas_pool_routines, only : mpas_pool_get_config, mpas_pool_get_subpool, mpas_pool_shift_time_levels
+    use mpas_timekeeping,   only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time, MPAS_NOW, mpas_is_clock_stop_time
+    use mpas_log,           only : mpas_log_write
+    use mpas_timer,         only : mpas_timer_start, mpas_timer_stop
+
+    ! Locals
+    real (kind=RKIND), pointer :: dt
+    type (mpas_pool_type), pointer :: state
+    type (MPAS_Time_type) :: timeNow, timeStop
+    character(len=StrKIND) :: timeStamp
+    integer :: ierr
+    integer, save :: itimestep = 1
+    
+    call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', dt)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+
+    ! During integration, time level 1 stores the model state at the beginning of the
+    !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
+
+    do while (.not. mpas_is_clock_stop_time(clock))
+       timeNow  = mpas_get_clock_time(clock, MPAS_NOW, ierr)
+       
+       call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
+       call mpas_log_write('Dynamics timestep beginning at '//trim(timeStamp))
+
+       call mpas_timer_start('time integration')
+       call atm_do_timestep(domain_ptr, dt, itimestep)
+       call mpas_timer_stop('time integration')
+
+       ! Move time level 2 fields back into time level 1 for next time step
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+       call mpas_pool_shift_time_levels(state)
+
+       ! Advance clock.
+       itimestep = itimestep + 1
+       call mpas_advance_clock(clock)
+       timeNow = mpas_get_clock_time(clock, MPAS_NOW, ierr)
+
+    end do
+    
+  end subroutine ufs_mpas_run
+  
+  ! #########################################################################################
+  ! Procedure to populate inputs to MPAS dycore.
+  ! #########################################################################################
+  subroutine ufs_mpas_dyn_set(master, me, statein, stateout)
+    use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
+    use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool
+    use mpas_pool_routines,   only : mpas_pool_get_array
+    use mpas_domain_routines, only : mpas_pool_get_dimension
+
+    ! Input
+    integer, intent(in) :: master, me
+    type(MPAS_statein_type), intent(inout) :: statein
+    type(MPAS_stateout_type), intent(inout) :: stateout
+    ! Locals
+    type(mpas_pool_type), pointer :: mesh_pool
+    type(mpas_pool_type), pointer :: state_pool
+    type(mpas_pool_type), pointer :: diag_pool
+    integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, &
+         nVerticesSolve, index_qv, ierr
+    integer :: i1, i2
+    ! Local variables
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_dyn_set'
+
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',         mesh_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state',        state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',         diag_pool)
+
+    ! Get dimensions
+    call mpas_pool_get_dimension(mesh_pool,  'nCells',         nCells)
+    call mpas_pool_get_dimension(mesh_pool,  'nEdges',         nEdges)
+    call mpas_pool_get_dimension(mesh_pool,  'nVertices',      nVertices)
+    call mpas_pool_get_dimension(mesh_pool,  'nVertLevels',    nVertLevels)
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve',    nCellsSolve)
+    call mpas_pool_get_dimension(mesh_pool,  'nEdgesSolve',    nEdgesSolve)
+    call mpas_pool_get_dimension(mesh_pool,  'nVerticesSolve', nVerticesSolve)
+    call mpas_pool_get_dimension(state_pool, 'index_qv',       index_qv)
+
+    ! Set dimensions
+    statein % nCells         = nCells
+    statein % nEdges         = nEdges
+    statein % nVertices      = nVertices
+    statein % nVertLevels    = nVertLevels
+    statein % nCellsSolve    = nCellsSolve
+    statein % nEdgesSolve    = nEdgesSolve
+    statein % nVerticesSolve = nVerticesSolve
+    statein % index_qv       = index_qv
+
+    ! In MPAS timeLevel=1 is the current state.  So the fields input to the dycore should
+    ! be in timeLevel=1.
+    call mpas_pool_get_array(state_pool, 'u',                      statein % uperp,   timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'w',                      statein % w,       timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'theta_m',                statein % theta_m, timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'rho_zz',                 statein % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'scalars',                statein % tracers, timeLevel=1)
+    !
+    call mpas_pool_get_array(diag_pool, 'rho_base',                statein % rho_base)
+    call mpas_pool_get_array(diag_pool, 'theta_base',              statein % theta_base)
+    !
+    call mpas_pool_get_array(mesh_pool,  'zgrid',                  statein % zint)
+    call mpas_pool_get_array(mesh_pool,  'zz',                     statein % zz)
+    call mpas_pool_get_array(mesh_pool,  'fzm',                    statein % fzm)
+    call mpas_pool_get_array(mesh_pool,  'fzp',                    statein % fzp)
+    call mpas_pool_get_array(mesh_pool,  'areaCell',               statein % areaCell)
+    !
+    call mpas_pool_get_array(mesh_pool,  'east',                   statein % east)
+    call mpas_pool_get_array(mesh_pool,  'north',                  statein % north)
+    call mpas_pool_get_array(mesh_pool,  'edgeNormalVectors',      statein % normal)
+    call mpas_pool_get_array(mesh_pool,  'cellsOnEdge',            statein % cellsOnEdge)
+    !
+    call mpas_pool_get_array(diag_pool,  'theta',                  statein % theta)
+    call mpas_pool_get_array(diag_pool,  'exner',                  statein % exner)
+    call mpas_pool_get_array(diag_pool,  'rho',                    statein % rho)
+    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      statein % ux)
+    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', statein % uy)
+
+    ! Let dynamics export state point to memory managed by MPAS-Atmosphere
+    ! Exception: pmiddry and pintdry are not managed by the MPAS infrastructure
+    stateout % nCells         = statein % nCells
+    stateout % nEdges         = statein % nEdges
+    stateout % nVertices      = statein % nVertices
+    stateout % nVertLevels    = statein % nVertLevels
+    stateout % nCellsSolve    = statein % nCellsSolve
+    stateout % nEdgesSolve    = statein % nEdgesSolve
+    stateout % nVerticesSolve = statein % nVerticesSolve
+    stateout % index_qv       = statein % index_qv
+
+    ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
+    ! in timeLevel=1.  Thus we want stateout to also point to timeLevel=1.  Can just copy
+    ! the pointers from statein.
+    stateout % uperp   => statein % uperp
+    stateout % w       => statein % w
+    stateout % theta_m => statein % theta_m
+    stateout % rho_zz  => statein % rho_zz
+    stateout % tracers => statein % tracers
+
+    ! These components don't have a time level index.
+    stateout % zint  => statein % zint
+    stateout % zz    => statein % zz
+    stateout % fzm   => statein % fzm
+    stateout % fzp   => statein % fzp
+    
+    stateout % theta => statein % theta
+    stateout % exner => statein % exner
+    stateout % rho   => statein % rho
+    stateout % ux    => statein % ux
+    stateout % uy    => statein % uy
+
+    ! Hydrostatic pressure
+    !allocate(stateout % pmiddry(nVertLevels,   nCells), stat=ierr)
+    !if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pmiddry array')
+
+    !allocate(stateout % pintdry(nVertLevels+1, nCells), stat=ierr)
+    !if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pintdry array')
+
+    call mpas_pool_get_array(diag_pool, 'vorticity',  stateout % vorticity)
+    call mpas_pool_get_array(diag_pool, 'divergence', stateout % divergence)
+
+  end subroutine ufs_mpas_dyn_set
+
+  ! #########################################################################################
+  ! Procedure to open MPAS IC file.
+  !
+  ! ######################################################################################### 
+  subroutine ufs_mpas_open_init()
+    use fms2_io_mod, only : file_exists
+    use mpp_mod,     only : FATAL, mpp_error
+    integer :: ierr
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_open_init'
+
+    ! Open MPAS Initial Condition file.
+    if (file_exists(ic_filename)) then
+       ierr = pio_openfile(pio_subsystem, pioid, pio_iotype, ic_filename, pio_nowrite)
+       if (ierr /= 0) then
+          call mpp_error(FATAL,subname//": Failed opening MPAS IC File, "//trim(ic_filename))
+       end if
+    else
+       call mpp_error(FATAL,subname//": Cannot find MPAS IC file: "//trim(ic_filename))
+    end if
+  end subroutine ufs_mpas_open_init
+  
   ! #########################################################################################
   ! Procedure to read MPAS namelist(s).
   !
@@ -737,7 +966,7 @@ contains
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
  !>
  !> ########################################################################################
- subroutine ufs_mpas_read_static(pioid)
+ subroutine ufs_mpas_read_static()
    use pio, only : file_desc_t
    use mpas_kind_types,     only : StrKIND
    use mpas_io_streams,     only : MPAS_createStream, MPAS_closeStream, MPAS_streamAddField
@@ -751,7 +980,6 @@ contains
    use mpas_stream_manager, only : postread_reindex
    use mpp_mod,             only : FATAL, mpp_error
    ! Arguments
-   type (file_desc_t), intent(in), pointer :: pioid
 
    ! Local variables
    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_static'
@@ -1104,7 +1332,184 @@ contains
    call MPAS_pool_destroy_pool(reindexPkgs)
 
  end subroutine ufs_mpas_read_static
+ 
+ !> ########################################################################################
+ !> Procedure to read MPAS IC file and populate UWM data containers.
+ !>
+ !> ########################################################################################
+ subroutine ufs_mpas_read_init(master, me, statein)
+   use MPAS_typedefs,   only : MPAS_statein_type
+   use mpas_kind_types, only : StrKIND, RKIND
+   use mpas_constants,  only : rvord
+   use pio,             only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen, var_desc_t, pio_initdecomp
+   use mpp_mod,         only : FATAL, mpp_error
+   
+   integer, intent(in) :: master, me
+   type (MPAS_statein_type), intent(inout) :: statein
+   integer :: nVertLevels, nCellsSolve, nEdgesSolve
+   integer :: index_qv, ierr
+   integer :: i, ndims, dimids(3), dimlens(3)
+   integer, pointer :: dof(:)
+   type(var_desc_t) :: varid
+   
+   real(RKIND), pointer :: uperp(:,:)     ! Normal velocity at edges [m/s]  (nlev,nedge)
+   real(RKIND), pointer :: w(:,:)         ! Vertical velocity [m/s]        (nlev+1,ncol)
+   real(RKIND), pointer :: theta_m(:,:)   ! Moist potential temperature [K]  (nlev,ncol)
+   real(RKIND), pointer :: rho_zz(:,:)    ! Dry density [kg/m^3]
+                                          ! divided by d(zeta)/dz            (nlev,ncol)
+   real(RKIND), pointer :: tracers(:,:,:) ! Tracers [kg/kg dry air]       (nq,nlev,ncol)
 
+   real(RKIND), pointer :: zint(:,:)      ! Geometric height [m]
+                                          ! at layer interfaces            (nlev+1,ncol)
+   real(RKIND), pointer :: zz(:,:)        ! Vertical coordinate metric [1]
+                                          ! at layer midpoints               (nlev,ncol)
+   real(RKIND), pointer :: theta(:,:)     ! Potential temperature [K]        (nlev,ncol)
+   real(RKIND), pointer :: rho(:,:)       ! Dry density [kg/m^3]             (nlev,ncol)
+   real(RKIND), pointer :: ux(:,:)        ! Zonal veloc at center [m/s]      (nlev,ncol)
+   real(RKIND), pointer :: uy(:,:)        ! Meridional veloc at center [m/s] (nlev,ncol)
+   real(RKIND), pointer :: theta_base(:,:)
+   real(RKIND), pointer :: rho_base(:,:)
+
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
+
+   ! Get dimensions.
+   nCellsSolve = statein % nCellsSolve
+   nEdgesSolve = statein % nEdgesSolve
+   nVertLevels = statein % nVertLevels
+
+   ! Local pointers
+   uperp      => statein % uperp
+   w          => statein % w
+   theta_m    => statein % theta_m
+   rho_zz     => statein % rho_zz
+   tracers    => statein % tracers
+   zz         => statein % zz
+   theta      => statein % theta
+   rho        => statein % rho
+   rho_base   => statein % rho_base
+   theta_base => statein % theta_base
+
+   ! Tracer indices
+   index_qv = statein % index_qv
+
+   ! Read fields
+   call read_init_field3D('u',          (/nVertLevels,   nEdgesSolve, 1/), uperp)
+   call read_init_field3D('w',          (/nVertLevels+1, nCellsSolve, 1/), w)
+   call read_init_field3D('theta',      (/nVertLevels,   nCellsSolve, 1/), theta)
+   call read_init_field3D('rho',        (/nVertLevels,   nCellsSolve, 1/), rho)
+   call read_init_field3D('theta_base', (/nVertLevels,   nCellsSolve, 1/), theta_base)
+   call read_init_field3D('rho_base',   (/nVertLevels,   nCellsSolve, 1/), rho_base)
+   call read_init_field3D('qv',         (/nVertLevels,   nCellsSolve, 1/), tracers(index_qv,:,:))
+
+   ! Compute derived quantitues
+   theta_m(:,1:nCellsSolve) = theta(:,1:nCellsSolve) * (1.0_RKIND + rvord * tracers(index_qv,:,1:nCellsSolve))
+   rho_zz(:,1:nCellsSolve)  = rho(:,1:nCellsSolve) / zz(:,1:nCellsSolve)
+
+   ! Update halos for initial state fields
+   call ufs_mpas_update_halo('u',       timeLevel=1)
+   call ufs_mpas_update_halo('w',       timeLevel=1)
+   call ufs_mpas_update_halo('scalars', timeLevel=1)
+   call ufs_mpas_update_halo('theta_m', timeLevel=1)
+   call ufs_mpas_update_halo('rho_zz',  timeLevel=1)
+   call ufs_mpas_update_halo('theta')
+   call ufs_mpas_update_halo('rho')
+   call ufs_mpas_update_halo('rho_base')
+   call ufs_mpas_update_halo('theta_base')
+
+ end subroutine ufs_mpas_read_init
+
+ !> ########################################################################################
+ !> Procedure to read MPAS initial-condition data from opened PIO file.
+ !>
+ !> ########################################################################################
+ subroutine read_init_field3D(varname, dims, varOUT)
+   use pio,                  only : var_desc_t, PIO_NOERR, PIO_inq_varid, pio_get_var
+   use pio,                  only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen
+   use pio,                  only : io_desc_t, pio_initdecomp, pio_double, pio_read_darray
+   use mpp_mod,              only : FATAL, mpp_error
+   use mpas_kind_types,      only : StrKIND, RKIND
+   use mpas_pool_routines,   only : MPAS_pool_get_field_info, MPAS_pool_get_field
+   use mpas_derived_types,   only : mpas_pool_field_info_type, field3DReal
+
+   !
+   character(len=*), intent(in)  :: varname
+   integer, intent(in)                 :: dims(3)
+   real(RKIND), intent(inout) :: varOUT(:,:)
+   !
+   integer :: ierr, strt(3), i1, i2, i3, indx, pd
+   type(var_desc_t) :: varid
+   type(io_desc_t) :: iodesc
+   real(RKIND), allocatable :: field(:,:,:)
+   integer :: i, ndims, dimids(3), dimlens(3)
+   integer, dimension(:), pointer :: dof, indices
+   !
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
+
+   dimids = -1
+   ndims = 0
+   dimlens = 0
+
+   ! Read in varaible
+   strt(:) = 1
+   ierr = PIO_inq_varid(pioid, trim(varname), varid)
+   if (ierr /= PIO_NOERR) then
+      call mpp_error(FATAL,subname//": variable "//trim(varname)//" is not on file")
+   else
+      ! Check dimensions
+      ierr = PIO_inq_varndims(pioid, varid, ndims)
+      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_varndims")
+      if (size(dimids) < ndims) then
+         call mpp_error(FATAL,subname//": Error dimids too small")
+      end if
+      ierr = PIO_inq_vardimid(pioid, varid, dimids(1:ndims))
+      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_vardimid")
+      if (size(dimlens) < ndims) then
+         call mpp_error(FATAL,subname//": Error dimlens too small ")
+      end if
+      do i = 1, ndims
+         ierr = PIO_inq_dimlen(pioid, dimids(i), dimlens(i))
+         if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_dimlen")
+      end do
+
+      ! DJS2025: This is not working correctly.
+      ! The correct (any) variable decompositions are not being used when reading in the
+      ! varaible below.
+!      pd = 1
+!      do i=1,ndims-1
+!         pd = pd * int(dimlens(i))
+!      end do
+!      pd = pd * int(dimlens(ndims))
+!
+!      allocate(dof(pd))
+!
+!      ! Compute var indices
+!      allocate(indices(dimlens(3)))
+!      indices(:) = 0
+!      indx=1
+!      do i3=1,dimlens(3)
+!         do i2=1,dimlens(2)
+!            do i1=1,dimlens(1)
+!               dof(indx) = i1 + (i2-1)*int(dimlens(1)) + int(indices(i3)-1)*int(dimlens(2))*int(dimlens(1))
+!               indx = indx + 1
+!            end do
+!         end do
+!      end do
+!      deallocate(indices)
+
+!      call pio_initdecomp(pio_subsystem, pio_double, (/dimlens(1),dimlens(2)/), dof, iodesc)
+!      deallocate(dof)
+      
+      ! Read
+      allocate(field(dims(1), dims(2), dims(3)))
+      ierr = pio_get_var(pioid, varid, strt, dims, field)
+      !call pio_read_darray(pioid, varid, iodesc, field, ierr)
+      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_read_darray for "//trim(varname))
+      varOUT(:,1:dims(2)) = field(:,:dims(2),1)
+      deallocate(field)
+   endif
+   
+ end subroutine read_init_field3D
+ 
  !> ########################################################################################
  !
  !> \brief  Computes local unit north, east, and edge-normal vectors
@@ -1264,5 +1669,132 @@ contains
    write(int2str,'(i0)') n
      
  end function int2str
-  
+
+ ! #########################################################################################
+ !  routine ufs_mpas_update_halo
+ !
+ !> \brief  Updates the halo of the named field
+ !> \author Michael Duda
+ !> \date   16 January 2020
+ !> \details
+ !>  Given the name of a field that is defined in the MPAS Registry.xml file,
+ !>  this routine updates the halo for that field.
+ !>
+ !> \update: Dustin Swales April 2025 - Modified for use in UWM
+ !
+ ! #########################################################################################
+ subroutine ufs_mpas_update_halo(fieldName, timeLevel)
+   use mpas_derived_types, only : field1DReal, field2DReal, field3DReal, field4DReal
+   use mpas_derived_types, only : field5DReal, field1DInteger, field2DInteger, field3DInteger
+   use mpas_derived_types, only : mpas_pool_field_info_type, MPAS_POOL_REAL, MPAS_POOL_INTEGER
+   use mpas_pool_routines, only : MPAS_pool_get_field_info, MPAS_pool_get_field
+   use mpas_dmpar,         only : MPAS_dmpar_exch_halo_field
+   use mpas_kind_types,    only : StrKIND
+   use mpp_mod,            only : FATAL, mpp_error
+   ! Arguments
+   character(len=*), intent(in) :: fieldName
+   integer, intent(in), optional :: timeLevel
+
+   ! Local variables
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_update_halo'
+   character(len=StrKIND) :: errString
+   type (mpas_pool_field_info_type) :: fieldInfo
+   type (field1DReal), pointer :: field_real1d
+   type (field2DReal), pointer :: field_real2d
+   type (field3DReal), pointer :: field_real3d
+   type (field4DReal), pointer :: field_real4d
+   type (field5DReal), pointer :: field_real5d
+   type (field1DInteger), pointer :: field_int1d
+   type (field2DInteger), pointer :: field_int2d
+   type (field3DInteger), pointer :: field_int3d
+
+   call MPAS_pool_get_field_info(domain_ptr % blocklist % allFields, trim(fieldName), fieldInfo)
+
+   if (fieldInfo % fieldType == MPAS_POOL_REAL) then
+      if (fieldInfo % nDims == 1) then
+         nullify(field_real1d)
+         if (present(timeLevel)) then
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real1d, timeLevel=timeLevel)
+         else
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real1d)
+         endif
+         if (associated(field_real1d)) then
+            call MPAS_dmpar_exch_halo_field(field_real1d)
+         end if
+      else if (fieldInfo % nDims == 2) then
+         nullify(field_real2d)
+         if (present(timeLevel)) then
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real2d, timeLevel=timeLevel)
+         else
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real2d)
+         endif
+         if (associated(field_real2d)) then
+            call MPAS_dmpar_exch_halo_field(field_real2d)
+         end if
+      else if (fieldInfo % nDims == 3) then
+         nullify(field_real3d)
+         if (present(timeLevel)) then
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real3d, timeLevel=timeLevel)
+         else
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real3d)
+         endif
+         if (associated(field_real3d)) then
+            call MPAS_dmpar_exch_halo_field(field_real3d)
+         end if
+      else if (fieldInfo % nDims == 4) then
+         nullify(field_real4d)
+         if (present(timeLevel)) then
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real4d, timeLevel=timeLevel)
+         else
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real4d)
+         endif
+         if (associated(field_real4d)) then
+            call MPAS_dmpar_exch_halo_field(field_real4d)
+         end if
+      else if (fieldInfo % nDims == 5) then
+         nullify(field_real5d)
+         if (present(timeLevel)) then
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real5d, timeLevel=timeLevel)
+         else
+            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real5d)
+         end if
+         if (associated(field_real5d)) then
+            call MPAS_dmpar_exch_halo_field(field_real5d)
+         end if
+      else
+         write(errString, '(a,i0,a)') subname//': FATAL: Unhandled dimensionality ', &
+              fieldInfo % nDims, ' for real-valued field'
+         call mpp_error(FATAL,subname//": "//trim(errString))
+      end if
+   else if (fieldInfo % fieldType == MPAS_POOL_INTEGER) then
+      if (fieldInfo % nDims == 1) then
+         nullify(field_int1d)
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int1d)
+         if (associated(field_int1d)) then
+            call MPAS_dmpar_exch_halo_field(field_int1d)
+         end if
+      else if (fieldInfo % nDims == 2) then
+         nullify(field_int2d)
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int2d)
+         if (associated(field_int2d)) then
+            call MPAS_dmpar_exch_halo_field(field_int2d)
+         end if
+      else if (fieldInfo % nDims == 3) then
+         nullify(field_int3d)
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int3d)
+         if (associated(field_int3d)) then
+            call MPAS_dmpar_exch_halo_field(field_int3d)
+         end if
+      else
+         write(errString, '(a,i0,a)') subname//': FATAL: Unhandled dimensionality ', &
+              fieldInfo % nDims, ' for integer-valued field'
+         call mpp_error(FATAL,subname//": "//trim(errString))
+      end if
+   else
+      write(errString, '(a,i0,a)') subname//': FATAL: Unhandled field type ', fieldInfo % fieldType
+      call mpp_error(FATAL,subname//": "//trim(errString))
+   end if
+
+ end subroutine ufs_mpas_update_halo
+
 end module ufs_mpas_subdriver

@@ -10,8 +10,8 @@ module atmos_model_mod
   ! MPAS
   use MPAS_typedefs,         only: MPAS_init_type, MPAS_kind_phys => kind_phys
   ! CCPP
-  use CCPP_data,             only: GFS_control, MPAS_statein, MPAS_stateint, MPAS_stateout
-  use CCPP_data,             only: GFS_intdiag, ccpp_suite
+  use MPAS_data,             only: MPAS_statein, MPAS_stateint, MPAS_stateout
+  use CCPP_data,             only: GFS_control, GFS_intdiag, ccpp_suite
   use CCPP_driver,           only: CCPP_step
   ! FMS
   use time_manager_mod,      only: time_type, get_time, get_date, operator(+), operator(-)
@@ -54,6 +54,7 @@ module atmos_model_mod
 
   ! Component Timers
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
+
 contains
   ! #########################################################################################
   !
@@ -71,7 +72,7 @@ contains
   !
   ! #########################################################################################
   subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
-    use ufs_mpas_subdriver, only: ufs_mpas_init
+    use ufs_mpas_subdriver, only: ufs_mpas_init_phase1, ufs_mpas_init_phase2, ufs_mpas_init_phase3, ufs_mpas_dyn_set, ufs_mpas_open_init, ufs_mpas_read_init
     use MPAS_init,          only: MPAS_initialize
 
     ! Inputs
@@ -107,7 +108,7 @@ contains
     call get_date(Time_end, timee(1),timee(2),timee(3),timee(4),timee(5),timee(6))
     call get_time(Time_end - Time_init, ttime)
     
-    ! Parameters needed for initialization
+    ! Parameters needed for MPAS initialization.
     Init%me        = mpp_pe()
     Init%master    = mpp_root_pe()
     Init%mpi_comm  = mpicomm
@@ -129,20 +130,52 @@ contains
     ! With FV3, this is set during dycore initialization.
     Init%nwat = 6
 
+    !
+    ! Open MPAS IC data file.
+    !
+    call ufs_mpas_open_init()
+
+    !
     ! Initialize the MPAS dynamical core. Read in MPAS dycore namelist.
+    !
     logUnits(1) = stdout()
     logUnits(2) = stdlog()
-    call ufs_mpas_init(Init, times, timee, ttime, calendar, logUnits)
+    call ufs_mpas_init_phase1(Init, times, timee, ttime, calendar, logUnits)
+
+    !
+    ! Create MPAS data containers
+    !
+    call ufs_mpas_dyn_set(mpp_root_pe(), mpp_pe(), MPAS_Statein, MPAS_Stateout)
+
+    !
+    ! Read in MPAS IC data. Populate MPAS data containers.
+    !
+    call ufs_mpas_read_init(mpp_root_pe(), mpp_pe(), MPAS_Statein)
+
+    !
+    ! Complete the MPAS dycore initialization.
+    !
+    call ufs_mpas_init_phase2(Init)
+    call ufs_mpas_init_phase3(MPAS_Statein)
 
     ! Set domain description.
     ! ### Work in Progress. Set to 1 for MPAS initialization testing. ###
     Atm_block%nblks = 1
     allocate(Init%blksz(Atm_block%nblks))
+    Init%blksz(:) = blocksize
+
+    ! ### Work in Progress. ###
+    ! ### Revisit when implementing GFS physics and partitioning GFS data containers ###
+    ! The hybrid-sigma coordinates are included in a GFS data container that is set up
+    ! during the Physics init/namelist-read, below when calling MPAS_initialize(). These
+    ! fields should be in FV3 data container, allowing for both MPAS and FV3 to share
+    ! the GFS data container.
     allocate(Init%ak(Init%levs+1))
     allocate(Init%bk(Init%levs+1))
-    Init%ak(:)    = 0.0
-    Init%bk(:)    = 0.0
-    Init%blksz(:) = blocksize
+    Init%ak(:) = 0.0
+    Init%bk(:) = 0.0
+    
+    ! Set file ID for log file
     Init%nlunit = stdlog()
 
     ! Update time (UFS specific time formatting array)
@@ -158,15 +191,21 @@ contains
     Init%input_nml_file  => input_nml_file
     Init%fn_nml='using internal file'
 
+    !
     ! Read in physics namelist and allocate data containers.
+    !
     call MPAS_initialize(GFS_control, GFS_intdiag, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Init)
 
+    !
     ! Initialize the CCPP framework
-    call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
+    !
+    call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
 
+    !
     ! Initialize the CCPP physics
-    call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr)
+    !
+    call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
     ! Initialize stochastic physics pattern generation / cellular automata
@@ -187,7 +226,7 @@ contains
     integer :: ierr
 
     ! Finalize the CCPP physics.
-    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP finalize step failed')
 
   end subroutine atmos_model_end
@@ -204,27 +243,27 @@ contains
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
     
     ! Call CCPP Group Radiation
     call mpp_clock_begin(radClock)
     if (GFS_control%lsswr .or. GFS_control%lslwr) then
-       !call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr)
+       !call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
     call mpp_clock_end(radClock)
 
     ! Call CCPP Group Physics
     call mpp_clock_begin(physClock)
-    !call CCPP_step (step="phys_ps", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
 
     ! Call CCPP Timestep_finalize Group
     call mpp_clock_begin(setupClock)
-    !call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
     call mpp_clock_end(setupClock)
     
@@ -236,11 +275,14 @@ contains
   !
   ! #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
+    use ufs_mpas_subdriver, only: ufs_mpas_run
+    use MPAS_init,          only: MPAS_initialize
+    
     type (atmos_data_type), intent(inout) :: Atmos
     
     ! Call MPAS dycore
     call mpp_clock_begin(mpasClock)
-    !!! NOT YET IMPLEMENTED!!!
+    call ufs_mpas_run()
     call mpp_clock_end(mpasClock)
     
   end subroutine atmos_model_dynamics
@@ -257,7 +299,7 @@ contains
     
     ! Call CCPP Group Microphysics
     call mpp_clock_begin(mpClock)
-    call CCPP_step (step="microphysics", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="microphysics", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP microphysics step failed')
     call mpp_clock_end(mpClock)
 
