@@ -1956,17 +1956,16 @@ end subroutine update_atmos_chemistry
                   nb = Atm_block%blkno(i,j)
                   ix = Atm_block%ixp(i,j)
                   im = GFS_control%chunk_begin(nb)+ix-1
-!                 if (GFS_data(nb)%Sfcprop%oceanfrac(im) > zero .and.  datar8(i,j) > zorlmin) then
-                  if (GFS_data(nb)%Sfcprop%oceanfrac(im) > zero) then
-                    if (mergeflg(i,j)) datar8(i,j)=GFS_data(nb)%Sfcprop%zorlw(im) ! use initial value
-                      if (datar8(i,j) > zorlmin) then
-                        tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, datar8(i,j))
-!                       GFS_data(nb)%Coupling%zorlwav_cpl(im) = tem
-                        GFS_data(nb)%Sfcprop%zorlwav(im)      = tem
-                        GFS_data(nb)%Sfcprop%zorlw(im)        = tem
-                      else
-                        GFS_data(nb)%Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
-                      endif
+!                 if (GFS_Sfcprop%oceanfrac(im) > zero .and.  datar8(i,j) > zorlmin) then
+                  if (GFS_Sfcprop%oceanfrac(im) > zero) then
+                    if (mergeflg(i,j)) datar8(i,j)=GFS_Sfcprop%zorlw(im) ! use initial value
+                    if (datar8(i,j) > zorlmin) then
+                      tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, datar8(i,j))
+!                     GFS_Coupling%zorlwav_cpl(im) = tem
+                      GFS_Sfcprop%zorlwav(im)      = tem
+                      GFS_Sfcprop%zorlw(im)        = tem
+                    else
+                      GFS_Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
                     endif
                   endif
                 enddo

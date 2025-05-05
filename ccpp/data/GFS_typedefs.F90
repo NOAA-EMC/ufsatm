@@ -2969,14 +2969,16 @@ module GFS_typedefs
     if (Model%do_RRTMGP) then
        allocate (Coupling%fluxlwUP_radtime   (IM, Model%levs+1))
        allocate (Coupling%fluxlwDOWN_radtime (IM, Model%levs+1))
-       allocate (Coupling%fluxlwUP_jac       (IM, Model%levs+1))
        allocate (Coupling%htrlw              (IM, Model%levs))
        allocate (Coupling%tsfc_radtime       (IM))
        Coupling%fluxlwUP_radtime   = clear_val
        Coupling%fluxlwDOWN_radtime = clear_val
-       Coupling%fluxlwUP_jac       = clear_val
        Coupling%htrlw              = clear_val
        Coupling%tsfc_radtime       = clear_val
+       if (Model%use_LW_jacobian) then
+          allocate (Coupling%fluxlwUP_jac    (IM, Model%levs+1))
+          Coupling%fluxlwUP_jac    = clear_val
+       endif
     endif
 
     if (Model%cplflx .or. Model%do_sppt .or. Model%cplchm .or. Model%ca_global .or. Model%cpllnd .or. Model%cpl_fire) then
