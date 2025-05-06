@@ -77,6 +77,7 @@ module fv3atm_cap_mod
   logical                                     :: profile_memory = .true.
   logical                                     :: write_runtimelog = .false.
   logical                                     :: lprint = .false.
+  logical                                     :: sync_fcst_info_to_wgc = .false.
 
   integer                                     :: mype = -1
   integer                                     :: dbug = 0
@@ -409,6 +410,11 @@ module fv3atm_cap_mod
       enddo
 
       call ESMF_ConfigGetAttribute(config=CF, value=time_unlimited, label ='time_unlimited:', default=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      ! sync_fcst_info_to_wgc: flag to synchronize ESMF_Info from fcst grid comp to write grid comps. Needs ESMF update to allow this to be done with write grid component independently.
+      call ESMF_ConfigGetAttribute(config=CF, value=sync_fcst_info_to_wgc, label ='sync_fcst_info_to_wgc:', default=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     endif ! quilting
 !
@@ -1262,20 +1268,22 @@ module fv3atm_cap_mod
 
         call ESMF_TraceRegionExit("ESMF_VMEpoch:fcstFB->wrtFB", rc=rc)
 
-        do j=1, FBCount
+        if (sync_fcst_info_to_wgc) then
+          do j=1, FBCount
 
-          ! Update fcstFB attributes from fcst PEs to all PEs in this VM
-          ! This is needed in case some attributes are updated during run time
-          call ESMF_FieldBundleGet(fcstFB(j), name=fb_name, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          if (fb_name(1:8) /= "restart_") then
-            call ESMF_InfoGetFromHost(fcstFB(j), info=info, rc=rc)
+            ! Update fcstFB attributes from fcst PEs to all PEs in this VM
+            ! This is needed in case some attributes are updated during run time
+            call ESMF_FieldBundleGet(fcstFB(j), name=fb_name, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-            call ESMF_InfoBroadcast(info, rootPet=fcstPetList(1), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          endif
+            if (fb_name(1:8) /= "restart_") then
+              call ESMF_InfoGetFromHost(fcstFB(j), info=info, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              call ESMF_InfoBroadcast(info, rootPet=fcstPetList(1), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            endif
 
-        enddo
+          enddo
+        end if
 
         call ESMF_LogWrite('Model Advance: before wrtcomp run ', ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
