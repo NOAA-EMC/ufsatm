@@ -822,7 +822,6 @@ module GFS_diagnostics
       ExtDiag(idx)%unit = 'numerical'
       ExtDiag(idx)%mod_name = 'gfs_phys'
       ExtDiag(idx)%data%var2 => IntDiag%claie(:)
-      enddo
     endif
 
     if (associated(IntDiag%cfch)) then
