@@ -8092,20 +8092,22 @@ module GFS_typedefs
       Diag%jno2 = zero
 
 !IVAI: canopy arrays read via aqm_emis_read
-      allocate (Diag%claie(IM))
-      Diag%claie = zero
+      if (Model%do_canopy) then
+        allocate (Diag%claie(IM))
+        Diag%claie = zero
 
-      allocate (Diag%cfch  (IM))
-      Diag%cfch   = zero
+        allocate (Diag%cfch  (IM))
+        Diag%cfch   = zero
 
-      allocate (Diag%cfrt  (IM))
-      Diag%cfrt   = zero
+        allocate (Diag%cfrt  (IM))
+        Diag%cfrt   = zero
 
-      allocate (Diag%cclu  (IM))
-      Diag%cclu   = zero
+        allocate (Diag%cclu  (IM))
+        Diag%cclu   = zero
 
-      allocate (Diag%cpopu (IM))
-      Diag%cpopu  = zero
+        allocate (Diag%cpopu (IM))
+        Diag%cpopu  = zero
+      end if! (Model%do_canopy)
 
     end if ! (Model%cplaqm)
 !IVAI

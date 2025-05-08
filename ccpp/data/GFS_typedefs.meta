@@ -8655,7 +8655,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_air_quality_coupling)
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cfch]
   standard_name = canopy_forest_height
   long_name = canopy forest height
@@ -8663,7 +8663,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_air_quality_coupling)
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cfrt]
   standard_name = canopy_forest_fraction
   long_name = canopy forest fraction
@@ -8671,7 +8671,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_air_quality_coupling)
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cclu]
   standard_name = canopy_clumping_index
   long_name = canopy clumping index
@@ -8679,7 +8679,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_air_quality_coupling)
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cpopu]
   standard_name = canopy_population_density
   long_name = population density used for canopy correction
@@ -8687,7 +8687,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_air_quality_coupling)
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [topfsw]
   standard_name = sw_fluxes_top_atmosphere
   long_name = sw radiation fluxes at toa
