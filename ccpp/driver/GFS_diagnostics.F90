@@ -814,55 +814,57 @@ module GFS_diagnostics
     endif
 
 !IVAI: canopy arrays read via aqm_emis_read
-    if (associated(IntDiag%claie)) then
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'CLAIE'
-      ExtDiag(idx)%desc = 'Leaf Area Index ECCC'
-      ExtDiag(idx)%unit = 'numerical'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var2 => IntDiag%claie(:)
-    endif
+    if (Model%do_canopy) then
+      if (associated(IntDiag%claie)) then
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'CLAIE'
+        ExtDiag(idx)%desc = 'Leaf Area Index ECCC'
+        ExtDiag(idx)%unit = 'numerical'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%claie(:)
+      endif
 
-    if (associated(IntDiag%cfch)) then
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'CFCH'
-      ExtDiag(idx)%desc = 'Forest Canopy Height'
-      ExtDiag(idx)%unit = 'm'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var2 => IntDiag%cfch(:)
-    endif
+      if (associated(IntDiag%cfch)) then
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'CFCH'
+        ExtDiag(idx)%desc = 'Forest Canopy Height'
+        ExtDiag(idx)%unit = 'm'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%cfch(:)
+      endif
 
-    if (associated(IntDiag%cfrt)) then
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'CFRT'
-      ExtDiag(idx)%desc = 'Forest Canopy Fraction'
-      ExtDiag(idx)%unit = 'numerical'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var2 => IntDiag%cfrt(:)
-    endif
+      if (associated(IntDiag%cfrt)) then
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'CFRT'
+        ExtDiag(idx)%desc = 'Forest Canopy Fraction'
+        ExtDiag(idx)%unit = 'numerical'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%cfrt(:)
+      endif
 
-    if (associated(IntDiag%cclu)) then
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'CCLU'
-      ExtDiag(idx)%desc = 'Canopy Clumping Index'
-      ExtDiag(idx)%unit = 'numerical'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var2 => IntDiag%cclu(:)
-    endif
+      if (associated(IntDiag%cclu)) then
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'CCLU'
+        ExtDiag(idx)%desc = 'Canopy Clumping Index'
+        ExtDiag(idx)%unit = 'numerical'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%cclu(:)
+      endif
 
-    if (associated(IntDiag%cpopu)) then
-      idx = idx + 1
-      ExtDiag(idx)%axes = 2
-      ExtDiag(idx)%name = 'CPOPU'
-      ExtDiag(idx)%desc = 'Population Density for canopy correction'
-      ExtDiag(idx)%unit = 'km-2'
-      ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var2 => IntDiag%cpopu(:)
-    endif
+      if (associated(IntDiag%cpopu)) then
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'CPOPU'
+        ExtDiag(idx)%desc = 'Population Density for canopy correction'
+        ExtDiag(idx)%unit = 'km-2'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%cpopu(:)
+      endif
+    endif ! (Model%do_canopy)
 
   end if ! (Model%cplaqm)
 !IVAI

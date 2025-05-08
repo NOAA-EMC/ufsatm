@@ -1373,25 +1373,27 @@ subroutine update_atmos_chemistry(state, rc)
 
 !IVAI: case ('import') canopy arrays read in via 'aqm_emis_read'
 
-        call cplFieldGet(state,'inst_tracer_diag_claie', farrayPtr2d=claie, rc=localrc)
-        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+        if (GFS_control%do_canopy) then
+          call cplFieldGet(state,'inst_tracer_diag_claie', farrayPtr2d=claie, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-        call cplFieldGet(state,'inst_tracer_diag_cfch', farrayPtr2d=cfch, rc=localrc)
-        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+          call cplFieldGet(state,'inst_tracer_diag_cfch', farrayPtr2d=cfch, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-        call cplFieldGet(state,'inst_tracer_diag_cfrt', farrayPtr2d=cfrt, rc=localrc)
-        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+          call cplFieldGet(state,'inst_tracer_diag_cfrt', farrayPtr2d=cfrt, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-        call cplFieldGet(state,'inst_tracer_diag_cclu', farrayPtr2d=cclu, rc=localrc)
-        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+          call cplFieldGet(state,'inst_tracer_diag_cclu', farrayPtr2d=cclu, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-        call cplFieldGet(state,'inst_tracer_diag_cpopu', farrayPtr2d=cpopu, rc=localrc)
-        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+          call cplFieldGet(state,'inst_tracer_diag_cpopu', farrayPtr2d=cpopu, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+        end if
 
 !IVAI: case ('import') photdiag arrays
         call cplFieldGet(state,'inst_tracer_diag_coszens', farrayPtr2d=coszens, rc=localrc)
@@ -1480,76 +1482,79 @@ subroutine update_atmos_chemistry(state, rc)
             GFS_IntDiag%aod(im) = aod(i,j)
           enddo
         enddo
+        
+        if (GFS_control%do_canopy) then
 !IVAI: case ('import') canopy arrays read in via aqm_emis_read
 !$OMP   parallel do default (none) &
 !$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, claie) &
 !$OMP               private (j, jb, i, ib, nb, ix, im)
-        do j = 1, nj
-          jb = j + Atm_block%jsc - 1
-          do i = 1, ni
-            ib = i + Atm_block%isc - 1
-            nb = Atm_block%blkno(ib,jb)
-            ix = Atm_block%ixp(ib,jb)
-            im = GFS_Control%chunk_begin(nb)+ix-1
-            GFS_IntDiag%claie(im) = claie(i,j)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%claie(im) = claie(i,j)
+            enddo
           enddo
-        enddo
 
 !$OMP   parallel do default (none) &
 !$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfch) &
 !$OMP               private (j, jb, i, ib, nb, ix, im)
-        do j = 1, nj
-          jb = j + Atm_block%jsc - 1
-          do i = 1, ni
-            ib = i + Atm_block%isc - 1
-            nb = Atm_block%blkno(ib,jb)
-            ix = Atm_block%ixp(ib,jb)
-            im = GFS_Control%chunk_begin(nb)+ix-1
-            GFS_IntDiag%cfch(im) = cfch(i,j)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cfch(im) = cfch(i,j)
+            enddo
           enddo
-        enddo
 
 !$OMP   parallel do default (none) &
 !$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfrt) &
 !$OMP               private (j, jb, i, ib, nb, ix, im)
-        do j = 1, nj
-          jb = j + Atm_block%jsc - 1
-          do i = 1, ni
-            ib = i + Atm_block%isc - 1
-            nb = Atm_block%blkno(ib,jb)
-            ix = Atm_block%ixp(ib,jb)
-            im = GFS_Control%chunk_begin(nb)+ix-1
-            GFS_IntDiag%cfrt(im) = cfrt(i,j)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cfrt(im) = cfrt(i,j)
+            enddo
           enddo
-        enddo
 
 !$OMP   parallel do default (none) &
 !$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cclu) &
 !$OMP               private (j, jb, i, ib, nb, ix, im)
-        do j = 1, nj
-          jb = j + Atm_block%jsc - 1
-          do i = 1, ni
-            ib = i + Atm_block%isc - 1
-            nb = Atm_block%blkno(ib,jb)
-            ix = Atm_block%ixp(ib,jb)
-            im = GFS_Control%chunk_begin(nb)+ix-1
-            GFS_IntDiag%cclu(im) = cclu(i,j)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cclu(im) = cclu(i,j)
+            enddo
           enddo
-        enddo
 
 !$OMP   parallel do default (none) &
 !$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cpopu) &
 !$OMP               private (j, jb, i, ib, nb, ix, im)
-        do j = 1, nj
-          jb = j + Atm_block%jsc - 1
-          do i = 1, ni
-            ib = i + Atm_block%isc - 1
-            nb = Atm_block%blkno(ib,jb)
-            ix = Atm_block%ixp(ib,jb)
-            im = GFS_Control%chunk_begin(nb)+ix-1
-            GFS_IntDiag%cpopu(im) = cpopu(i,j)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cpopu(im) = cpopu(i,j)
+            enddo
           enddo
-        enddo
+        endif ! GFS_control%do_canopy
 
 !IVAI: case ('import') photdiag arrays
 !$OMP   parallel do default (none) &
@@ -1603,19 +1608,19 @@ subroutine update_atmos_chemistry(state, rc)
           write(6,'("update_atmos: ",a,": aod  - min/max    ",3g16.6)') &
             trim(state), minval(aod), maxval(aod)
 !IVAI: case ('import') canopy arrays read via aqm_emis_read
-        if (GFS_control%cplaqm) &
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
           write(6,'("update_atmos: ",a,": claie - min/max    ",3g16.6)') &
             trim(state), minval(claie), maxval(claie)
-        if (GFS_control%cplaqm) &
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
           write(6,'("update_atmos: ",a,": cfch  - min/max    ",3g16.6)') &
             trim(state), minval(cfch), maxval(cfch)
-        if (GFS_control%cplaqm) &
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
           write(6,'("update_atmos: ",a,": cfrt  - min/max    ",3g16.6)') &
             trim(state), minval(cfrt), maxval(cfrt)
-        if (GFS_control%cplaqm) &
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
           write(6,'("update_atmos: ",a,": cclu  - min/max    ",3g16.6)') &
             trim(state), minval(cclu), maxval(cclu)
-        if (GFS_control%cplaqm) &
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
           write(6,'("update_atmos: ",a,": cpopu - min/max    ",3g16.6)') &
             trim(state), minval(cpopu), maxval(cpopu)
 !IVAI: case ('import') photdiag arrays
