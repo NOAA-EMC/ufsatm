@@ -705,9 +705,8 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    Init_parm%restart         = Atm(mygrid)%flagstruct%warm_start
    Init_parm%hydrostatic     = Atm(mygrid)%flagstruct%hydrostatic
 
-   ! allocate required to work around GNU compiler bug 100886 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100886
    allocate(Init_parm%input_nml_file, mold=input_nml_file)
-   Init_parm%input_nml_file  => input_nml_file
+   Init_parm%input_nml_file  = input_nml_file
    Init_parm%fn_nml='using internal file'
 
    call GFS_initialize (GFS_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
