@@ -1,5 +1,5 @@
-[submodule "atmos_cubed_sphere"]
-  path = atmos_cubed_sphere
+[submodule "fv3/atmos_cubed_sphere"]
+  path = fv3/atmos_cubed_sphere
   url = https://github.com/hafs-community/GFDL_atmos_cubed_sphere
   branch = feature/3dtke_gfspbl
 [submodule "ccpp/framework"]
