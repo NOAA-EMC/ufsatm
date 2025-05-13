@@ -13,9 +13,10 @@ module MPAS_init
   public  MPAS_initialize
 
 contains
-  ! #########################################################################################
-  ! MPAS_initialize
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to initialize MPAS interface to CCPP Physics.
+  !>
+  !> #########################################################################################
   subroutine MPAS_initialize (Model, Diag, Statein, Stateint, Stateout, Init)
 #ifdef _OPENMP
     use omp_lib

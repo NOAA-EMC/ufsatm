@@ -41,7 +41,7 @@ module MPAS_typedefs
      character(len=:), pointer, dimension(:) :: input_nml_file => null() !< character string containing full namelist
                                                                          !< for use with internal file reads
 
-     ! NOT NEEDED FOR MPAS, BUT NEEDED FOR CONTROL_INITIALZE. NEED TO PARTITION
+     ! NOT NEEDED FOR MPAS, BUT NEEDED FOR CONTROL_INITIALZE. NEED TO PARTITION GFS_TYPEDEFS INTO FV3 and MPAS pieces.
      real(kind=kind_phys), pointer :: ak(:)       !< from surface (k=1) to TOA (k=levs)
      real(kind=kind_phys), pointer :: bk(:)       !< from surface (k=1) to TOA (k=levs)
      integer :: isc                               !< starting i-index for this MPI-domain

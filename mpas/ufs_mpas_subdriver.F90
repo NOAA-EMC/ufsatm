@@ -6,17 +6,12 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : zref, zref_edge, sphere_radius, pref, pref_edge
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
   use module_mpas_config, only : nCells_g, nEdges_g, nVertices_g
-  use pio,                only : iosystem_desc_t, file_desc_t, pio_openfile, pio_nowrite
-  use pio,                only : pio_init, pio_noerr, pio_iotask_rank, PIO_REARR_BOX
-  use pio,                only : pio_global, pio_get_att, pio_double
-  use pio_types,          only : PIO_iotype_pnetcdf
   implicit none
   
   private
 
   public :: ufs_mpas_init_phase1
   public :: ufs_mpas_init_phase2
-  public :: ufs_mpas_init_phase3
   public :: ufs_mpas_run
   public :: ufs_mpas_dyn_set
   public :: ufs_mpas_open_init
@@ -29,12 +24,12 @@ module ufs_mpas_subdriver
   type (MPAS_TimeInterval_type)  :: timeStep
   
 contains
-  ! #########################################################################################
-  !
-  ! Procedure to initialize UWM with MPAS dynamical core.
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to initialize UWM with MPAS dynamical core.
+  !>
+  !> #########################################################################################
   subroutine ufs_mpas_init_phase1(Init, time_start, time_end, total_time, calendar, logUnits)
+    ! MPAS
     use mpas_pool_routines,         only : mpas_pool_add_config, mpas_pool_get_subpool
     use mpas_pool_routines,         only : mpas_pool_add_dimension, mpas_pool_get_field
     use mpas_pool_routines,         only : mpas_pool_get_array
@@ -49,39 +44,25 @@ contains
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_log,                   only : mpas_log_write
     use atm_core_interface,         only : atm_setup_core, atm_setup_domain
+    use mpas_constants,             only : mpas_constants_compute_derived
+    ! FMS
     use field_manager_mod,          only : MODEL_ATMOS
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
+    ! UFSATM
     use MPAS_typedefs,              only : MPAS_init_type
-    use mpas_constants,             only : mpas_constants_compute_derived
-
-    ! Inputs
+    ! PIO
+    use pio,                        only : pio_global, pio_get_att
+    ! Arguments
     type(MPAS_init_type), intent(inout) :: Init
-    integer,        intent(in) :: time_start(6), time_end(6), logUnits(2)
-    integer,        intent(in) :: total_time
-    character(17),  intent(in) :: calendar
-
+    integer,              intent(in   ) :: time_start(6), time_end(6), logUnits(2)
+    integer,              intent(in   ) :: total_time
+    character(17),        intent(in   ) :: calendar
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase1'
     integer :: i, ndate1, ndate2, tod, ierr, ik, kk
-    character(len=32), allocatable, target :: tracer_names(:)
-    integer,           allocatable, target :: tracer_types(:)
-    integer :: mesh_iotype
     type (mpas_pool_type), pointer :: state, mesh
-    integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
-    integer, pointer :: nCells, nCellsSolve, nEdgesSolve, nVerticesSolve, nVertLevelsSolve
     type (field3dReal), pointer :: scalarsField
-    real(rkind), pointer     :: rdzw(:)
-    real(rkind), allocatable :: dzw(:)
-
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase1()
-    !      MPAS - src/driver/mpas_subdriver.F:                     mpas_init()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
 
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
@@ -116,15 +97,6 @@ contains
        call mpp_error(FATAL,subname//": Log setup failed for MPAS-A dycore")
     end if
 
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM  - src/dynamics/mpas/dyn_comp.F90: dyn_readnl()
-    !      MPAS - src/driver/mpas_subdriver.F:    mpas_init()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
-
     ! Read MPAS namelist.
     if (file_exists('input.nml')) then
        call read_mpas_namelist('input.nml', domain_ptr % configs, Init % mpi_comm, Init % master, Init % me)
@@ -151,17 +123,8 @@ contains
     call mpas_pool_add_config(domain_ptr % configs, 'config_IAU_option',             'off')
     call mpas_pool_add_config(domain_ptr % configs, 'config_do_DAcycling',           .false.)
     call mpas_pool_add_config(domain_ptr % configs, 'config_halo_exch_method',       'mpas_halo')
-    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_num_iotasks',        pio_stride)
-    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_stride',             pio_numiotasks)
-
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase2()
-    !      MPAS - src/driver/mpas_subdriver.F:                     mpas_init()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
+    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_num_iotasks',        pio_numiotasks)
+    call mpas_pool_add_config(domain_ptr % configs, 'config_pio_stride',             pio_stride)
 
     ! Initialize MPAS infrastructure (phase 2)
     call mpas_framework_init_phase2(domain_ptr, io_system=pio_subsystem, calendar = trim(calendar))
@@ -198,15 +161,6 @@ contains
     ! allocate scalars separately from other Registry-defined fields
     call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Init % nwat)
 
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase3()
-    !      MPAS - src/driver/mpas_subdriver.F:                     mpas_init()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
-
     ! Call MPAS framework bootstrap phase 1
     call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", MPAS_IO_NETCDF, pio_file_desc=pioid)
 
@@ -221,70 +175,12 @@ contains
     call mpas_pool_add_dimension(state, 'moist_start', 1)
     call mpas_pool_add_dimension(state, 'moist_end', Init % nwat)
 
-    ! #######################################################################################
-    ! #######################################################################################
-    !
-    ! From CAM - src/dynamics/mpas/dyn_grid.F90: setup_time_invariant()
-    !
-    ! #######################################################################################
-    ! #######################################################################################
-
-    ! Read in static (IC) data
-    call ufs_mpas_read_static()
+    ! Read in static (invariant) data
+    call ufs_mpas_read_invariant()
 
     ! Compute unit vectors giving the local north and east directions as well as
     ! the unit normal vector for edges
     call ufs_mpas_compute_unit_vectors()
-
-    ! Access dimensions that are made public via this module
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
-    call mpas_pool_get_dimension(mesh, 'nCellsSolve',    nCellsSolve)
-    call mpas_pool_get_dimension(mesh, 'nEdgesSolve',    nEdgesSolve)
-    call mpas_pool_get_dimension(mesh, 'nVerticesSolve', nVerticesSolve)
-    call mpas_pool_get_dimension(mesh, 'nVertLevels',    nVertLevelsSolve)
-    call mpas_pool_get_dimension(mesh, 'nCells',         nCells)
-
-    ! Initialize fields needed for reconstruction of cell-centered winds from edge-normal winds
-    ! Note: This same pair of calls happens a second time later in the initialization of
-    !       the MPAS-A dycore (in atm_mpas_init_block), but the redundant calls do no harm
-    !call mpas_rbf_interp_initialize(mesh)
-    !call mpas_init_reconstruct(mesh)
-
-    ! Compute the zeta coordinate at layer interfaces and midpoints.
-    ! NOTE: Using number of levels for dycore, nVertLevelsSolve, should we be using phyiscs levels?
-    call mpas_pool_get_array(mesh, 'rdzw', rdzw)
-    allocate(zref_edge(nVertLevelsSolve+1))
-    allocate(zref(nVertLevelsSolve))
-    !
-    allocate(dzw(nVertLevelsSolve))
-    dzw = 1.0 / rdzw
-    zref_edge(nVertLevelsSolve+1) = 0.0
-    do ik=nVertLevelsSolve,1,-1
-       kk = nVertLevelsSolve - ik + 1
-       zref_edge(ik) = zref_edge(ik+1) + dzw(kk)
-       zref(ik)  = 0.5 * (zref_edge(ik+1) + zref_edge(ik))
-    enddo
-
-    ! Compute reference pressure using reference heights.
-    allocate(pref_edge(nVertLevelsSolve+1))
-    allocate(pref(nVertLevelsSolve))
-    ! TO DO. Compute P on edges(interface) from zeta on edges.
-    pref_edge(:) = 0.
-    pref = (pref_edge(1:nVertLevelsSolve) + pref_edge(2:nVertLevelsSolve+1)) * 0.5
-
-    ! Display reference coordinates.
-    if (Init % me == Init % master) then
-       write(logUnits(1),'(a)')' Reference Layer Locations: '
-       write(logUnits(1),'(a)')' index      height (m)              pressure (hPa) '
-       do ik= 1, nVertLevelsSolve
-          write(logUnits(1),9830) ik, zref_edge(ik), pref_edge(ik)/100._rkind
-          write(logUnits(1),9840)     zref(ik),      pref(ik)/100._rkind
-       end do
-       write(logUnits(1),9830) nVertLevelsSolve+1, zref_edge(nVertLevelsSolve+1), pref_edge(nVertLevelsSolve+1)/100._rkind
-
-9830   format(1x, i3, f15.4, 9x, f15.4)
-9840   format(1x, 3x, 12x, f15.4, 9x, f15.4)
-    end if
 
     ! Read the global sphere_radius attribute.  This is needed to normalize the cell areas.
     ierr = pio_get_att(pioid, pio_global, 'sphere_radius', sphere_radius)
@@ -300,14 +196,13 @@ contains
 
   end subroutine ufs_mpas_init_phase1
 
-  ! #########################################################################################
-  !
-  ! From CAM  - src/dynamics/mpas/driver/cam_mpas_subdriver.F90: cam_mpas_init_phase4()
-  !      MPAS - src/core_atmosphere/mpas_atm_core.F:             atm_core_init()
-  !
-  ! #########################################################################################
-  subroutine ufs_mpas_init_phase2(Init)
+  !> ########################################################################################
+  !> Procedure to initialize UWM with MPAS dynamical core.
+  !> 
+  !> ########################################################################################
+  subroutine ufs_mpas_init_phase2(Init, Statein)
     use MPAS_typedefs,              only : MPAS_init_type
+    use MPAS_typedefs,              only : MPAS_statein_type
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_derived_types,         only : mpas_pool_type, MPAS_Time_Type
     use mpas_domain_routines,       only : mpas_pool_get_dimension
@@ -321,12 +216,15 @@ contains
     use atm_core,                   only : atm_mpas_init_block, core_clock => clock
     use atm_time_integration,       only : mpas_atm_dynamics_init
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, MPAS_START_TIME
+    use mpas_timekeeping,           only : MPAS_set_timeInterval
     ! Arguments
-    type(MPAS_init_type), intent(inout) :: Init
+    type(MPAS_init_type),    intent(inout) :: Init
+    type(MPAS_statein_type), intent(inout) :: Statein
+    type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
     type (mpas_pool_type), pointer :: state, mesh
     integer :: ierr
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
     integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
     real (kind=RKIND), pointer :: dt
     logical, pointer :: config_do_restart
@@ -410,41 +308,23 @@ contains
     !
     call mpas_atm_dynamics_init(domain_ptr)
 
-  end subroutine ufs_mpas_init_phase2
-
-  ! #########################################################################################
-  !
-  ! #########################################################################################
-  subroutine ufs_mpas_init_phase3(statein)
-    use mpas_derived_types, only : mpas_pool_type
-    use mpas_kind_types,    only : RKIND
-    use MPAS_typedefs,      only : MPAS_statein_type
-    use mpas_pool_routines, only : mpas_pool_get_array, mpas_pool_get_config, mpas_pool_get_subpool
-    use mpas_timekeeping,   only : MPAS_set_timeInterval
-
-    ! Arguments
-    type(MPAS_statein_type), intent(inout) :: statein
-    ! locals
-    type(mpas_pool_type), pointer :: tend_physics_pool
-    integer :: ierr
-    real (kind=RKIND), pointer :: dt
-    
     !
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_ru_physics',     statein % ru_tend)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', statein % rtheta_tend)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    statein % rho_tend)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_ru_physics',     Statein % ru_tend)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', Statein % rtheta_tend)
+    call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    Statein % rho_tend)
 
     ! Set dycore time interval.
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
     call mpas_set_timeInterval(timeStep, dt=dt, ierr=ierr)
+  
+  end subroutine ufs_mpas_init_phase2
 
-  end subroutine ufs_mpas_init_phase3
-
-  ! #########################################################################################
-  ! Routine to call MPAS dynamical core
-  ! Loop over dynamical time-step(s) and increment MPAS state (timelevel=2)
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Routine to call MPAS dynamical core
+  !> Loop over dynamical time-step(s) and increment MPAS state (timelevel=2)
+  !>
+  !> #########################################################################################
   subroutine ufs_mpas_run()
     use atm_core,           only : atm_do_timestep
     use mpas_derived_types, only : MPAS_Time_type, mpas_pool_type
@@ -492,29 +372,27 @@ contains
     
   end subroutine ufs_mpas_run
   
-  ! #########################################################################################
-  ! Procedure to populate inputs to MPAS dycore.
-  ! #########################################################################################
-  subroutine ufs_mpas_dyn_set(master, me, statein, stateout)
+  !> #########################################################################################
+  !> Procedure to populate input/output state for MPAS dycore.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_dyn_set(statein, stateout)
     use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
     use mpas_derived_types,   only : mpas_pool_type
     use mpas_pool_routines,   only : mpas_pool_get_subpool
     use mpas_pool_routines,   only : mpas_pool_get_array
     use mpas_domain_routines, only : mpas_pool_get_dimension
-
-    ! Input
-    integer, intent(in) :: master, me
+    ! Arguments
     type(MPAS_statein_type), intent(inout) :: statein
     type(MPAS_stateout_type), intent(inout) :: stateout
     ! Locals
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_dyn_set'
     type(mpas_pool_type), pointer :: mesh_pool
     type(mpas_pool_type), pointer :: state_pool
     type(mpas_pool_type), pointer :: diag_pool
     integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, &
          nVerticesSolve, index_qv, ierr
     integer :: i1, i2
-    ! Local variables
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_dyn_set'
 
     !
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',         mesh_pool)
@@ -613,13 +491,18 @@ contains
 
   end subroutine ufs_mpas_dyn_set
 
-  ! #########################################################################################
-  ! Procedure to open MPAS IC file.
-  !
-  ! ######################################################################################### 
+  !> #########################################################################################
+  !> Procedure to open MPAS IC file.
+  !>
+  !> ######################################################################################### 
   subroutine ufs_mpas_open_init()
+    ! PIO
+    use pio,         only : pio_openfile, pio_nowrite
+    ! FMS
     use fms2_io_mod, only : file_exists
     use mpp_mod,     only : FATAL, mpp_error
+    ! Arguments
+    ! Locals
     integer :: ierr
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_open_init'
 
@@ -634,13 +517,13 @@ contains
     end if
   end subroutine ufs_mpas_open_init
   
-  ! #########################################################################################
-  ! Procedure to read MPAS namelist(s).
-  !
-  ! The namelist for MPAS are described in MPAS-Model/src/core_atmosphere/Registry.xml, this
-  ! is also where the default values defined below originate.
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to read MPAS namelist(s).
+  !>
+  !> The namelist for MPAS are described in MPAS-Model/src/core_atmosphere/Registry.xml, this
+  !> is also where the default values defined below originate.
+  !>
+  !> #########################################################################################
   subroutine read_mpas_namelist(nml_file, configPool, mpicomm, master, me)
     use mpi_f08,            only: MPI_Comm, MPI_CHARACTER, MPI_INTEGER, MPI_REAL8,  MPI_LOGICAL
     use mpi_f08,            only: mpi_bcast, mpi_barrier
@@ -966,8 +849,8 @@ contains
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
  !>
  !> ########################################################################################
- subroutine ufs_mpas_read_static()
-   use pio, only : file_desc_t
+ subroutine ufs_mpas_read_invariant()
+   ! MPAS
    use mpas_kind_types,     only : StrKIND
    use mpas_io_streams,     only : MPAS_createStream, MPAS_closeStream, MPAS_streamAddField
    use mpas_io_streams,     only : MPAS_readStream
@@ -978,14 +861,12 @@ contains
    use mpas_pool_routines,  only : MPAS_pool_destroy_pool, MPAS_pool_add_config
    use mpas_dmpar,          only : MPAS_dmpar_exch_halo_field
    use mpas_stream_manager, only : postread_reindex
+   ! FMS
    use mpp_mod,             only : FATAL, mpp_error
    ! Arguments
-
-   ! Local variables
+   ! Locals
    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_static'
-
    character(len=StrKIND) :: errString
-
    integer :: ierr
    integer :: ierr_total
    type (MPAS_pool_type), pointer :: meshPool
@@ -1331,34 +1212,34 @@ contains
    call MPAS_pool_destroy_pool(reindexPool)
    call MPAS_pool_destroy_pool(reindexPkgs)
 
- end subroutine ufs_mpas_read_static
+ end subroutine ufs_mpas_read_invariant
  
  !> ########################################################################################
  !> Procedure to read MPAS IC file and populate UWM data containers.
  !>
  !> ########################################################################################
- subroutine ufs_mpas_read_init(master, me, statein)
+ subroutine ufs_mpas_read_init(statein)
+   ! UFSATM
    use MPAS_typedefs,   only : MPAS_statein_type
+   ! MPAS
    use mpas_kind_types, only : StrKIND, RKIND
    use mpas_constants,  only : rvord
+   ! PIO
    use pio,             only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen, var_desc_t, pio_initdecomp
+   ! FMS
    use mpp_mod,         only : FATAL, mpp_error
-   
-   integer, intent(in) :: master, me
+   ! Arguments
    type (MPAS_statein_type), intent(inout) :: statein
-   integer :: nVertLevels, nCellsSolve, nEdgesSolve
+   ! Locals
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
    integer :: index_qv, ierr
-   integer :: i, ndims, dimids(3), dimlens(3)
-   integer, pointer :: dof(:)
-   type(var_desc_t) :: varid
-   
+   ! Local MPAS pointers
    real(RKIND), pointer :: uperp(:,:)     ! Normal velocity at edges [m/s]  (nlev,nedge)
    real(RKIND), pointer :: w(:,:)         ! Vertical velocity [m/s]        (nlev+1,ncol)
    real(RKIND), pointer :: theta_m(:,:)   ! Moist potential temperature [K]  (nlev,ncol)
    real(RKIND), pointer :: rho_zz(:,:)    ! Dry density [kg/m^3]
                                           ! divided by d(zeta)/dz            (nlev,ncol)
    real(RKIND), pointer :: tracers(:,:,:) ! Tracers [kg/kg dry air]       (nq,nlev,ncol)
-
    real(RKIND), pointer :: zint(:,:)      ! Geometric height [m]
                                           ! at layer interfaces            (nlev+1,ncol)
    real(RKIND), pointer :: zz(:,:)        ! Vertical coordinate metric [1]
@@ -1369,13 +1250,6 @@ contains
    real(RKIND), pointer :: uy(:,:)        ! Meridional veloc at center [m/s] (nlev,ncol)
    real(RKIND), pointer :: theta_base(:,:)
    real(RKIND), pointer :: rho_base(:,:)
-
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
-
-   ! Get dimensions.
-   nCellsSolve = statein % nCellsSolve
-   nEdgesSolve = statein % nEdgesSolve
-   nVertLevels = statein % nVertLevels
 
    ! Local pointers
    uperp      => statein % uperp
@@ -1393,17 +1267,17 @@ contains
    index_qv = statein % index_qv
 
    ! Read fields
-   call read_init_field3D('u',          (/nVertLevels,   nEdgesSolve, 1/), uperp)
-   call read_init_field3D('w',          (/nVertLevels+1, nCellsSolve, 1/), w)
-   call read_init_field3D('theta',      (/nVertLevels,   nCellsSolve, 1/), theta)
-   call read_init_field3D('rho',        (/nVertLevels,   nCellsSolve, 1/), rho)
-   call read_init_field3D('theta_base', (/nVertLevels,   nCellsSolve, 1/), theta_base)
-   call read_init_field3D('rho_base',   (/nVertLevels,   nCellsSolve, 1/), rho_base)
-   call read_init_field3D('qv',         (/nVertLevels,   nCellsSolve, 1/), tracers(index_qv,:,:))
+   call ufs_mpas_read_init_field('u',          (/statein % nVertLevels,   statein % nEdgesSolve, 1/), uperp)
+   call ufs_mpas_read_init_field('w',          (/statein % nVertLevels+1, statein % nCellsSolve, 1/), w)
+   call ufs_mpas_read_init_field('theta',      (/statein % nVertLevels,   statein % nCellsSolve, 1/), theta)
+   call ufs_mpas_read_init_field('rho',        (/statein % nVertLevels,   statein % nCellsSolve, 1/), rho)
+   call ufs_mpas_read_init_field('theta_base', (/statein % nVertLevels,   statein % nCellsSolve, 1/), theta_base)
+   call ufs_mpas_read_init_field('rho_base',   (/statein % nVertLevels,   statein % nCellsSolve, 1/), rho_base)
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qv,:,:), tracer_name='qv')
 
-   ! Compute derived quantitues
-   theta_m(:,1:nCellsSolve) = theta(:,1:nCellsSolve) * (1.0_RKIND + rvord * tracers(index_qv,:,1:nCellsSolve))
-   rho_zz(:,1:nCellsSolve)  = rho(:,1:nCellsSolve) / zz(:,1:nCellsSolve)
+   ! Compute derived quantities.
+   theta_m(:,1:statein % nCellsSolve) = theta(:,1:statein % nCellsSolve) * (1.0_RKIND + rvord * tracers(index_qv,:,1:statein % nCellsSolve))
+   rho_zz(:,1:statein % nCellsSolve)  = rho(:,1:statein % nCellsSolve) / zz(:,1:statein % nCellsSolve)
 
    ! Update halos for initial state fields
    call ufs_mpas_update_halo('u',       timeLevel=1)
@@ -1422,96 +1296,97 @@ contains
  !> Procedure to read MPAS initial-condition data from opened PIO file.
  !>
  !> ########################################################################################
- subroutine read_init_field3D(varname, dims, varOUT)
+ subroutine ufs_mpas_read_init_field(varname, dims, varOUT, tracer_name)
+   ! PIO
    use pio,                  only : var_desc_t, PIO_NOERR, PIO_inq_varid, pio_get_var
    use pio,                  only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen
-   use pio,                  only : io_desc_t, pio_initdecomp, pio_double, pio_read_darray
+   use pio,                  only : io_desc_t, pio_initdecomp, pio_real, pio_read_darray
+   ! FMS
    use mpp_mod,              only : FATAL, mpp_error
+   ! MPAS
    use mpas_kind_types,      only : StrKIND, RKIND
    use mpas_pool_routines,   only : MPAS_pool_get_field_info, MPAS_pool_get_field
    use mpas_derived_types,   only : mpas_pool_field_info_type, field3DReal
-
-   !
-   character(len=*), intent(in)  :: varname
-   integer, intent(in)                 :: dims(3)
-   real(RKIND), intent(inout) :: varOUT(:,:)
-   !
-   integer :: ierr, strt(3), i1, i2, i3, indx, pd
+   ! Arguments
+   character(len=*), intent(in   ) :: varname
+   integer,          intent(in   ) :: dims(3)
+   real(RKIND),      intent(inout) :: varOUT(:,:)
+   character(len=*), intent(in   ), optional :: tracer_name
+   ! Locals
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init_field'
+   integer :: ierr, i1, i2, i3, indx, pd
    type(var_desc_t) :: varid
    type(io_desc_t) :: iodesc
-   real(RKIND), allocatable :: field(:,:,:)
+   real(RKIND), allocatable :: field(:,:)
    integer :: i, ndims, dimids(3), dimlens(3)
-   integer, dimension(:), pointer :: dof, indices
-   !
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
+   integer, dimension(:), allocatable :: indices
+   integer, dimension(:), pointer :: dof
+   character(len=64) :: varname_local
+ 
+   ! Tracers are stored in 3D MPAS variable "scalars". Here we read in the tracers as
+   ! 2D fields from the MPAS IC file to populate the 3D array.
+   if (trim(varname) == 'scalars') then
+      if (present(tracer_name)) then
+         varname_local = tracer_name
+      else
+         varname_local = 'qv'
+      endif
+   else
+      varname_local = varname
+   endif
 
-   dimids = -1
-   ndims = 0
-   dimlens = 0
-
-   ! Read in varaible
-   strt(:) = 1
-   ierr = PIO_inq_varid(pioid, trim(varname), varid)
+   ! Check that variable exists in file.
+   ierr = PIO_inq_varid(pioid, trim(varname_local), varid)
    if (ierr /= PIO_NOERR) then
-      call mpp_error(FATAL,subname//": variable "//trim(varname)//" is not on file")
+      call mpp_error(FATAL,subname//": variable "//trim(varname_local)//" is not on file")
    else
       ! Check dimensions
+      ndims = 0
       ierr = PIO_inq_varndims(pioid, varid, ndims)
       if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_varndims")
       if (size(dimids) < ndims) then
          call mpp_error(FATAL,subname//": Error dimids too small")
       end if
+      dimids = -1
       ierr = PIO_inq_vardimid(pioid, varid, dimids(1:ndims))
       if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_vardimid")
       if (size(dimlens) < ndims) then
          call mpp_error(FATAL,subname//": Error dimlens too small ")
       end if
+      dimlens = 0
       do i = 1, ndims
          ierr = PIO_inq_dimlen(pioid, dimids(i), dimlens(i))
          if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_dimlen")
       end do
 
-      ! DJS2025: This is not working correctly.
-      ! The correct (any) variable decompositions are not being used when reading in the
-      ! varaible below.
-!      pd = 1
-!      do i=1,ndims-1
-!         pd = pd * int(dimlens(i))
-!      end do
-!      pd = pd * int(dimlens(ndims))
-!
-!      allocate(dof(pd))
-!
-!      ! Compute var indices
-!      allocate(indices(dimlens(3)))
-!      indices(:) = 0
-!      indx=1
-!      do i3=1,dimlens(3)
-!         do i2=1,dimlens(2)
-!            do i1=1,dimlens(1)
-!               dof(indx) = i1 + (i2-1)*int(dimlens(1)) + int(indices(i3)-1)*int(dimlens(2))*int(dimlens(1))
-!               indx = indx + 1
-!            end do
-!         end do
-!      end do
-!      deallocate(indices)
-
-!      call pio_initdecomp(pio_subsystem, pio_double, (/dimlens(1),dimlens(2)/), dof, iodesc)
-!      deallocate(dof)
+      ! Get MPAS domain decomposition.
+      call get_mpas_pio_decomp(varname, indices)
       
-      ! Read
-      allocate(field(dims(1), dims(2), dims(3)))
-      ierr = pio_get_var(pioid, varid, strt, dims, field)
-      !call pio_read_darray(pioid, varid, iodesc, field, ierr)
-      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_read_darray for "//trim(varname))
-      varOUT(:,1:dims(2)) = field(:,:dims(2),1)
+      ! Initialize domain decomp.
+      allocate(dof(dimlens(1)*size(indices)))
+      indx=1
+      do i2=1,size(indices)
+         do i1=1,dimlens(1)
+            dof(indx) = i1 + int(indices(i2)-1)*int(dimlens(1))
+            indx = indx + 1
+         end do
+      end do
+      call pio_initdecomp(pio_subsystem, pio_real, (/dims(1),dims(2)/), dof, iodesc)
+      deallocate(dof)
+
+      ! Read in distributed array data.
+      allocate(field(dims(1), dims(2)))
+      call pio_read_darray(pioid, varid, iodesc, field, ierr)
+      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_read_darray for "//trim(varname_local))
+      varOUT(:,1:dims(2)) = field(:,:dims(2))
       deallocate(field)
+
    endif
    
- end subroutine read_init_field3D
+ end subroutine ufs_mpas_read_init_field
  
  !> ########################################################################################
- !
+ !>
  !> \brief  Computes local unit north, east, and edge-normal vectors
  !> \author Michael Duda
  !> \date   15 January 2020
@@ -1523,7 +1398,7 @@ contains
  !>  the mesh pool must contain 'latCell' and 'lonCell' fields that are valid
  !>  for all cells (not just solve cells), plus any fields that are required
  !>  by the mpas_initialize_vectors routine.
- !
+ !>
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
  !>
  !> ########################################################################################
@@ -1567,7 +1442,7 @@ contains
 
  end subroutine ufs_mpas_compute_unit_vectors
  !> ########################################################################################
- !
+ !>
  !> \brief  Returns global mesh dimensions
  !> \author Michael Duda
  !> \date   22 August 2019
@@ -1576,7 +1451,7 @@ contains
  !>  vertices, maxEdges, vertical layers, and the maximum number of cells owned by any task.
  !>
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
- !
+ !>
  !> ########################################################################################
  subroutine ufs_mpas_get_global_dims(nCellsGlobal, nEdgesGlobal, nVerticesGlobal, maxEdges,&
       nVertLevels, maxNCells)
@@ -1670,9 +1545,8 @@ contains
      
  end function int2str
 
- ! #########################################################################################
- !  routine ufs_mpas_update_halo
- !
+ !> #########################################################################################
+ !>
  !> \brief  Updates the halo of the named field
  !> \author Michael Duda
  !> \date   16 January 2020
@@ -1681,21 +1555,22 @@ contains
  !>  this routine updates the halo for that field.
  !>
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
- !
- ! #########################################################################################
+ !>
+ !> #########################################################################################
  subroutine ufs_mpas_update_halo(fieldName, timeLevel)
+   ! MPAS
    use mpas_derived_types, only : field1DReal, field2DReal, field3DReal, field4DReal
    use mpas_derived_types, only : field5DReal, field1DInteger, field2DInteger, field3DInteger
    use mpas_derived_types, only : mpas_pool_field_info_type, MPAS_POOL_REAL, MPAS_POOL_INTEGER
    use mpas_pool_routines, only : MPAS_pool_get_field_info, MPAS_pool_get_field
    use mpas_dmpar,         only : MPAS_dmpar_exch_halo_field
    use mpas_kind_types,    only : StrKIND
+   ! FMS
    use mpp_mod,            only : FATAL, mpp_error
    ! Arguments
    character(len=*), intent(in) :: fieldName
    integer, intent(in), optional :: timeLevel
-
-   ! Local variables
+   ! Locals
    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_update_halo'
    character(len=StrKIND) :: errString
    type (mpas_pool_field_info_type) :: fieldInfo
@@ -1796,5 +1671,95 @@ contains
    end if
 
  end subroutine ufs_mpas_update_halo
+
+ !> #########################################################################################
+ !> Procedure to retreieve MPAS domain decomposition <indices>, for <varname>.
+ !>
+ !> ######################################################################################### 
+ subroutine get_mpas_pio_decomp(varname, indices)
+   use mpas_kind_types,      only : StrKIND, RKIND
+   use mpas_pool_routines,   only : MPAS_pool_get_field_info, MPAS_pool_get_field
+   use mpas_pool_routines,   only : MPAS_pool_get_subpool, mpas_pool_get_array
+   use mpas_pool_routines,   only : mpas_pool_get_dimension
+   use mpas_derived_types,   only : mpas_pool_field_info_type, field2DReal, field3DReal
+   use mpas_derived_types,   only : MPAS_pool_type
+   ! Arguments
+   character(len=*), intent(in)  :: varname
+   integer, dimension(:),allocatable, intent(inout) :: indices
+   ! Locals
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::get_mpas_pio_decomp'
+   integer, dimension(:), pointer :: indexArray
+   integer, pointer :: indexDimension
+   type (field2DReal), pointer :: field2d
+   type (field3DReal), pointer :: field3d
+   type (mpas_pool_field_info_type) :: fieldInfo
+   character (len=StrKIND) :: elementName, elementNamePlural
+   logical :: meshFieldDim
+   
+   !
+   call MPAS_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
+   if (trim(varname) == 'scalars') then
+      nullify(field3d)
+      if (fieldInfo % nTimeLevels > 1) then
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
+                                  timeLevel=fieldInfo % nTimeLevels )
+      else
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
+      endif
+      if ( field3d % isDecomposed ) then
+         meshFieldDim = .false.
+         if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nCells') then
+            elementName = 'Cell'
+            elementNamePlural = 'Cells'
+            meshFieldDim = .true.
+         else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nEdges') then
+            elementName = 'Edge'
+            elementNamePlural = 'Edges'
+            meshFieldDim = .true.
+         else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nVertices') then
+            elementName = 'Vertex'
+            elementNamePlural = 'Vertices'
+            meshFieldDim = .true.
+         end if
+      endif
+      nullify(field3d)
+   else
+      nullify(field2d)
+      if (fieldInfo % nTimeLevels > 1) then
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
+                                  timeLevel=fieldInfo % nTimeLevels )
+      else
+         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
+      endif
+      !
+      if ( field2d % isDecomposed ) then
+         meshFieldDim = .false.
+         if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nCells') then
+            elementName = 'Cell'
+            elementNamePlural = 'Cells'
+            meshFieldDim = .true.
+         else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nEdges') then
+            elementName = 'Edge'
+            elementNamePlural = 'Edges'
+            meshFieldDim = .true.
+         else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nVertices') then
+            elementName = 'Vertex'
+            elementNamePlural = 'Vertices'
+            meshFieldDim = .true.
+         end if
+      endif
+      nullify(field2d)
+   endif
+   !
+   if ( meshFieldDim ) then
+      call mpas_pool_get_array(domain_ptr % blocklist % allFields, 'indexTo' // &
+                               trim(elementName) // 'ID', indexArray)
+      call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' //  &
+                                   trim(elementNamePlural) // 'Solve', indexDimension)
+      allocate(indices(indexDimension))
+      indices = indexArray(1:indexDimension)
+   endif
+   
+ end subroutine get_mpas_pio_decomp
 
 end module ufs_mpas_subdriver

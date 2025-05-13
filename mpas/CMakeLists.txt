@@ -45,6 +45,7 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/${MPAS_MODULE_DIR}/ DESTINATION ${CMAKE_IN
 
 # MPAS Utilities (Externals)
 add_subdirectory(MPAS-Model/src/external/ezxml)
+add_subdirectory(MPAS-Model/src/external/SMIOL)
 
 # ESMF libraries.
 if(NOT ESMF_FOUND)
@@ -58,31 +59,6 @@ add_subdirectory(MPAS-Model/src/tools/input_gen) # Targets: namelist_gen, stream
 
 # MPAS Registry
 add_subdirectory(MPAS-Model/src/tools/registry)  # Targets: mpas_parse_<core_name>
-
-
-#set(REGISTRY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/MPAS-Model/src/core_atmosphere/Registry.xml)
-#set(REG_FILE_PROC ${CMAKE_CURRENT_SOURCE_DIR}/MPAS-Model/src/core_atmosphere/Registry_processed.xml)
-
-#add_definitions(-DMPAS_USE_MPI_F08)
-#add_definitions(-DMPAS_PIO_SUPPORT)
-#add_definitions(-DMPAS_CAM_DYCORE)
-#add_definitions(-DMPAS_UFS_DYCORE)
-#add_custom_command(
-#  OUTPUT ${REG_FILE_PROC}
-#  COMMAND cpp ${CPP_EXTRA_FLAGS} ${REGISTRY_FILE}
-#  DEPENDS ${REGISTRY_FILE}
-#  VERBATIM
-#)
-#add_custom_command(
-#  OUTPUT ${REG_FILE_PROC}
-#  COMMAND mpas_parse_atmosphere ${REG_FILE_PROC} -o ${REGISTRY_FILE}
-#  DEPENDS ${REGISTRY_FILE}
-#  VERBATIM
-#)
-
-#add_custom_target(preprocess_xml ALL
-#  DEPENDS ${REG_FILE_PROC}
-#)
 
 # MPAS framework
 add_subdirectory(MPAS-Model/src/framework)       # Target: MPAS::framework

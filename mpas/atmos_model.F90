@@ -26,6 +26,8 @@ module atmos_model_mod
   use fms_mod,               only: clock_flag_default
   use fms_mod,               only: stdlog
   use mpp_mod,               only: stdout
+  ! UFSATM
+  use module_mpas_config, only : pio_numiotasks
   implicit none
 
   private
@@ -33,9 +35,10 @@ module atmos_model_mod
   public :: atmos_model_init, atmos_model_end, atmos_model_radiation_physics, atmos_data_type,&
        atmos_model_microphysics, atmos_model_dynamics
 
-  ! #########################################################################################
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Type containing information on MPAS enabled UFSATM forecast.
+  !>
+  !> #########################################################################################
   type atmos_data_type
      integer          :: iau_offset         ! iau running window length
      type(time_type)  :: Time               ! current time
@@ -56,23 +59,23 @@ module atmos_model_mod
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
 
 contains
-  ! #########################################################################################
-  !
-  ! Procedure to initialize UWM ATMosphere with MPAS dynamical core.
-  !
-  ! - Read in ATMosphere namelist
-  ! - Initialize MPAS framework
-  ! - Read in MPAS namelist
-  ! - Initialize MPAS dynamical core
-  !   - Read in MPAS initial conditions
-  !   - Read in MPAS mesh
-  ! - Read in physics namelist
-  ! - Initialize CCPP framework
-  ! - Initialize CCPP Physics
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to initialize UWM ATMosphere with MPAS dynamical core.
+  !>
+  !> - Read in ATMosphere namelist
+  !> - Initialize MPAS framework
+  !> - Read in MPAS namelist
+  !> - Initialize MPAS dynamical core
+  !>   - Read in MPAS initial conditions
+  !>   - Read in MPAS mesh
+  !> - Read in physics namelist
+  !> - Initialize CCPP framework
+  !> - Initialize CCPP Physics
+  !>
+  !> #########################################################################################
   subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
-    use ufs_mpas_subdriver, only: ufs_mpas_init_phase1, ufs_mpas_init_phase2, ufs_mpas_init_phase3, ufs_mpas_dyn_set, ufs_mpas_open_init, ufs_mpas_read_init
+    use ufs_mpas_subdriver, only: ufs_mpas_init_phase1, ufs_mpas_init_phase2, ufs_mpas_dyn_set
+    use ufs_mpas_subdriver, only: ufs_mpas_open_init, ufs_mpas_read_init
     use MPAS_init,          only: MPAS_initialize
 
     ! Inputs
@@ -130,39 +133,34 @@ contains
     ! With FV3, this is set during dycore initialization.
     Init%nwat = 6
 
-    !
-    ! Open MPAS IC data file.
-    !
+    ! Open (PIO) MPAS IC data file.
     call ufs_mpas_open_init()
 
-    !
-    ! Initialize the MPAS dynamical core. Read in MPAS dycore namelist.
-    !
+    ! Call MPAS initialization phase 1.
+    ! - Set up MPAS framework
+    ! - Read in MPAS namelists
+    ! - Set up MPAS logging
+    ! - Read in static data, setup MPAS invariant stream
+    ! - Setup physical constants used by MPAS dycore
     logUnits(1) = stdout()
     logUnits(2) = stdlog()
     call ufs_mpas_init_phase1(Init, times, timee, ttime, calendar, logUnits)
 
-    !
     ! Create MPAS data containers
-    !
-    call ufs_mpas_dyn_set(mpp_root_pe(), mpp_pe(), MPAS_Statein, MPAS_Stateout)
+    ! (Associate UWM data containers with MPAS pool variables)
+    call ufs_mpas_dyn_set(MPAS_Statein, MPAS_Stateout)
 
-    !
-    ! Read in MPAS IC data. Populate MPAS data containers.
-    !
-    call ufs_mpas_read_init(mpp_root_pe(), mpp_pe(), MPAS_Statein)
+    ! Read in MPAS IC data. Populate UWM data containers and MPAS "input" stream.
+    call ufs_mpas_read_init(MPAS_Statein)
 
-    !
     ! Complete the MPAS dycore initialization.
-    !
-    call ufs_mpas_init_phase2(Init)
-    call ufs_mpas_init_phase3(MPAS_Statein)
+    ! - Set up threading.
+    ! - Call MPAS core_atmosphere init.
+    call ufs_mpas_init_phase2(Init, MPAS_Statein)
 
-    ! Set domain description.
-    ! ### Work in Progress. Set to 1 for MPAS initialization testing. ###
-    Atm_block%nblks = 1
-    allocate(Init%blksz(Atm_block%nblks))
-    Init%blksz(:) = blocksize
+    ! END MPAS DYCORE INITIALIZATION
+
+    ! BEGIN CCPP PHYSICS INITIALIZATION
 
     ! ### Work in Progress. ###
     ! ### Revisit when implementing GFS physics and partitioning GFS data containers ###
@@ -170,6 +168,13 @@ contains
     ! during the Physics init/namelist-read, below when calling MPAS_initialize(). These
     ! fields should be in FV3 data container, allowing for both MPAS and FV3 to share
     ! the GFS data container.
+
+    ! Set domain description for UFSATM
+    Atm_block%nblks = pio_numiotasks
+    allocate(Init%blksz(Atm_block%nblks))
+    Init%blksz(:) = blocksize
+
+    ! Hybrid sigma coordinates (FV3 only!)
     allocate(Init%ak(Init%levs+1))
     allocate(Init%bk(Init%levs+1))
     Init%ak(:) = 0.0
@@ -191,20 +196,14 @@ contains
     Init%input_nml_file  => input_nml_file
     Init%fn_nml='using internal file'
 
-    !
     ! Read in physics namelist and allocate data containers.
-    !
     call MPAS_initialize(GFS_control, GFS_intdiag, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Init)
 
-    !
     ! Initialize the CCPP framework
-    !
     call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
 
-    !
     ! Initialize the CCPP physics
-    !
     call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
@@ -215,11 +214,10 @@ contains
     !
   end subroutine atmos_model_init
 
-  ! #########################################################################################
-  !
-  ! Procedure to finalize model.
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to finalize model.
+  !>
+  !> #########################################################################################
   subroutine atmos_model_end(Atmos)
     type (atmos_data_type), intent(inout) :: Atmos
     ! Locals
@@ -231,11 +229,10 @@ contains
 
   end subroutine atmos_model_end
 
-  ! #########################################################################################
-  !
-  ! Procedure to call atmospheric radiation and physics.
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to call atmospheric radiation and physics (CCPP).
+  !>
+  !> #########################################################################################
   subroutine atmos_model_radiation_physics(Atmos)
     type (atmos_data_type), intent(inout) :: Atmos
     ! Locals
@@ -269,11 +266,10 @@ contains
     
   end subroutine atmos_model_radiation_physics
 
-  ! #########################################################################################
-  !
-  ! Procedure to call atmospheric dynamics
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to call atmospheric dynamics (MPAS).
+  !>
+  !> #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
     use ufs_mpas_subdriver, only: ufs_mpas_run
     use MPAS_init,          only: MPAS_initialize
@@ -287,11 +283,10 @@ contains
     
   end subroutine atmos_model_dynamics
 
-  ! #########################################################################################
-  !
-  ! Procedure to call microphysics
-  !
-  ! #########################################################################################
+  !> #########################################################################################
+  !> Procedure to call microphysics (CCPP)
+  !>
+  !> #########################################################################################
   subroutine atmos_model_microphysics(Atmos)
     type (atmos_data_type), intent(inout) :: Atmos
     ! Locals
