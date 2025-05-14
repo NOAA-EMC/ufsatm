@@ -706,7 +706,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    Init_parm%hydrostatic     = Atm(mygrid)%flagstruct%hydrostatic
 
    allocate(Init_parm%input_nml_file, mold=input_nml_file)
-   Init_parm%input_nml_file  = input_nml_file
+   Init_parm%input_nml_file = input_nml_file
    Init_parm%fn_nml='using internal file'
 
    call GFS_initialize (GFS_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
