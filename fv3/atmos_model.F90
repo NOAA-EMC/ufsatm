@@ -1054,7 +1054,7 @@ subroutine update_atmos_model_state (Atmos, rc)
    type (atmos_data_type),   intent(inout)  :: Atmos
    real(kind=GFS_kind_phys), intent(inout)  :: time_int, time_intfull
    integer,                  intent(inout)  :: seconds
-   integer,                                 :: isec_fhzero
+   integer                                  :: isec_fhzero
 
    if(Atmos%iau_offset > zero) then
      if( time_int - Atmos%iau_offset*3600. > zero ) then
