@@ -1,11 +1,11 @@
 ########################################################################
 [ccpp-table-properties]
-  name = MPAS_init_type
+  name = MPAS_control_type
   type = ddt
   dependencies =
 
 [ccpp-arg-table]
-  name = MPAS_init_type
+  name = MPAS_control_type
   type = ddt
 
 ########################################################################

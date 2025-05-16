@@ -6,7 +6,8 @@ module GFS_init
                                       GFS_sfcprop_type, GFS_coupling_type, &
                                       GFS_control_type, GFS_grid_type,     &
                                       GFS_tbd_type,     GFS_cldprop_type,  &
-                                      GFS_radtend_type, GFS_diag_type
+                                      GFS_radtend_type, GFS_diag_type,     &
+                                      FV3_control_type
   use CCPP_typedefs,            only: GFS_interstitial_type
 
   implicit none
@@ -26,7 +27,7 @@ module GFS_init
 !--------------
 ! GFS initialze
 !--------------
-  subroutine GFS_initialize (Model, Statein, Stateout, Sfcprop,     &
+  subroutine GFS_initialize (Model, FV3dy, Statein, Stateout, Sfcprop, &
                              Coupling, Grid, Tbd, Cldprop, Radtend, & 
                              Diag, Interstitial, Init_parm)
 
@@ -36,6 +37,7 @@ module GFS_init
 
     !--- interface variables
     type(GFS_control_type),      intent(inout) :: Model
+    type(FV3_control_type),      intent(inout) :: FV3dy
     type(GFS_statein_type),      intent(inout) :: Statein
     type(GFS_stateout_type),     intent(inout) :: Stateout
     type(GFS_sfcprop_type),      intent(inout) :: Sfcprop
@@ -66,9 +68,7 @@ module GFS_init
     !--- set control properties (including namelist read)
     call Model%init (Init_parm%nlunit, Init_parm%fn_nml,           &
                      Init_parm%me, Init_parm%master,               &
-                     Init_parm%logunit, Init_parm%isc,             &
-                     Init_parm%jsc, Init_parm%nx, Init_parm%ny,    &
-                     Init_parm%levs, Init_parm%cnx, Init_parm%cny, &
+                     Init_parm%logunit, Init_parm%levs,            &
                      Init_parm%gnx, Init_parm%gny,                 &
                      Init_parm%dt_dycore, Init_parm%dt_phys,       &
                      Init_parm%iau_offset, Init_parm%bdat,         &
@@ -76,17 +76,20 @@ module GFS_init
                      Init_parm%tracer_names,                       &
                      Init_parm%tracer_types,                       &
                      Init_parm%input_nml_file, Init_parm%tile_num, &
-                     Init_parm%blksz, Init_parm%ak, Init_parm%bk,  &
+                     Init_parm%blksz, &
                      Init_parm%restart, Init_parm%hydrostatic,     &
                      Init_parm%fcst_mpi_comm,                      &
                      Init_parm%fcst_ntasks, nthrds)
+    call FV3dy%init(Model, Init_parm%ak, Init_parm%bk, Init_parm%isc, &
+                    Init_parm%jsc, Init_parm%nx, Init_parm%ny, Init_parm%cnx,    &
+                    Init_parm%cny)
 
     call Statein%create(Model)
     call Stateout%create(Model)
     call Grid%create(Model)
     call Tbd%create(Model)
     call Cldprop%create(Model)
-    call Sfcprop%create(Model)
+    call Sfcprop%create(Model, FV3dy)
     call Radtend%create(Model)
     call Coupling%create(Model)
     call Diag%create(Model)

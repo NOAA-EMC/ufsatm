@@ -14,6 +14,9 @@ module module_mpas_config
   !> Atmosphere time step in seconds
   integer                  :: dt_atmos
 
+  !> Number of MPAS dycore calls per ATMosphere time step.
+  integer                  :: n_atmos
+
   !> MPI communicator for the forecast grid component
   type(MPI_Comm)           :: fcst_mpi_comm
 
@@ -56,8 +59,8 @@ module module_mpas_config
   integer :: nVertLevels   ! number of vertical layers (midpoints)
 
   !> Global gridded data
-  integer :: nCells_g      ! global number of cells/columns
-  integer :: nEdges_g      ! global number of edges
-  integer :: nVertices_g   ! global number of vertices
+  integer :: nCellsGlobal     ! global number of cells/columns
+  integer :: nEdgesGlobal     ! global number of edges
+  integer :: nVerticesGlobal  ! global number of vertices
   
 end module module_mpas_config

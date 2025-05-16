@@ -5,7 +5,8 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : pio_iotype, fcst_mpi_comm, pioid
   use module_mpas_config, only : zref, zref_edge, sphere_radius, pref, pref_edge
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
-  use module_mpas_config, only : nCells_g, nEdges_g, nVertices_g
+  use module_mpas_config, only : nCellsGlobal, nEdgesGlobal, nVerticesGlobal
+  use module_mpas_config, only : dt_atmos, n_atmos
   implicit none
   
   private
@@ -28,7 +29,7 @@ contains
   !> Procedure to initialize UWM with MPAS dynamical core.
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_init_phase1(Init, time_start, time_end, total_time, calendar, logUnits)
+  subroutine ufs_mpas_init_phase1(Cfg, time_start, time_end, total_time, calendar, logUnits)
     ! MPAS
     use mpas_pool_routines,         only : mpas_pool_add_config, mpas_pool_get_subpool
     use mpas_pool_routines,         only : mpas_pool_add_dimension, mpas_pool_get_field
@@ -50,18 +51,18 @@ contains
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
     ! UFSATM
-    use MPAS_typedefs,              only : MPAS_init_type
+    use MPAS_typedefs,              only : MPAS_control_type
     ! PIO
     use pio,                        only : pio_global, pio_get_att
     ! Arguments
-    type(MPAS_init_type), intent(inout) :: Init
-    integer,              intent(in   ) :: time_start(6), time_end(6), logUnits(2)
-    integer,              intent(in   ) :: total_time
-    character(17),        intent(in   ) :: calendar
+    type(MPAS_control_type), intent(inout) :: Cfg
+    integer,                 intent(in   ) :: time_start(6), time_end(6), logUnits(2)
+    integer,                 intent(in   ) :: total_time
+    character(17),           intent(in   ) :: calendar
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase1'
     integer :: i, ndate1, ndate2, tod, ierr, ik, kk
-    type (mpas_pool_type), pointer :: state, mesh
+    type (mpas_pool_type), pointer :: state, mesh, tend
     type (field3dReal), pointer :: scalarsField
 
     ! Setup MPAS infrastructure
@@ -99,7 +100,7 @@ contains
 
     ! Read MPAS namelist.
     if (file_exists('input.nml')) then
-       call read_mpas_namelist('input.nml', domain_ptr % configs, Init % mpi_comm, Init % master, Init % me)
+       call read_mpas_namelist('input.nml', domain_ptr % configs, Cfg % mpi_comm, Cfg % master, Cfg % me)
     else
        call mpp_error(FATAL,subname//": Cannot find MPAS namelist file, input.nml")
     end if
@@ -159,7 +160,7 @@ contains
     ! Adding a config named 'cam_pcnst' with the number of constituents will indicate to
     ! MPAS-A setup code that it is operating as a UFS dycore, and that it is necessary to
     ! allocate scalars separately from other Registry-defined fields
-    call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Init % nwat)
+    call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Cfg % nwat)
 
     ! Call MPAS framework bootstrap phase 1
     call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", MPAS_IO_NETCDF, pio_file_desc=pioid)
@@ -173,8 +174,18 @@ contains
     call mpas_pool_add_dimension(state, 'index_qv', 1)
     scalarsField % constituentNames(1) = 'qv'
     call mpas_pool_add_dimension(state, 'moist_start', 1)
-    call mpas_pool_add_dimension(state, 'moist_end', Init % nwat)
+    call mpas_pool_add_dimension(state, 'moist_end', 1)!Cfg % nwat)
 
+    ! Define scalars_tend
+    nullify(tend)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tend)
+
+    if (.not. associated(tend)) then
+       call mpp_error(FATAL,subname//': ERROR: The ''tend'' pool was not found.')
+       ierr = 1
+       return
+    end if
+    
     ! Read in static (invariant) data
     call ufs_mpas_read_invariant()
 
@@ -189,7 +200,7 @@ contains
     endif
 
     ! Query global grid dimensions from MPAS
-    call ufs_mpas_get_global_dims(nCells_g, nEdges_g, nVertices_g, maxEdges, nVertLevels, maxNCells)
+    call ufs_mpas_get_global_dims(nCellsGlobal, nEdgesGlobal, nVerticesGlobal, maxEdges, nVertLevels, maxNCells)
 
     ! Setup constants
     call mpas_constants_compute_derived()
@@ -200,8 +211,8 @@ contains
   !> Procedure to initialize UWM with MPAS dynamical core.
   !> 
   !> ########################################################################################
-  subroutine ufs_mpas_init_phase2(Init, Statein)
-    use MPAS_typedefs,              only : MPAS_init_type
+  subroutine ufs_mpas_init_phase2(Cfg, Statein)
+    use MPAS_typedefs,              only : MPAS_control_type
     use MPAS_typedefs,              only : MPAS_statein_type
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_derived_types,         only : mpas_pool_type, MPAS_Time_Type
@@ -218,7 +229,7 @@ contains
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, MPAS_START_TIME
     use mpas_timekeeping,           only : MPAS_set_timeInterval
     ! Arguments
-    type(MPAS_init_type),    intent(inout) :: Init
+    type(MPAS_control_type), intent(inout) :: Cfg
     type(MPAS_statein_type), intent(inout) :: Statein
     type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
@@ -250,7 +261,7 @@ contains
     call mpas_pool_get_dimension(state, 'maxEdges2', maxEdges2)
     call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
     call mpas_atm_set_dims(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
-    Init % levs = nVertLevels1
+    Cfg % levs = nVertLevels1
 
     !
     ! Set "local" clock to point to the clock contained in the domain type
@@ -268,7 +279,10 @@ contains
 
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_do_restart', config_do_restart)
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
-    Init%dt_dycore = dt
+
+    ! How many calls to MPAS dycore for each ATMosphere time step?
+    Cfg%dt_dycore = dt
+    n_atmos = dt_atmos/dt
 
     if (.not. config_do_restart) then
        call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
@@ -315,50 +329,72 @@ contains
     call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    Statein % rho_tend)
 
     ! Set dycore time interval.
-    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
     call mpas_set_timeInterval(timeStep, dt=dt, ierr=ierr)
   
   end subroutine ufs_mpas_init_phase2
 
   !> #########################################################################################
   !> Routine to call MPAS dynamical core
-  !> Loop over dynamical time-step(s) and increment MPAS state (timelevel=2)
+  !> Loop over dynamical time-step(s) and increment MPAS state (timelevel 1->2)
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_run()
-    use atm_core,           only : atm_do_timestep
-    use mpas_derived_types, only : MPAS_Time_type, mpas_pool_type
-    use mpas_timekeeping,   only : MPAS_set_timeInterval
-    use mpas_kind_types,    only : StrKIND, RKIND
-    use mpas_pool_routines, only : mpas_pool_get_config, mpas_pool_get_subpool, mpas_pool_shift_time_levels
-    use mpas_timekeeping,   only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time, MPAS_NOW, mpas_is_clock_stop_time
-    use mpas_log,           only : mpas_log_write
-    use mpas_timer,         only : mpas_timer_start, mpas_timer_stop
-
+  subroutine ufs_mpas_run(statein, stateout)
+    ! UFSATM
+    use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
+    ! MPAS
+    use atm_core,             only : atm_do_timestep
+    use MPAS_domain_routines, only : mpas_pool_get_dimension
+    use MPAS_derived_types,   only : MPAS_Time_type, mpas_pool_type
+    use MPAS_timekeeping,     only : MPAS_set_timeInterval
+    use MPAS_kind_types,      only : StrKIND, RKIND, R8KIND
+    use MPAS_constants,       only : rvord
+    use MPAS_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
+    use MPAS_pool_routines,   only : mpas_pool_shift_time_levels, mpas_pool_get_array
+    use MPAS_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
+    use MPAS_timekeeping,     only : MPAS_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
+    use MPAS_log,             only : mpas_log_write
+    use MPAS_timer,           only : mpas_timer_start, mpas_timer_stop
+    ! Arguments
+    type(MPAS_statein_type),  intent(inout) :: statein
+    type(MPAS_stateout_type), intent(inout) :: stateout
     ! Locals
     real (kind=RKIND), pointer :: dt
-    type (mpas_pool_type), pointer :: state
+    type (mpas_pool_type), pointer :: state, diag, mesh
     type (MPAS_Time_type) :: timeNow, timeStop
     character(len=StrKIND) :: timeStamp
-    integer :: ierr
-    integer, save :: itimestep = 1
-    
+    integer :: ierr, itime
+    integer, pointer :: index_qv
+    integer, pointer :: nCellsSolve
+    real(kind=RKIND), dimension(:,:), pointer :: theta_m, rho_zz, zz, theta, rho
+    real(kind=RKIND), dimension(:,:,:), pointer :: scalars
+    integer :: itimestep
+    real (kind=R8KIND) :: integ_start_time, integ_stop_time 
+    integer, parameter :: id = 40
+
+    clock => domain_ptr % clock
+
+    ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', dt)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
 
     ! During integration, time level 1 stores the model state at the beginning of the
     !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
-
-    do while (.not. mpas_is_clock_stop_time(clock))
+    ! ONLY RUNNING SINGLE TIMESTEP.
+    itimestep=1
+    do itime = 1, 1!n_atmos
+       ! Get current time.
        timeNow  = mpas_get_clock_time(clock, MPAS_NOW, ierr)
-       
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
-       call mpas_log_write('Dynamics timestep beginning at '//trim(timeStamp))
+       call mpas_log_write('') 
+       call mpas_log_write(' MPAS dynamics start timestep '//trim(timeStamp))
 
+       ! Integrate forward one dycore time step
        call mpas_timer_start('time integration')
+       call mpas_dmpar_get_time(integ_start_time)
        call atm_do_timestep(domain_ptr, dt, itimestep)
+       call mpas_dmpar_get_time(integ_stop_time)
        call mpas_timer_stop('time integration')
-
+       call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
+       
        ! Move time level 2 fields back into time level 1 for next time step
        call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
        call mpas_pool_shift_time_levels(state)
@@ -368,7 +404,52 @@ contains
        call mpas_advance_clock(clock)
        timeNow = mpas_get_clock_time(clock, MPAS_NOW, ierr)
 
+       ! Print IN/OUT state (DEBUGGING)
+       call mpas_pool_get_array(state, 'u',       stateout % uperp,   timeLevel=1)
+       call mpas_pool_get_array(state, 'w',       stateout % w,       timeLevel=1)
+       call mpas_pool_get_array(state, 'theta_m', stateout % theta_m, timeLevel=1)
+       call mpas_pool_get_array(state, 'rho_zz',  stateout % rho_zz,  timeLevel=1)
+       call mpas_pool_get_array(state, 'scalars', stateout % tracers, timeLevel=1)
+       print*,'u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
+       print*,'w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
+       print*,'theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
+       print*,'rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
+       print*,'scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
     end do
+
+    !
+    ! Update final prognostic state
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    call mpas_pool_get_array(state, 'u',       stateout % uperp,   timeLevel=1)
+    call mpas_pool_get_array(state, 'w',       stateout % w,       timeLevel=1)
+    call mpas_pool_get_array(state, 'theta_m', stateout % theta_m, timeLevel=1)
+    call mpas_pool_get_array(state, 'rho_zz',  stateout % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(state, 'scalars', stateout % tracers, timeLevel=1)
+    print*,'#####################################################################'
+    print*,'#u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
+    print*,'#w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
+    print*,'#theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
+    print*,'#rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
+    print*,'#scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
+
+    !
+    ! Compute diagnostic fields from the final prognostic state
+    ! From mpas_atm_core.F:_atm_compute_output_diagnostics()
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag', diag)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
+    call mpas_pool_get_dimension(state, 'index_qv', index_qv)
+    call mpas_pool_get_dimension(state, 'nCellsSolve', nCellsSolve)
+    call mpas_pool_get_array(state, 'theta_m', theta_m, timeLevel=1)
+    call mpas_pool_get_array(state, 'rho_zz',  rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(state, 'scalars', scalars, timeLevel=1)
+    call mpas_pool_get_array(mesh,  'zz',      zz)
+    call mpas_pool_get_array(diag,  'theta',   theta)
+    call mpas_pool_get_array(diag,  'rho',     rho)
+
+    rho(:,1:nCellsSolve) = rho_zz(:,1:nCellsSolve) * zz(:,1:nCellsSolve)
+    theta(:,1:nCellsSolve) = theta_m(:,1:nCellsSolve) / (1.0_RKIND + rvord * scalars(index_qv,:,1:nCellsSolve))
     
   end subroutine ufs_mpas_run
   
@@ -377,11 +458,15 @@ contains
   !>
   !> #########################################################################################
   subroutine ufs_mpas_dyn_set(statein, stateout)
+    ! UFSATM
     use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
+    ! MPAS
     use mpas_derived_types,   only : mpas_pool_type
     use mpas_pool_routines,   only : mpas_pool_get_subpool
     use mpas_pool_routines,   only : mpas_pool_get_array
     use mpas_domain_routines, only : mpas_pool_get_dimension
+    ! FMS
+    use mpp_mod,              only : FATAL, mpp_error
     ! Arguments
     type(MPAS_statein_type), intent(inout) :: statein
     type(MPAS_stateout_type), intent(inout) :: stateout
@@ -480,10 +565,10 @@ contains
     stateout % uy    => statein % uy
 
     ! Hydrostatic pressure
-    !allocate(stateout % pmiddry(nVertLevels,   nCells), stat=ierr)
+    allocate(stateout % pmiddry(nVertLevels,   nCells))!, stat=ierr)
     !if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pmiddry array')
 
-    !allocate(stateout % pintdry(nVertLevels+1, nCells), stat=ierr)
+    allocate(stateout % pintdry(nVertLevels+1, nCells))!, stat=ierr)
     !if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pintdry array')
 
     call mpas_pool_get_array(diag_pool, 'vorticity',  stateout % vorticity)
@@ -774,10 +859,10 @@ contains
     call mpas_pool_add_config(configPool, 'config_print_global_minmax_sca',        mpas_print_global_minmax_sca)
 
     ! Set some configuration parameters that cannot be changed by UFSATM. *From CAM src/dynamics/mpas/dyn_comp.F90*
-    call mpas_pool_add_config(configPool, 'config_num_halos', config_num_halos)
-    call mpas_pool_add_config(configPool, 'config_number_of_blocks', config_number_of_blocks)
-    call mpas_pool_add_config(configPool, 'config_explicit_proc_decomp', config_explicit_proc_decomp)
-    call mpas_pool_add_config(configPool, 'config_proc_decomp_file_prefix', config_proc_decomp_file_prefix)
+    call mpas_pool_add_config(configPool, 'config_num_halos',                      config_num_halos)
+    call mpas_pool_add_config(configPool, 'config_number_of_blocks',               config_number_of_blocks)
+    call mpas_pool_add_config(configPool, 'config_explicit_proc_decomp',           config_explicit_proc_decomp)
+    call mpas_pool_add_config(configPool, 'config_proc_decomp_file_prefix',        config_proc_decomp_file_prefix)
 
     ! Display namelist information (master processor only)
     if (me == master) then
@@ -1285,11 +1370,16 @@ contains
    call ufs_mpas_update_halo('scalars', timeLevel=1)
    call ufs_mpas_update_halo('theta_m', timeLevel=1)
    call ufs_mpas_update_halo('rho_zz',  timeLevel=1)
+   call ufs_mpas_update_halo('u',       timeLevel=2)
+   call ufs_mpas_update_halo('w',       timeLevel=2)
+   call ufs_mpas_update_halo('scalars', timeLevel=2)
+   call ufs_mpas_update_halo('theta_m', timeLevel=2)
+   call ufs_mpas_update_halo('rho_zz',  timeLevel=2)
    call ufs_mpas_update_halo('theta')
    call ufs_mpas_update_halo('rho')
    call ufs_mpas_update_halo('rho_base')
    call ufs_mpas_update_halo('theta_base')
-
+   
  end subroutine ufs_mpas_read_init
 
  !> ########################################################################################

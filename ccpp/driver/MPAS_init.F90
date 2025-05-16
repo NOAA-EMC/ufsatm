@@ -5,7 +5,7 @@
 module MPAS_init
   use machine,       only: kind_phys
   use MPAS_typedefs, only: MPAS_statein_type, MPAS_stateint_type, MPAS_stateout_type
-  use MPAS_typedefs, only: MPAS_init_type
+  use MPAS_typedefs, only: MPAS_control_type
   use GFS_typedefs,  only: GFS_control_type, GFS_diag_type
 
   implicit none
@@ -17,7 +17,7 @@ contains
   !> Procedure to initialize MPAS interface to CCPP Physics.
   !>
   !> #########################################################################################
-  subroutine MPAS_initialize (Model, Diag, Statein, Stateint, Stateout, Init)
+  subroutine MPAS_initialize (Model, Diag, Statein, Stateint, Stateout, MPAS)
 #ifdef _OPENMP
     use omp_lib
 #endif
@@ -28,7 +28,7 @@ contains
     type(MPAS_statein_type),     intent(inout) :: Statein
     type(MPAS_stateint_type),    intent(inout) :: Stateint
     type(MPAS_stateout_type),    intent(inout) :: Stateout
-    type(MPAS_init_type),        intent(in   ) :: Init
+    type(MPAS_control_type),     intent(in   ) :: MPAS
 
     ! Locals
     integer :: nb
@@ -38,7 +38,7 @@ contains
     logical :: non_uniform_blocks
     integer :: ix
 
-    nblks = size(Init%blksz)
+    nblks = size(MPAS%blksz)
 
 #ifdef _OPENMP
     nthrds = omp_get_max_threads()
@@ -46,12 +46,11 @@ contains
     nthrds = 1
 #endif
     !--- set control properties (including namelist read)
-    call Model%init(Init%nlunit, Init%fn_nml, Init%me, Init%master, Init%logunit, Init%isc, &
-         Init%jsc, Init%nx, Init%ny, Init%levs, Init%cnx, Init%cny, Init%gnx, Init%gny,     &
-         Init%dt_dycore, Init%dt_phys,  Init%iau_offset, Init%bdat, Init%cdat, Init%nwat,   &
-         Init%tracer_names, Init%tracer_types, Init%input_nml_file, Init%tile_num,          &
-         Init%blksz, Init%ak, Init%bk, Init%restart, Init%hydrostatic, Init%mpi_comm,       &
-         Init%fcst_ntasks, nthrds)
+    call Model%init(MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit, &
+         MPAS%levs,  MPAS%gnx, MPAS%gny,     &
+         MPAS%dt_dycore, MPAS%dt_phys,  MPAS%iau_offset, MPAS%bdat, MPAS%cdat, MPAS%nwat,   &
+         MPAS%tracer_names, MPAS%tracer_types, MPAS%input_nml_file, MPAS%tile_num,          &
+         MPAS%blksz, MPAS%restart, MPAS%hydrostatic, MPAS%mpi_comm, MPAS%fcst_ntasks, nthrds)
 
     call Diag%create(Model)
 
