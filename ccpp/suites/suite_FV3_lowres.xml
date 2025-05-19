@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_v16_fv3wam" version="1">
+<suite name="FV3_lowres" version="1">
   <!-- <init></init> -->
   <group name="time_vary">
     <subcycle loop="1">
@@ -37,7 +37,9 @@
     <subcycle loop="2">
       <scheme>sfc_diff</scheme>
       <scheme>GFS_surface_loop_control_part1</scheme>
-      <scheme>sfc_ocean</scheme>
+      <scheme>sfc_nst_pre</scheme>
+      <scheme>sfc_nst</scheme>
+      <scheme>sfc_nst_post</scheme>
       <scheme>lsm_noah</scheme>
       <scheme>sfc_sice</scheme>
       <scheme>GFS_surface_loop_control_part2</scheme>
@@ -51,10 +53,6 @@
       <scheme>GFS_PBL_generic_pre</scheme>
       <scheme>satmedmfvdifq</scheme>
       <scheme>GFS_PBL_generic_post</scheme>
-      <scheme>GFS_GWD_generic_pre</scheme>
-      <scheme>cires_ugwp</scheme>
-      <scheme>cires_ugwp_post</scheme>
-      <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
     </subcycle>
   </group>
@@ -75,14 +73,13 @@
       <scheme>gfdl_cloud_microphys</scheme>
       <scheme>GFS_MP_generic_post</scheme>
       <scheme>maximum_hourly_diagnostics</scheme>
+      <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
   <group name="stochastics">
     <subcycle loop="1">
       <scheme>GFS_stochastics</scheme>
-      <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
-
   <!-- <finalize></finalize> -->
 </suite>
