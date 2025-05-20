@@ -88,7 +88,7 @@ use CCPP_data,          only: ccpp_suite, GFS_control, &
                               GFS_grid, GFS_tbd, GFS_cldprop, &
                               GFS_sfcprop, GFS_radtend, &
                               GFS_coupling, GFS_intdiag, &
-                              GFS_interstitial, FV3_control
+                              GFS_interstitial
 use GFS_init,           only: GFS_initialize
 use CCPP_driver,        only: CCPP_step, non_uniform_blocks
 
@@ -709,7 +709,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    Init_parm%input_nml_file = input_nml_file
    Init_parm%fn_nml='using internal file'
 
-   call GFS_initialize (GFS_control, FV3_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
+   call GFS_initialize (GFS_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
                         GFS_Coupling, GFS_Grid, GFS_Tbd, GFS_Cldprop, GFS_Radtend, &
                         GFS_Intdiag, GFS_interstitial, Init_parm)
 

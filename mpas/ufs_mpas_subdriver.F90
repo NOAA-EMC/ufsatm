@@ -1,5 +1,5 @@
 module ufs_mpas_subdriver
-  use mpas_derived_types, only : core_type, domain_type, MPAS_Clock_type, MPAS_TimeInterval_type
+  use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type, mpas_TimeInterval_type
   use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config, only : ic_filename
   use module_mpas_config, only : pio_iotype, fcst_mpi_comm, pioid
@@ -21,8 +21,8 @@ module ufs_mpas_subdriver
 
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
-  type(MPAS_Clock_type), pointer :: clock      => null()
-  type (MPAS_TimeInterval_type)  :: timeStep
+  type(mpas_Clock_type), pointer :: clock      => null()
+  type (mpas_TimeInterval_type)  :: timeStep
   
 contains
   !> #########################################################################################
@@ -33,15 +33,13 @@ contains
     ! MPAS
     use mpas_pool_routines,         only : mpas_pool_add_config, mpas_pool_get_subpool
     use mpas_pool_routines,         only : mpas_pool_add_dimension, mpas_pool_get_field
-    use mpas_pool_routines,         only : mpas_pool_get_array
+    use mpas_pool_routines,         only : mpas_pool_get_array, mpas_pool_get_config
     use mpas_framework,             only : mpas_framework_init_phase1, mpas_framework_init_phase2
     use mpas_domain_routines,       only : mpas_allocate_domain, mpas_pool_get_dimension
     use mpas_bootstrapping,         only : mpas_bootstrap_framework_phase1
     use mpas_bootstrapping,         only : mpas_bootstrap_framework_phase2
-    use mpas_rbf_interpolation,     only : mpas_rbf_interp_initialize
-    use mpas_vector_reconstruction, only : mpas_init_reconstruct
-    use mpas_stream_inquiry,        only : MPAS_stream_inquiry_new_streaminfo
-    use mpas_derived_types,         only : mpas_pool_type, MPAS_IO_NETCDF, field3dReal
+    use mpas_stream_inquiry,        only : mpas_stream_inquiry_new_streaminfo
+    use mpas_derived_types,         only : mpas_pool_type, mpas_IO_NETCDF, field3dReal
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_log,                   only : mpas_log_write
     use atm_core_interface,         only : atm_setup_core, atm_setup_domain
@@ -51,11 +49,11 @@ contains
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
     ! UFSATM
-    use MPAS_typedefs,              only : MPAS_control_type
+    use mpas_typedefs,              only : mpas_control_type
     ! PIO
     use pio,                        only : pio_global, pio_get_att
     ! Arguments
-    type(MPAS_control_type), intent(inout) :: Cfg
+    type(mpas_control_type), intent(inout) :: Cfg
     integer,                 intent(in   ) :: time_start(6), time_end(6), logUnits(2)
     integer,                 intent(in   ) :: total_time
     character(17),           intent(in   ) :: calendar
@@ -64,6 +62,7 @@ contains
     integer :: i, ndate1, ndate2, tod, ierr, ik, kk
     type (mpas_pool_type), pointer :: state, mesh, tend
     type (field3dReal), pointer :: scalarsField
+    character (len=StrKIND), pointer :: initial_time, config_start_time
 
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
@@ -131,7 +130,7 @@ contains
     call mpas_framework_init_phase2(domain_ptr, io_system=pio_subsystem, calendar = trim(calendar))
 
     ! Before defining packages, initialize the stream inquiry instance for the domain
-    domain_ptr % streamInfo => MPAS_stream_inquiry_new_streaminfo()
+    domain_ptr % streamInfo => mpas_stream_inquiry_new_streaminfo()
     if (.not. associated(domain_ptr % streamInfo)) then
        call mpp_error(FATAL,subname//": Failed to instantiate streamInfo object for "//trim(domain_ptr % core % coreName))
     end if
@@ -163,19 +162,41 @@ contains
     call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Cfg % nwat)
 
     ! Call MPAS framework bootstrap phase 1
-    call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", MPAS_IO_NETCDF, pio_file_desc=pioid)
+    call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", mpas_IO_NETCDF, pio_file_desc=pioid)
 
     ! Finalize the setup of blocks and fields
     call mpas_bootstrap_framework_phase2(domain_ptr, pio_file_desc=pioid)
 
-    ! Set up tracers (NOT YET IMPLEMENTED. ONLY ONE, QV)
+    ! Set up tracers
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_field(state, 'scalars', scalarsField, timeLevel=1)
+    !
     call mpas_pool_add_dimension(state, 'index_qv', 1)
     scalarsField % constituentNames(1) = 'qv'
+    !
+    call mpas_pool_add_dimension(state, 'index_qc', 2)
+    scalarsField % constituentNames(2) = 'qc'
+    !
+    call mpas_pool_add_dimension(state, 'index_qr', 3)
+    scalarsField % constituentNames(3) = 'qr'
+    !
+    call mpas_pool_add_dimension(state, 'index_qs', 4)
+    scalarsField % constituentNames(4) = 'qs'
+    !
+    call mpas_pool_add_dimension(state, 'index_qi', 5)
+    scalarsField % constituentNames(5) = 'qi'
+    !
+    call mpas_pool_add_dimension(state, 'index_qh', 6)
+    scalarsField % constituentNames(6) = 'qh'
+    !
     call mpas_pool_add_dimension(state, 'moist_start', 1)
-    call mpas_pool_add_dimension(state, 'moist_end', 1)!Cfg % nwat)
+    call mpas_pool_add_dimension(state, 'moist_end', Cfg % nwat)
 
+    ! Set inital_time
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_start_time', config_start_time)
+    call mpas_pool_get_array(state, 'initial_time', initial_time,1)
+    initial_time = config_start_time
+    
     ! Define scalars_tend
     nullify(tend)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tend)
@@ -212,10 +233,10 @@ contains
   !> 
   !> ########################################################################################
   subroutine ufs_mpas_init_phase2(Cfg, Statein)
-    use MPAS_typedefs,              only : MPAS_control_type
-    use MPAS_typedefs,              only : MPAS_statein_type
+    use mpas_typedefs,              only : mpas_control_type
+    use mpas_typedefs,              only : mpas_statein_type
     use mpas_kind_types,            only : StrKIND, RKIND
-    use mpas_derived_types,         only : mpas_pool_type, MPAS_Time_Type
+    use mpas_derived_types,         only : mpas_pool_type, mpas_Time_Type
     use mpas_domain_routines,       only : mpas_pool_get_dimension
     use mpas_pool_routines,         only : mpas_pool_get_subpool
     use mpas_pool_routines,         only : mpas_pool_initialize_time_levels, mpas_pool_get_config
@@ -226,11 +247,11 @@ contains
     use mpas_atm_halos,             only : atm_build_halo_groups, exchange_halo_group
     use atm_core,                   only : atm_mpas_init_block, core_clock => clock
     use atm_time_integration,       only : mpas_atm_dynamics_init
-    use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, MPAS_START_TIME
-    use mpas_timekeeping,           only : MPAS_set_timeInterval
+    use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, mpas_START_TIME
+    use mpas_timekeeping,           only : mpas_set_timeInterval
     ! Arguments
-    type(MPAS_control_type), intent(inout) :: Cfg
-    type(MPAS_statein_type), intent(inout) :: Statein
+    type(mpas_control_type), intent(inout) :: Cfg
+    type(mpas_statein_type), intent(inout) :: Statein
     type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
@@ -239,7 +260,7 @@ contains
     integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
     real (kind=RKIND), pointer :: dt
     logical, pointer :: config_do_restart
-    type (MPAS_Time_Type) :: startTime
+    type (mpas_Time_Type) :: startTime
     character(len=StrKIND) :: startTimeStamp
     character (len=StrKIND), pointer :: xtime
     character (len=StrKIND), pointer :: initial_time1, initial_time2
@@ -292,9 +313,9 @@ contains
     !
     ! Set startTimeStamp based on the start time of the simulation clock
     !
-    startTime = mpas_get_clock_time(clock, MPAS_START_TIME, ierr)
+    startTime = mpas_get_clock_time(clock, mpas_START_TIME, ierr)
     if ( ierr /= 0 ) then
-       call mpp_error(FATAL,subname//": failed to get MPAS_START_TIME")
+       call mpp_error(FATAL,subname//": failed to get mpas_START_TIME")
     end if
     call mpas_get_time(startTime, dateTimeString=startTimeStamp)
 
@@ -311,10 +332,11 @@ contains
     ! Initialize initial_time in second time level. We need to do this because initial state
     ! is read into time level 1, and if we write output from the set of state arrays that
     ! represent the original time level 2, the initial_time field will be invalid.
+
     call mpas_pool_get_array(state, 'initial_time', initial_time1, 1)
     call mpas_pool_get_array(state, 'initial_time', initial_time2, 2)
     initial_time2 = initial_time1
-
+    
     call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw')
 
     !
@@ -323,10 +345,15 @@ contains
     call mpas_atm_dynamics_init(domain_ptr)
 
     !
+    ! Initialize physics tendencies needed by MPAS.
+    !
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
     call mpas_pool_get_array(tend_physics_pool, 'tend_ru_physics',     Statein % ru_tend)
     call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', Statein % rtheta_tend)
     call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    Statein % rho_tend)
+    Statein % ru_tend     = 0.
+    Statein % rtheta_tend = 0.
+    Statein % rho_tend    = 0.
 
     ! Set dycore time interval.
     call mpas_set_timeInterval(timeStep, dt=dt, ierr=ierr)
@@ -340,27 +367,27 @@ contains
   !> #########################################################################################
   subroutine ufs_mpas_run(statein, stateout)
     ! UFSATM
-    use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
+    use mpas_typedefs,        only : mpas_statein_type, mpas_stateout_type
     ! MPAS
     use atm_core,             only : atm_do_timestep
-    use MPAS_domain_routines, only : mpas_pool_get_dimension
-    use MPAS_derived_types,   only : MPAS_Time_type, mpas_pool_type
-    use MPAS_timekeeping,     only : MPAS_set_timeInterval
-    use MPAS_kind_types,      only : StrKIND, RKIND, R8KIND
-    use MPAS_constants,       only : rvord
-    use MPAS_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
-    use MPAS_pool_routines,   only : mpas_pool_shift_time_levels, mpas_pool_get_array
-    use MPAS_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
-    use MPAS_timekeeping,     only : MPAS_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
-    use MPAS_log,             only : mpas_log_write
-    use MPAS_timer,           only : mpas_timer_start, mpas_timer_stop
+    use mpas_domain_routines, only : mpas_pool_get_dimension
+    use mpas_derived_types,   only : mpas_Time_type, mpas_pool_type
+    use mpas_timekeeping,     only : mpas_set_timeInterval
+    use mpas_kind_types,      only : StrKIND, RKIND, R8KIND
+    use mpas_constants,       only : rvord
+    use mpas_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
+    use mpas_pool_routines,   only : mpas_pool_shift_time_levels, mpas_pool_get_array
+    use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
+    use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
+    use mpas_log,             only : mpas_log_write
+    use mpas_timer,           only : mpas_timer_start, mpas_timer_stop
     ! Arguments
-    type(MPAS_statein_type),  intent(inout) :: statein
-    type(MPAS_stateout_type), intent(inout) :: stateout
+    type(mpas_statein_type),  intent(inout) :: statein
+    type(mpas_stateout_type), intent(inout) :: stateout
     ! Locals
     real (kind=RKIND), pointer :: dt
     type (mpas_pool_type), pointer :: state, diag, mesh
-    type (MPAS_Time_type) :: timeNow, timeStop
+    type (mpas_Time_type) :: timeNow, timeStop
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime
     integer, pointer :: index_qv
@@ -382,7 +409,7 @@ contains
     itimestep=1
     do itime = 1, 1!n_atmos
        ! Get current time.
-       timeNow  = mpas_get_clock_time(clock, MPAS_NOW, ierr)
+       timeNow  = mpas_get_clock_time(clock, mpas_NOW, ierr)
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
        call mpas_log_write('') 
        call mpas_log_write(' MPAS dynamics start timestep '//trim(timeStamp))
@@ -402,7 +429,7 @@ contains
        ! Advance clock.
        itimestep = itimestep + 1
        call mpas_advance_clock(clock)
-       timeNow = mpas_get_clock_time(clock, MPAS_NOW, ierr)
+       timeNow = mpas_get_clock_time(clock, mpas_NOW, ierr)
 
        ! Print IN/OUT state (DEBUGGING)
        call mpas_pool_get_array(state, 'u',       stateout % uperp,   timeLevel=1)
@@ -459,25 +486,27 @@ contains
   !> #########################################################################################
   subroutine ufs_mpas_dyn_set(statein, stateout)
     ! UFSATM
-    use MPAS_typedefs,        only : MPAS_statein_type, MPAS_stateout_type
+    use mpas_typedefs,        only : mpas_statein_type, mpas_stateout_type
     ! MPAS
     use mpas_derived_types,   only : mpas_pool_type
     use mpas_pool_routines,   only : mpas_pool_get_subpool
     use mpas_pool_routines,   only : mpas_pool_get_array
     use mpas_domain_routines, only : mpas_pool_get_dimension
+    use mpas_kind_types,      only : RKIND
     ! FMS
     use mpp_mod,              only : FATAL, mpp_error
     ! Arguments
-    type(MPAS_statein_type), intent(inout) :: statein
-    type(MPAS_stateout_type), intent(inout) :: stateout
+    type(mpas_statein_type), intent(inout) :: statein
+    type(mpas_stateout_type), intent(inout) :: stateout
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_dyn_set'
     type(mpas_pool_type), pointer :: mesh_pool
     type(mpas_pool_type), pointer :: state_pool
     type(mpas_pool_type), pointer :: diag_pool
     integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, &
-         nVerticesSolve, index_qv, ierr
-    integer :: i1, i2
+         nVerticesSolve, index_qv, index_qc, index_qh, index_qr, index_qi, index_qs
+    integer :: i1, i2, ierr
+    real(kind=RKIND),dimension(:,:),pointer  :: rtheta_p
 
     !
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',         mesh_pool)
@@ -493,6 +522,12 @@ contains
     call mpas_pool_get_dimension(mesh_pool,  'nEdgesSolve',    nEdgesSolve)
     call mpas_pool_get_dimension(mesh_pool,  'nVerticesSolve', nVerticesSolve)
     call mpas_pool_get_dimension(state_pool, 'index_qv',       index_qv)
+    call mpas_pool_get_dimension(state_pool, 'index_qc',       index_qc)
+    call mpas_pool_get_dimension(state_pool, 'index_qh',       index_qh)
+    call mpas_pool_get_dimension(state_pool, 'index_qr',       index_qr)
+    call mpas_pool_get_dimension(state_pool, 'index_qi',       index_qi)
+    call mpas_pool_get_dimension(state_pool, 'index_qs',       index_qs)
+
 
     ! Set dimensions
     statein % nCells         = nCells
@@ -503,6 +538,11 @@ contains
     statein % nEdgesSolve    = nEdgesSolve
     statein % nVerticesSolve = nVerticesSolve
     statein % index_qv       = index_qv
+    statein % index_qc       = index_qc
+    statein % index_qh       = index_qh
+    statein % index_qr       = index_qr
+    statein % index_qi       = index_qi
+    statein % index_qs       = index_qs
 
     ! In MPAS timeLevel=1 is the current state.  So the fields input to the dycore should
     ! be in timeLevel=1.
@@ -532,6 +572,12 @@ contains
     call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      statein % ux)
     call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', statein % uy)
 
+    ! Compute variables needed in the MPAS dynamical core.
+    
+    ! density-weighted perturbation potential temperature:
+    call mpas_pool_get_array(diag_pool,  'rtheta_p',               rtheta_p)
+    rtheta_p = statein % rho_zz * statein % theta_m - (statein % rho_base * statein % theta_base)
+    
     ! Let dynamics export state point to memory managed by MPAS-Atmosphere
     ! Exception: pmiddry and pintdry are not managed by the MPAS infrastructure
     stateout % nCells         = statein % nCells
@@ -542,6 +588,11 @@ contains
     stateout % nEdgesSolve    = statein % nEdgesSolve
     stateout % nVerticesSolve = statein % nVerticesSolve
     stateout % index_qv       = statein % index_qv
+    stateout % index_qc       = statein % index_qc
+    stateout % index_qh       = statein % index_qh
+    stateout % index_qr       = statein % index_qr
+    stateout % index_qi       = statein % index_qi
+    stateout % index_qs       = statein % index_qs
 
     ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
     ! in timeLevel=1.  Thus we want stateout to also point to timeLevel=1.  Can just copy
@@ -615,7 +666,7 @@ contains
     use mpas_derived_types, only: mpas_pool_type
     use mpas_kind_types,    only: StrKIND, RKIND
     use mpas_pool_routines, only: mpas_pool_add_config
-    use MPAS_typedefs,      only: r8 => kind_dbl_prec
+    use mpas_typedefs,      only: r8 => kind_dbl_prec
     use fms_mod,            only: check_nml_error
     use mpp_mod,            only: input_nml_file
     ! Inputs
@@ -937,26 +988,26 @@ contains
  subroutine ufs_mpas_read_invariant()
    ! MPAS
    use mpas_kind_types,     only : StrKIND
-   use mpas_io_streams,     only : MPAS_createStream, MPAS_closeStream, MPAS_streamAddField
-   use mpas_io_streams,     only : MPAS_readStream
-   use mpas_derived_types,  only : MPAS_IO_READ, MPAS_IO_NETCDF, MPAS_Stream_type, MPAS_pool_type
+   use mpas_io_streams,     only : mpas_createStream, mpas_closeStream, mpas_streamAddField
+   use mpas_io_streams,     only : mpas_readStream
+   use mpas_derived_types,  only : mpas_IO_READ, mpas_IO_NETCDF, mpas_Stream_type, mpas_pool_type
    use mpas_derived_types,  only : field0DReal, field1DReal, field2DReal, field3DReal
-   use mpas_derived_types,  only : field1DInteger, field2DInteger, MPAS_STREAM_NOERR
-   use mpas_pool_routines,  only : MPAS_pool_get_subpool, MPAS_pool_get_field, MPAS_pool_create_pool
-   use mpas_pool_routines,  only : MPAS_pool_destroy_pool, MPAS_pool_add_config
-   use mpas_dmpar,          only : MPAS_dmpar_exch_halo_field
+   use mpas_derived_types,  only : field1DInteger, field2DInteger, mpas_STREAM_NOERR
+   use mpas_pool_routines,  only : mpas_pool_get_subpool, mpas_pool_get_field, mpas_pool_create_pool
+   use mpas_pool_routines,  only : mpas_pool_destroy_pool, mpas_pool_add_config
+   use mpas_dmpar,          only : mpas_dmpar_exch_halo_field
    use mpas_stream_manager, only : postread_reindex
    ! FMS
    use mpp_mod,             only : FATAL, mpp_error
    ! Arguments
    ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_static'
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_invariant'
    character(len=StrKIND) :: errString
    integer :: ierr
    integer :: ierr_total
-   type (MPAS_pool_type), pointer :: meshPool
-   type (MPAS_pool_type), pointer :: reindexPool
-   type (MPAS_pool_type), pointer :: allPackages, reindexPkgs
+   type (mpas_pool_type), pointer :: meshPool
+   type (mpas_pool_type), pointer :: reindexPool
+   type (mpas_pool_type), pointer :: allPackages, reindexPkgs
    type (field1DReal), pointer :: latCell, lonCell, xCell, yCell, zCell
    type (field1DReal), pointer :: latEdge, lonEdge, xEdge, yEdge, zEdge
    type (field1DReal), pointer :: latVertex, lonVertex, xVertex, yVertex, zVertex
@@ -976,14 +1027,14 @@ contains
    type (field2DReal), pointer :: edgeNormalVectors, localVerticalUnitVectors, defc_a, defc_b
    type (field2DReal), pointer :: cell_gradient_coef_x, cell_gradient_coef_y
 
-   type (MPAS_Stream_type) :: mesh_stream
+   type (mpas_Stream_type) :: mesh_stream
 
    nullify(cell_gradient_coef_x)
    nullify(cell_gradient_coef_y)
 
-   call MPAS_createStream(mesh_stream, domain_ptr % ioContext, 'not_used', MPAS_IO_NETCDF, MPAS_IO_READ, &
+   call mpas_createStream(mesh_stream, domain_ptr % ioContext, 'not_used', mpas_IO_NETCDF, mpas_IO_READ, &
                            pio_file_desc=pioid, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) then
+   if (ierr /= mpas_STREAM_NOERR) then
       call mpp_error(FATAL,subname//': FATAL: Failed to create static input stream.')
    end if
 
@@ -1064,148 +1115,148 @@ contains
 
    ierr_total = 0
 
-   call MPAS_streamAddField(mesh_stream, latCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, lonCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, xCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, yCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, latCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, lonCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, xCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, yCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, latEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, lonEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, xEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, yEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, latEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, lonEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, xEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, yEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, latVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, lonVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, xVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, yVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, latVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, lonVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, xVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, yVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, indexToCellID, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, indexToEdgeID, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, indexToVertexID, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, indexToCellID, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, indexToEdgeID, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, indexToVertexID, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, fEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, fVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, fEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, fVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, areaCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, areaTriangle, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, dcEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, dvEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, angleEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, kiteAreasOnVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, weightsOnEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, areaCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, areaTriangle, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, dcEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, dvEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, angleEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, kiteAreasOnVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, weightsOnEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, meshDensity, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, meshDensity, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, nEdgesOnCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, nEdgesOnEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, nEdgesOnCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, nEdgesOnEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, cellsOnEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, edgesOnCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, edgesOnEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, cellsOnCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, verticesOnCell, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, verticesOnEdge, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, edgesOnVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, cellsOnVertex, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cellsOnEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, edgesOnCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, edgesOnEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cellsOnCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, verticesOnCell, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, verticesOnEdge, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, edgesOnVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cellsOnVertex, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, cf1, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, cf2, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, cf3, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cf1, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cf2, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cf3, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, rdzw, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, dzu, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, rdzu, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, fzm, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, fzp, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, rdzw, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, dzu, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, rdzu, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, fzm, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, fzp, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, zgrid, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zxu, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zz, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zb, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, zb3, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zgrid, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zxu, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zz, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zb, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, zb3, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, deriv_two, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, cellTangentPlane, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, coeffs_reconstruct, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, deriv_two, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, cellTangentPlane, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, coeffs_reconstruct, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
-   call MPAS_streamAddField(mesh_stream, edgeNormalVectors, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, localVerticalUnitVectors, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, defc_a, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
-   call MPAS_streamAddField(mesh_stream, defc_b, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, edgeNormalVectors, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, localVerticalUnitVectors, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, defc_a, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
+   call mpas_streamAddField(mesh_stream, defc_b, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
 
    if (ierr_total > 0) then
       write(errString, '(a,i0,a)') subname//': FATAL: Failed to add ', ierr_total, ' fields to static input stream.'
       call mpp_error(FATAL,trim(errString))
    end if
 
-   call MPAS_readStream(mesh_stream, 1, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) then
+   call mpas_readStream(mesh_stream, 1, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) then
       call mpp_error(FATAL,subname//': FATAL: Failed to read static input stream.')
    end if
 
-   call MPAS_closeStream(mesh_stream, ierr=ierr)
-   if (ierr /= MPAS_STREAM_NOERR) then
+   call mpas_closeStream(mesh_stream, ierr=ierr)
+   if (ierr /= mpas_STREAM_NOERR) then
       call mpp_error(FATAL,subname//': FATAL: Failed to close static input stream.')
    end if
 
@@ -1213,111 +1264,111 @@ contains
    ! Perform halo updates for all decomposed fields (i.e., fields with
    ! an outermost dimension of nCells, nVertices, or nEdges)
    !
-   call MPAS_dmpar_exch_halo_field(latCell)
-   call MPAS_dmpar_exch_halo_field(lonCell)
-   call MPAS_dmpar_exch_halo_field(xCell)
-   call MPAS_dmpar_exch_halo_field(yCell)
-   call MPAS_dmpar_exch_halo_field(zCell)
+   call mpas_dmpar_exch_halo_field(latCell)
+   call mpas_dmpar_exch_halo_field(lonCell)
+   call mpas_dmpar_exch_halo_field(xCell)
+   call mpas_dmpar_exch_halo_field(yCell)
+   call mpas_dmpar_exch_halo_field(zCell)
 
-   call MPAS_dmpar_exch_halo_field(latEdge)
-   call MPAS_dmpar_exch_halo_field(lonEdge)
-   call MPAS_dmpar_exch_halo_field(xEdge)
-   call MPAS_dmpar_exch_halo_field(yEdge)
-   call MPAS_dmpar_exch_halo_field(zEdge)
+   call mpas_dmpar_exch_halo_field(latEdge)
+   call mpas_dmpar_exch_halo_field(lonEdge)
+   call mpas_dmpar_exch_halo_field(xEdge)
+   call mpas_dmpar_exch_halo_field(yEdge)
+   call mpas_dmpar_exch_halo_field(zEdge)
 
-   call MPAS_dmpar_exch_halo_field(latVertex)
-   call MPAS_dmpar_exch_halo_field(lonVertex)
-   call MPAS_dmpar_exch_halo_field(xVertex)
-   call MPAS_dmpar_exch_halo_field(yVertex)
-   call MPAS_dmpar_exch_halo_field(zVertex)
+   call mpas_dmpar_exch_halo_field(latVertex)
+   call mpas_dmpar_exch_halo_field(lonVertex)
+   call mpas_dmpar_exch_halo_field(xVertex)
+   call mpas_dmpar_exch_halo_field(yVertex)
+   call mpas_dmpar_exch_halo_field(zVertex)
 
-   call MPAS_dmpar_exch_halo_field(indexToCellID)
-   call MPAS_dmpar_exch_halo_field(indexToEdgeID)
-   call MPAS_dmpar_exch_halo_field(indexToVertexID)
+   call mpas_dmpar_exch_halo_field(indexToCellID)
+   call mpas_dmpar_exch_halo_field(indexToEdgeID)
+   call mpas_dmpar_exch_halo_field(indexToVertexID)
 
-   call MPAS_dmpar_exch_halo_field(fEdge)
-   call MPAS_dmpar_exch_halo_field(fVertex)
+   call mpas_dmpar_exch_halo_field(fEdge)
+   call mpas_dmpar_exch_halo_field(fVertex)
 
-   call MPAS_dmpar_exch_halo_field(areaCell)
-   call MPAS_dmpar_exch_halo_field(areaTriangle)
-   call MPAS_dmpar_exch_halo_field(dcEdge)
-   call MPAS_dmpar_exch_halo_field(dvEdge)
-   call MPAS_dmpar_exch_halo_field(angleEdge)
-   call MPAS_dmpar_exch_halo_field(kiteAreasOnVertex)
-   call MPAS_dmpar_exch_halo_field(weightsOnEdge)
+   call mpas_dmpar_exch_halo_field(areaCell)
+   call mpas_dmpar_exch_halo_field(areaTriangle)
+   call mpas_dmpar_exch_halo_field(dcEdge)
+   call mpas_dmpar_exch_halo_field(dvEdge)
+   call mpas_dmpar_exch_halo_field(angleEdge)
+   call mpas_dmpar_exch_halo_field(kiteAreasOnVertex)
+   call mpas_dmpar_exch_halo_field(weightsOnEdge)
 
-   call MPAS_dmpar_exch_halo_field(meshDensity)
+   call mpas_dmpar_exch_halo_field(meshDensity)
 
-   call MPAS_dmpar_exch_halo_field(nEdgesOnCell)
-   call MPAS_dmpar_exch_halo_field(nEdgesOnEdge)
+   call mpas_dmpar_exch_halo_field(nEdgesOnCell)
+   call mpas_dmpar_exch_halo_field(nEdgesOnEdge)
 
-   call MPAS_dmpar_exch_halo_field(cellsOnEdge)
-   call MPAS_dmpar_exch_halo_field(edgesOnCell)
-   call MPAS_dmpar_exch_halo_field(edgesOnEdge)
-   call MPAS_dmpar_exch_halo_field(cellsOnCell)
-   call MPAS_dmpar_exch_halo_field(verticesOnCell)
-   call MPAS_dmpar_exch_halo_field(verticesOnEdge)
-   call MPAS_dmpar_exch_halo_field(edgesOnVertex)
-   call MPAS_dmpar_exch_halo_field(cellsOnVertex)
+   call mpas_dmpar_exch_halo_field(cellsOnEdge)
+   call mpas_dmpar_exch_halo_field(edgesOnCell)
+   call mpas_dmpar_exch_halo_field(edgesOnEdge)
+   call mpas_dmpar_exch_halo_field(cellsOnCell)
+   call mpas_dmpar_exch_halo_field(verticesOnCell)
+   call mpas_dmpar_exch_halo_field(verticesOnEdge)
+   call mpas_dmpar_exch_halo_field(edgesOnVertex)
+   call mpas_dmpar_exch_halo_field(cellsOnVertex)
 
-   call MPAS_dmpar_exch_halo_field(zgrid)
-   call MPAS_dmpar_exch_halo_field(zxu)
-   call MPAS_dmpar_exch_halo_field(zz)
-   call MPAS_dmpar_exch_halo_field(zb)
-   call MPAS_dmpar_exch_halo_field(zb3)
+   call mpas_dmpar_exch_halo_field(zgrid)
+   call mpas_dmpar_exch_halo_field(zxu)
+   call mpas_dmpar_exch_halo_field(zz)
+   call mpas_dmpar_exch_halo_field(zb)
+   call mpas_dmpar_exch_halo_field(zb3)
 
-   call MPAS_dmpar_exch_halo_field(deriv_two)
-   call MPAS_dmpar_exch_halo_field(cellTangentPlane)
-   call MPAS_dmpar_exch_halo_field(coeffs_reconstruct)
+   call mpas_dmpar_exch_halo_field(deriv_two)
+   call mpas_dmpar_exch_halo_field(cellTangentPlane)
+   call mpas_dmpar_exch_halo_field(coeffs_reconstruct)
 
-   call MPAS_dmpar_exch_halo_field(edgeNormalVectors)
-   call MPAS_dmpar_exch_halo_field(localVerticalUnitVectors)
-   call MPAS_dmpar_exch_halo_field(defc_a)
-   call MPAS_dmpar_exch_halo_field(defc_b)
+   call mpas_dmpar_exch_halo_field(edgeNormalVectors)
+   call mpas_dmpar_exch_halo_field(localVerticalUnitVectors)
+   call mpas_dmpar_exch_halo_field(defc_a)
+   call mpas_dmpar_exch_halo_field(defc_b)
    !
    ! Re-index from global index space to local index space
    !
-   call MPAS_pool_create_pool(reindexPool)
+   call mpas_pool_create_pool(reindexPool)
 
-   call MPAS_pool_add_config(reindexPool, 'cellsOnEdge', 1)
-   call MPAS_pool_add_config(reindexPool, 'edgesOnCell', 1)
-   call MPAS_pool_add_config(reindexPool, 'edgesOnEdge', 1)
-   call MPAS_pool_add_config(reindexPool, 'cellsOnCell', 1)
-   call MPAS_pool_add_config(reindexPool, 'verticesOnCell', 1)
-   call MPAS_pool_add_config(reindexPool, 'verticesOnEdge', 1)
-   call MPAS_pool_add_config(reindexPool, 'edgesOnVertex', 1)
-   call MPAS_pool_add_config(reindexPool, 'cellsOnVertex', 1)
+   call mpas_pool_add_config(reindexPool, 'cellsOnEdge', 1)
+   call mpas_pool_add_config(reindexPool, 'edgesOnCell', 1)
+   call mpas_pool_add_config(reindexPool, 'edgesOnEdge', 1)
+   call mpas_pool_add_config(reindexPool, 'cellsOnCell', 1)
+   call mpas_pool_add_config(reindexPool, 'verticesOnCell', 1)
+   call mpas_pool_add_config(reindexPool, 'verticesOnEdge', 1)
+   call mpas_pool_add_config(reindexPool, 'edgesOnVertex', 1)
+   call mpas_pool_add_config(reindexPool, 'cellsOnVertex', 1)
 
    ! Use an empty package list for reindexPool
-   call MPAS_pool_create_pool(reindexPkgs)
+   call mpas_pool_create_pool(reindexPkgs)
 
    call postread_reindex(meshPool, domain_ptr % streamManager % allPackages, &
                          reindexPool, reindexPkgs)
 
-   call MPAS_pool_destroy_pool(reindexPool)
-   call MPAS_pool_destroy_pool(reindexPkgs)
+   call mpas_pool_destroy_pool(reindexPool)
+   call mpas_pool_destroy_pool(reindexPkgs)
 
  end subroutine ufs_mpas_read_invariant
- 
+
  !> ########################################################################################
  !> Procedure to read MPAS IC file and populate UWM data containers.
  !>
  !> ########################################################################################
  subroutine ufs_mpas_read_init(statein)
    ! UFSATM
-   use MPAS_typedefs,   only : MPAS_statein_type
+   use mpas_typedefs,      only : mpas_statein_type
    ! MPAS
-   use mpas_kind_types, only : StrKIND, RKIND
-   use mpas_constants,  only : rvord
-   ! PIO
-   use pio,             only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen, var_desc_t, pio_initdecomp
-   ! FMS
-   use mpp_mod,         only : FATAL, mpp_error
+   use mpas_kind_types,    only : RKIND
+   use mpas_constants,     only : rvord
+   use mpas_derived_types, only : field2DReal, field3DReal
+   use mpas_pool_routines, only : mpas_pool_get_field
+   use mpas_dmpar,         only : mpas_dmpar_exch_halo_field
+
    ! Arguments
-   type (MPAS_statein_type), intent(inout) :: statein
+   type (mpas_statein_type), intent(inout) :: statein
    ! Locals
    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
-   integer :: index_qv, ierr
+   integer :: index_qv, index_qc, index_qh, index_qr, index_qi, index_qs, ierr
    ! Local MPAS pointers
    real(RKIND), pointer :: uperp(:,:)     ! Normal velocity at edges [m/s]  (nlev,nedge)
    real(RKIND), pointer :: w(:,:)         ! Vertical velocity [m/s]        (nlev+1,ncol)
@@ -1335,6 +1386,8 @@ contains
    real(RKIND), pointer :: uy(:,:)        ! Meridional veloc at center [m/s] (nlev,ncol)
    real(RKIND), pointer :: theta_base(:,:)
    real(RKIND), pointer :: rho_base(:,:)
+   type (field2DReal), pointer :: field_real2d
+   type (field3DReal), pointer :: field_real3d
 
    ! Local pointers
    uperp      => statein % uperp
@@ -1350,6 +1403,11 @@ contains
 
    ! Tracer indices
    index_qv = statein % index_qv
+   index_qc = statein % index_qc
+   index_qh = statein % index_qh
+   index_qr = statein % index_qr
+   index_qi = statein % index_qi
+   index_qs = statein % index_qs
 
    ! Read fields
    call ufs_mpas_read_init_field('u',          (/statein % nVertLevels,   statein % nEdgesSolve, 1/), uperp)
@@ -1359,27 +1417,53 @@ contains
    call ufs_mpas_read_init_field('theta_base', (/statein % nVertLevels,   statein % nCellsSolve, 1/), theta_base)
    call ufs_mpas_read_init_field('rho_base',   (/statein % nVertLevels,   statein % nCellsSolve, 1/), rho_base)
    call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qv,:,:), tracer_name='qv')
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qc,:,:), tracer_name='qc')
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qh,:,:), tracer_name='qh')
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qr,:,:), tracer_name='qr')
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qi,:,:), tracer_name='qi')
+   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qs,:,:), tracer_name='qs')
 
    ! Compute derived quantities.
    theta_m(:,1:statein % nCellsSolve) = theta(:,1:statein % nCellsSolve) * (1.0_RKIND + rvord * tracers(index_qv,:,1:statein % nCellsSolve))
    rho_zz(:,1:statein % nCellsSolve)  = rho(:,1:statein % nCellsSolve) / zz(:,1:statein % nCellsSolve)
 
    ! Update halos for initial state fields
-   call ufs_mpas_update_halo('u',       timeLevel=1)
-   call ufs_mpas_update_halo('w',       timeLevel=1)
-   call ufs_mpas_update_halo('scalars', timeLevel=1)
-   call ufs_mpas_update_halo('theta_m', timeLevel=1)
-   call ufs_mpas_update_halo('rho_zz',  timeLevel=1)
-   call ufs_mpas_update_halo('u',       timeLevel=2)
-   call ufs_mpas_update_halo('w',       timeLevel=2)
-   call ufs_mpas_update_halo('scalars', timeLevel=2)
-   call ufs_mpas_update_halo('theta_m', timeLevel=2)
-   call ufs_mpas_update_halo('rho_zz',  timeLevel=2)
-   call ufs_mpas_update_halo('theta')
-   call ufs_mpas_update_halo('rho')
-   call ufs_mpas_update_halo('rho_base')
-   call ufs_mpas_update_halo('theta_base')
-   
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'u', field_real2d, timeLevel=1)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'w', field_real2d, timeLevel=1)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real3d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'scalars', field_real3d, timeLevel=1)
+   call mpas_dmpar_exch_halo_field(field_real3d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta_m', field_real2d, timeLevel=1)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho_zz', field_real2d, timeLevel=1)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta', field_real2d)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho', field_real2d)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta_base', field_real2d)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
+   nullify(field_real2d)
+   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho_base', field_real2d)
+   call mpas_dmpar_exch_halo_field(field_real2d)
+
  end subroutine ufs_mpas_read_init
 
  !> ########################################################################################
@@ -1395,7 +1479,7 @@ contains
    use mpp_mod,              only : FATAL, mpp_error
    ! MPAS
    use mpas_kind_types,      only : StrKIND, RKIND
-   use mpas_pool_routines,   only : MPAS_pool_get_field_info, MPAS_pool_get_field
+   use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
    use mpas_derived_types,   only : mpas_pool_field_info_type, field3DReal
    ! Arguments
    character(len=*), intent(in   ) :: varname
@@ -1451,7 +1535,7 @@ contains
 
       ! Get MPAS domain decomposition.
       call get_mpas_pio_decomp(varname, indices)
-      
+
       ! Initialize domain decomp.
       allocate(dof(dimlens(1)*size(indices)))
       indx=1
@@ -1636,143 +1720,16 @@ contains
  end function int2str
 
  !> #########################################################################################
- !>
- !> \brief  Updates the halo of the named field
- !> \author Michael Duda
- !> \date   16 January 2020
- !> \details
- !>  Given the name of a field that is defined in the MPAS Registry.xml file,
- !>  this routine updates the halo for that field.
- !>
- !> \update: Dustin Swales April 2025 - Modified for use in UWM
- !>
- !> #########################################################################################
- subroutine ufs_mpas_update_halo(fieldName, timeLevel)
-   ! MPAS
-   use mpas_derived_types, only : field1DReal, field2DReal, field3DReal, field4DReal
-   use mpas_derived_types, only : field5DReal, field1DInteger, field2DInteger, field3DInteger
-   use mpas_derived_types, only : mpas_pool_field_info_type, MPAS_POOL_REAL, MPAS_POOL_INTEGER
-   use mpas_pool_routines, only : MPAS_pool_get_field_info, MPAS_pool_get_field
-   use mpas_dmpar,         only : MPAS_dmpar_exch_halo_field
-   use mpas_kind_types,    only : StrKIND
-   ! FMS
-   use mpp_mod,            only : FATAL, mpp_error
-   ! Arguments
-   character(len=*), intent(in) :: fieldName
-   integer, intent(in), optional :: timeLevel
-   ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_update_halo'
-   character(len=StrKIND) :: errString
-   type (mpas_pool_field_info_type) :: fieldInfo
-   type (field1DReal), pointer :: field_real1d
-   type (field2DReal), pointer :: field_real2d
-   type (field3DReal), pointer :: field_real3d
-   type (field4DReal), pointer :: field_real4d
-   type (field5DReal), pointer :: field_real5d
-   type (field1DInteger), pointer :: field_int1d
-   type (field2DInteger), pointer :: field_int2d
-   type (field3DInteger), pointer :: field_int3d
-
-   call MPAS_pool_get_field_info(domain_ptr % blocklist % allFields, trim(fieldName), fieldInfo)
-
-   if (fieldInfo % fieldType == MPAS_POOL_REAL) then
-      if (fieldInfo % nDims == 1) then
-         nullify(field_real1d)
-         if (present(timeLevel)) then
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real1d, timeLevel=timeLevel)
-         else
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real1d)
-         endif
-         if (associated(field_real1d)) then
-            call MPAS_dmpar_exch_halo_field(field_real1d)
-         end if
-      else if (fieldInfo % nDims == 2) then
-         nullify(field_real2d)
-         if (present(timeLevel)) then
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real2d, timeLevel=timeLevel)
-         else
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real2d)
-         endif
-         if (associated(field_real2d)) then
-            call MPAS_dmpar_exch_halo_field(field_real2d)
-         end if
-      else if (fieldInfo % nDims == 3) then
-         nullify(field_real3d)
-         if (present(timeLevel)) then
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real3d, timeLevel=timeLevel)
-         else
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real3d)
-         endif
-         if (associated(field_real3d)) then
-            call MPAS_dmpar_exch_halo_field(field_real3d)
-         end if
-      else if (fieldInfo % nDims == 4) then
-         nullify(field_real4d)
-         if (present(timeLevel)) then
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real4d, timeLevel=timeLevel)
-         else
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real4d)
-         endif
-         if (associated(field_real4d)) then
-            call MPAS_dmpar_exch_halo_field(field_real4d)
-         end if
-      else if (fieldInfo % nDims == 5) then
-         nullify(field_real5d)
-         if (present(timeLevel)) then
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real5d, timeLevel=timeLevel)
-         else
-            call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_real5d)
-         end if
-         if (associated(field_real5d)) then
-            call MPAS_dmpar_exch_halo_field(field_real5d)
-         end if
-      else
-         write(errString, '(a,i0,a)') subname//': FATAL: Unhandled dimensionality ', &
-              fieldInfo % nDims, ' for real-valued field'
-         call mpp_error(FATAL,subname//": "//trim(errString))
-      end if
-   else if (fieldInfo % fieldType == MPAS_POOL_INTEGER) then
-      if (fieldInfo % nDims == 1) then
-         nullify(field_int1d)
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int1d)
-         if (associated(field_int1d)) then
-            call MPAS_dmpar_exch_halo_field(field_int1d)
-         end if
-      else if (fieldInfo % nDims == 2) then
-         nullify(field_int2d)
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int2d)
-         if (associated(field_int2d)) then
-            call MPAS_dmpar_exch_halo_field(field_int2d)
-         end if
-      else if (fieldInfo % nDims == 3) then
-         nullify(field_int3d)
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(fieldName), field_int3d)
-         if (associated(field_int3d)) then
-            call MPAS_dmpar_exch_halo_field(field_int3d)
-         end if
-      else
-         write(errString, '(a,i0,a)') subname//': FATAL: Unhandled dimensionality ', &
-              fieldInfo % nDims, ' for integer-valued field'
-         call mpp_error(FATAL,subname//": "//trim(errString))
-      end if
-   else
-      write(errString, '(a,i0,a)') subname//': FATAL: Unhandled field type ', fieldInfo % fieldType
-      call mpp_error(FATAL,subname//": "//trim(errString))
-   end if
-
- end subroutine ufs_mpas_update_halo
-
- !> #########################################################################################
  !> Procedure to retreieve MPAS domain decomposition <indices>, for <varname>.
  !>
  !> ######################################################################################### 
  subroutine get_mpas_pio_decomp(varname, indices)
    use mpas_kind_types,      only : StrKIND, RKIND
-   use mpas_pool_routines,   only : MPAS_pool_get_field_info, MPAS_pool_get_field
-   use mpas_pool_routines,   only : MPAS_pool_get_subpool, mpas_pool_get_array
+   use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
+   use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array
    use mpas_pool_routines,   only : mpas_pool_get_dimension
    use mpas_derived_types,   only : mpas_pool_field_info_type, field2DReal, field3DReal
-   use mpas_derived_types,   only : MPAS_pool_type
+   use mpas_derived_types,   only : mpas_pool_type
    ! Arguments
    character(len=*), intent(in)  :: varname
    integer, dimension(:),allocatable, intent(inout) :: indices
@@ -1787,14 +1744,14 @@ contains
    logical :: meshFieldDim
    
    !
-   call MPAS_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
+   call mpas_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
    if (trim(varname) == 'scalars') then
       nullify(field3d)
       if (fieldInfo % nTimeLevels > 1) then
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
+         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
                                   timeLevel=fieldInfo % nTimeLevels )
       else
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
+         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
       endif
       if ( field3d % isDecomposed ) then
          meshFieldDim = .false.
@@ -1816,10 +1773,10 @@ contains
    else
       nullify(field2d)
       if (fieldInfo % nTimeLevels > 1) then
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
+         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
                                   timeLevel=fieldInfo % nTimeLevels )
       else
-         call MPAS_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
+         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
       endif
       !
       if ( field2d % isDecomposed ) then

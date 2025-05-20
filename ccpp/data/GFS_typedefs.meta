@@ -3381,71 +3381,6 @@
 
 ########################################################################
 [ccpp-table-properties]
-  name = FV3_control_type
-  type = ddt
-  dependencies =
-
-[ccpp-arg-table]
-  name = FV3_control_type
-  type = ddt
-[si]
-  standard_name = sigma_pressure_hybrid_vertical_coordinate
-  long_name = vertical sigma coordinate for radiation initialization
-  units = none
-  dimensions = (vertical_interface_dimension)
-  type = real
-  kind = kind_phys
-[ak]
-  standard_name = sigma_pressure_hybrid_coordinate_a_coefficient
-  long_name = a parameter for sigma pressure level calculations
-  units = Pa
-  dimensions = (vertical_interface_dimension)
-  type = real
-[bk]
-  standard_name = sigma_pressure_hybrid_coordinate_b_coefficient
-  long_name = b parameter for sigma pressure level calculations
-  units = none
-  dimensions = (vertical_interface_dimension)
-  type = real
-[isc]
-  standard_name = starting_x_index_for_this_MPI_rank
-  long_name = starting index in the x direction for this MPI rank
-  units = count
-  dimensions = ()
-  type = integer
-[jsc]
-  standard_name = starting_y_index_for_this_MPI_rank
-  long_name = starting index in the y direction for this MPI rank
-  units = count
-  dimensions = ()
-  type = integer
-[nx]
-  standard_name = number_of_points_in_x_direction_for_this_MPI_rank
-  long_name = number of points in x direction for this MPI rank
-  units = count
-  dimensions = ()
-  type = integer
-[ny]
-  standard_name = number_of_points_in_y_direction_for_this_MPI_rank
-  long_name = number of points in y direction for this MPI rank
-  units = count
-  dimensions = ()
-  type = integer
-[cnx]
-  standard_name = number_of_x_points_for_current_cubed_sphere_tile
-  long_name = number of points in x direction for this cubed sphere face
-  units = count
-  dimensions = ()
-  type = integer
-[cny]
-  standard_name = number_of_y_points_for_current_cubed_sphere_tile
-  long_name = number of points in y direction for this cubed sphere face
-  units = count
-  dimensions = ()
-  type = integer
-
-########################################################################
-[ccpp-table-properties]
   name = GFS_control_type
   type = ddt
   dependencies =
@@ -3564,6 +3499,42 @@
   units = flag
   dimensions = ()
   type = logical
+[isc]
+  standard_name = starting_x_index_for_this_MPI_rank
+  long_name = starting index in the x direction for this MPI rank
+  units = count
+  dimensions = ()
+  type = integer
+[jsc]
+  standard_name = starting_y_index_for_this_MPI_rank
+  long_name = starting index in the y direction for this MPI rank
+  units = count
+  dimensions = ()
+  type = integer
+[nx]
+  standard_name = number_of_points_in_x_direction_for_this_MPI_rank
+  long_name = number of points in x direction for this MPI rank
+  units = count
+  dimensions = ()
+  type = integer
+[ny]
+  standard_name = number_of_points_in_y_direction_for_this_MPI_rank
+  long_name = number of points in y direction for this MPI rank
+  units = count
+  dimensions = ()
+  type = integer
+[cnx]
+  standard_name = number_of_x_points_for_current_cubed_sphere_tile
+  long_name = number of points in x direction for this cubed sphere face
+  units = count
+  dimensions = ()
+  type = integer
+[cny]
+  standard_name = number_of_y_points_for_current_cubed_sphere_tile
+  long_name = number of points in y direction for this cubed sphere face
+  units = count
+  dimensions = ()
+  type = integer
 [naux2d]
   standard_name = number_of_xy_dimensioned_auxiliary_arrays
   long_name = number of 2d auxiliary arrays to output (for debugging)
@@ -3582,6 +3553,18 @@
   units = count
   dimensions = ()
   type = integer
+[ak]
+  standard_name = sigma_pressure_hybrid_coordinate_a_coefficient
+  long_name = a parameter for sigma pressure level calculations
+  units = Pa
+  dimensions = (vertical_interface_dimension)
+  type = real
+[bk]
+  standard_name = sigma_pressure_hybrid_coordinate_b_coefficient
+  long_name = b parameter for sigma pressure level calculations
+  units = none
+  dimensions = (vertical_interface_dimension)
+  type = real
 [levsp1]
   standard_name = vertical_interface_dimension
   long_name = number of vertical levels plus one
@@ -7386,6 +7369,13 @@
   long_name = seconds elapsed since model initialization
   units = s
   dimensions = ()
+  type = real
+  kind = kind_phys
+[si]
+  standard_name = sigma_pressure_hybrid_vertical_coordinate
+  long_name = vertical sigma coordinate for radiation initialization
+  units = none
+  dimensions = (vertical_interface_dimension)
   type = real
   kind = kind_phys
 [dxinv]

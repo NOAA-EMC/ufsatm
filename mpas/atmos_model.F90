@@ -26,7 +26,7 @@ module atmos_model_mod
   use fms_mod,               only : stdlog
   use mpp_mod,               only : stdout
   ! UFSATM
-  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal
+  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename
   implicit none
 
   private
@@ -50,7 +50,7 @@ module atmos_model_mod
   logical :: dycore_only  = .false.
   logical :: debug        = .false.
 
-  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite
+  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename
 
   ! Component Timers
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
@@ -178,16 +178,6 @@ contains
     allocate(Cfg % blksz(Atmos % nblks))
     Cfg % blksz(:) = blocksize
     Cfg % blksz(Atmos % nblks) = nCellsGlobal - (Atmos % nblks - 1)*blocksize
-    
-    ! ### Remove when implementing GFS physics and partitioning GFS data containers ###
-    ! The hybrid-sigma coordinates are included in a GFS data container that is set up
-    ! during the Physics init/namelist-read, below when calling MPAS_initialize(). These
-    ! fields should be in FV3 data container, allowing for both MPAS and FV3 to share
-    ! the GFS data container.
-    !allocate(Cfg%ak(Cfg%levs+1))
-    !allocate(Cfg%bk(Cfg%levs+1))
-    !Cfg%ak(:) = 0.0
-    !Cfg%bk(:) = 0.0
     
     ! Update time (UFS specific time formatting array)
     Cfg%bdat(:) = 0

@@ -24,12 +24,6 @@
   units = DDT
   dimensions = ()
   type = GFS_control_type
-[FV3_Control]
-  standard_name = FV3_control_type_instance
-  long_name = instance of derived type FV3_control_type
-  units = DDT
-  dimensions = ()
-  type = GFS_control_type
 [GFS_Statein]
   standard_name = GFS_statein_type_instance
   long_name = prognostic state data in from dycore

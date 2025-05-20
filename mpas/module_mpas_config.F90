@@ -31,9 +31,8 @@ module module_mpas_config
   !> Calendar type
   character(17)            :: calendar='                 '
 
-  !> Files (Should come from namelist. ToDo)
-  !character(len=256) :: mesh_filename = "external mesh file"!"x1.40962.grid.nc" ! This is not actually used during INIT.
-  character(len=256) :: ic_filename   = "mpas.init.nc"
+  !> MPAS Initial Condition file (comes from NML)
+  character(len=256) :: ic_filename
 
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem

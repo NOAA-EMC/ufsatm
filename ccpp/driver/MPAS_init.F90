@@ -28,7 +28,7 @@ contains
     type(MPAS_statein_type),     intent(inout) :: Statein
     type(MPAS_stateint_type),    intent(inout) :: Stateint
     type(MPAS_stateout_type),    intent(inout) :: Stateout
-    type(MPAS_control_type),     intent(in   ) :: MPAS
+    type(MPAS_control_type),     intent(inout) :: MPAS
 
     ! Locals
     integer :: nb
@@ -46,11 +46,10 @@ contains
     nthrds = 1
 #endif
     !--- set control properties (including namelist read)
-    call Model%init(MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit, &
-         MPAS%levs,  MPAS%gnx, MPAS%gny,     &
-         MPAS%dt_dycore, MPAS%dt_phys,  MPAS%iau_offset, MPAS%bdat, MPAS%cdat, MPAS%nwat,   &
-         MPAS%tracer_names, MPAS%tracer_types, MPAS%input_nml_file, MPAS%tile_num,          &
-         MPAS%blksz, MPAS%restart, MPAS%hydrostatic, MPAS%mpi_comm, MPAS%fcst_ntasks, nthrds)
+    call Model%init('MPAS', MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit, &
+         MPAS%levs, MPAS%dt_dycore, MPAS%dt_phys,  MPAS%iau_offset, MPAS%bdat, MPAS%cdat, &
+         MPAS%nwat, MPAS%tracer_names, MPAS%tracer_types, MPAS%input_nml_file,            &
+         MPAS%blksz, MPAS%restart, MPAS%mpi_comm, MPAS%fcst_ntasks, nthrds)
 
     call Diag%create(Model)
 

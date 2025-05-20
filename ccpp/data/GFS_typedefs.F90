@@ -745,9 +745,18 @@ module GFS_typedefs
     logical              :: gen_coord_hybrid!< for Henry's gen coord
 
 !--- set some grid extent parameters
+    integer              :: isc             !< starting i-index for this MPI-domain
+    integer              :: jsc             !< starting j-index for this MPI-domain
+    integer              :: nx              !< number of points in the i-dir for this MPI-domain
+    integer              :: ny              !< number of points in the j-dir for this MPI-domain
     integer              :: levs            !< number of vertical levels
+    !--- ak/bk for pressure level calculations
+    real(kind=kind_phys), pointer :: ak(:)  !< from surface (k=1) to TOA (k=levs)
+    real(kind=kind_phys), pointer :: bk(:)  !< from surface (k=1) to TOA (k=levs)
     integer              :: levsp1          !< number of vertical levels plus one
     integer              :: levsm1          !< number of vertical levels minus one
+    integer              :: cnx             !< number of points in the i-dir for this cubed-sphere face
+    integer              :: cny             !< number of points in the j-dir for this cubed-sphere face
     integer              :: lonr            !< number of global points in x-dir (i) along the equator
     integer              :: latr            !< number of global points in y-dir (j) along any meridian
     integer              :: tile_num
@@ -1624,7 +1633,7 @@ module GFS_typedefs
     integer              :: yearlen         !< length of the current forecast year in days
 !
     integer              :: iccn            !< using IN CCN forcing for MG2/3
-    !real(kind=kind_phys), pointer :: si(:)  !< vertical sigma coordinate for model initialization
+    real(kind=kind_phys), pointer :: si(:)  !< vertical sigma coordinate for model initialization
     real(kind=kind_phys)          :: sec    !< seconds since model initialization
 
 !--- Increment grid
@@ -1678,29 +1687,6 @@ module GFS_typedefs
       procedure :: print           => control_print
   end type GFS_control_type
 
-!--------------------------------------------------------------------
-! FV3_control_type
-! model control parameters input from a namelist and/or derived from others
-! FV3 dycore specific
-!-------------------------------------------------------------------- 
-!! \section arg_table_FV3_control_type
-!! \htmlinclude FV3_control_type.html
-!!
-  type FV3_control_type
-     real(kind=kind_phys), pointer :: ak(:)  !< from surface (k=1) to TOA (k=levs)
-     real(kind=kind_phys), pointer :: bk(:)  !< from surface (k=1) to TOA (k=levs)
-     real(kind=kind_phys), pointer :: si(:)  !< vertical sigma coordinate for model initialization
-     integer              :: isc             !< starting i-index for this MPI-domain
-     integer              :: jsc             !< starting j-index for this MPI-domain
-     integer              :: nx              !< number of points in the i-dir for this MPI-domain
-     integer              :: ny              !< number of points in the j-dir for this MPI-domain 
-     integer              :: cnx             !< number of points in the i-dir for this cubed-sphere face
-     integer              :: cny             !< number of points in the j-dir for this cubed-sphere face
-     
-   contains
-     procedure :: init  => control_initialize_fv3
-     procedure :: print => control_print_fv3
-  end type FV3_control_type
 
 !--------------------------------------------------------------------
 ! GFS_grid_type
@@ -2235,7 +2221,7 @@ module GFS_typedefs
   public GFS_statein_type,  GFS_stateout_type, GFS_sfcprop_type, &
          GFS_coupling_type
   public GFS_control_type,  GFS_grid_type,     GFS_tbd_type, &
-         GFS_cldprop_type,  GFS_radtend_type,  GFS_diag_type, FV3_control_type
+         GFS_cldprop_type,  GFS_radtend_type,  GFS_diag_type
 
 !*******************************************************************************************
   CONTAINS
@@ -2338,13 +2324,12 @@ module GFS_typedefs
 !------------------------
 ! GFS_sfcprop_type%create
 !------------------------
-  subroutine sfcprop_create (Sfcprop, Model, Model_fv3)
+  subroutine sfcprop_create (Sfcprop, Model)
 
     implicit none
 
     class(GFS_sfcprop_type)            :: Sfcprop
     type(GFS_control_type), intent(in) :: Model
-    type(FV3_control_type), intent(in) :: Model_fv3
     integer :: IM
 
     character(len=512)                 :: errmsg
@@ -2917,11 +2902,10 @@ module GFS_typedefs
     endif
 
     ! land iau control setting
-    call land_iau_mod_set_control(Sfcprop%land_iau_control,             &
+    call land_iau_mod_set_control(Sfcprop%land_iau_control, &
             Model%fn_nml, Model%input_nml_file, Model%me, Model%master, &
-            Model_fv3%isc,  Model_fv3%jsc,  Model_fv3%nx,  Model_fv3%ny,&
-            Model%tile_num,  Model%nblks,  Model%blksz, Model%lsoil,    &
-            Model%lsnow_lsm, Model%dtp, Model%fhour, errmsg, errflg)
+            Model%isc,  Model%jsc,  Model%nx,  Model%ny,  Model%tile_num,  Model%nblks,  Model%blksz, &
+            Model%lsoil, Model%lsnow_lsm, Model%dtp, Model%fhour, errmsg, errflg)
 
     if (errflg/=0) then
       if (Model%me==Model%master) then
@@ -3332,15 +3316,15 @@ module GFS_typedefs
 !----------------------
 ! GFS_control_type%init
 !----------------------
-  subroutine control_initialize (Model, nlunit, fn_nml, me, master, &
-                                 logunit,  levs,   &
-                                 gnx, gny, dt_dycore,     &
+  subroutine control_initialize (Model, dycore, nlunit, fn_nml, me, &
+                                 master, logunit, levs, dt_dycore,  &
                                  dt_phys, iau_offset, idat, jdat,   &
                                  nwat, tracer_names, tracer_types,  &
-                                 input_nml_file, tile_num, blksz,   &
-                                 restart, hydrostatic,      &
-                                 communicator, ntasks, nthreads)
-
+                                 input_nml_file, blksz, restart,    &
+                                 communicator, ntasks, nthreads,    &
+                                 tile_num, isc, jsc, nx, ny,  cnx,  &
+                                 cny, gnx, gny, ak, bk, hydrostatic)
+    
 !--- modules
     use physcons,         only: con_rerth, con_pi
     use mersenne_twister, only: random_setseed, random_number
@@ -3350,15 +3334,13 @@ module GFS_typedefs
 
 !--- interface variables
     class(GFS_control_type)            :: Model
+    character(len=*),       intent(in) :: dycore
     integer,                intent(in) :: nlunit
     character(len=64),      intent(in) :: fn_nml
     integer,                intent(in) :: me
     integer,                intent(in) :: master
     integer,                intent(in) :: logunit
-    integer,                intent(in) :: tile_num
     integer,                intent(in) :: levs
-    integer,                intent(in) :: gnx
-    integer,                intent(in) :: gny
     real(kind=kind_phys),   intent(in) :: dt_dycore
     real(kind=kind_phys),   intent(in) :: dt_phys
     integer,                intent(in) :: iau_offset
@@ -3370,10 +3352,22 @@ module GFS_typedefs
     character(len=:),       intent(in), dimension(:), pointer :: input_nml_file
     integer,                intent(in) :: blksz(:)
     logical,                intent(in) :: restart
-    logical,                intent(in) :: hydrostatic
     type(MPI_Comm),         intent(in) :: communicator
     integer,                intent(in) :: ntasks
     integer,                intent(in) :: nthreads
+    !--- optional variables (Dycore specific)
+    integer, optional,      intent(in) :: tile_num
+    integer, optional,      intent(in) :: isc
+    integer, optional,      intent(in) :: jsc
+    integer, optional,      intent(in) :: nx
+    integer, optional,      intent(in) :: ny
+    integer, optional,      intent(in) :: cnx
+    integer, optional,      intent(in) :: cny
+    integer, optional,      intent(in) :: gnx
+    integer, optional,      intent(in) :: gny
+    logical, optional,      intent(in) :: hydrostatic
+    real(kind_phys), optional, dimension(:), intent(in) :: ak
+    real(kind_phys), optional, dimension(:), intent(in) :: bk
 
     !--- local variables
     integer :: i, j, n
@@ -4255,6 +4249,46 @@ module GFS_typedefs
 !--- NRL ozone physics
     character(len=128) :: err_message
 
+    !--- If initializing model with FV3 dynamical core.
+    if (trim(dycore) == 'FV3') then
+       if (.not. present(tile_num)) then
+          write(6,*) 'ERROR: <tile_num> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(isc)) then
+          write(6,*) 'ERROR: <isc> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(jsc)) then
+          write(6,*) 'ERROR: <jsc> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(nx)) then
+          write(6,*) 'ERROR: <nx> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(ny)) then
+          write(6,*) 'ERROR: <ny> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(cnx)) then
+          write(6,*) 'ERROR: <cnx> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(cny)) then
+          write(6,*) 'ERROR: <cny> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(gnx)) then
+          write(6,*) 'ERROR: <gnx> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(gny)) then
+          write(6,*) 'ERROR: <gny> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(hydrostatic)) then
+          write(6,*) 'ERROR: <hydrostatic> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(ak)) then
+          write(6,*) 'ERROR: <ak> is required when using FV3 dynamical core'
+       endif
+       if (.not. present(bk)) then
+          write(6,*) 'ERROR: <bk> is required when using FV3 dynamical core'
+       endif
+    endif
+    
     ! dtend selection: default is to match all variables:
     dtend_select(1)='*'
     do ipat=2,pat_count
@@ -4403,13 +4437,28 @@ module GFS_typedefs
     Model%sfcpress_id      = sfcpress_id
     Model%gen_coord_hybrid = gen_coord_hybrid
 
-    !--- set some grid extent parameters
-    Model%tile_num         = tile_num
+    !--- set some grid extent parameters (dycore specific)
+    if (trim(dycore) == 'FV3') then
+       Model%tile_num         = tile_num
+       Model%isc              = isc
+       Model%jsc              = jsc
+       Model%nx               = nx
+       Model%ny               = ny
+       allocate (Model%ak(1:size(ak)))
+       allocate (Model%bk(1:size(bk)))
+       Model%ak               = ak
+       Model%bk               = bk
+       Model%cnx              = cnx
+       Model%cny              = cny
+       Model%lonr             = gnx         ! number longitudinal points
+       Model%latr             = gny         ! number of latitudinal points from pole to pole
+    endif
+    if (trim(dycore) == 'MPAS') then
+
+    end if
     Model%levs             = levs
     Model%levsp1           = Model%levs + 1
     Model%levsm1           = Model%levs - 1
-    Model%lonr             = gnx         ! number longitudinal points
-    Model%latr             = gny         ! number of latitudinal points from pole to pole
     Model%nblks            = size(blksz)
     allocate (Model%blksz(1:Model%nblks))
     Model%blksz            = blksz
@@ -5746,22 +5795,34 @@ module GFS_typedefs
     Model%first_time_step  = .true.
     Model%restart          = restart
     Model%lsm_cold_start   = .not. restart
-    Model%hydrostatic      = hydrostatic
     if (Model%me == Model%master) then
       print *,'in atm phys init, phour=',Model%phour,'fhour=',Model%fhour,'zhour=',Model%zhour,'kdt=',Model%kdt
     endif
 
-
-    if(Model%hydrostatic .and. Model%lightning_threat) then
-      write(0,*) 'Turning off lightning threat index for hydrostatic run.'
-      Model%lightning_threat = .false.
-      lightning_threat = .false.
+    if (trim(dycore) == 'FV3') then
+       Model%hydrostatic      = hydrostatic
+       if(Model%hydrostatic .and. Model%lightning_threat) then
+          write(0,*) 'Turning off lightning threat index for hydrostatic run.'
+          Model%lightning_threat = .false.
+          lightning_threat = .false.
+       endif
     endif
 
+    !--- Define sigma level for radiation initialization (FV3)
+    !--- The formula converting hybrid sigma pressure coefficients to sigma coefficients follows Eckermann (2009, MWR)
+    !--- ps is replaced with p0. The value of p0 uses that in http://www.emc.ncep.noaa.gov/officenotes/newernotes/on461.pdf
+    !--- ak/bk have been flipped from their original FV3 orientation and are defined sfc -> toa
+    if (trim(dycore) == 'FV3') then
+       allocate (Model%si(Model%levs+1))
+       Model%si(1:Model%levs+1) = (ak(1:Model%levs+1) + bk(1:Model%levs+1) * con_p0 - ak(Model%levs+1)) / (con_p0 - ak(Model%levs+1))
+    end if
+
+    ! --- Set default time
     Model%jdat(1:8)        = jdat(1:8)
     Model%sec              = 0
     Model%yearlen          = 365
     Model%julian           = -9999.
+
     !--- Set vertical flag used by radiation schemes
     Model%top_at_1         = .false.
     if (Model%do_RRTMGP) then
@@ -6357,44 +6418,10 @@ module GFS_typedefs
 !     Model%do_stcsmc_adjustment = land_iau_do_stcsmc_adjustment
 !     Model%min_T_increment = land_iau_min_T_increment
 
-    call Model%print ()
+    call Model%print (dycore)
 
   end subroutine control_initialize
 
-  subroutine control_initialize_fv3(Model_fv3, Model, ak, bk, isc, jsc, nx, ny, cnx, cny)
-    class(FV3_control_type) :: Model_fv3
-    type(GFS_control_type), intent(in   ) :: Model
-    real(kind=kind_phys), dimension(:), intent(in) :: ak
-    real(kind=kind_phys), dimension(:), intent(in) :: bk
-    integer,                intent(in) :: isc
-    integer,                intent(in) :: jsc
-    integer,                intent(in) :: nx
-    integer,                intent(in) :: ny
-    integer,                intent(in) :: cnx
-    integer,                intent(in) :: cny
-
-    !--- set some grid extent parameters
-    Model_fv3%isc  = isc
-    Model_fv3%jsc  = jsc
-    Model_fv3%nx   = nx
-    Model_fv3%ny   = ny
-    Model_fv3%cnx  = cnx
-    Model_fv3%cny  = cny
-    
-    allocate (Model_fv3%ak(1:size(ak)))
-    allocate (Model_fv3%bk(1:size(bk)))
-    Model_fv3%ak = ak
-    Model_fv3%bk = bk
-
-    allocate (Model_fv3%si(1:size(ak)))
-    !--- Define sigma level for radiation initialization
-    !--- The formula converting hybrid sigma pressure coefficients to sigma coefficients follows Eckermann (2009, MWR)
-    !--- ps is replaced with p0. The value of p0 uses that in http://www.emc.ncep.noaa.gov/officenotes/newernotes/on461.pdf
-    !--- ak/bk have been flipped from their original FV3 orientation and are defined sfc -> toa
-    Model_fv3%si(1:Model%levs+1) = (ak(1:Model%levs+1) + bk(1:Model%levs+1) * con_p0 - ak(Model%levs+1)) / (con_p0 - ak(Model%levs+1))
-
-  end subroutine control_initialize_fv3
-  
   subroutine control_initialize_radar_tten(Model, radar_tten_limits)
     implicit none
 
@@ -6565,12 +6592,13 @@ module GFS_typedefs
 !------------------
 ! GFS_control%print
 !------------------
-  subroutine control_print(Model)
+  subroutine control_print(Model, dycore)
 
     implicit none
 
 !--- interface variables
     class(GFS_control_type) :: Model
+    character(len=*), intent(in) :: dycore
 
 !--- local variables
     integer :: i
@@ -6601,12 +6629,24 @@ module GFS_typedefs
       print *, ' thermodyn_id      : ', Model%thermodyn_id
       print *, ' sfcpress_id       : ', Model%sfcpress_id
       print *, ' gen_coord_hybrid  : ', Model%gen_coord_hybrid
-      print *, ' hydrostatic       : ', Model%hydrostatic
+      if (trim(dycore) == 'FV3') then
+         print *, ' hydrostatic       : ', Model%hydrostatic
+      endif
       print *, ' '
       print *, 'grid extent parameters'
-      print *, ' levs              : ', Model%levs
-      print *, ' lonr              : ', Model%lonr
-      print *, ' latr              : ', Model%latr
+      if (trim(dycore) == 'FV3') then
+         print *, ' isc               : ', Model%isc
+         print *, ' jsc               : ', Model%jsc
+         print *, ' nx                : ', Model%nx
+         print *, ' ny                : ', Model%ny
+         print *, ' levs              : ', Model%levs
+         print *, ' cnx               : ', Model%cnx
+         print *, ' cny               : ', Model%cny
+         print *, ' lonr              : ', Model%lonr
+         print *, ' latr              : ', Model%latr
+      end if
+      if (trim(dycore) == 'MPAS') then
+      endif
       print *, ' blksz(1)          : ', Model%blksz(1)
       print *, ' blksz(nblks)      : ', Model%blksz(Model%nblks)
       print *, ' Model%ncols       : ', Model%ncols
@@ -7149,6 +7189,9 @@ module GFS_typedefs
       print *, ' zhour             : ', Model%zhour
       print *, ' kdt               : ', Model%kdt
       print *, ' jdat              : ', Model%jdat
+      if (trim(dycore) == 'FV3') then
+         print *, ' si                : ', Model%si
+      endif
       print *, ' sec               : ', Model%sec
       print *, ' first_time_step   : ', Model%first_time_step
       print *, ' restart           : ', Model%restart
@@ -7160,31 +7203,6 @@ module GFS_typedefs
 
   end subroutine control_print
 
-  
-!------------------
-! FV3_control%print
-!------------------
-  subroutine control_print_fv3(Model_fv3, Model)
-    implicit none
-
-    !--- interface variables
-    class(FV3_control_type) :: Model_fv3
-    type(GFS_control_type)  :: Model
-
-    if (Model%me == Model%master) then
-       print *, ' '
-       print *, 'grid extent parameters'
-       print *, ' isc               : ', Model_fv3%isc
-       print *, ' jsc               : ', Model_fv3%jsc
-       print *, ' nx                : ', Model_fv3%nx
-       print *, ' ny                : ', Model_fv3%ny
-       print *, ' cnx               : ', Model_fv3%cnx
-       print *, ' cny               : ', Model_fv3%cny
-       print *, ' '
-       print *, 'variables only needed for FV3 dynamical core'
-       print *, ' si                : ', Model_fv3%si
-    endif
-  end subroutine control_print_fv3
 
 !----------------
 ! GFS_grid%create

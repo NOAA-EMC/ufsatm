@@ -78,12 +78,12 @@ module MPAS_typedefs
      !                                             !< equal to gnx for lat-lon grids
      !integer :: cny                               !< number of points in j-dir for this cubed-sphere face
      !                                             !< equal to gny for lat-lon grids
-     integer :: gnx                               !< number of global points in x-dir (i) along the equator
-     integer :: gny                               !< number of global points in y-dir (j) along any meridian
+     !integer :: gnx                               !< number of global points in x-dir (i) along the equator
+     !integer :: gny                               !< number of global points in y-dir (j) along any meridian
      integer :: iau_offset                        !< iau running window length
-     integer :: tile_num                          !< tile number for this MPI rank
+     !integer :: tile_num                          !< tile number for this MPI rank
      logical :: restart                           !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
-     logical :: hydrostatic                       !< flag whether this is a hydrostatic or non-hydrostatic run
+     !logical :: hydrostatic                       !< flag whether this is a hydrostatic or non-hydrostatic run
   end type MPAS_control_type
 
   ! #########################################################################################
@@ -125,8 +125,13 @@ module MPAS_typedefs
                                                   ! of the sphere [dimensionless]         (3,ncol)
      integer, pointer :: cellsOnEdge(:,:)         ! Indices of cells separated by an edge (2,nedge)
 
-     ! Index for h2o mixing ratio.
-     integer  :: index_qv
+     ! Indices for tracer (scalar) indices
+     integer  :: index_qv                         ! Tracer index for water-vapor mixing-ratio
+     integer  :: index_qc                         ! Tracer index for cloud-water mixing-ratio
+     integer  :: index_qr                         ! Tracer index for rain-water mixing-ratio
+     integer  :: index_qs                         ! Tracer index for snow mixing-ratio
+     integer  :: index_qi                         ! Tracer index for ice mixing ratio
+     integer  :: index_qh                         ! Tracer index for hail mixing ratio
 
      ! Base state variables
      real(mpas_kind), pointer :: rho_base(:,:)    ! Base-state dry air density [kg/m^3]  (nlev,ncol)
@@ -202,8 +207,13 @@ module MPAS_typedefs
      real(mpas_kind), pointer :: fzp(:)           ! Interp weight from k-1 layer midpoint to k
                                                   ! layer interface [dimensionless] (nlev)
 
-     ! Index for h2o mixing ratio.
-     integer  :: index_qv
+     ! Indices for tracer (scalar) indices
+     integer  :: index_qv                         ! Tracer index for water-vapor mixing-ratio
+     integer  :: index_qc                         ! Tracer index for cloud-water mixing-ratio
+     integer  :: index_qr                         ! Tracer index for rain-water mixing-ratio
+     integer  :: index_qs                         ! Tracer index for snow mixing-ratio
+     integer  :: index_qi                         ! Tracer index for ice mixing ratio
+     integer  :: index_qh                         ! Tracer index for hail mixing ratio
 
      ! State that is directly prognosed by the dycore
      real(mpas_kind), pointer :: uperp(:,:)       ! Normal velocity at edges [m/s]  (nlev  ,nedge)

@@ -73,7 +73,6 @@ TYPEDEFS_NEW_METADATA = {
         },
     'GFS_typedefs' : {
         'GFS_control_type'      : 'GFS_Control',
-        'FV3_control_type'      : 'FV3_Control',
         'GFS_statein_type'      : 'GFS_Statein',
         'GFS_stateout_type'     : 'GFS_Stateout',
         'GFS_grid_type'         : 'GFS_Grid',
