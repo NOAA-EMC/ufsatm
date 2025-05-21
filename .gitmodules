@@ -4,11 +4,12 @@
   branch = dev/emc
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  url = https://github.com/RuiyuSun/ccpp-physics.git
+  url = https://github.com/NCAR/ccpp-framework
   branch = gcycleupdate 
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
+  #url = https://github.com/ufs-community/ccpp-physics
+  url = https://github.com/RuiyuSun/ccpp-physics.git 
   branch = ufs/dev
 [submodule "upp"]
   path = upp
