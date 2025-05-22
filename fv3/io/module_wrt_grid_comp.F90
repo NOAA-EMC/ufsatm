@@ -196,6 +196,7 @@
       real(ESMF_KIND_R8)                      :: valueR8
       logical, allocatable                    :: is_moving(:)
       logical                                 :: isPresent
+      integer                                 :: minIndex(2), maxIndex(2)
 
       integer :: attCount, jidx, idx, noutfile
       character(19)  :: newdate
@@ -598,6 +599,15 @@
 
             deallocate(petMap)
           endif
+
+          call ESMF_GridGet(wrtGrid(n), tile=1, staggerloc=ESMF_STAGGERLOC_CENTER, minIndex=minIndex, maxIndex=maxIndex, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          wrt_int_state%out_grid_info(n)%i_start = 1
+          wrt_int_state%out_grid_info(n)%i_end   = maxIndex(1) - minIndex(1) + 1
+          wrt_int_state%out_grid_info(n)%j_start = 1
+          wrt_int_state%out_grid_info(n)%j_end   = maxIndex(2) - minIndex(2) + 1
+
         else  ! non 'cubed_sphere_grid'
           if ( trim(output_grid(n)) == 'gaussian_grid') then
 
