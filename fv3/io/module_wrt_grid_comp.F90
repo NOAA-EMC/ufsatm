@@ -1722,6 +1722,7 @@
       logical                               :: use_parallel_netcdf
       real, allocatable                     :: output_fh(:)
       logical                               :: is_restart_bundle, restart_written
+      logical                               :: lupp_history, lrestart
       integer                               :: tileCount
       type(ESMF_Info)                       :: fcstInfo, wrtInfo
       character(len=ESMF_MAXSTR)            :: output_grid_name
@@ -1782,7 +1783,34 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       if (nf_hours < 0) return
+!
+!*** set up output time on write grid comp:
+!
+      call ESMF_TimeIntervalGet(timeinterval=io_currtimediff, s=fcst_seconds, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+      ! fcst_seconds is number of seconds in io_currtimediff, which is time interval between currenttime and io_basetime.
+      ! io_basetime has been adjusted by iau_offset in initialize phase.
+      ! Since output_fh and frestart and NOT adjusted by iau_offset, in order to compare
+      ! them with fcst_seconds, we must also adjust fcst_seconds by iau_offset
+      if (iau_offset > 0) then
+        fcst_seconds = fcst_seconds + iau_offset*3600
+      endif
+
+      if(lprnt) print *,'in wrt run, fcst_seconds=',fcst_seconds/3600.,'output_fh=',output_fh(1:10), 'frestart(:)=',frestart(1:10)/3600.
+!
+!--- set up logic variable to run upp/history and restart
+!
+      lupp_history = .false.
+      lrestart = .false.
+      if ( ANY(nint(output_fh(:)*3600) == nint(nfhour*3600)) ) lupp_history = .true.
+      if ( ANY(frestart(:) == fcst_seconds) ) lrestart = .true.
+      if ( .not. (lupp_history .or. lrestart ) ) return
+      if(lprnt) print *,'in wrt run, fcst_seconds=',fcst_seconds/3600.,'nfhour=',nfhour,'lupp_history=', lupp_history, &
+         'lrestart=',lrestart, 'write grid comp not return'
+!
+!--- set up current forecast hours
+!
       if (lflname_fulltime) then
         ndig = max(log10(nf_hours+0.5)+1., 3.)
         write(cform, '("(I",I1,".",I1,",A1,I2.2,A1,I2.2)")') ndig, ndig
@@ -2019,7 +2047,7 @@
 !*** do post
 !-----------------------------------------------------------------------
       lmask_fields = .false.
-      if( wrt_int_state%write_dopost ) then
+      if( wrt_int_state%write_dopost .and. lupp_history ) then
 #ifdef INLINE_POST
         wbeg = MPI_Wtime()
         do n=1,ngrids
@@ -2080,20 +2108,11 @@
 ! ** now loop through output field bundle
 !-----------------------------------------------------------------------
 
-      call ESMF_TimeIntervalGet(timeinterval=io_currtimediff, s=fcst_seconds, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      if ( wrt_int_state%output_history .and. (lupp_history .or. lrestart) ) then
 
-      ! fcst_seconds is number of seconds in io_currtimediff, which is time interval between currenttime and io_basetime.
-      ! io_basetime has been adjusted by iau_offset in initialize phase.
-      ! Since output_fh and frestart and NOT adjusted by iau_offset, in order to compare
-      ! them with fcst_seconds, we must also adjust fcst_seconds by iau_offset
-      if (iau_offset > 0) then
-        fcst_seconds = fcst_seconds + iau_offset*3600
-      endif
+        if (lprnt) write(0,*)'wrt_run: loop over wrt_int_state%FBCount ',wrt_int_state%FBCount, ' nfhour ',  nfhour, &
+          ' cdate ', cdate(1:6), 'lupp_histor',lupp_history,'lrestart=',lrestart
 
-      if ( (wrt_int_state%output_history .and. ANY(nint(output_fh(:)*3600.0) == fcst_seconds)) .or. ANY(frestart(:) == fcst_seconds) ) then
-
-        ! if (lprnt) write(0,*)'wrt_run: loop over wrt_int_state%FBCount ',wrt_int_state%FBCount, ' nfhour ',  nfhour, ' cdate ', cdate(1:6)
         two_phase_loop: do out_phase = 1, 2
 
           restart_written = .false.
