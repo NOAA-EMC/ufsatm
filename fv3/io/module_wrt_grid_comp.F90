@@ -2107,9 +2107,6 @@
 
       if ( wrt_int_state%output_history .and. (lupp_history .or. lrestart) ) then
 
-        if (lprnt) write(0,*)'wrt_run: loop over wrt_int_state%FBCount ',wrt_int_state%FBCount, ' nfhour ',  nfhour, &
-          ' cdate ', cdate(1:6), 'lupp_histor',lupp_history,'lrestart=',lrestart
-
         two_phase_loop: do out_phase = 1, 2
 
           restart_written = .false.
