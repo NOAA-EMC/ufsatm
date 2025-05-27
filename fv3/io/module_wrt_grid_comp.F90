@@ -2105,7 +2105,7 @@
 ! ** now loop through output field bundle
 !-----------------------------------------------------------------------
 
-      if ( wrt_int_state%output_history .and. (lupp_history .or. lrestart) ) then
+      if ( (wrt_int_state%output_history .and. lupp_history) .or. lrestart ) then
 
         two_phase_loop: do out_phase = 1, 2
 
