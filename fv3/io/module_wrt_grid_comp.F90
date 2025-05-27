@@ -1796,18 +1796,14 @@
       if (iau_offset > 0) then
         fcst_seconds = fcst_seconds + iau_offset*3600
       endif
-
-      if(lprnt) print *,'in wrt run, fcst_seconds=',fcst_seconds/3600.,'output_fh=',output_fh(1:10), 'frestart(:)=',frestart(1:10)/3600.
 !
 !--- set up logic variable to run upp/history and restart
 !
       lupp_history = .false.
       lrestart = .false.
-      if ( ANY(nint(output_fh(:)*3600) == nint(nfhour*3600)) ) lupp_history = .true.
+      if ( ANY(nint(output_fh(:)*3600) == fcst_seconds) ) lupp_history = .true.
       if ( ANY(frestart(:) == fcst_seconds) ) lrestart = .true.
       if ( .not. (lupp_history .or. lrestart ) ) return
-      if(lprnt) print *,'in wrt run, fcst_seconds=',fcst_seconds/3600.,'nfhour=',nfhour,'lupp_history=', lupp_history, &
-         'lrestart=',lrestart, 'write grid comp not return'
 !
 !--- set up current forecast hours
 !
@@ -1821,7 +1817,8 @@
         write(cfhour, cform) nf_hours
       endif
 !
-       if(lprnt) print *,'in wrt run, nfhour=',nfhour,' cfhour=',trim(cfhour)
+      if(lprnt) print *,'in wrt run, cdate=',cdate(1:4),'fcst_seconds=',fcst_seconds/3600.,'nfhour=',nfhour,&
+       'lupp_history=', lupp_history, 'lrestart=',lrestart,'write grid comp not return',cfhour=',trim(cfhour)
 !
 !-----------------------------------------------------------------------
 !*** loop on the "output_" FieldBundles, i.e. files that need to write out
@@ -2124,9 +2121,9 @@
             is_restart_bundle = .false.
             if (wrtFBName(1:8) == 'restart_') then
               is_restart_bundle = .true.
-              if (.not.(ANY(frestart(:) == fcst_seconds))) cycle
+              if (.not.lrestart) cycle
             else
-              if (.not.(wrt_int_state%output_history .and. ANY(nint(output_fh(:)*3600.0) == fcst_seconds))) cycle
+              if (.not.(wrt_int_state%output_history .and. lupp_history)) cycle
             endif
 
             if (out_phase == 1 .and. is_restart_bundle) cycle
