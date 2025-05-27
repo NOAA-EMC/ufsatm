@@ -830,6 +830,15 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 end subroutine atmos_model_init
 ! </SUBROUTINE>
 
+  !> This will set the forecast hour based on the fhzero_array 
+  !> input. This should handle both an input of a full fhzero 
+  !> array and one that uses increments.
+  !>
+  !> @param tmpflag_fhzero logical if current timestep is in between output hours
+  !> @param[inout] sec time since model initialization, in sec
+  !> @param[inout] sec_lastfhzerofh time since last fhzero time, in sec
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
 subroutine set_fhzero_loop(sec, sec_lastfhzerofh)
 
    logical                      :: tmpflag_fhzero
@@ -1049,6 +1058,15 @@ subroutine update_atmos_model_state (Atmos, rc)
  end subroutine update_atmos_model_state
 ! </SUBROUTINE>
 
+  !> This will calculate time if an IAU offest has been defined
+  !> in the model configuration.
+  !>
+  !> @param[inout] atmos the main atmos model configurations 
+  !> @param[inout] time_init model initialization time
+  !> @param[inout] time_intfull model time remaining
+  !> @param seconds time since model initialization
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
  subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds)
 
    type (atmos_data_type),   intent(inout)  :: Atmos

@@ -1151,6 +1151,17 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
    end subroutine fcst_initialize
 
+  !> Create forecast hour time array. This will be used
+  !> to dictate when restart files are going to be written.
+  !>
+  !> @param[inout] Time_init model initialization time
+  !> @param[inout] Time_end model end time
+  !> @param[inout] Time_step_restart restart time based on restart_interval
+  !> @param[inout] Time_restart calculated restart time
+  !> @param[inout] num_restart_interval user defined restart interval
+  !> @param[inout] restart_interval restart interval, allocatable
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
   subroutine fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
                                    Time_restart, num_restart_interval, &
                                    restart_interval)

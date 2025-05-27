@@ -987,7 +987,14 @@ module fv3atm_cap_mod
   end subroutine InitializeAdvertise
 
 !-----------------------------------------------------------------------------
-
+  !> This will calculate output hours if the user has stated a 
+  !> an fhzero frequency.
+  !>
+  !> @param[inout] nfhmax maximum number of forecast hours
+  !> @param[inout] output_startfh ouptut start time
+  !> @param[inout] outputfh2 user defined forecast hour configuration
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
   subroutine OutputHours_FrequencyInput(nfhmax, output_startfh, outputfh2)
     integer                   :: nfh, i
     real, intent(inout)       :: nfhmax, output_startfh, outputfh2(2)
@@ -1013,6 +1020,13 @@ module fv3atm_cap_mod
     endif
   end subroutine OutputHours_FrequencyInput
 
+  !> This will calculate output hours if the user has stated a
+  !> an array of desired output hours.
+  !>
+  !> @param[inout] noutput_fh index of output hours array
+  !> @param[inout] output_startfh ouptut start time
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
   subroutine OutputHours_ArrayInput(noutput_fh,output_startfh)
 
     integer                   :: ist, i
