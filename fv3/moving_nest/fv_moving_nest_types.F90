@@ -1,3 +1,7 @@
+!> @file
+!> @brief Provides data structures for moving nest functionality
+!> @author W. Ramstrom (William.Ramstrom@noaa.gov), AOML/HRD  @date 03/24/2022
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -18,13 +22,6 @@
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
 
-!***********************************************************************
-!> @file
-!! @brief Provides data structures for moving nest functionality
-!! @author W. Ramstrom, AOML/HRD   03/24/2022
-!! @email William.Ramstrom@noaa.gov
-! =======================================================================!
-
 module fv_moving_nest_types_mod
 
 #include <fms_platform.h>
@@ -44,32 +41,31 @@ module fv_moving_nest_types_mod
 
   type fv_moving_nest_flag_type
     ! Moving Nest Namelist Variables
-    logical               :: is_moving_nest = .false.
-    character(len=120)    :: surface_dir = "INPUT/moving_nest"
-    integer               :: terrain_smoother = 4
-    integer               :: vortex_tracker = 0
-    integer               :: ntrack = 1
-    integer               :: corral_x = 5
-    integer               :: corral_y = 5
-
-    integer               :: outatcf_lun = 600
+    logical               :: is_moving_nest = .false. !< ???
+    character(len=120)    :: surface_dir = "INPUT/moving_nest" !< ???
+    integer               :: terrain_smoother = 4 !< ???
+    integer               :: vortex_tracker = 0 !< ???
+    integer               :: ntrack = 1 !< ???
+    integer               :: corral_x = 5 !< ???
+    integer               :: corral_y = 5 !< ???
+    integer               :: outatcf_lun = 600 !< ???
 
     ! Moving nest related variables
-    integer               :: move_cd_x = 0
-    integer               :: move_cd_y = 0
-    logical               :: do_move = .false.
+    integer               :: move_cd_x = 0 !< ???
+    integer               :: move_cd_y = 0 !< ???
+    logical               :: do_move = .false. !< ???
   end type fv_moving_nest_flag_type
 
-  ! Encapsulates the grid definition data, such as read from the netCDF files
+  !> Encapsulates the grid definition data, such as read from the netCDF files
   type grid_geometry
     integer   :: nx, ny, nxp, nyp
 
-    real(kind=kind_phys), allocatable  :: lats(:,:)
-    real(kind=kind_phys), allocatable  :: lons(:,:)
+    real(kind=kind_phys), allocatable  :: lats(:,:) !< ???
+    real(kind=kind_phys), allocatable  :: lons(:,:) !< ???
 
     !real, allocatable  :: dx(:,:)
     !real, allocatable  :: dy(:,:)
-    real(kind=kind_phys), allocatable  :: area(:,:)
+    real(kind=kind_phys), allocatable  :: area(:,:) !< ???
   end type grid_geometry
 
   type fv_moving_nest_prog_type
@@ -212,42 +208,48 @@ module fv_moving_nest_types_mod
   end type fv_moving_nest_physics_type
 
   type fv_moving_nest_type
-    type(fv_moving_nest_flag_type)    :: mn_flag   ! Mostly namelist variables
-    type(mn_surface_grids)            :: mn_static
-    type(fv_moving_nest_prog_type)    :: mn_prog
-    type(fv_moving_nest_physics_type) :: mn_phys
+    type(fv_moving_nest_flag_type)    :: mn_flag   !< ??? ! Mostly namelist variables
+    type(mn_surface_grids)            :: mn_static !< ???
+    type(fv_moving_nest_prog_type)    :: mn_prog !< ???
+    type(fv_moving_nest_physics_type) :: mn_phys !< ???
 
-    type(grid_geometry)               :: parent_geo
-    type(grid_geometry)               :: fp_super_tile_geo
+    type(grid_geometry)               :: parent_geo !< ???
+    type(grid_geometry)               :: fp_super_tile_geo !< ???
   end type fv_moving_nest_type
 
   ! Moving Nest Namelist Variables
-  logical, dimension(MAX_NNEST) :: is_moving_nest = .False.
-  character(len=120)            :: surface_dir = "INPUT/moving_nest"
-  integer, dimension(MAX_NNEST) :: terrain_smoother = 4  ! 0 -- all high-resolution data, 1 - static nest smoothing algorithm with blending zone of 5 points, 2 - blending zone of 10 points, 5 - 5 point smoother, 9 - 9 point smoother
-  integer, dimension(MAX_NNEST) :: vortex_tracker = 0 ! 0 - not a moving nest, tracker not needed
-  ! 1 - prescribed nest moving
-  ! 2 - following child domain center
-  ! 3 - tracking Min MSLP
-  ! 6 - simplified version of GFDL tracker, adopted from HWRF's internal vortex tracker.
-  ! 7 - nearly the full storm tracking algorithm from GFDL vortex tracker. The only part that is missing is the part that gives up when the storm dissipates, which is left out intentionally. Adopted from HWRF's internal vortex tracker.
-  integer, dimension(MAX_NNEST) :: ntrack = 1 ! number of dt_atmos steps to call the vortex tracker, tracker time step = ntrack*dt_atmos
-  integer, dimension(MAX_NNEST) :: move_cd_x = 0 ! the number of parent domain grid cells to move in i direction
-  integer, dimension(MAX_NNEST) :: move_cd_y = 0 ! the number of parent domain grid cells to move in j direction
+  logical, dimension(MAX_NNEST) :: is_moving_nest = .False. !< ???
+  character(len=120)            :: surface_dir = "INPUT/moving_nest" !< ???
+  integer, dimension(MAX_NNEST) :: terrain_smoother = 4  !< 0 -- all high-resolution data, 1 - static nest smoothing algorithm with blending zone of 5 points, 2 - blending zone of 10 points, 5 - 5 point smoother, 9 - 9 point smoother
+  integer, dimension(MAX_NNEST) :: vortex_tracker = 0 !< 0 - not a moving nest, tracker not needed
+  !< 1 - prescribed nest moving
+  !< 2 - following child domain center
+  !< 3 - tracking Min MSLP
+  !< 6 - simplified version of GFDL tracker, adopted from HWRF's internal vortex tracker.
+  !< 7 - nearly the full storm tracking algorithm from GFDL vortex tracker. The only part that is missing is the part that gives up when the storm dissipates, which is left out intentionally. Adopted from HWRF's internal vortex tracker.
+  integer, dimension(MAX_NNEST) :: ntrack = 1 !< number of dt_atmos steps to call the vortex tracker, tracker time step = ntrack*dt_atmos
+  integer, dimension(MAX_NNEST) :: move_cd_x = 0 !< the number of parent domain grid cells to move in i direction
+  integer, dimension(MAX_NNEST) :: move_cd_y = 0 !< the number of parent domain grid cells to move in j direction
   ! used to control prescribed nest moving, when vortex_tracker=1
   ! the move happens every ntrack*dt_atmos seconds
   ! positive is to move in increasing i and j direction, and
   ! negative is to move in decreasing i and j direction.
   ! 0 means no move. The limitation is to move only 1 grid cell at each move.
-  integer, dimension(MAX_NNEST) :: corral_x = 5 ! Minimum parent gridpoints on each side of nest in i direction
-  integer, dimension(MAX_NNEST) :: corral_y = 5 ! Minimum parent gridpoints on each side of nest in j direction
+  integer, dimension(MAX_NNEST) :: corral_x = 5 !< Minimum parent gridpoints on each side of nest in i direction
+  integer, dimension(MAX_NNEST) :: corral_y = 5 !< Minimum parent gridpoints on each side of nest in j direction
 
-  integer, dimension(MAX_NNEST) :: outatcf_lun = 600  ! base fortran unit number to write out the partial atcfunix file from the internal tracker
+  integer, dimension(MAX_NNEST) :: outatcf_lun = 600  !< base fortran unit number to write out the partial atcfunix file from the internal tracker
 
-  type(fv_moving_nest_type), _ALLOCATABLE, target    :: Moving_nest(:)
+  type(fv_moving_nest_type), _ALLOCATABLE, target    :: Moving_nest(:) !< ???
 
 contains
 
+  !> ???
+  !>
+  !> @param[in] Atm ???
+  !> @param[in] this_grid ???
+  !>
+  !> @author
   subroutine fv_moving_nest_init(Atm, this_grid)
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)
     integer, intent(in)                          :: this_grid
@@ -297,6 +299,9 @@ contains
 
   end subroutine fv_moving_nest_init
 
+  !> ???
+  !>
+  !> @author
   subroutine read_namelist_moving_nest_nml
     integer :: f_unit, ios, ierr
     namelist /fv_moving_nest_nml/ surface_dir, is_moving_nest, terrain_smoother, &
@@ -315,6 +320,11 @@ contains
 
   end subroutine read_namelist_moving_nest_nml
 
+  !> ???
+  !>
+  !> @param[in] n ???
+  !>
+  !> @author
   subroutine deallocate_fv_moving_nests(n)
     integer, intent(in)   :: n
 
@@ -326,6 +336,11 @@ contains
     deallocate(Moving_nest)
   end subroutine deallocate_fv_moving_nests
 
+  !> ???
+  !>
+  !> @param[in] n ???
+  !>
+  !> @author
   subroutine deallocate_fv_moving_nest(n)
     integer, intent(in)   :: n
 
@@ -333,8 +348,17 @@ contains
     call deallocate_fv_moving_nest_physics_type(Moving_nest(n)%mn_phys)
 
   end subroutine deallocate_fv_moving_nest
-
-
+  
+  !> ???
+  !>
+  !> @param[in] isd ???
+  !> @param[in] ied ???
+  !> @param[in] jsd ???
+  !> @param[in] jed ???
+  !> @param[in] npz ???
+  !> @param[inout] mn_prog ???
+  !>
+  !> @author
   subroutine  allocate_fv_moving_nest_prog_type(isd, ied, jsd, jed, npz, mn_prog)
     integer, intent(in)                           :: isd, ied, jsd, jed, npz
     type(fv_moving_nest_prog_type), intent(inout) :: mn_prog
@@ -344,6 +368,11 @@ contains
 
   end subroutine allocate_fv_moving_nest_prog_type
 
+  !> ???
+  !>
+  !> @param[inout] mn_prog ???
+  !>
+  !> @author
   subroutine  deallocate_fv_moving_nest_prog_type(mn_prog)
     type(fv_moving_nest_prog_type), intent(inout) :: mn_prog
 
@@ -351,6 +380,23 @@ contains
 
   end subroutine deallocate_fv_moving_nest_prog_type
 
+  !> ???
+  !>
+  !> @param[in] isd ???
+  !> @param[in] ied ???
+  !> @param[in] jsd ???
+  !> @param[in] jed ???
+  !> @param[in] npz ???
+  !> @param[in] move_physics ???
+  !> @param[in] move_nsst ???
+  !> @param[in] lsoil ???
+  !> @param[in] nmtvr ???
+  !> @param[in] levs ???
+  !> @param[in] ntot2d ???
+  !> @param[in] ntot3d ???
+  !> @param[inout] mn_phys ???
+  !>
+  !> @author
   subroutine  allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_nsst, lsoil, nmtvr, levs, ntot2d, ntot3d, mn_phys)
     integer, intent(in)                           :: isd, ied, jsd, jed, npz
     logical, intent(in)                           :: move_physics, move_nsst
@@ -533,8 +579,12 @@ contains
     end if
 
   end subroutine allocate_fv_moving_nest_physics_type
-
-
+  
+  !> ???
+  !>
+  !> @param[inout] mn_phys ???
+  !>
+  !> @author
   subroutine  deallocate_fv_moving_nest_physics_type(mn_phys)
     type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
 

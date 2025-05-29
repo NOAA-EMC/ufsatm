@@ -1,3 +1,27 @@
+!> @file
+!> @brief Provides Moving Nest functionality in FV3 dynamic core.
+!> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
+!> @email William.Ramstrom@noaa.gov
+
+!> Moving Nest Subroutine Naming Convention
+!>
+!> - mn_meta_* subroutines perform moving nest operations for FV3
+!> metadata. These routines will run only once per nest move.
+!>
+!> - mn_var_* subroutines perform moving nest operations for an
+!> individual FV3 variable.  These routines will run many times per
+!> nest move.
+!>
+!> - mn_prog_* subroutines perform moving nest operations for the list
+!> of prognostic fields.  These routines will run only once per nest
+!> move.
+!>
+!> - mn_phys_* subroutines perform moving nest operations for the list
+!> of physics fields.  These routines will run only once per nest
+!> move.
+!>
+!> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -17,36 +41,6 @@
 !*           675 Mass Ave, Cambridge, MA 02139, USA.                   *
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
-
-!***********************************************************************
-!> @file
-!! @brief Provides Moving Nest functionality in FV3 dynamic core
-!! @author W. Ramstrom, AOML/HRD  01/15/2021
-!! @email William.Ramstrom@noaa.gov
-!=======================================================================!
-
-
-!=======================================================================!
-!
-! Notes
-!
-!------------------------------------------------------------------------
-! Moving Nest Subroutine Naming Convention
-!-----------------------------------------------------------------------
-!
-! mn_meta_* subroutines perform moving nest operations for FV3 metadata.
-!               These routines will run only once per nest move.
-!
-! mn_var_*  subroutines perform moving nest operations for an individual FV3 variable.
-!               These routines will run many times per nest move.
-!
-! mn_prog_* subroutines perform moving nest operations for the list of prognostic fields.
-!               These routines will run only once per nest move.
-!
-! mn_phys_* subroutines perform moving nest operations for the list of physics fields.
-!               These routines will run only once per nest move.
-!
-! =======================================================================!
 
 #define REMAP 1
 
@@ -96,24 +90,24 @@ module fv_moving_nest_mod
   implicit none
 
 #ifdef NO_QUAD_PRECISION
-  ! 64-bit precision (kind=8)
+  !> 64-bit precision (kind=8)
   integer, parameter:: f_p = selected_real_kind(15)
 #else
-  ! Higher precision (kind=16) for grid geometrical factors:
+  !> Higher precision (kind=16) for grid geometrical factors:
   integer, parameter:: f_p = selected_real_kind(20)
 #endif
 
 #ifdef OVERLOAD_R4
-  real, parameter:: real_snan=x'FFBFFFFF'
+  real, parameter:: real_snan=x'FFBFFFFF' !<???
 #else
-  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF'
+  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !<???
 #endif
 
-  logical :: debug_log = .false.
+  logical :: debug_log = .false. !<???
 
 #include <fms_platform.h>
 
-  !! Step 2
+  !> Step 2
   interface mn_var_fill_intern_nest_halos
     module procedure mn_var_fill_intern_nest_halos_r4_2d
     module procedure mn_var_fill_intern_nest_halos_r4_3d
@@ -127,7 +121,7 @@ module fv_moving_nest_mod
   end interface mn_var_fill_intern_nest_halos
 
 
-  !! Step 6
+  !> Step 6
   interface mn_var_shift_data
     module procedure mn_var_shift_data_r4_2d
     module procedure mn_var_shift_data_r4_3d
@@ -138,7 +132,7 @@ module fv_moving_nest_mod
     module procedure mn_var_shift_data_r8_4d
   end interface mn_var_shift_data
 
-  !! Step 8
+  !> Step 8
   interface mn_var_dump_to_netcdf
     module procedure mn_var_dump_2d_to_netcdf
     module procedure mn_var_dump_3d_to_netcdf
@@ -159,6 +153,14 @@ contains
 
   !>@brief The subroutine 'mn_prog_fill_temp_variables' fills the temporary variable for delz
   !>@details The delz variable does not have haloes so we need a temporary variable to move it.
+  !>
+  !> @param[in] Atm Array of atmospheric data.
+  !> @param[in] n This level.
+  !> @param[in] child_grid_num Nest level.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !> @param[in] npz Number of vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_fill_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(in)     :: Atm(:)     !< Array of atmospheric data
     integer, intent(in)                              :: n, child_grid_num  !< This level and nest level
@@ -192,6 +194,14 @@ contains
 
   !>@brief The subroutine 'mn_prog_apply_temp_variables' fills the Atm%delz value from the temporary variable after nest move
   !>@details The delz variable does not have haloes so we need a temporary variable to move it.
+  !>
+  !> @param[inout] Atm Array of atmospheric data.
+  !> @param[in] n This level.
+  !> @param[in] child_grid_num Nest level.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !> @param[in] npz Number of vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)             !< Array of atmospheric data
     integer, intent(in)                                      :: n, child_grid_num  !< This level and nest level
@@ -223,6 +233,15 @@ contains
 
   !>@brief The subroutine 'mn_prog_fill_nest_halos_from_parent' fills the nest edge halos from the parent
   !>@details Parent and nest PEs must run this subroutine.  It transfers data and interpolates onto fine nest.
+  !>
+  !> @param[inout] Atm Array of atmospheric data.
+  !> @param[in] n This level.
+  !> @param[in] child_grid_num Nest level.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !> @param[inout] nest_domain Domain structure for nest.
+  !> @param[in] nz Number of vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_fill_nest_halos_from_parent(Atm, n, child_grid_num, is_fine_pe, nest_domain, nz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)             !< Array of atmospheric data
     integer, intent(in)                                      :: n, child_grid_num  !< This level and nest level
@@ -293,6 +312,24 @@ contains
 
   !>@brief The subroutine 'mn_meta_move_nest' resets the metadata for the nest
   !>@details Parent and  nest PEs run this subroutine.
+  !>
+  !> @param[in] delta_i_c Coarse grid delta i for nest move.
+  !> @param[in] delta_j_c Coarse grid delta j for nest move.
+  !> @param[in] pelist List of involved PEs.
+  !> @param[in] extra_halo Extra halo points (not fully implemented).
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[inout] domain_fine Fine domain structures.
+  !> @param[inout] domain_coarse Coarse domain structures.
+  !> @param[inout] istart_coarse Start i of coarse grid.
+  !> @param[inout] iend_coarse End i of coarse grid.
+  !> @param[inout] jstart_coarse Start j of course grid.
+  !> @param[inout] jend_coarse End j of coarse grid.
+  !> @param[in] istart_fine Start i of fine grid.
+  !> @param[in] iend_fine End i of coarse grid.
+  !> @param[in] jstart_fine Start j of coarse grid.
+  !> @param[in] jend_fine End j of coarse grid.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_meta_move_nest(delta_i_c, delta_j_c, pelist, is_fine_pe, extra_halo, nest_domain, domain_fine, domain_coarse, &
       istart_coarse, iend_coarse, jstart_coarse, jend_coarse,  istart_fine, iend_fine, jstart_fine, jend_fine)
 
@@ -352,6 +389,12 @@ contains
 
   !>@brief The subroutine 'mn_prog_fill_intern_nest_halos' fill internal nest halos for prognostic variables
   !>@details Only nest PEs call this subroutine.
+  !>
+  !> @param[inout] Atm Single instance of atmospheric data.
+  !> @param[inout] domain_fine Domain structure for nest.
+  !> @param[in] is_fine_pe Is this a nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_fill_intern_nest_halos(Atm, domain_fine, is_fine_pe)
     type(fv_atmos_type), target, intent(inout)  :: Atm           !< Single instance of atmospheric data
     type(domain2d), intent(inout)               :: domain_fine   !< Domain structure for nest
@@ -395,6 +438,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r4_2d' fills internal nest halos
   !>@details This version of the subroutine is for 2D arrays of single precision reals.
+  !>
+  !> @param[inout] data_var Model variable data.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r4_2d(data_var, domain_fine, is_fine_pe)
     real*4, allocatable, intent(inout)          :: data_var(:,:)  !< Model variable data
     type(domain2d), intent(inout)               :: domain_fine    !< Nest domain structure
@@ -415,6 +464,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r8_2d' fills internal nest halos
   !>@details This version of the subroutine is for 2D arrays of double precision reals.
+  !>
+  !> @param[inout] data_var Model variable data.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r8_2d(data_var, domain_fine, is_fine_pe)
     real*8, allocatable, intent(inout)          :: data_var(:,:)  !< Double precision model variable
     type(domain2d), intent(inout)               :: domain_fine    !< Nest domain structure
@@ -428,6 +483,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r4_3d' fills internal nest halos
   !>@details This version of the subroutine is for 3D arrays of single precision reals.
+  !>
+  !> @param[inout] data_var Model variable data.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r4_3d(data_var, domain_fine, is_fine_pe)
     real*4, allocatable, intent(inout)          :: data_var(:,:,:)  !< Single precision model variable
     type(domain2d), intent(inout)               :: domain_fine      !< Nest domain structure
@@ -441,6 +502,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r8_3d' fills internal nest halos
   !>@details This version of the subroutine is for 3D arrays of double precision reals.
+  !>
+  !> @param[inout] data_var Model variable data.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r8_3d(data_var, domain_fine, is_fine_pe)
     real*8, allocatable, intent(inout)          :: data_var(:,:,:)  !< Double precision model variable
     type(domain2d), intent(inout)               :: domain_fine      !< Nest domain structure
@@ -454,6 +521,13 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_wind' fills internal nest halos for u and v wind
   !>@details This version of the subroutine is for 3D arrays of single precision reals for each wind component
+  !>
+  !> @param[inout] u_var Staggered u wind.
+  !> @param[inout] v_var Staggered v wind.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_wind(u_var, v_var, domain_fine, is_fine_pe)
     real, allocatable, intent(inout)            :: u_var(:,:,:) !< Staggered u wind
     real, allocatable, intent(inout)            :: v_var(:,:,:) !< Staggered v wind
@@ -469,6 +543,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r4_4d' fills internal nest halos
   !>@details This version of the subroutine is for 4D arrays of single precision reals.
+  !>
+  !> @param[inout] data_var Single prevision variable.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r4_4d(data_var, domain_fine, is_fine_pe)
     real*4, allocatable, intent(inout)          :: data_var(:,:,:,:)  !< Single prevision variable
     type(domain2d), intent(inout)               :: domain_fine        !< Nest domain structure
@@ -482,6 +562,12 @@ contains
 
   !>@brief The subroutine 'mn_var_fill_intern_nest_halos_r8_4d' fills internal nest halos
   !>@details This version of the subroutine is for 4D arrays of double precision reals.
+  !>
+  !> @param[inout] data_var Single prevision variable.
+  !> @param[inout] domain_fine Nest domain structure.
+  !> @param[in] is_fine_pe Is this the nest PE?
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_fill_intern_nest_halos_r8_4d(data_var, domain_fine, is_fine_pe)
     real*8, allocatable, intent(inout)          :: data_var(:,:,:,:)  !< Double precision variable
     type(domain2d), intent(inout)               :: domain_fine        !< Nest domain structure
@@ -494,6 +580,15 @@ contains
   end subroutine mn_var_fill_intern_nest_halos_r8_4d
 
   !>@brief Find the parent point that corresponds to the is,js point of the nest, and returns that nest point also
+  !>
+  !> @param[in] Atm data array
+  !> @param[in] n Grid numbers.
+  !> @param[out] nest_x ???
+  !> @param[out] nest_y ???
+  !> @param[out] parent_x ???
+  !> @param[out] parent_y ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_nest_alignment(Atm, n, nest_x, nest_y, parent_x, parent_y)
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)                                        !< Atm data array
     integer, intent(in)                          :: n                                             !< Grid numbers
@@ -520,9 +615,18 @@ contains
     parent_y = (nest_y - 3)*2 + joffset*refine*2
 
   end subroutine calc_nest_alignment
-
-
-
+  
+  !> ???
+  !>
+  !> @param[in] nest_geo Tile geometry
+  !> @param[in] parent_geo Parent grid at high-resolution geometry
+  !> @param[in] nest_x ???
+  !> @param[in] nest_y ???
+  !> @param[in] parent_x ???
+  !> @param[in] parent_y ???
+  !> @param[out] found ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine check_nest_alignment(nest_geo, parent_geo, nest_x, nest_y, parent_x, parent_y, found)
     type(grid_geometry), intent(in)              :: nest_geo                                      !< Tile geometry
     type(grid_geometry), intent(in)              :: parent_geo                                    !< Parent grid at high-resolution geometry
@@ -556,6 +660,28 @@ contains
 
   !>@brief The subroutine 'mn_latlon_load_parent' loads parent latlon data from netCDF
   !>@details Updates parent_geo, tile_geo*, p_grid*, n_grid*
+  !>
+  !> @param[in] surface_dir Directory for static files
+  !> @param[in] Atm Atm data array
+  !> @param[in] n Grid numbers
+  !> @param[in] parent_tile Grid numbers
+  !> @param[in] delta_i_c Nest motion in delta i
+  !> @param[in] delta_j_c Nest motion in delta j
+  !> @param[in] pelist PE list for fms2_io
+  !> @param[in] child_grid_num Grid numbers
+  !> @param[inout] parent_geo Tile geometries
+  !> @param[inout] tile_geo Tile geometries
+  !> @param[inout] tile_geo_u Tile geometries
+  !> @param[inout] tile_geo_v Tile geometries
+  !> @param[in] fp_super_tile_geo Parent grid at high-resolution geometry
+  !> @param[inout] p_grid A-stagger lat/lon grids
+  !> @param[out] n_grid A-stagger lat/lon grids
+  !> @param[inout] p_grid_u u-wind staggered lat/lon grids
+  !> @param[out] n_grid_u u-wind staggered lat/lon grids
+  !> @param[inout] p_grid_v v-wind staggered lat/lon grids
+  !> @param[out] n_grid_v v-wind staggered lat/lon grids
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_latlon_load_parent(surface_dir, Atm, n, parent_tile, delta_i_c, delta_j_c, pelist, child_grid_num, parent_geo, tile_geo, tile_geo_u, tile_geo_v, fp_super_tile_geo, p_grid, n_grid, p_grid_u, n_grid_u, p_grid_v, n_grid_v)
     character(len=*), intent(in)                 :: surface_dir                                   !< Directory for static files
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)                                        !< Atm data array
@@ -751,6 +877,14 @@ contains
 
   !>@brief The subroutine 'mn_static_filename' generates the full pathname for a static file for each run
   !>@details Constructs the full pathname for a variable and refinement level and tests whether it exists
+  !>
+  !> @param[in] surface_dir Directory.
+  !> @param[in] tile_num Variable name.
+  !> @param[in] tag Tile number.
+  !> @param[in] refine Nest refinement.
+  !> @param[out] grid_filename Output pathname to netCDF file.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_static_filename(surface_dir, tile_num, tag, refine, grid_filename)
     character(len=*), intent(in)       :: surface_dir     !< Directory
     character(len=*), intent(in)       :: tag             !< Variable name
@@ -786,6 +920,16 @@ contains
   end subroutine mn_static_filename
 
   !>@brief The subroutine 'mn_latlon_read_hires_parent' reads in static data from a netCDF file
+  !>
+  !> @param[in] npx Number of points in x.
+  !> @param[in] npy Number of points in y.
+  !> @param[in] refine  Number of points in refinement.
+  !> @param[in] pelist PE list for fms2_io.
+  !> @param[inout] fp_super_tile_geo Geometry of supergrid for parent tile at high resolution.
+  !> @param[in] surface_dir Surface directory to read netCDF file from.
+  !> @param[in] parent_tile Parent tile number.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_latlon_read_hires_parent(npx, npy, refine, pelist, fp_super_tile_geo, surface_dir, parent_tile)
     integer, intent(in)                :: npx, npy, refine     !< Number of points in x,y, and refinement
     integer, allocatable, intent(in)   :: pelist(:)            !< PE list for fms2_io
@@ -807,6 +951,20 @@ contains
 
   !>@brief The subroutine 'mn_orog_read_hires_parent' loads parent orography data from netCDF
   !>@details Gathers a number of terrain-related variables from the netCDF file
+  !>
+  !> @param[in] npx Number of points in x.
+  !> @param[in] npy Number of points in y.
+  !> @param[in] refine  Number of points in refinement.
+  !> @param[in] pelist PE list for fms2_io.
+  !> @param[in] surface_dir Surface directory to read netCDF file from.
+  !> @param[in] filtered_terrain Whether to use filtered terrain.
+  !> @param[out] orog_grid Output orography grid.
+  !> @param[out] orog_std_grid Output orography standard deviation grid.
+  !> @param[out] ls_mask_grid Output land sea mask grid.
+  !> @param[out] land_frac_grid Output land fraction grid.
+  !> @param[in] parent_tile Parent tile number.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_orog_read_hires_parent(npx, npy, refine, pelist, surface_dir, filtered_terrain, orog_grid, orog_std_grid, ls_mask_grid, land_frac_grid, parent_tile)
     integer, intent(in)                :: npx, npy, refine   !< Number of points in x,y, and refinement
     integer, allocatable, intent(in)   :: pelist(:)          !< PE list for fms2_io
@@ -859,6 +1017,19 @@ contains
 
   !>@brief The subroutine 'mn_static_read_hires_r4' loads high resolution data from netCDF
   !>@details Gathers a single variable from the netCDF file
+  !>
+  !> @param[in] npx Number of points in x.
+  !> @param[in] npy Number of points in y.
+  !> @param[in] refine  Number of points in refinement.
+  !> @param[in] pelist PE list for fms2_io.
+  !> @param[in] surface_dir Surface directory to read netCDF file from.
+  !> @param[in] file_prefix File tag.
+  !> @param[in] var_name Variable name in netCDF file.
+  !> @param[out] data_grid Output data grid.
+  !> @param[in] parent_tile Parent tile number.
+  !> @param[in] time Optional month number for time-varying parameters.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_static_read_hires_r4(npx, npy, refine, pelist, surface_dir, file_prefix, var_name, data_grid, parent_tile, time)
     integer, intent(in)                :: npx, npy, refine           !< Number of x,y points and nest refinement
     integer, allocatable, intent(in)   :: pelist(:)                  !< PE list for fms2_io
@@ -896,6 +1067,18 @@ contains
 
   !>@brief The subroutine 'mn_static_read_hires_r8' loads high resolution data from netCDF
   !>@details Gathers a single variable from the netCDF file
+  !>
+  !> @param[in] npx Number of points in x.
+  !> @param[in] npy Number of points in y.
+  !> @param[in] refine  Number of points in refinement.
+  !> @param[in] pelist PE list for fms2_io.
+  !> @param[in] surface_dir Surface directory to read netCDF file from.
+  !> @param[in] file_prefix File tag.
+  !> @param[in] var_name Variable name in netCDF file.
+  !> @param[out] data_grid Output data grid.
+  !> @param[in] parent_tile Parent tile number.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_static_read_hires_r8(npx, npy, refine, pelist, surface_dir, file_prefix, var_name, data_grid, parent_tile)
     integer, intent(in)                :: npx, npy, refine           !< Number of x,y points and nest refinement
     integer, allocatable, intent(in)   :: pelist(:)                  !< PE list for fms2_io
@@ -935,6 +1118,25 @@ contains
   !!============================================================================
 
   !>@brief The subroutine 'mn_meta_recalc' recalculates nest halo weights
+  !>
+  !> @param[in] delta_i_c Nest motion in delta i
+  !> @param[in] delta_j_c Nest motion in delta j
+  !> @param[in] x_refine Nest refinement
+  !> @param[in] y_refine Nest refinement
+  !> @param[inout] tile_geo tile geometries
+  !> @param[inout] parent_geo  tile geometries
+  !> @param[in] fp_super_tile_geo  tile geometries
+  !> @param[in] is_fine_pe Is this a nest PE?
+  !> @param[in] nest_domain Nest domain structure
+  !> @param[in] position Stagger
+  !> @param[inout] p_grid Parent lat/lon grid
+  !> @param[inout] n_grid Nest lat/lon grid
+  !> @param[inout] wt Interpolation weights
+  !> @param[in] istart_coarse Initial nest offsets
+  !> @param[in] jstart_coarse Initial nest offsets
+  !> @param[in] ind ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_meta_recalc( delta_i_c, delta_j_c, x_refine, y_refine, tile_geo, parent_geo, fp_super_tile_geo, &
       is_fine_pe, nest_domain, position, p_grid, n_grid, wt, istart_coarse, jstart_coarse, ind)
     integer, intent(in)                           :: delta_i_c, delta_j_c                     !< Nest motion in delta i,j
@@ -946,7 +1148,7 @@ contains
     real(kind=R_GRID), allocatable, intent(inout) :: n_grid(:,:,:)                            !< Nest lat/lon grid
     real, allocatable, intent(inout)              :: wt(:,:,:)                                !< Interpolation weights
     integer, intent(inout)                        :: position                                 !< Stagger
-    integer, intent(in)                           :: istart_coarse, jstart_coarse             !< Initian nest offsets
+    integer, intent(in)                           :: istart_coarse, jstart_coarse             !< Initial nest offsets
     integer, allocatable, intent(in)              :: ind(:,:,:)
 
     type(bbox) :: wt_fine, wt_coarse
@@ -1011,6 +1213,12 @@ contains
 
   !>@brief The subroutine 'mn_shift_index' adjusts the index array for a nest move
   !>@details Fast routine to increment indices by the delta in i,j direction
+  !>
+  !> @param[in] delta_i_c Coarse grid delta i for nest move.
+  !> @param[in] delta_j_c Coarse grid delta j for nest move.
+  !> @param[inout] ind ???  
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_shift_index(delta_i_c, delta_j_c, ind)
     integer, intent(in)                    :: delta_i_c, delta_j_c    !< Nest move deltas in i,j
     integer, allocatable, intent(inout)    :: ind(:,:,:)              !< Nest to parent index
@@ -1042,6 +1250,22 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data' shifts the data on each nest PE
   !>@details Iterates through the prognostic variables
+  !>
+  !> @param[inout] Atm Atm data array.
+  !> @param[in] n Grid numbers.
+  !> @param[in] child_grid_num Grid numbers.
+  !> @param[in] wt_h Interpolation weights.
+  !> @param[in] wt_u Interpolation weights.
+  !> @param[in] wt_v Interpolation weights.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] nz Number of vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_shift_data(Atm, n, child_grid_num, wt_h, wt_u, wt_v, &
       delta_i_c, delta_j_c, x_refine, y_refine, &
       is_fine_pe, nest_domain, nz)
@@ -1115,6 +1339,20 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r4_2d' shifts the data for a variable on each nest PE
   !>@details For single variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r4_2d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
     real*4, allocatable, intent(inout)          :: data_var(:,:)                                !< Data variable
     integer, intent(in)                         :: interp_type                                  !< Interpolation stagger type
@@ -1185,6 +1423,20 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r8_2d' shifts the data for a variable on each nest PE
   !>@details For one double precision 2D variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r8_2d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
 
     real*8, allocatable, intent(inout)          :: data_var(:,:)                            !< Data variable
@@ -1254,6 +1506,20 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r4_3d' shifts the data for a variable on each nest PE
   !>@details For one single precision 3D variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r4_3d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
 
     real*4, allocatable, intent(inout)          :: data_var(:,:,:)                          !< Data variable
@@ -1326,6 +1592,21 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r8_3d' shifts the data for a variable on each nest PE
   !>@details For one double precision 3D variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset.
+  !> @param[in] nz Number vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r8_3d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
 
     real*8, allocatable, intent(inout)          :: data_var(:,:,:)                              !< Data variable
@@ -1396,6 +1677,21 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r4_4d' shifts the data for a variable on each nest PE
   !>@details For one single precision 4D variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset.
+  !> @param[in] nz Number vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r4_4d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     real*4, allocatable, intent(inout)          :: data_var(:,:,:,:)                            !< Data variable
     integer, intent(in)                         :: interp_type                                  !< Interpolation stagger type
@@ -1469,6 +1765,21 @@ contains
 
   !>@brief The subroutine 'mn_prog_shift_data_r8_4d' shifts the data for a variable on each nest PE
   !>@details For one double precision 4D variable
+  !>
+  !> @param[inout] data_var Data variable.
+  !> @param[in] interp_type Interpolation stagger type.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[in] ind Fine to coarse index array.
+  !> @param[in] delta_i_c Delta i.
+  !> @param[in] delta_j_c Delta j.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[inout] nest_domain Nest domain structure.
+  !> @param[in] position Grid offset.
+  !> @param[in] nz Number vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_shift_data_r8_4d(data_var, interp_type, wt, ind, delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     real*8, allocatable, intent(inout)          :: data_var(:,:,:,:)                            !< Data variable
     integer, intent(in)                         :: interp_type                                  !< Interpolation stagger type
@@ -1547,6 +1858,22 @@ contains
 
   !>@brief The subroutine 'mn_meta_reset_gridstruct' resets navigation data and reallocates needed data in the gridstruct after nest move
   !>@details This routine is computationally demanding and is a target for later optimization.
+  !>
+  !> @param[inout] Atm Array of atmospheric data.
+  !> @param[in] n This level.
+  !> @param[in] child_grid_num Nest level.
+  !> @param[in] nest_domain Nest domain structure.
+  !> @param[in] fp_super_tile_geo  tile geometries
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[in] wt_h Interpolation weights.
+  !> @param[in] wt_u Interpolation weights.
+  !> @param[in] wt_v Interpolation weights.
+  !> @param[in] a_step Which timestep.
+  !> @param[in] dt_atmos Timestep duration in seconds.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_meta_reset_gridstruct(Atm, n, child_grid_num, nest_domain, fp_super_tile_geo, x_refine, y_refine, is_fine_pe, wt_h, wt_u, wt_v, a_step, dt_atmos)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)                               !< Atm data array
     integer, intent(in)                              :: n, child_grid_num                            !< This level and nest level
@@ -1797,6 +2124,12 @@ contains
 
   !>@brief The subroutine 'mn_setup_update_regions' performs some of the tasks of fv_control.F90::setup_update_regions() for nest motion
   !>@details This routine only updates indices, so is computationally efficient
+  !>
+  !> @param[inout] Atm Array of atmospheric data.
+  !> @param[in] this_grid  Parent or child grid number
+  !> @param[in] nest_domain Nest domain structure.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_setup_update_regions(Atm, this_grid, nest_domain)
     type(fv_atmos_type), allocatable, intent(INOUT) :: Atm(:)                 !< Array of atmospheric data
     integer, intent(IN)                             :: this_grid              !< Parent or child grid number
@@ -1951,6 +2284,10 @@ contains
 
   !>@brief The subroutine 'reallocate_BC_buffers' reallocates boundary condition buffers - some need to change size after a nest move.
   !>@details Thought they would be reallocated in boundary.F90 nested_grid_BC_recv() when needed, but seem not to.
+  !>
+  !> @param[inout] Atm Single instance of atmospheric data.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine reallocate_BC_buffers(Atm)
     type(fv_atmos_type), intent(inout)  :: Atm     !< Single instance of atmospheric data
 
@@ -2031,6 +2368,15 @@ contains
 
   !>@brief The subroutine 'mn_prog_dump_to_netcdf' dumps selected prognostic variables to netCDF file.
   !>@details Can be modified to output more of the prognostic variables if wanted.  Certain 3D variables were commented out for performance.
+  !>
+  !> @param[in] Atm Single instance of atmospheric data.
+  !> @param[in] file_prefix Filename prefix.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[in] domain_coarse Domain structure.
+  !> @param[in] domain_fine Domain structure.
+  !> @param[in] nz Number of vertical levels.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_prog_dump_to_netcdf(Atm, time_val, file_prefix, is_fine_pe, domain_coarse, domain_fine, nz)
     type(fv_atmos_type), intent(in)            :: Atm                                  !< Single instance of atmospheric data
     integer, intent(in)                        :: time_val                             !< Timestep number
@@ -2092,6 +2438,19 @@ contains
   !!  Step 8 -- Moving Nest Output Individual Variables
 
   !>@brief The subroutine 'mn_var_dump_3d_to_netcdf' dumps a 3D single precision variable to netCDF file.
+  !>
+  !> @param[in] data_var Single precision model variable.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[in] domain_coarse Domain structure.
+  !> @param[in] domain_fine Domain structure.
+  !> @param[in] position Stagger.
+  !> @param[in] nz Number of vertical levels.
+  !> @param[in] time_step Timestep.
+  !> @param[in] this_tile Tile number.
+  !> @param[in] file_prefix Filename prefix.
+  !> @param[in] var_name NetCDF variable name.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_dump_3d_to_netcdf( data_var, is_fine_pe, domain_coarse, domain_fine, position, nz, time_step, this_tile, file_prefix, var_name)
     real, intent(in)                            :: data_var(:,:,:)                      !< Single precision model variable
     logical, intent(in)                         :: is_fine_pe                           !< Is nest PE?
@@ -2134,6 +2493,18 @@ contains
   end subroutine mn_var_dump_3d_to_netcdf
 
   !>@brief The subroutine 'mn_var_dump_2d_to_netcdf' dumps a 3D single precision variable to netCDF file.
+  !>
+  !> @param[in] data_var Data variable.
+  !> @param[in] is_fine_pe  Is this is a nest PE?
+  !> @param[in] domain_coarse Domain structure.
+  !> @param[in] domain_fine Domain structure.
+  !> @param[in] position Stagger.
+  !> @param[in] time_step Timestep.
+  !> @param[in] this_tile Tile number.
+  !> @param[in] file_prefix Filename prefix.
+  !> @param[in] var_name NetCDF variable name.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_var_dump_2d_to_netcdf( data_var, is_fine_pe, domain_coarse, domain_fine, position, time_step, this_tile, file_prefix, var_name)
     implicit none
     real, intent(in)                            :: data_var(:,:)                         !< Data variable
@@ -2191,6 +2562,9 @@ contains
   !!=========================================================================================
 
   !>@brief The subroutine 'recalc_aux_pressures' updates auxiliary pressures after a nest move.
+  !> @param[inout] Atm Single Atm structure.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine recalc_aux_pressures(Atm)
     type(fv_atmos_type), intent(inout) :: Atm      !< Single Atm structure
 
@@ -2222,6 +2596,16 @@ contains
   !==================================================================================================
 
   !>@brief The subroutine 'init_ijk_mem' was copied from dyn_core.F90 to avoid circular dependencies
+  !>
+  !> @param[in] i1 ???
+  !> @param[in] i2 ???
+  !> @param[in] j1 ???
+  !> @param[in] j1 ???
+  !> @param[in] km ???
+  !> @param[inout] array ???
+  !> @param[in] var ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine init_ijk_mem(i1, i2, j1, j2, km, array, var)
     integer, intent(in):: i1, i2, j1, j2, km
     real, intent(inout):: array(i1:i2,j1:j2,km)
@@ -2240,6 +2624,11 @@ contains
   end subroutine init_ijk_mem
 
   !>@brief The function 'almost_equal' tests whether real values are within a tolerance of one another.
+  !>
+  !> @param[in] a Variable 1
+  !> @param[in] b Variable 2
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   function almost_equal(a, b)
     logical :: almost_equal
     real, intent(in):: a,b
@@ -2253,9 +2642,20 @@ contains
     endif
   end function almost_equal
 
-
-
   !>@brief The subroutine 'move_nest_geo' shifts tile_geo values using the data from fp_super_tile_geo
+  !>
+  !> @param[in] Atm Data array.
+  !> @param[in] n Grid numbers.
+  !> @param[inout] tile_geo A-grid tile geometry.
+  !> @param[inout] tile_geo_u u-wind tile geometry.
+  !> @param[inout] tile_geo_v v-wind tile geometry.
+  !> @param[in] fp_super_tile_geo Parent grid at high-resolution geometry
+  !> @param[in] delta_i_c Coarse grid delta i for nest move.
+  !> @param[in] delta_j_c Coarse grid delta j for nest move.
+  !> @param[in] x_refine Nest refinement
+  !> @param[in] y_refine Nest refinement
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine move_nest_geo(Atm, n, tile_geo, tile_geo_u, tile_geo_v, fp_super_tile_geo, delta_i_c, delta_j_c, x_refine, y_refine)
     implicit none
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)                                        !< Atm data array
@@ -2355,6 +2755,14 @@ contains
   end subroutine move_nest_geo
 
   !>@brief The subroutine 'assign_n_p_grids' sets values for parent and nest grid arrays from the grid_geometry structures.
+  !>
+  !> @param[in] parent_geo Parent geometry.
+  !> @param[in] tile_geo Nest geometry.
+  !> @param[inout] p_grid Parent grid.
+  !> @param[inout] n_grid Nest grid.
+  !> @param[in] position Grid offset.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine assign_n_p_grids(parent_geo, tile_geo, p_grid, n_grid, position)
     type(grid_geometry), intent(in)          ::  parent_geo, tile_geo                        !< Parent geometry, nest geometry
     real(kind=R_GRID), allocatable, intent(inout)            :: p_grid(:,:,:)                !< Parent grid
@@ -2421,6 +2829,12 @@ contains
   end subroutine assign_n_p_grids
 
   !>@brief The subroutine 'assign_p_grids' sets values for parent grid arrays from the grid_geometry structures.  This is static through the model run.
+  !>
+  !> @param[in] parent_geo Parent geometry.
+  !> @param[inout] p_grid Parent grid.
+  !> @param[in] position Grid offset.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine assign_p_grids(parent_geo, p_grid, position)
     type(grid_geometry), intent(in)               :: parent_geo       !< Parent geometry
     real(kind=R_GRID), allocatable, intent(inout) :: p_grid(:,:,:)     !< Parent grid
@@ -2547,9 +2961,13 @@ contains
     
   end subroutine assign_p_grids
 
-
-
   !>@brief The subroutine 'assign_n_grids' sets values for nest grid arrays from the grid_geometry structures.
+  !>
+  !> @param[in] tile_geo Nest geometry.
+  !> @param[inout] n_grid Nest grid.
+  !> @param[in] position Grid offset.
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine assign_n_grids(tile_geo, n_grid, position)
     type(grid_geometry), intent(in)                :: tile_geo           !< Parent geometry, nest geometry
     real(kind=R_GRID), allocatable, intent(inout)  :: n_grid(:,:,:)      !< Nest grid
@@ -2590,7 +3008,19 @@ contains
 
   end subroutine assign_n_grids
 
-
+  !> ???
+  !>
+  !> @param[in] p_grid ???
+  !> @param[in] ic ???
+  !> @param[in] jc ???
+  !> @param[in] n_grid1 ???
+  !> @param[in] n_grid2 ???
+  !> @param[in] istag ???
+  !> @param[in] jstag ???
+  !> @param[out] is_inside ???
+  !> @param[in] verbose ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_inside(p_grid, ic, jc, n_grid1, n_grid2, istag, jstag, is_inside, verbose)
     real(kind=R_GRID), allocatable, intent(in)   :: p_grid(:,:,:)
     real(kind=R_GRID), intent(in)                :: n_grid1, n_grid2
@@ -2628,6 +3058,21 @@ contains
 
   !>@brief The subroutine 'calc_nest_halo_weights' calculates the interpolation weights
   !>@details Computationally demanding; target for optimization after nest moves
+  !>
+  !> @param[in] bbox_fine Bounding box of parent.
+  !> @param[in] bbox_coarse Bounding box of nest.
+  !> @param[in] p_grid Latlon rids of parent in radians.
+  !> @param[in] n_grid Latlon rids of nest in radians.
+  !> @param[in] wt Interpolation weight array.
+  !> @param[inout] istart_coarse Start i of coarse grid.
+  !> @param[inout] jstart_coarse Start j of coarse grid.
+  !> @param[in] x_refine Nest refinement.
+  !> @param[in] y_refine Nest refinement.
+  !> @param[in] istag Stagger.
+  !> @param[in] jstag Stagger.
+  !> @param[in] ind ???
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_nest_halo_weights(bbox_fine, bbox_coarse, p_grid, n_grid, wt, istart_coarse, jstart_coarse, x_refine, y_refine, istag, jstag, ind)
     implicit none
 
