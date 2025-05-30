@@ -217,7 +217,6 @@ contains
        cvalue = '64BIT_OFFSET'
        pio_ioformat = PIO_64BIT_OFFSET
     end if
-    if (mype == 0) print*,'MPAS_NUOPC_CAP : pio_ioformat = ', pio_ioformat
 
     ! pio_typename
     call NUOPC_CompAttributeGet(gcomp, name='pio_typename', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -241,7 +240,6 @@ contains
        cvalue = 'NETCDF'
        pio_iotype = PIO_IOTYPE_NETCDF
     end if
-    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_typename = ', trim(cvalue), pio_iotype
 
     ! pio_root
     call NUOPC_CompAttributeGet(gcomp, name='pio_root', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -256,7 +254,6 @@ contains
     else
        pio_root = 1
     end if
-    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_root = ', pio_root
 
     ! pio_stride
     call NUOPC_CompAttributeGet(gcomp, name='pio_stride', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -267,7 +264,6 @@ contains
     else
        pio_stride = -99
     end if
-    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_stride = ', pio_stride
 
     ! pio_numiotasks
     call NUOPC_CompAttributeGet(gcomp, name='pio_numiotasks', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -278,18 +274,12 @@ contains
     else
        pio_numiotasks = -99
     end if
-    if (mype == 0) print*,'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
 
     ! check for parallel IO, it requires at least two io pes
     if (petCount > 1 .and. pio_numiotasks == 1 .and. &
        (pio_iotype .eq. PIO_IOTYPE_PNETCDF .or. pio_iotype .eq. PIO_IOTYPE_NETCDF4P)) then
        pio_numiotasks = 2
        pio_stride = min(pio_stride, petCount/2)
-       if (mype == 0) then
-          print*, 'MPAS_NUOPC_CAP: parallel io requires at least two io pes - following parameters are updated:'
-          print*, 'MPAS_NUOPC_CAP: pio_stride     = ', pio_stride
-          print*, 'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
-       end if
     endif
 
     if (pio_root + (pio_stride)*(pio_numiotasks-1) >= petCount .or. &
@@ -307,12 +297,6 @@ contains
        else
           pio_numiotasks = petCount
           pio_root = 0
-       end if
-       if (mype == 0) then
-          print*, 'MPAS_NUOPC_CAP pio_stride, iotasks or root out of bounds - resetting to defaults:'
-          print*, 'MPAS_NUOPC_CAP: pio_root = ', pio_root
-          print*, 'MPAS_NUOPC_CAP: pio_stride = ', pio_stride
-          print*, 'MPAS_NUOPC_CAP: pio_numiotasks = ', pio_numiotasks
        end if
     end if
 
@@ -334,7 +318,6 @@ contains
        cvalue = 'SUBSET'
        pio_rearranger = PIO_REARR_SUBSET
     end if
-    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearranger = ', trim(cvalue), pio_rearranger
 
     ! Initialize PIO
     allocate(pio_subsystem)
@@ -354,7 +337,6 @@ contains
     else
        pio_debug_level = 0
     end if
-    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_debug_level = ', pio_debug_level
 
     ! set PIO debug level
     call pio_setdebuglevel(pio_debug_level)
@@ -378,7 +360,6 @@ contains
        cvalue = 'P2P'
        pio_rearr_comm_type = PIO_REARR_COMM_P2P
     end if
-    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_type = ', trim(cvalue), pio_rearr_comm_type
 
     ! pio_rearr_comm_fcd
     call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_fcd', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -402,7 +383,6 @@ contains
        cvalue = '2DENABLE'
        pio_rearr_comm_fcd = PIO_REARR_COMM_FC_2D_ENABLE
     end if
-    if (mype == 0) print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_fcd = ', trim(cvalue), pio_rearr_comm_fcd
 
     ! pio_rearr_comm_enable_hs_comp2io
     call NUOPC_CompAttributeGet(gcomp, name='pio_rearr_comm_enable_hs_comp2io', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -463,26 +443,6 @@ contains
     else
        pio_rearr_comm_max_pend_req_io2comp = 64
     end if
-
-    ! print out PIO rearranger parameters
-    if (mype == 0) then
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_hs_comp2io    = ', pio_rearr_comm_enable_hs_comp2io
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_isend_comp2io = ', pio_rearr_comm_enable_isend_comp2io
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_max_pend_req_comp2io = ', pio_rearr_comm_max_pend_req_comp2io
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_hs_io2comp    = ', pio_rearr_comm_enable_hs_io2comp
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_enable_isend_io2comp = ', pio_rearr_comm_enable_isend_io2comp
-       print*, 'MPAS_NUOPC_CAP: pio_rearr_comm_max_pend_req_io2comp = ', pio_rearr_comm_max_pend_req_io2comp
-    end if
-    
-    ! set PIO rearranger options
-    !if (mype == 0) print*, 'MPAS_NUOPC_CAP: calling pio_set_rearr_opts'
-    !ret = pio_set_rearr_opts(pio_subsystem, pio_rearr_comm_type, pio_rearr_comm_fcd,        &
-    !                         pio_rearr_comm_enable_hs_comp2io,                              &
-    !                         pio_rearr_comm_enable_isend_comp2io,                           &
-    !                         pio_rearr_comm_max_pend_req_comp2io,                           &
-    !                         pio_rearr_comm_enable_hs_io2comp,                              &
-    !                         pio_rearr_comm_enable_isend_io2comp,                           &
-    !                         pio_rearr_comm_max_pend_req_io2comp)
     
     ! #######################################################################################
     !

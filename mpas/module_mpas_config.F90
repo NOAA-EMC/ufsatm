@@ -31,8 +31,11 @@ module module_mpas_config
   !> Calendar type
   character(17)            :: calendar='                 '
 
-  !> MPAS Initial Condition file (comes from NML)
+  !> MPAS Initial Condition file (via UFSATM NML)
   character(len=256) :: ic_filename
+
+  !> MPAS Lateral Boundary Condition file (via UFSATM NML)
+  character(len=256) :: lbc_filename
 
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem
@@ -56,6 +59,12 @@ module module_mpas_config
   integer :: maxNCells     ! maximum number of cells for any task (nCellsSolve <= maxNCells)
   integer :: maxEdges      ! maximum number of edges per cell
   integer :: nVertLevels   ! number of vertical layers (midpoints)
+
+  integer, pointer :: &
+       nCellsSolve,     & ! number of cells that a task solves
+       nEdgesSolve,     & ! number of edges (velocity) that a task solves
+       nVerticesSolve,  & ! number of vertices (vorticity) that a task solves
+       nVertLevelsSolve
 
   !> Global gridded data
   integer :: nCellsGlobal     ! global number of cells/columns

@@ -26,7 +26,7 @@ module atmos_model_mod
   use fms_mod,               only : stdlog
   use mpp_mod,               only : stdout
   ! UFSATM
-  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename
+  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename, lbc_filename
   implicit none
 
   private
@@ -50,7 +50,7 @@ module atmos_model_mod
   logical :: dycore_only  = .false.
   logical :: debug        = .false.
 
-  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename
+  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename
 
   ! Component Timers
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock

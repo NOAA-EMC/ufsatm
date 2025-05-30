@@ -160,9 +160,6 @@ module MPAS_typedefs
                                                   ! from physics [kg K/m^3/s]        (nlev,ncol)
      real(mpas_kind), pointer :: rho_tend(:,:)    ! Dry air density tendency
                                                   ! from physics [kg/m^3/s]          (nlev,ncol)
-     ! Hydrostatic Pressure
-     real(mpas_kind), pointer :: pmiddry(:,:)     ! Pressure at layer centers        (nlev,ncol)
-     real(mpas_kind), pointer :: pintdry(:,:)     ! Pressure at layer interfaces     (nlev+1,ncol)
 
   end type MPAS_statein_type
   
