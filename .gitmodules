@@ -9,7 +9,7 @@
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/wzzheng90/ccpp-physics
-  branch = ufs/dev
+  branch = canopywater_glacier
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
