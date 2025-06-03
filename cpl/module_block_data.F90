@@ -1,3 +1,7 @@
+!> @file
+!> @brief ???
+!> @author ???
+
 module module_block_data
 
   ! Copies block data containing real*4, real*8, or integer into
@@ -71,8 +75,17 @@ module module_block_data
 
 contains
 
-  ! -- copy: 1D to 2D
-
+  !> @brief copy: 1D to 2D ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1d_i4_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -110,6 +123,17 @@ contains
 
   end subroutine block_copy_1d_i4_to_2d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -147,6 +171,18 @@ contains
 
   end subroutine block_copy_1d_r8_to_2d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] special_value ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_spval_1d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, special_value, offset, rc)
 
     ! -- arguments
@@ -186,8 +222,18 @@ contains
 
   end subroutine block_copy_spval_1d_r8_to_2d_r8
 
-  ! -- copy: 1D slice to 2D
-
+  !> @brief -- copy: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1dslice_r8_to_2d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -229,8 +275,19 @@ contains
 
   end subroutine block_copy_1dslice_r8_to_2d_r8
 
-  ! -- copy: 1D slice to 2D
-
+  !> @brief copy: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice1 ???
+  !> @param[in] slice2 ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1dslice2_r8_to_2d_r8(destin_ptr, source_ptr, slice1, slice2, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -273,8 +330,17 @@ contains
 
   end subroutine block_copy_1dslice2_r8_to_2d_r8
 
-  ! -- copy: 2D to 3D
-
+  !> @brief -- copy: 2D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_2d_r8_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -314,8 +380,17 @@ contains
 
   end subroutine block_copy_2d_r8_to_3d_r8
 
-  ! -- copy: 2D to 2D
-
+  !> @brief -- copy: 2D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_2d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -353,6 +428,17 @@ contains
 
   end subroutine block_copy_2d_r8_to_2d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_2d_r8_to_2d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -390,8 +476,17 @@ contains
 
   end subroutine block_array_copy_2d_r8_to_2d_r8
 
-  ! -- copy: 3D to 3D
-
+  !> @brief -- copy: 3D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_3d_r8_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -431,6 +526,17 @@ contains
 
   end subroutine block_copy_3d_r8_to_3d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_3d_r8_to_3d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -470,8 +576,18 @@ contains
 
   end subroutine block_array_copy_3d_r8_to_3d_r8
 
-  ! -- copy: 3D slice to 3D
-
+  !> @brief -- copy: 3D slice to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_3dslice_r8_to_3d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -515,6 +631,18 @@ contains
 
   end subroutine block_copy_3dslice_r8_to_3d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_3dslice_r8_to_3d_r8(destin_ptr, source_arr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -558,8 +686,16 @@ contains
 
   end subroutine block_array_copy_3dslice_r8_to_3d_r8
 
-  ! -- fill: 2D
-
+  !> @brief -- fill: 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_fill_2d_r8(destin_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -593,8 +729,16 @@ contains
 
   end subroutine block_fill_2d_r8
 
-  ! -- fill: 3D
-
+  !> @brief -- fill: 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_fill_3d_r8(destin_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -630,8 +774,17 @@ contains
 
   end subroutine block_fill_3d_r8
 
-  ! -- copy/fill: 1D to 2D
-
+  !> @brief -- copy/fill: 1D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1d_r8_to_2d_r8(destin_ptr, source_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -656,8 +809,18 @@ contains
 
   end subroutine block_copy_or_fill_1d_r8_to_2d_r8
 
-  ! -- copy/fill: 1D slice to 2D
-
+  !> @brief -- copy/fill: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1dslice_r8_to_2d_r8(destin_ptr, source_ptr, slice, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -683,8 +846,19 @@ contains
 
   end subroutine block_copy_or_fill_1dslice_r8_to_2d_r8
 
-  ! -- copy/fill: 1D slice to 2D
-
+  !> -- copy/fill: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice1 ???
+  !> @param[in] slice2 ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1dslice2_r8_to_2d_r8(destin_ptr, source_ptr, slice1, slice2, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -711,8 +885,17 @@ contains
 
   end subroutine block_copy_or_fill_1dslice2_r8_to_2d_r8
 
-  ! -- copy/fill: 2D to 3D
-
+  !> @brief -- copy/fill: 2D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_2d_r8_to_3d_r8(destin_ptr, source_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -737,8 +920,17 @@ contains
 
   end subroutine block_copy_or_fill_2d_r8_to_3d_r8
 
-  ! -- combine: 1D to 2D
-
+  !> @brief -- combine: 1D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] fract1_ptr ???
+  !> @param[in] fract2_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_combine_frac_1d_r8_to_2d_r8(destin_ptr, fract1_ptr, fract2_ptr, block, block_index, offset, rc)
 
     ! -- arguments
@@ -780,7 +972,17 @@ contains
   ! Real*4 Routines
 
   ! ------------------------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1d_r4_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -818,6 +1020,18 @@ contains
 
   end subroutine block_copy_1d_r4_to_2d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] special_value ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_spval_1d_r4_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, special_value, offset, rc)
 
     ! -- arguments
@@ -857,8 +1071,18 @@ contains
 
   end subroutine block_copy_spval_1d_r4_to_2d_r8
 
-  ! -- copy: 1D slice to 2D
-
+  !> @brief -- copy: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1dslice_r4_to_2d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -900,8 +1124,19 @@ contains
 
   end subroutine block_copy_1dslice_r4_to_2d_r8
 
-  ! -- copy: 1D slice to 2D
-
+  !> @brief -- copy: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice1 ???
+  !> @param[in] slice2 ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_1dslice2_r4_to_2d_r8(destin_ptr, source_ptr, slice1, slice2, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -944,8 +1179,17 @@ contains
 
   end subroutine block_copy_1dslice2_r4_to_2d_r8
 
-  ! -- copy: 2D to 3D
-
+  !> @brief -- copy: 2D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_2d_r4_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -985,8 +1229,17 @@ contains
 
   end subroutine block_copy_2d_r4_to_3d_r8
 
-  ! -- copy: 2D to 2D
-
+  !> @brief -- copy: 2D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_2d_r4_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1024,6 +1277,17 @@ contains
 
   end subroutine block_copy_2d_r4_to_2d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_arr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_2d_r4_to_2d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1061,8 +1325,17 @@ contains
 
   end subroutine block_array_copy_2d_r4_to_2d_r8
 
-  ! -- copy: 3D to 3D
-
+  !> @brief -- copy: 3D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_3d_r4_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1102,6 +1375,17 @@ contains
 
   end subroutine block_copy_3d_r4_to_3d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_arr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_3d_r4_to_3d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1141,8 +1425,18 @@ contains
 
   end subroutine block_array_copy_3d_r4_to_3d_r8
 
-  ! -- copy: 3D slice to 3D
-
+  !> @brief -- copy: 3D slice to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_3dslice_r4_to_3d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1186,6 +1480,18 @@ contains
 
   end subroutine block_copy_3dslice_r4_to_3d_r8
 
+  !> ???
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_arr ???
+  !> @param[in] slice ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] scale_factor ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_array_copy_3dslice_r4_to_3d_r8(destin_ptr, source_arr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1229,8 +1535,17 @@ contains
 
   end subroutine block_array_copy_3dslice_r4_to_3d_r8
 
-  ! -- copy/fill: 1D to 2D
-
+  !> @brief -- copy/fill: 1D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1d_r4_to_2d_r8(destin_ptr, source_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -1255,8 +1570,18 @@ contains
 
   end subroutine block_copy_or_fill_1d_r4_to_2d_r8
 
-  ! -- copy/fill: 1D slice to 2D
-
+  !> -- copy/fill: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1dslice_r4_to_2d_r8(destin_ptr, source_ptr, slice, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -1282,8 +1607,19 @@ contains
 
   end subroutine block_copy_or_fill_1dslice_r4_to_2d_r8
 
- ! -- copy/fill: 1D slice to 2D
-
+  !> @brief -- copy/fill: 1D slice to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] slice1 ???
+  !> @param[in] slice2 ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_1dslice2_r4_to_2d_r8(destin_ptr, source_ptr, slice1, slice2, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -1310,8 +1646,17 @@ contains
 
   end subroutine block_copy_or_fill_1dslice2_r4_to_2d_r8
 
-  ! -- copy/fill: 2D to 3D
-
+  !> @brief -- copy/fill: 2D to 3D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] source_ptr ???
+  !> @param[in] fill_value ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_copy_or_fill_2d_r4_to_3d_r8(destin_ptr, source_ptr, fill_value, block, block_index, offset, rc)
 
     ! -- arguments
@@ -1336,8 +1681,17 @@ contains
 
   end subroutine block_copy_or_fill_2d_r4_to_3d_r8
 
-  ! -- combine: 1D to 2D
-
+  !> @brief -- combine: 1D to 2D
+  !> 
+  !> @param[in] destin_ptr ???
+  !> @param[in] fract1_ptr ???
+  !> @param[in] fract2_ptr ???
+  !> @param[in] block ???
+  !> @param[in] block_index ???
+  !> @param[in] offset ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine block_combine_frac_1d_r4_to_2d_r8(destin_ptr, fract1_ptr, fract2_ptr, block, block_index, offset, rc)
 
     ! -- arguments

@@ -26,9 +26,11 @@ module module_cplscalars
   public State_GetScalar
 
   ! set from config
-  integer, public           :: flds_scalar_num, flds_scalar_index_nx
-  integer, public           :: flds_scalar_index_ny, flds_scalar_index_ntile
-  character(len=80), public :: flds_scalar_name
+  integer, public           :: flds_scalar_num !< ???
+  integer, public           :: flds_scalar_index_nx !< ???
+  integer, public           :: flds_scalar_index_ny !< ???
+  integer, public           :: flds_scalar_index_ntile !< ???
+  character(len=80), public :: flds_scalar_name !< ???
 
 contains
 
@@ -54,7 +56,6 @@ contains
     type(ESMF_Grid)     :: grid
 
     character(len=*), parameter :: subname='(module_cplscalars:SetScalarField)'
-    ! ----------------------------------------------
 
     rc = ESMF_SUCCESS
 
@@ -100,7 +101,6 @@ contains
     real(ESMF_KIND_R8), pointer :: farrayptr(:,:)
 
     character(len=*), parameter :: subname = ' (module_cplscalars:state_setscalar) '
-    ! ----------------------------------------------
 
     rc = ESMF_SUCCESS
 
@@ -163,7 +163,6 @@ contains
     real(ESMF_KIND_R8)          :: tmp(1)
 
     character(len=*), parameter :: subname = ' (module_cplscalars:state_getscalar) '
-    ! ----------------------------------------------
 
     rc = ESMF_SUCCESS
 
@@ -200,4 +199,5 @@ contains
     end if
 
   end subroutine State_GetScalar
+
 end module module_cplscalars

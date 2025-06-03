@@ -1,10 +1,14 @@
+!> @file
+!> @brief This module contains the the debug subroutines for fv3 coupled run
+!> @author ???
+!>
+!> ## Module History
+!>
+!> Date | Programmer | Modification
+!> -----|------------|-------------
+!> 12 Mar 2018 | J. Wang | Pull coupled subroutines from fv3_cap.F90 to this module
+
 module module_cap_cpl
-!
-!*** this module contains the debug subroutines for fv3 coupled run
-!
-! revision history
-!  12 Mar 2018: J. Wang       Pull coupled subroutines from fv3_cap.F90 to this module
-!
   use ESMF
 
   implicit none
@@ -13,9 +17,17 @@ module module_cap_cpl
   public diagnose_cplFields
   contains
 
-  !-----------------------------------------------------------------------------
-  !-----------------------------------------------------------------------------
-
+    !> ???
+    !> 
+    !> @param[in] gcomp ???
+    !> @param[in] clock_fv3 ???
+    !> @param[in] fcstpe ???
+    !> @param[in] statewrite_flag ???
+    !> @param[in] stdiagnose_flag ???
+    !> @param[in] state_tag "import" or "export"
+    !> @param[out] rc ???
+    !>
+    !> @author
     subroutine diagnose_cplFields(gcomp, clock_fv3, fcstpe, &
                                   statewrite_flag, stdiagnose_flag, state_tag, rc)
 
@@ -79,9 +91,15 @@ module module_cap_cpl
 
     end subroutine diagnose_cplFields
 
-  !-----------------------------------------------------------------------------
-
-  ! This subroutine requires ESMFv8 - for coupled FV3
+    !> ???
+    !> 
+    !> This subroutine requires ESMFv8 - for coupled FV3
+    !>
+    !> @param[in] state ???
+    !> @param[in] filename ???
+    !> @param[out] rc ???
+    !>
+    !> @author
     subroutine State_RWFields_tiles(state,filename,rc)
 
       type(ESMF_State), intent(in)          :: state
@@ -254,6 +272,13 @@ module module_cap_cpl
 
     contains
 
+      !> ???
+      !>
+      !> @param[in] axis ???
+      !> @param[in] count ???
+      !> @result id ???
+      !>
+      !> @author
       function find_axis_id_for_axis_count(axis, count) result(id)
         integer, intent(in) :: axis, count
 
@@ -286,8 +311,13 @@ module module_cap_cpl
 
     end subroutine State_RWFields_tiles
 
-  !-----------------------------------------------------------------------------
-
+  !> ???
+  !> 
+  !> @param[in] State ???
+  !> @param[in] string ???
+  !> @param[out] rc ???
+  !>
+  !> @author
   subroutine state_diagnose(State,string, rc)
     ! ----------------------------------------------
     ! Diagnose status of state
@@ -370,7 +400,5 @@ module module_cap_cpl
     call ESMF_LogWrite(subname//' exit', ESMF_LOGMSG_INFO)
 
   end subroutine state_diagnose
-
-  !-----------------------------------------------------------------------------
 
 end module module_cap_cpl
