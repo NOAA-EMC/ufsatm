@@ -123,9 +123,9 @@ contains
     endif
     if (Model%lsm == Model%lsm_ruc .and. warm_start) then
       if (Model%rdlai) then
-        nvar2r = 13
+        nvar2r = 15
       else
-        nvar2r = 12
+        nvar2r = 14
       endif
       nvar3  = 5
     else
@@ -534,6 +534,8 @@ contains
       nt=nt+1 ; sfc%name2(nt) = 'tsnow_ice'
       nt=nt+1 ; sfc%name2(nt) = 'snowfall_acc_land'
       nt=nt+1 ; sfc%name2(nt) = 'snowfall_acc_ice'
+      nt=nt+1 ; sfc%name2(nt) = 'acsnow_land'
+      nt=nt+1 ; sfc%name2(nt) = 'acsnow_ice'
       nt=nt+1 ; sfc%name2(nt) = 'sfalb_lnd'
       nt=nt+1 ; sfc%name2(nt) = 'sfalb_lnd_bck'
       nt=nt+1 ; sfc%name2(nt) = 'sfalb_ice'
@@ -1051,6 +1053,8 @@ contains
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%tsnow_ice)
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowfallac_land)
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%snowfallac_ice)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%acsnow_land)
+        call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%acsnow_ice)
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_lnd)
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_lnd_bck)
         call GFS_Data_transfer(reading,ii1,jj1,isc,jsc,nt,sfc%var2,Sfcprop(nb)%sfalb_ice)
