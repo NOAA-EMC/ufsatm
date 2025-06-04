@@ -65,16 +65,12 @@
       <scheme>GFS_photochemistry_post</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
-      <scheme>GFS_DCNV_generic_pre</scheme>
       <scheme>samfdeepcnv</scheme>
       <scheme>GFS_DCNV_generic_post</scheme>
-      <scheme>GFS_SCNV_generic_pre</scheme>
       <scheme>samfshalcnv</scheme>
       <scheme>GFS_SCNV_generic_post</scheme>
       <scheme>GFS_suite_interstitial_4</scheme>
       <scheme>cnvc90</scheme>
-      <scheme>GFS_MP_generic_pre</scheme>
-      <scheme>mp_thompson_pre</scheme>
       </subcycle>
       <subcycle loop="1">
         <scheme>mp_thompson</scheme>

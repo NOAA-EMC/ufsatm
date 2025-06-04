@@ -337,7 +337,7 @@
 [qgrs(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
   standard_name = physics_timestep_initial_turbulent_kinetic_energy
   long_name = physics_timestep_initial_turbulent kinetic energy at the beginning of the physics timestep
-  units = J
+  units = J kg-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
@@ -647,6 +647,14 @@
   type = real
   kind = kind_phys
   active = ( index_of_updraft_velocity_in_tracer_concentration_array > 0 )
+[gq0(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
+  standard_name = turbulent_kinetic_energy
+  long_name = turbulent kinetic energy
+  units = J kg-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_turbulent_kinetic_energy_in_tracer_concentration_array > 0 )
 ########################################################################
 [ccpp-table-properties]
   name = GFS_sfcprop_type

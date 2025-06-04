@@ -338,6 +338,20 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_tracers_for_convective_transport)
   type = real
   kind = kind_phys
+[dclw(:,:,1)]
+  standard_name = tendency_of_ice_water_mixing_ratio_convective_transport_tracer
+  long_name = tendency of ratio of mass of ice water to mass of dry air plus vapor (without condensates) in the convectively transported tracer array
+  units = kg kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[dclw(:,:,2)]
+  standard_name = tendency_of_cloud_condensed_water_mixing_ratio_convective_transport_tracer
+  long_name = tendency of ratio of mass of cloud water to mass of dry air plus vapor (without condensates) in the convectively transported tracer array
+  units = kg kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
 [clx]
   standard_name = fraction_of_grid_box_with_subgrid_orography_higher_than_critical_height
   long_name = frac. of grid box with by subgrid height_above_mean_sea_level higher than critical height
@@ -589,7 +603,7 @@
 [dqdt(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
   standard_name = process_split_cumulative_tendency_of_turbulent_kinetic_energy
   long_name = turbulent kinetic energy tendency due to model physics
-  units = J s-1
+  units = J kg-1 s-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
@@ -1797,7 +1811,7 @@
 [save_q(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
   standard_name = turbulent_kinetic_energy_save
   long_name = turbulent kinetic energy before entering a physics scheme
-  units = kg kg-1
+  units = J kg-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
@@ -2048,25 +2062,43 @@
   kind = kind_phys
 [ten_q(:,:,index_of_rain_mixing_ratio_in_tracer_concentration_array)]
   standard_name = tendency_of_rain_mixing_ratio
-  long_name = ratio of mass of rain water tendency to mass of dry air plus vapor (without condensates)
+  long_name = tendency of ratio of mass of rain water tendency to mass of dry air plus vapor (without condensates)
   units = kg kg-1 s-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [ten_q(:,:,index_of_snow_mixing_ratio_in_tracer_concentration_array)]
   standard_name = tendency_of_snow_mixing_ratio
-  long_name = ratio of mass of snow water tendency to mass of dry air plus vapor (without condensates)
+  long_name = tendency of ratio of mass of snow water tendency to mass of dry air plus vapor (without condensates)
   units = kg kg-1 s-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_snow_mixing_ratio_in_tracer_concentration_array > 0)
 [ten_q(:,:,index_of_graupel_mixing_ratio_in_tracer_concentration_array)]
   standard_name = tendency_of_graupel_mixing_ratio
-  long_name = ratio of mass of graupel tendency to mass of dry air plus vapor (without condensates)
+  long_name = tendency of ratio of mass of graupel tendency to mass of dry air plus vapor (without condensates)
   units = kg kg-1 s-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_graupel_mixing_ratio_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_hail_mixing_ratio_in_tracer_concentration_array)]
+  standard_name = tendency_of_hail_mixing_ratio
+  long_name = ratio of mass of hail tendency to mass of dry air plus vapor (without condensates)
+  units = kg kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys 
+  active = (index_of_hail_mixing_ratio_in_tracer_concentration_array > 0) 
+[ten_q(:,:,index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array)]
+  standard_name = tendency_of_cloud_condensation_nuclei_number_concentration
+  long_name = number concentration of cloud condensation nuclei tendency
+  units = kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_cloud_condensation_nuclei_number_concentration_in_tracer_concentration_array > 0 )
 [ten_q(:,:,index_of_mass_number_concentration_of_cloud_ice_in_tracer_concentration_array)]
   standard_name = tendency_of_mass_number_concentration_of_cloud_ice_water_crystals_in_air
   long_name = number concentration of ice tendency
@@ -2074,6 +2106,47 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_cloud_ice_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_mass_number_concentration_of_snow_in_tracer_concentration_array)]
+  standard_name = tendency_of_mass_number_concentration_of_snow
+  long_name = number concentration of snow tendency
+  units = kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (index_of_mass_number_concentration_of_snow_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array)]
+  standard_name = tendency_of_mass_number_concentration_of_graupel
+  long_name = number concentration of graupel tendency
+  units = kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_mass_number_concentration_of_hail_in_tracer_concentration_array)]
+  standard_name = tendency_of_mass_number_concentration_of_hail
+  long_name = number concentration of hail tendency
+  units = kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_mass_number_concentration_of_hail_in_tracer_concentration_array > 0 )
+[ten_q(:,:,index_of_graupel_volume_in_tracer_concentration_array)]
+  standard_name = tendency_of_graupel_volume
+  long_name = graupel volume tendency
+  units = m3 kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_graupel_volume_in_tracer_concentration_array > 0 )
+[ten_q(:,:,index_of_hail_volume_in_tracer_concentration_array)]
+  standard_name = tendency_of_hail_volume
+  long_name = hail volume tendency
+  units = m3 kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_hail_volume_in_tracer_concentration_array > 0 )
 [ten_q(:,:,index_of_mass_number_concentration_of_rain_in_tracer_concentration_array)]
   standard_name = tendency_of_mass_number_concentration_of_rain_water_in_air
   long_name = number concentration of rain tendency
@@ -2081,6 +2154,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_rain_in_tracer_concentration_array > 0)
 [ten_q(:,:,index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array)]
   standard_name = tendency_of_mass_number_concentration_of_cloud_liquid_water_particles_in_air
   long_name = number concentration of cloud droplets (liquid) tendency
@@ -2105,6 +2179,46 @@
   type = real
   kind = kind_phys
   active = (index_of_mass_number_concentration_of_nonhygroscopic_ice_nucleating_aerosols_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_cloud_area_fraction_in_atmosphere_layer_in_tracer_concentration_array)]
+  standard_name = tendency_of_cloud_area_fraction_in_atmosphere_layer
+  long_name = cloud fraction tendency
+  units = frac s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (index_of_cloud_area_fraction_in_atmosphere_layer_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_mass_weighted_rime_factor_in_tracer_concentration_array)]
+  standard_name = tendency_of_mass_weighted_rime_factor
+  long_name = mass weighted rime factor tendency
+  units = kg kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (index_of_mass_weighted_rime_factor_in_tracer_concentration_array > 0)
+[ten_q(:,:,index_of_reflectivity_of_rain_in_tracer_concentration_array)]
+  standard_name = tendency_of_reflectivity_of_rain
+  long_name = reflectivity of rain tendency
+  units = m6 kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_reflectivity_of_rain_in_tracer_concentration_array > 0 )
+[ten_q(:,:,index_of_reflectivity_of_graupel_in_tracer_concentration_array)]
+  standard_name = tendency_of_reflectivity_of_graupel
+  long_name = reflectivity of graupel tendency
+  units = m6 kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_reflectivity_of_graupel_in_tracer_concentration_array > 0 )
+[ten_q(:,:,index_of_reflectivity_of_hail_in_tracer_concentration_array)]
+  standard_name = tendency_of_reflectivity_of_hail
+  long_name = reflectivity of hail tendency
+  units = m6 kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_reflectivity_of_hail_in_tracer_concentration_array > 0 )
 [ten_t]
   standard_name = tendency_of_air_temperature
   long_name = tendency of air temperature calculated by one physics scheme
