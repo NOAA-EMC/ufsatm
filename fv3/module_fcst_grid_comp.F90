@@ -594,8 +594,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     logical               :: top_parent_is_global
     logical               :: history_file_on_native_grid
 
-    integer                       :: num_restart_interval, restart_starttime
-    real,dimension(:),allocatable :: restart_interval
+    integer                       :: num_restart_fh, restart_starttime
+    real,dimension(:),allocatable :: restart_fh
 
     integer           :: urc
     type(ESMF_State)  :: tempState
@@ -633,16 +633,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     call ESMF_ConfigLoadFile(config=CF ,filename='model_configure' ,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    num_restart_interval = ESMF_ConfigGetLen(config=CF, label ='restart_interval:',rc=rc)
+    num_restart_fh = ESMF_ConfigGetLen(config=CF, label ='restart_fh:',rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if (mype == 0) print *,'af ufs config,num_restart_interval=',num_restart_interval
-    if (num_restart_interval<=0) num_restart_interval = 1
-    allocate(restart_interval(num_restart_interval))
-    restart_interval = 0
-    call ESMF_ConfigGetAttribute(CF,valueList=restart_interval,label='restart_interval:', &
-                                 count=num_restart_interval, rc=rc)
+    if (mype == 0) print *,'af ufs config,num_restart_fh=',num_restart_fh
+    if (num_restart_fh<=0) num_restart_fh = 1
+    allocate(restart_fh(num_restart_fh))
+    restart_fh = 0
+    call ESMF_ConfigGetAttribute(CF,valueList=restart_fh,label='restart_fh:', &
+                                 count=num_restart_fh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if (mype == 0) print *,'af ufs config,restart_interval=',restart_interval
+    if (mype == 0) print *,'af ufs config,restart_fh=',restart_fh
 !
     call fms_init(fcst_mpi_comm%mpi_val)
     call mpp_init()
@@ -763,28 +763,18 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 ! set up forecast time array that controls when to write out restart files
     frestart = 0
     call get_time(Time_end - Time_init, total_inttime)
-! set iau offset time
-    Atmos%iau_offset    = iau_offset
-    if(iau_offset > 0 ) then
-      iautime =  set_time(iau_offset * 3600, 0)
-    endif
 ! if the second item is -1, the first number is frequency
     freq_restart = .false.
-    if(num_restart_interval == 2) then
-      if(restart_interval(2)== -1) freq_restart = .true.
+    if(num_restart_fh == 2) then
+      if(restart_fh(2)== -1) freq_restart = .true.
     endif
     if(freq_restart) then
-      if(restart_interval(1) >= 0) then
-        tmpvar = restart_interval(1) * 3600
+      if(restart_fh(1) >= 0) then
+        tmpvar = restart_fh(1) * 3600
         Time_step_restart = set_time (tmpvar, 0)
-        if(iau_offset > 0 ) then
-          Time_restart = Time_init + iautime + Time_step_restart
-          frestart(1) = tmpvar + iau_offset *3600
-        else
-          Time_restart = Time_init + Time_step_restart
-          frestart(1) = tmpvar
-        endif
-        if(restart_interval(1) > 0) then
+        Time_restart = Time_init + Time_step_restart
+        frestart(1) = tmpvar
+        if(restart_fh(1) > 0) then
           i = 2
           do while ( Time_restart < Time_end )
             frestart(i) = frestart(i-1) + tmpvar
@@ -794,17 +784,13 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         endif
       endif
 ! otherwise it is an array with forecast time at which the restart files will be written out
-    else if(num_restart_interval >= 1) then
-      if(num_restart_interval == 1 .and. restart_interval(1) == 0 ) then
+    else if(num_restart_fh >= 1) then
+      if(num_restart_fh == 1 .and. restart_fh(1) == 0 ) then
         frestart(1) = total_inttime
       else
-        if(iau_offset > 0 ) then
-          restart_starttime = iau_offset *3600
-        else
-          restart_starttime = 0
-        endif
-        do i=1,num_restart_interval
-          frestart(i) = restart_interval(i) * 3600. + restart_starttime
+        restart_starttime = 0
+        do i=1,num_restart_fh
+          frestart(i) = restart_fh(i) * 3600. + restart_starttime
         enddo
       endif
     endif

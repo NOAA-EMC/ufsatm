@@ -1818,7 +1818,7 @@
       endif
 !
       if(lprnt) print *,'in wrt run, cdate=',cdate(1:4),'fcst_seconds=',fcst_seconds/3600.,'nfhour=',nfhour,&
-       'lupp_history=', lupp_history, 'lrestart=',lrestart,'write grid comp not return',cfhour=',trim(cfhour)
+       'lupp_history=', lupp_history, 'lrestart=',lrestart,'write grid comp not return,cfhour=',trim(cfhour)
 !
 !-----------------------------------------------------------------------
 !*** loop on the "output_" FieldBundles, i.e. files that need to write out
