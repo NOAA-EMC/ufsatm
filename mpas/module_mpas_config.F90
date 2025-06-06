@@ -4,7 +4,8 @@
 !
 ! #########################################################################################
 module module_mpas_config
-  use MPAS_typedefs, only: r8 => kind_dbl_prec
+  use MPAS_typedefs, only: r8 => kind_dbl_prec, r4 => kind_sngl_prec
+  use GFS_typedefs, only: pi => con_pi
   use mpi_f08
   use pio, only : iosystem_desc_t, file_desc_t, io_desc_t
   use esmf
@@ -70,5 +71,10 @@ module module_mpas_config
   integer :: nCellsGlobal     ! global number of cells/columns
   integer :: nEdgesGlobal     ! global number of edges
   integer :: nVerticesGlobal  ! global number of vertices
+
+  !> GridCell Longitue/Latitue/Area
+  real(r4), allocatable :: latCellGlobal(:)
+  real(r4), allocatable :: lonCellGlobal(:)
+  real(r4), allocatable :: areaCellGlobal(:)
   
 end module module_mpas_config

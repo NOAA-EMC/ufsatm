@@ -58,6 +58,11 @@ TYPEDEFS_NEW_METADATA = {
         'land_iau_state_type' : '',
         'land_iau_control_type' : '',
         },
+    'CCPP_typedefs' : {
+        'GFS_interstitial_type' : 'GFS_Interstitial(cdata%thrd_no)',
+        'GFDL_interstitial_type' : 'GFDL_interstitial',
+        'CCPP_typedefs' : '',
+        },
     'CCPP_data' : {
         'CCPP_data' : '',
         },
@@ -68,7 +73,6 @@ TYPEDEFS_NEW_METADATA = {
         'MPAS_typedefs'         : '',
         'MAPS_control_type'     : 'MPAS_Control',
         'MAPS_statein_type'     : 'MPAS_Statein',
-        'MAPS_stateint_type'    : 'MPAS_Stateint',
         'MPAS_stateout_type'    : 'MPAS_Stateout',
         },
     'GFS_typedefs' : {
@@ -94,13 +98,27 @@ SCHEME_FILES = [
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_phys_time_vary.fv3.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rad_time_vary.fv3.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_time_vary_pre.fv3.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_radiation_surface.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmg_post.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmg_pre.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmg_setup.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmgp_setup.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmgp_pre.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_cloud_diagnostics.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmgp_cloud_mp.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmgp_cloud_overlap.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmgp_post.F90',
     'physics/physics/Radiation/RRTMG/radsw_main.F90',
     'physics/physics/Radiation/RRTMG/radlw_main.F90',
     'physics/physics/Radiation/RRTMG/rrtmg_lw_post.F90',
     'physics/physics/Radiation/RRTMG/rrtmg_sw_post.F90',
-    'physics/physics/Radiation/RRTMG/rad_sw_pre.F90'
-    ]
+    'physics/physics/Radiation/RRTMG/rad_sw_pre.F90',
+    'physics/physics/Radiation/RRTMGP/rrtmgp_aerosol_optics.F90',
+    'physics/physics/Radiation/RRTMGP/rrtmgp_lw_main.F90',
+    'physics/physics/Radiation/RRTMGP/rrtmgp_sw_main.F90',
+    'physics/physics/photochem/module_h2ophys.F90',
+    'physics/physics/photochem/module_ozphys.F90'
+]
 
 # Default build dir, relative to current working directory,
 # if not specified as command-line argument

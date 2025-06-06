@@ -26,9 +26,9 @@ module MPAS_typedefs
      character(len=:), pointer, dimension(:) :: input_nml_file => null()
 
      ! MPI Bookkeeping
-     integer        :: me             !< current MPI-rank
-     integer        :: master         !< master MPI-rank
-     type(MPI_Comm) :: mpi_comm       !< forecast tasks mpi communicator
+     integer          :: me           !< current MPI-rank
+     integer          :: master       !< master MPI-rank
+     type(MPI_Comm)   :: mpi_comm     !< forecast tasks mpi communicator
 
      ! ESMF 
      integer          :: fcst_ntasks  !< total number of forecast tasks
@@ -48,48 +48,26 @@ module MPAS_typedefs
      integer, pointer :: blksz(:)     !< Block size for  data blocking (default blksz(1)=[nCells])
      integer          :: levs         !< number of vertical levels
 
-     ! Tracer information
+     !
+     integer          :: iau_offset   !< iau running window length
+     logical          :: restart      !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
+
+     ! Tracers
      integer                    :: nConstituents   !< Number of constituents (tracers).
      integer                    :: nwat            !< number of hydrometeors in dcyore (including water vapor)
      character(len=32), pointer :: tracer_names(:) !< tracers names to dereference tracer id
      integer,           pointer :: tracer_types(:) !< tracers types: 0=generic, 1=chem,prog, 2=chem,diag
-
-     ! #####################################################################################
-     ! These are fields are not needed for MPAS, but instead are needed to call
-     ! control_initialize (i.e. GFS physics initialization) from  within MPAS_INIT().
-     !
-     ! Need to partition GFS_CONTROL_TYPE, in GFS_TYPEDEFS.F90, into FV3 and MPAS pieces.
-     !
-     ! GFS_CONTROL_TYPE => GFS_CONTROL_TYPE       - Dycore agnostic physics configuration
-     !                 \                           (Most stuff in gfs_control_type will remain in here)
-     !                  +  FV3_CONTROL_TYPE       - FV3 dycore specific physics configuration
-     !                                             (all this stuff below and any derived fields
-     !                                              in control_initialize shall reside here)
-     !                  +  MPAS_CONTROL_TYPE      - MPAS dycore specific physics configuration
-     !                                             (TBD)
-     ! ##################################################################################### 
-     !real(kind=kind_phys), pointer :: ak(:)       !< from surface (k=1) to TOA (k=levs)
-     !real(kind=kind_phys), pointer :: bk(:)       !< from surface (k=1) to TOA (k=levs)
-     !integer :: isc                               !< starting i-index for this MPI-domain
-     !integer :: jsc                               !< starting j-index for this MPI-domain
-     !integer :: nx                                !< number of points in i-dir for this MPI rank
-     !integer :: ny                                !< number of points in j-dir for this MPI rank
-     !integer :: cnx                               !< number of points in i-dir for this cubed-sphere face
-     !                                             !< equal to gnx for lat-lon grids
-     !integer :: cny                               !< number of points in j-dir for this cubed-sphere face
-     !                                             !< equal to gny for lat-lon grids
-     !integer :: gnx                               !< number of global points in x-dir (i) along the equator
-     !integer :: gny                               !< number of global points in y-dir (j) along any meridian
-     integer :: iau_offset                        !< iau running window length
-     !integer :: tile_num                          !< tile number for this MPI rank
-     logical :: restart                           !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
-     !logical :: hydrostatic                       !< flag whether this is a hydrostatic or non-hydrostatic run
+     
   end type MPAS_control_type
 
-  ! #########################################################################################
-  ! MPAS_statein_type
-  !  Prognostic state variables INTO dycore.
-  ! #########################################################################################
+  !> #########################################################################################
+  !> MPAS_statein_type
+  !>
+  !> Fields needed by the MPAS dynamical core.
+  !> These are pointers to MPAS internal data containers, associated in ufs_mpas_subdriver,
+  !> ufs_mpas_dyn_set().
+  !>
+  !> #########################################################################################
 !! \section arg_table_MPAS_statein_type
 !! \htmlinclude MPAS_statein_type.html
 !!
@@ -145,7 +123,9 @@ module MPAS_typedefs
                                                   ! divided by d(zeta)/dz            (nlev ,ncol)
      real(mpas_kind), pointer :: tracers(:,:,:)   ! Tracers [kg/kg dry air]       (nq,nlev ,ncol)
 
-
+     ! Index map between MPAS tracers and CAM constituents
+     integer, dimension(:), pointer :: mpas_from_ufs_cnst => null() ! indices into UFS constituent array
+     
      ! State that may be directly derived from dycore prognostic state
      real(mpas_kind), pointer :: theta(:,:)       ! Potential temperature [K]        (nlev,ncol)
      real(mpas_kind), pointer :: exner(:,:)       ! Exner function [-]               (nlev,ncol)
@@ -162,25 +142,14 @@ module MPAS_typedefs
                                                   ! from physics [kg/m^3/s]          (nlev,ncol)
 
   end type MPAS_statein_type
-  
-  ! #########################################################################################
-  ! MPAS_stateint_type
-  !  Prognostic state or tendencies BEFORE calling microphysics.
-  ! #########################################################################################
-!! \section arg_table_MPAS_stateint_type
-!! \htmlinclude MPAS_stateint_type.html
-!!
-  type MPAS_stateint_type
-     real (kind_phys), pointer :: u (:,:)    => null()  !< Zonal wind
-     real (kind_phys), pointer :: v (:,:)    => null()  !< Meridional wind
-     real (kind_phys), pointer :: temp (:,:) => null()  !< Temperature
-     real (kind_phys), pointer :: q (:,:,:)  => null()  !< Tracers
-  end type MPAS_stateint_type
-  
-  ! #########################################################################################
-  ! MPAS_stateout_type
-  !  Prognostic state or tendencies FROM MPAS dycore.
-  ! #########################################################################################
+
+  !> #########################################################################################
+  !> MPAS_stateout_type
+  !> Fields returned from the MPAS dynamical core.
+  !> These are pointers to MPAS internal data containers, associated in ufs_mpas_subdriver,
+  !> ufs_mpas_dyn_set(). Except for the dry hydrostatic pressures, which are managed by ufsatm.
+  !>
+  !> #########################################################################################
 !! \section arg_table_MPAS_stateout_type
 !! \htmlinclude MPAS_stateout_type.html
 !!
@@ -212,6 +181,9 @@ module MPAS_typedefs
      integer  :: index_qi                         ! Tracer index for ice mixing ratio
      integer  :: index_qh                         ! Tracer index for hail mixing ratio
 
+     ! Index map between MPAS tracers and UFS constituents
+     integer, dimension(:), pointer :: ufs_from_mpas_cnst => null() ! indices into MPAS tracers array
+     
      ! State that is directly prognosed by the dycore
      real(mpas_kind), pointer :: uperp(:,:)       ! Normal velocity at edges [m/s]  (nlev  ,nedge)
      real(mpas_kind), pointer :: w(:,:)           ! Vertical velocity [m/s]         (nlev+1,ncol)
@@ -230,12 +202,13 @@ module MPAS_typedefs
                                                   ! at layer midpoints               (nlev,ncol)
      real(mpas_kind), pointer :: pintdry(:,:)     ! Dry hydrostatic pressure [Pa]
                                                   ! at layer interfaces            (nlev+1,ncol)
+     real(mpas_kind), pointer :: pmid(:,:)        ! Pressure at layer midpoints      (nlev,ncol)
      real(mpas_kind), pointer :: vorticity(:,:)   ! Relative vertical vorticity [s^-1]
                                                   !                                  (nlev,nvtx)
      real(mpas_kind), pointer :: divergence(:,:)  ! Horizontal velocity divergence [s^-1]
                                                   !                                  (nlev,ncol)
   end type MPAS_stateout_type
 
-  public MPAS_control_type, MPAS_statein_type, MPAS_stateint_type, MPAS_stateout_type
+  public MPAS_control_type, MPAS_statein_type,  MPAS_stateout_type
 
 end module MPAS_typedefs

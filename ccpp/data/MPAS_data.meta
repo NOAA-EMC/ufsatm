@@ -12,12 +12,6 @@
   units = DDT
   dimensions = ()
   type = MPAS_statein_type
-[MPAS_Stateint]
-  standard_name = MPAS_stateint_type_instance
-  long_name = prognostic state data into microphysics
-  units = DDT
-  dimensions = ()
-  type = MPAS_stateint_type
 [MPAS_Stateout]
   standard_name = MPAS_stateout_type_instance
   long_name = prognostic state or tendencies return to dycore

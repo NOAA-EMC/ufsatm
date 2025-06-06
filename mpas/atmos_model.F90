@@ -10,8 +10,19 @@ module atmos_model_mod
   ! MPAS
   use MPAS_typedefs,         only : MPAS_control_type, MPAS_kind_phys => kind_phys
   ! CCPP
-  use MPAS_data,             only : MPAS_statein, MPAS_stateint, MPAS_stateout
-  use CCPP_data,             only : GFS_control, GFS_intdiag, ccpp_suite
+  use MPAS_data,             only : MPAS_statein, MPAS_stateout
+  use CCPP_data,             only : UFSATM_control      => GFS_control
+  use CCPP_data,             only : UFSATM_intdiag      => GFS_intdiag
+  use CCPP_data,             only : UFSATM_interstitial => GFS_interstitial
+  use CCPP_data,             only : UFSATM_grid         => GFS_grid
+  use CCPP_data,             only : UFSATM_tbd          => GFS_tbd
+  use CCPP_data,             only : UFSATM_sfcprop      => GFS_sfcprop
+  use CCPP_data,             only : UFSATM_statein      => GFS_statein
+  use CCPP_data,             only : UFSATM_stateout     => GFS_stateout
+  use CCPP_data,             only : UFSATM_cldprop      => GFS_cldprop
+  use CCPP_data,             only : UFSATM_radtend      => GFS_radtend
+  use CCPP_data,             only : UFSATM_coupling     => GFS_coupling
+  use CCPP_data,             only : ccpp_suite
   use CCPP_driver,           only : CCPP_step
   ! FMS
   use time_manager_mod,      only : time_type, get_time, get_date, operator(+), operator(-)
@@ -27,6 +38,12 @@ module atmos_model_mod
   use mpp_mod,               only : stdout
   ! UFSATM
   use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename, lbc_filename
+  use module_mpas_config,    only : lonCellGlobal, latCellGlobal, areaCellGlobal
+  use module_mpas_config,    only : pi
+  use mod_atmos_util,        only : get_atmos_tracer_types
+#ifdef _OPENMP
+  use omp_lib
+#endif
   implicit none
 
   private
@@ -71,7 +88,8 @@ contains
   !> #########################################################################################
   subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
     use ufs_mpas_subdriver, only : ufs_mpas_init_phase1, ufs_mpas_init_phase2, ufs_mpas_dyn_set
-    use ufs_mpas_subdriver, only : ufs_mpas_open_init, ufs_mpas_read_init
+    use ufs_mpas_subdriver, only : ufs_mpas_open_init, ufs_mpas_read_init, ufs_mpas_to_physics
+    use ufs_mpas_subdriver, only : constituent_name, is_water_species
     use MPAS_init,          only : MPAS_initialize
 
     ! Arguments
@@ -81,9 +99,9 @@ contains
     character(17),         intent(in   ) :: calendar 
 
     ! Locals
-    integer :: i, io, ierr, nConstituents, sec
+    integer :: i, io, ierr, nConstituents, sec, iCol
     type(MPAS_control_type) :: Cfg
-    integer :: times(6), timee(6), ttime, logUnits(2)
+    integer :: times(6), timee(6), ttime, logUnits(2), nthrds
     
     ! Set up timers
     setupClock = mpp_clock_id( 'Time-Step Setup       ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
@@ -119,15 +137,28 @@ contains
        ierr = check_nml_error(io, 'atmos_model_nml')
     endif
 
-    ! Get the number of tracers.
+    ! Get tracer name(s) and type(s).
     call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
     allocate (Cfg % tracer_names(Cfg % nConstituents), Cfg % tracer_types(Cfg % nConstituents))
     do i = 1, Cfg % nConstituents
        call get_tracer_names(MODEL_ATMOS, i, Cfg % tracer_names(i))
     enddo
+    call get_atmos_tracer_types(Cfg % tracer_types)
+    do i = 1, Cfg % nConstituents
+       print*,'SWALES tracers ',Cfg % tracer_names(i), Cfg % tracer_types(i)
+    enddo
+    
     ! DJS2025: There are 9 tracers, but only 6 are water. How do we get to 6?
-    ! With FV3, this is set during dycore initialization.
+    ! With FV3, this is set during dycore initialization. Set and Revisit later.
     Cfg % nwat = 6
+
+    call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
+    allocate (constituent_name(Cfg % nConstituents), is_water_species(Cfg % nConstituents))
+    do i = 1, Cfg % nConstituents
+       call get_tracer_names(MODEL_ATMOS, i, constituent_name(i))
+    enddo
+    is_water_species(:) = .false.
+    is_water_species(1:Cfg % nwat) = .true.
 
     ! Open (PIO) MPAS IC data file.
     call ufs_mpas_open_init()
@@ -146,14 +177,14 @@ contains
     ! (Associate UWM data containers with MPAS pool variables)
     call ufs_mpas_dyn_set(MPAS_Statein, MPAS_Stateout)
 
-    ! Read in MPAS IC data. Populate UWM data containers and MPAS "input" stream.
+    ! Read in MPAS IC data. Populate MPAS data containers and MPAS "input" stream.
     call ufs_mpas_read_init(MPAS_Statein)
 
     ! Complete the MPAS dycore initialization.
     ! - Set up threading.
     ! - Call MPAS core_atmosphere init.
     call ufs_mpas_init_phase2(Cfg, MPAS_Statein)
-
+    
     !> #########################################################################################
     !> #########################################################################################
     !> END MPAS DYCORE INITIALIZATION
@@ -165,7 +196,11 @@ contains
     !> BEGIN CCPP PHYSICS INITIALIZATION
     !> #########################################################################################
     !> #########################################################################################
-
+#ifdef _OPENMP
+    nthrds = omp_get_max_threads()
+#else
+    nthrds = 1
+#endif
     ! Set file ID for log file
     Cfg%nlunit = stdlog()
     
@@ -178,6 +213,17 @@ contains
     allocate(Cfg % blksz(Atmos % nblks))
     Cfg % blksz(:) = blocksize
     Cfg % blksz(Atmos % nblks) = nCellsGlobal - (Atmos % nblks - 1)*blocksize
+
+    ! Allocate physics interstitial data container (UFSATM_interstitial)
+    ! When Cfg % blksz(Atmos % nblks) is smaller than blocksize.
+    if (minval(Cfg % blksz)==maxval(Cfg % blksz)) then
+       allocate(UFSATM_interstitial(nthrds))
+    else if (all(minloc(Cfg % blksz)==(/size(Cfg % blksz)/))) then
+       allocate(UFSATM_interstitial(nthrds+1))
+    else
+       call mpp_error(FATAL, 'For non-uniform blocksizes, only the last element ' // &
+                             'in Cfg%blksz can be different from the others')
+    end if
     
     ! Update time (UFS specific time formatting array)
     Cfg%bdat(:) = 0
@@ -191,8 +237,19 @@ contains
     Cfg%fn_nml='using internal file'
 
     ! Read in physics namelist and allocate data containers.
-    call MPAS_initialize(GFS_control, GFS_intdiag, MPAS_Statein, MPAS_Stateint, MPAS_Stateout, Cfg)
+    call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
+         UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg, UFSATM_interstitial)
 
+    ! Get longitude/latitude/area from MPAS to use in the physics.
+    UFSATM_grid % xlon   = lonCellGlobal
+    UFSATM_grid % xlat   = latCellGlobal
+    UFSATM_grid % xlon_d = lonCellGlobal*180./pi
+    UFSATM_grid % xlat_d = latCellGlobal*180./pi
+    UFSATM_grid % area   = areaCellGlobal
+
+    ! Populate UFSATM data containers with MPAS "input" stream.
+    call ufs_mpas_to_physics(MPAS_stateout, UFSATM_statein)
+    
     ! Initialize the CCPP framework
     call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
@@ -202,6 +259,9 @@ contains
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
     ! Initialize stochastic physics pattern generation / cellular automata
+    ! NOT YET IMPLEMENTED
+
+    ! Initialize three-dimensional physics.
     ! NOT YET IMPLEMENTED
 
     call mpp_clock_end(atmiClock)
@@ -224,7 +284,7 @@ contains
   end subroutine atmos_model_end
 
   !> #########################################################################################
-  !> Procedure to call atmospheric radiation and physics (CCPP).
+  !> Procedure to call atmospheric radiation and physics groups (CCPP).
   !>
   !> #########################################################################################
   subroutine atmos_model_radiation_physics(Atmos)
@@ -238,25 +298,19 @@ contains
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
     
-    ! Call CCPP Group Radiation
+    ! Call CCPP Radiation Group
     call mpp_clock_begin(radClock)
-    if (GFS_control%lsswr .or. GFS_control%lslwr) then
+    if (UFSATM_control%lsswr .or. UFSATM_control%lslwr) then
        !call CCPP_step (step="radiation", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
     call mpp_clock_end(radClock)
 
-    ! Call CCPP Group Physics
+    ! Call CCPP Physics Group
     call mpp_clock_begin(physClock)
     call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
-
-    ! Call CCPP Timestep_finalize Group
-    call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_finalize", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
-    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
-    call mpp_clock_end(setupClock)
     
   end subroutine atmos_model_radiation_physics
 
@@ -265,20 +319,26 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
-    use ufs_mpas_subdriver, only: ufs_mpas_run
+    use ufs_mpas_subdriver, only: ufs_mpas_run, ufs_physics_to_mpas, ufs_mpas_to_physics
     use MPAS_init,          only: MPAS_initialize
     
     type (atmos_data_type), intent(inout) :: Atmos
+
+    ! Prepare MPAS dycore inputs with CCPP physics outputs.
+    call ufs_physics_to_mpas(UFSATM_stateout, MPAS_statein)
     
     ! Call MPAS dycore
     call mpp_clock_begin(mpasClock)
     call ufs_mpas_run(MPAS_Statein, MPAS_Stateout)
     call mpp_clock_end(mpasClock)
+
+    ! Prepare CCPP physics inputs with MPAS dycore outputs.
+    call ufs_mpas_to_physics(MPAS_stateout, UFSATM_statein)
     
   end subroutine atmos_model_dynamics
 
   !> #########################################################################################
-  !> Procedure to call microphysics (CCPP)
+  !> Procedure to call microphysics group (CCPP).
   !>
   !> #########################################################################################
   subroutine atmos_model_microphysics(Atmos)
@@ -286,12 +346,18 @@ contains
     ! Locals
     integer :: ierr
     
-    ! Call CCPP Group Microphysics
+    ! Call CCPP Microphysics Group
     call mpp_clock_begin(mpClock)
     call CCPP_step (step="microphysics", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP microphysics step failed')
     call mpp_clock_end(mpClock)
 
-   end subroutine atmos_model_microphysics
-  !
+    ! Call CCPP Timestep_finalize Group
+    call mpp_clock_begin(setupClock)
+    call CCPP_step (step="timestep_finalize", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
+    call mpp_clock_end(setupClock)
+
+  end subroutine atmos_model_microphysics
+  
 end module atmos_model_mod

@@ -196,6 +196,7 @@ if (MPAS)
 
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
+    atmos_util.F90
     mpas/atmos_model.F90
     mpas/mpas_cap.F90
     mpas/ufs_mpas_subdriver.F90

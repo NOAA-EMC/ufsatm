@@ -4,9 +4,22 @@
   <group name="time_vary">
     <subcycle loop="1">
       <scheme>GFS_time_vary_pre</scheme>
-    </subcycle>      
+      <scheme>GFS_rrtmg_setup</scheme>
+      <scheme>GFS_rad_time_vary</scheme>
+      <scheme>GFS_phys_time_vary</scheme>
+    </subcycle>
   </group>
   <group name="radiation">
+    <subcycle loop="1">
+      <scheme>GFS_rrtmg_pre</scheme>
+      <scheme>GFS_radiation_surface</scheme>
+      <scheme>rad_sw_pre</scheme>
+      <scheme>rrtmg_sw</scheme>
+      <scheme>rrtmg_sw_post</scheme>
+      <scheme>rrtmg_lw</scheme>
+      <scheme>rrtmg_lw_post</scheme>
+      <scheme>GFS_rrtmg_post</scheme>
+    </subcycle>
   </group>
   <group name="physics">
   </group>

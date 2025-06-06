@@ -16,7 +16,8 @@ module module_fcst_grid_comp
                                 operator (*), THIRTY_DAY_MONTHS, JULIAN, GREGORIAN, NOLEAP, &
                                 NO_CALENDAR, date_to_string, get_date, get_time
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_data_type
-  use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics
+  use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
+                                atmos_model_microphysics
   use constants_mod,      only: constants_init
   use fms_mod,            only: error_mesg, fms_init, fms_end, write_version_number,        &
                                 uppercase
@@ -299,8 +300,9 @@ contains
     n_atmsteps = seconds/dt_atmos
 
     ! Call forecast integration subroutines...
-    call atmos_model_dynamics (Atmos)
     call atmos_model_radiation_physics (Atmos)
+    call atmos_model_dynamics (Atmos)
+    call atmos_model_microphysics (Atmos)
     
     ! Timing info (debug mode)
     if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS(fcstRUN phase 1), n_atmsteps = ', &

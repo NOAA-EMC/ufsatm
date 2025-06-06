@@ -5812,10 +5812,14 @@ module GFS_typedefs
     !--- The formula converting hybrid sigma pressure coefficients to sigma coefficients follows Eckermann (2009, MWR)
     !--- ps is replaced with p0. The value of p0 uses that in http://www.emc.ncep.noaa.gov/officenotes/newernotes/on461.pdf
     !--- ak/bk have been flipped from their original FV3 orientation and are defined sfc -> toa
+    allocate (Model%si(Model%levs+1))
     if (trim(dycore) == 'FV3') then
-       allocate (Model%si(Model%levs+1))
        Model%si(1:Model%levs+1) = (ak(1:Model%levs+1) + bk(1:Model%levs+1) * con_p0 - ak(Model%levs+1)) / (con_p0 - ak(Model%levs+1))
     end if
+    ! DJS2025: NOT YET IMPLEMENTED
+    if (trim(dycore) == 'MPAS') then
+       Model%si(1:Model%levs+1) = 1._kind_phys
+    endif
 
     ! --- Set default time
     Model%jdat(1:8)        = jdat(1:8)
@@ -7188,9 +7192,7 @@ module GFS_typedefs
       print *, ' zhour             : ', Model%zhour
       print *, ' kdt               : ', Model%kdt
       print *, ' jdat              : ', Model%jdat
-      if (trim(dycore) == 'FV3') then
-         print *, ' si                : ', Model%si
-      endif
+      print *, ' si                : ', Model%si
       print *, ' sec               : ', Model%sec
       print *, ' first_time_step   : ', Model%first_time_step
       print *, ' restart           : ', Model%restart

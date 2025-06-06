@@ -1,5 +1,6 @@
 module ufs_mpas_subdriver
   use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type, mpas_TimeInterval_type
+  use mpas_kind_types,    only : StrKIND
   use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config, only : ic_filename, lbc_filename
   use module_mpas_config, only : pio_iotype, fcst_mpi_comm, pioid
@@ -8,6 +9,7 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : nCellsGlobal, nEdgesGlobal, nVerticesGlobal
   use module_mpas_config, only : nCellsSolve, nEdgesSolve, nVerticesSolve, nVertLevelsSolve
   use module_mpas_config, only : dt_atmos, n_atmos
+  use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
   implicit none
   
   private
@@ -18,13 +20,22 @@ module ufs_mpas_subdriver
   public :: ufs_mpas_dyn_set
   public :: ufs_mpas_open_init
   public :: ufs_mpas_read_init
+  public :: ufs_mpas_to_physics
+  public :: ufs_physics_to_mpas
   public :: corelist, domain_ptr
+  public :: constituent_name
+  public :: is_water_species
 
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
-  type (mpas_TimeInterval_type)  :: timeStep
+  type (mpas_TimeInterval_type)  :: integrationLength
+  integer, dimension(:), pointer :: indicesGlobal
   
+  character(StrKIND), allocatable :: constituent_name(:)
+  integer, allocatable :: index_constituent_to_mpas_scalar(:)
+  integer, allocatable :: index_mpas_scalar_to_constituent(:)
+  logical, allocatable :: is_water_species(:)  
 contains
   !> #########################################################################################
   !> Procedure to initialize UWM with MPAS dynamical core.
@@ -44,7 +55,7 @@ contains
     use mpas_kind_types,            only : StrKIND, RKIND
     use mpas_log,                   only : mpas_log_write
     use atm_core_interface,         only : atm_setup_core, atm_setup_domain
-    use mpas_constants,             only : mpas_constants_compute_derived
+    use mpas_constants,             only : mpas_constants_compute_derived, pi => pii
     use mpas_attlist,               only : mpas_add_att
     ! FMS
     use field_manager_mod,          only : MODEL_ATMOS
@@ -65,6 +76,7 @@ contains
     type (mpas_pool_type), pointer :: state, mesh, tend
     type (field3dReal), pointer :: scalarsField
     character (len=StrKIND), pointer :: initial_time, config_start_time
+    integer, pointer :: num_scalars
 
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
@@ -159,16 +171,21 @@ contains
     ! Adding a config named 'cam_pcnst' with the number of constituents will indicate to
     ! MPAS-A setup code that it is operating as a UFS dycore, and that it is necessary to
     ! allocate scalars separately from other Registry-defined fields
-    call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Cfg % nwat)
+    call mpas_pool_add_config(domain_ptr % configs, 'cam_pcnst', Cfg % nConstituents)
 
     ! Call MPAS framework bootstrap phase 1
     call mpas_bootstrap_framework_phase1(domain_ptr, "external mesh file", mpas_IO_NETCDF, pio_file_desc=pioid)
 
     ! Finalize the setup of blocks and fields
     call mpas_bootstrap_framework_phase2(domain_ptr, pio_file_desc=pioid)
-
-    ! Set up scalars
+    
+    ! Add num_scalars from "state" pool to "dimensions".
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
+    call mpas_pool_add_dimension(domain_ptr % blocklist % dimensions, 'num_scalars', num_scalars)
+    !nullify(state)
+    nullify(num_scalars)
+    
     call mpas_pool_get_field(state, 'scalars', scalarsField, timeLevel=1)
     !
     call mpas_pool_add_dimension(state, 'index_qv', 1)
@@ -193,37 +210,38 @@ contains
     call mpas_pool_add_dimension(state, 'moist_end', Cfg % nwat)
 
     ! Set inital_time
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_start_time', config_start_time)
     call mpas_pool_get_array(state, 'initial_time', initial_time,1)
     initial_time = config_start_time
     
-    ! Define scalars_tend
-    nullify(tend)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tend)
+!    ! Define scalars_tend
+!    nullify(tend)
+!    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tend)
     
-    if (.not. associated(tend)) then
-       call mpp_error(FATAL,subname//': ERROR: The ''tend'' pool was not found.')
-       ierr = 1
-       return
-    end if
+!    if (.not. associated(tend)) then
+!       call mpp_error(FATAL,subname//': ERROR: The ''tend'' pool was not found.')
+!       ierr = 1
+!       return
+!    end if
 
-    nullify(scalarsField)
-    call mpas_pool_get_field(tend, 'scalars_tend', scalarsField, timeLevel=1)
+!    nullify(scalarsField)
+!    call mpas_pool_get_field(tend, 'scalars_tend', scalarsField, timeLevel=1)
 
-    if (.not. associated(scalarsField)) then
-       call mpp_error(FATAL,subname//': ERROR: The ''scalars_tend'' field was not found in the ''tend'' pool')
-       ierr = 1
-       return
-    end if
-    call mpas_pool_add_dimension(tend, 'index_qv', 1)
-    scalarsField % constituentNames(1) = 'tend_qv'
-    call mpas_add_att(scalarsField % attLists(1) % attList, 'units', 'kg m^{-3} s^{-1}')
-    call mpas_add_att(scalarsField % attLists(1) % attList, 'long_name', 'Tendency of water vapor mixing ratio')
-    scalarsField % constituentNames(2) = 'tend_qc'
-    scalarsField % constituentNames(3) = 'tend_qh'
-    scalarsField % constituentNames(4) = 'tend_qr'
-    scalarsField % constituentNames(5) = 'tend_qi'
-    scalarsField % constituentNames(6) = 'tend_qs'
+!    if (.not. associated(scalarsField)) then
+!       call mpp_error(FATAL,subname//': ERROR: The ''scalars_tend'' field was not found in the ''tend'' pool')
+!       ierr = 1
+!       return
+!    end if
+!    call mpas_pool_add_dimension(tend, 'index_qv', 1)
+!    scalarsField % constituentNames(1) = 'tend_qv'
+!    call mpas_add_att(scalarsField % attLists(1) % attList, 'units', 'kg m^{-3} s^{-1}')
+!    call mpas_add_att(scalarsField % attLists(1) % attList, 'long_name', 'Tendency of water vapor mixing ratio')
+!    scalarsField % constituentNames(2) = 'tend_qc'
+!    scalarsField % constituentNames(3) = 'tend_qh'
+!    scalarsField % constituentNames(4) = 'tend_qr'
+!    scalarsField % constituentNames(5) = 'tend_qi'
+!    scalarsField % constituentNames(6) = 'tend_qs'
     
     
     ! Read in static (invariant) data
@@ -251,6 +269,10 @@ contains
 
     ! Setup constants
     call mpas_constants_compute_derived()
+
+    ! Set MPAS mesh lon/lat/area.
+    allocate(latCellGlobal(nCellsGlobal), lonCellGlobal(nCellsGlobal), areaCellGlobal(nCellsGlobal))
+    call ufs_mpas_get_global_coords(latCellGlobal, lonCellGlobal, areaCellGlobal)
 
   end subroutine ufs_mpas_init_phase1
 
@@ -379,7 +401,7 @@ contains
     call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    Statein % rho_tend)
 
     ! Set dycore time interval.
-    call mpas_set_timeInterval(timeStep, dt=dt, ierr=ierr)
+    call mpas_set_timeInterval(integrationLength, dt=dt, ierr=ierr)
 
   end subroutine ufs_mpas_init_phase2
 
@@ -395,7 +417,6 @@ contains
     use atm_core,             only : atm_do_timestep
     use mpas_domain_routines, only : mpas_pool_get_dimension
     use mpas_derived_types,   only : mpas_Time_type, mpas_pool_type
-    use mpas_timekeeping,     only : mpas_set_timeInterval
     use mpas_kind_types,      only : StrKIND, RKIND, R8KIND
     use mpas_constants,       only : rvord
     use mpas_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
@@ -437,9 +458,8 @@ contains
     
     ! During integration, time level 1 stores the model state at the beginning of the
     !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
-    ! ONLY RUNNING SINGLE TIMESTEP.
     itimestep=1
-    do itime = 1, 1!n_atmos
+    do itime = 1, n_atmos
        ! Get current time.
        timeNow  = mpas_get_clock_time(clock, mpas_NOW, ierr)
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
@@ -464,33 +484,12 @@ contains
        timeNow = mpas_get_clock_time(clock, mpas_NOW, ierr)
 
        ! Print IN/OUT state (DEBUGGING)
-       call mpas_pool_get_array(state, 'u',       stateout % uperp,   timeLevel=1)
-       call mpas_pool_get_array(state, 'w',       stateout % w,       timeLevel=1)
-       call mpas_pool_get_array(state, 'theta_m', stateout % theta_m, timeLevel=1)
-       call mpas_pool_get_array(state, 'rho_zz',  stateout % rho_zz,  timeLevel=1)
-       call mpas_pool_get_array(state, 'scalars', stateout % tracers, timeLevel=1)
-       print*,'u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
-       print*,'w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
-       print*,'theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
-       print*,'rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
-       print*,'scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
+       !print*,'u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
+       !print*,'w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
+       !print*,'theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
+       !print*,'rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
+       !print*,'scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
     end do
-
-    !
-    ! Update final prognostic state
-    !
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
-    call mpas_pool_get_array(state, 'u',       stateout % uperp,   timeLevel=1)
-    call mpas_pool_get_array(state, 'w',       stateout % w,       timeLevel=1)
-    call mpas_pool_get_array(state, 'theta_m', stateout % theta_m, timeLevel=1)
-    call mpas_pool_get_array(state, 'rho_zz',  stateout % rho_zz,  timeLevel=1)
-    call mpas_pool_get_array(state, 'scalars', stateout % tracers, timeLevel=1)
-    print*,'#####################################################################'
-    print*,'#u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
-    print*,'#w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
-    print*,'#theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
-    print*,'#rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
-    print*,'#scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
 
     !
     ! Compute diagnostic fields from the final prognostic state
@@ -510,6 +509,20 @@ contains
     rho(:,1:nCellsSolve) = rho_zz(:,1:nCellsSolve) * zz(:,1:nCellsSolve)
     theta(:,1:nCellsSolve) = theta_m(:,1:nCellsSolve) / (1.0_RKIND + rvord * scalars(index_qv,:,1:nCellsSolve))
     
+    !
+    ! Update final prognostic state
+    !
+    call mpas_pool_get_array(state, 'u',       statein % uperp,   timeLevel=1)
+    call mpas_pool_get_array(state, 'w',       statein % w,       timeLevel=1)
+    call mpas_pool_get_array(state, 'theta_m', statein % theta_m, timeLevel=1)
+    call mpas_pool_get_array(state, 'rho_zz',  statein % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(state, 'scalars', statein % tracers, timeLevel=1)
+    stateout % uperp   => statein % uperp
+    stateout % w       => statein % w
+    stateout % theta_m => statein % theta_m
+    stateout % rho_zz  => statein % rho_zz
+    stateout % tracers => statein % tracers
+
   end subroutine ufs_mpas_run
   
   !> #########################################################################################
@@ -539,6 +552,12 @@ contains
          nVerticesSolve, index_qv, index_qc, index_qh, index_qr, index_qi, index_qs
     integer :: i1, i2, ierr
     real(kind=RKIND),dimension(:,:),pointer  :: rtheta_p
+
+    ! Scalars
+    call ufs_mpas_define_scalars(statein % mpas_from_ufs_cnst, stateout % ufs_from_mpas_cnst, ierr)
+    if (ierr /= 0) then
+       call mpp_error(FATAL,trim(subname)//'ERROR: Set-up of constituents for MPAS-A dycore failed.')
+    end if
 
     !
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',         mesh_pool)
@@ -626,7 +645,7 @@ contains
     stateout % index_qs       = statein % index_qs
 
     ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
-    ! in timeLevel=1.  Thus we want stateout to also point to timeLevel=1.  Can just copy
+    ! in timeLevel=1. Thus we want stateout to also point to timeLevel=1. Can just copy
     ! the pointers from statein.
     stateout % uperp   => statein % uperp
     stateout % w       => statein % w
@@ -653,11 +672,115 @@ contains
     allocate(stateout % pintdry(stateout % nVertLevels+1, stateout % nCells), stat=ierr)
     if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pintdry array')
 
+    ! Pressure
+    allocate(stateout % pmid(stateout % nVertLevels,   stateout % nCells), stat=ierr)
+    if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pmiddry array')
+
     call mpas_pool_get_array(diag_pool, 'vorticity',  stateout % vorticity)
     call mpas_pool_get_array(diag_pool, 'divergence', stateout % divergence)
 
   end subroutine ufs_mpas_dyn_set
 
+  !> #########################################################################################
+  !> Procedure to populate inputs to the CCPP physics using outputs the MPAS dynamical core.
+  !>
+  !> Use indicesGlobal to map from MPAS dycore deceomposition to CCPP Physics contiguous data
+  !> structures.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_to_physics(MPAS_state, physics_state)
+    use mpas_typedefs,        only : mpas_stateout_type
+    use GFS_typedefs,         only : GFS_statein_type
+    use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
+    use atm_core,             only : atm_compute_output_diagnostics
+    use mpas_kind_types,      only : RKIND
+
+    type(mpas_stateout_type), intent(inout) :: mpas_state
+    type(GFS_statein_type),   intent(inout) :: physics_state
+    ! Locals
+    type(mpas_pool_type), pointer :: state_pool
+    type(mpas_pool_type), pointer :: diag_pool
+    type(mpas_pool_type), pointer :: mesh_pool
+    integer :: iCell, iCol, iTracer
+    integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv
+    real(RKIND), pointer :: surface_p(:)
+
+    ! Set MPAS pools
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+
+    ! Get MPAS dimensions
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
+    call mpas_pool_get_dimension(state_pool, 'num_scalars', num_scalars)
+    call mpas_pool_get_dimension(state_pool, 'index_qv',    index_qv)
+    call mpas_pool_get_dimension(state_pool, 'moist_end',   nwat)
+    
+    ! Grab fields from MPAS pools
+    call mpas_pool_get_array(diag_pool,  'theta',                  MPAS_state % theta)
+    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      MPAS_state % ux)
+    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', MPAS_state % uy)
+    call mpas_pool_get_array(state_pool, 'scalars',                MPAS_state % tracers, timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'w',                      MPAS_state % w, timeLevel=1)
+    call mpas_pool_get_array(diag_pool,  'exner',                  MPAS_state % exner)
+    call mpas_pool_get_array(mesh_pool,  'zgrid',                  MPAS_state % zint)
+    call mpas_pool_get_array(mesh_pool,  'zz',                     MPAS_state % zz)
+    call mpas_pool_get_array(state_pool, 'theta_m',                MPAS_state % theta_m, timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'rho_zz',                 MPAS_state % rho_zz,  timeLevel=1)
+
+    ! Copy fields from MPAS data containers to physics data containers.
+    ! [k, i] -> [i, k]
+    ! bottom-up -> top-down ordering convention
+    do iCell = 1, nCellsSolve
+       iCol = indicesGlobal(iCell)
+       physics_state % tgrs(iCol,:)   = MPAS_state % theta(nVertLevels:1:-1,iCell)
+       physics_state % ugrs(iCol,:)   = MPAS_state % ux(nVertLevels:1:-1,iCell)
+       physics_state % vgrs(iCol,:)   = MPAS_state % uy(nVertLevels:1:-1,iCell)
+       physics_state % phil(iCol,:)   = MPAS_state % zz(nVertLevels:1:-1,iCell)
+       physics_state % phii(iCol,:)   = MPAS_state % zint(nVertLevels+1:1:-1,iCell)
+       physics_state % prslk(iCol,:)  = MPAS_state % exner(nVertLevels:1:-1,iCell)
+       physics_state % vvl(iCol,:)    = MPAS_state % w(nVertLevels:1:-1,iCell)
+       do iTracer = 1,num_scalars
+          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCell)
+       enddo
+    enddo
+
+    ! Compute hydrostatic pressures
+    call hydrostatic_pressure(nCellsSolve, nVertLevels, nwat, index_qv, MPAS_state % zz,    &
+         MPAS_state % zint, MPAS_state % rho_zz, MPAS_state % theta_m, MPAS_state % exner,  &
+         MPAS_state % tracers, MPAS_state % pmiddry, MPAS_state % pintdry, MPAS_state % pmid)
+
+    ! Copy MPAS pressures into physics data containers.
+    ! [k, i] -> [i, k]
+    ! bottom-up -> top-down ordering convention
+    do iCell = 1, nCellsSolve
+       iCol = indicesGlobal(iCell)
+       physics_state % pgr(iCol)    = MPAS_state % pintdry(1,iCell)
+       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCell)
+       physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCell)
+    enddo
+    print*,'SWALES physics_state % pgr(iCol) = ',physics_state % prsi(:,nVertLevels+1)
+   
+  end subroutine ufs_mpas_to_physics
+
+  !> #########################################################################################
+  !> Procedure to populate inputs to the MPAS dynamical core using outputs from the CCPP physics
+  !>
+  !> #########################################################################################
+  subroutine ufs_physics_to_mpas(physics_state, mpas_state)
+    use mpas_typedefs,  only : mpas_statein_type
+    use GFS_typedefs,   only : GFS_stateout_type
+    type(GFS_stateout_type), intent(in   ) :: physics_state
+    type(mpas_statein_type), intent(inout) :: mpas_state
+    
+    ! [i, k] -> [k, i]
+    ! top-down -> bottom-up ordering convention
+    
+    ! Thermodynamic conversions from moist (CCPP) to dry (MPAS)
+    
+  end subroutine ufs_physics_to_mpas
+  
   !> #########################################################################################
   !> Procedure to open MPAS IC file.
   !>
@@ -798,6 +921,7 @@ contains
     integer                :: config_number_of_blocks = 0
     logical                :: config_explicit_proc_decomp = .false.
     character(len=StrKIND) :: config_proc_decomp_file_prefix = 'graph.info.part'
+    real(RKIND)            :: config_relax_zone_divdamp_coef = 6
 
     ! Locals
     integer :: ierr, io, mpierr
@@ -959,6 +1083,7 @@ contains
     call mpas_pool_add_config(configPool, 'config_number_of_blocks',               config_number_of_blocks)
     call mpas_pool_add_config(configPool, 'config_explicit_proc_decomp',           config_explicit_proc_decomp)
     call mpas_pool_add_config(configPool, 'config_proc_decomp_file_prefix',        config_proc_decomp_file_prefix)
+    call mpas_pool_add_config(configPool, 'config_relax_zone_divdamp_coef',        config_relax_zone_divdamp_coef)
 
     ! Display namelist information (master processor only)
     if (me == master) then
@@ -1698,6 +1823,242 @@ contains
    call mpas_initialize_vectors(meshPool)
 
  end subroutine ufs_mpas_compute_unit_vectors
+
+ !> ########################################################################################
+ !>
+ !> \brief  Define the names of constituents at run-time
+ !> \author Michael Duda
+ !> \date   21 May 2020
+ !> \details
+ !>  Given an array of constituent names, which must have size equal to the number
+ !>  of scalars that were set in the call to ufs_mpas_init_phase1, and given
+ !>  a function to identify which scalars are moisture species, this routine defines
+ !>  scalar constituents for the MPAS-A dycore.
+ !>  Because the MPAS-A dycore expects all moisture constituents to appear in
+ !>  a contiguous range of constituent indices, this routine may in general need
+ !>  to reorder the constituents; to allow for mapping of indices between UFS
+ !>  physics and the MPAS-A dycore, this routine returns index mapping arrays
+ !>  mpas_from_ufs_cnst and ufs_from_mpas_cnst.
+ !>
+ !> \update: Dustin Swales April 2025 - Modified for use in UWM  
+ !>
+ !> ########################################################################################
+ subroutine ufs_mpas_define_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
+   use mpas_derived_types, only : mpas_pool_type, field3dReal
+   use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_field, &
+                                  mpas_pool_get_dimension, mpas_pool_add_dimension
+   use mpas_attlist,       only : mpas_add_att
+   use mpas_log,           only : mpas_log_write
+   use mpas_derived_types, only : MPAS_LOG_ERR
+   ! FMS
+   use mpp_mod,              only : FATAL, mpp_error
+   
+   ! Arguments
+   integer, dimension(:), pointer :: mpas_from_ufs_cnst, ufs_from_mpas_cnst
+   integer, intent(out) :: ierr
+
+   ! Local variables
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_define_scalars'
+   integer :: i, j, timeLevs
+   integer, pointer :: num_scalars
+   integer :: num_moist
+   integer :: idx_passive
+   type (mpas_pool_type), pointer :: statePool
+   type (mpas_pool_type), pointer :: tendPool
+   type (field3dReal), pointer :: scalarsField
+   character(len=128) :: tempstr
+   character :: moisture_char
+
+   ierr = 0
+
+   !
+   ! Define scalars
+   !
+   nullify(statePool)
+   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', statePool)
+
+   if (.not. associated(statePool)) then
+      call mpas_log_write(trim(subname)//': ERROR: The ''state'' pool was not found.', &
+                          messageType=MPAS_LOG_ERR)
+      ierr = 1
+      return
+   end if
+
+   nullify(num_scalars)
+   call mpas_pool_get_dimension(statePool, 'num_scalars', num_scalars)
+
+   !
+   ! The num_scalars dimension should have been defined by atm_core_interface::atm_allocate_scalars, and
+   ! if this dimension does not exist, something has gone wrong
+   !
+   if (.not. associated(num_scalars)) then
+      call mpas_log_write(trim(subname)//': ERROR: The ''num_scalars'' dimension does not exist in the ''state'' pool.', &
+                          messageType=MPAS_LOG_ERR)
+      ierr = 1
+      return
+   end if
+
+   !
+   ! If at runtime there are not num_scalars names in the array of constituent names provided by UFS,
+   ! something has gone wrong
+   !
+   if (size(constituent_name) /= num_scalars) then
+      call mpas_log_write(trim(subname)//': ERROR: The number of constituent names is not equal to the num_scalars dimension', &
+                          messageType=MPAS_LOG_ERR)
+      call mpas_log_write('size(constituent_name) = $i, num_scalars = $i', intArgs=[size(constituent_name), num_scalars], &
+                          messageType=MPAS_LOG_ERR)
+      ierr = 1
+      return
+   end if
+
+   !
+   ! In UFS, the first scalar (if there are any) is always sphum (specific humidity); if this is not
+   ! the case, something has gone wrong
+   !
+   if (size(constituent_name) > 0) then
+      if (trim(constituent_name(1)) /= 'sphum') then
+         call mpas_log_write(trim(subname)//': ERROR: The first constituent is not sphum', messageType=MPAS_LOG_ERR)
+         ierr = 1
+         return
+      end if
+   end if
+
+   !
+   ! Determine which of the constituents are moisture species
+   !
+   allocate(mpas_from_ufs_cnst(num_scalars), stat=ierr)
+   if( ierr /= 0 ) call mpp_error(FATAL,subname//':failed to allocate mpas_from_ufs_cnst array')
+   mpas_from_ufs_cnst(:) = 0
+   num_moist = 0
+   do i = 1, size(constituent_name)
+      if (is_water_species(i)) then
+         num_moist = num_moist + 1
+         mpas_from_ufs_cnst(num_moist) = i
+      end if
+   end do
+
+   !
+   ! If UFS has no scalars, let the only scalar in MPAS be 'qv' (a moisture species)
+   !
+   if (num_scalars == 1 .and. size(constituent_name) == 0) then
+      num_moist = 1
+   end if
+
+   !
+   ! Assign non-moisture constituents to mpas_from_ufs_cnst(num_moist+1:size(constituent_name))
+   !
+   idx_passive = num_moist + 1
+   do i = 1, size(constituent_name)
+
+      ! If UFS constituent i is not already mapped as a moist constituent
+      if (.not. is_water_species(i)) then
+         mpas_from_ufs_cnst(idx_passive) = i
+         idx_passive = idx_passive + 1
+      end if
+   end do
+
+   !
+   ! Create inverse map, ufs_from_mpas_cnst
+   !
+   allocate(ufs_from_mpas_cnst(num_scalars), stat=ierr)
+   if( ierr /= 0 ) call mpp_error(FATAL,subname//':failed to allocate ufs_from_mpas_cnst array')
+   ufs_from_mpas_cnst(:) = 0
+
+   do i = 1, size(constituent_name)
+      ufs_from_mpas_cnst(mpas_from_ufs_cnst(i)) = i
+   end do
+
+   timeLevs = 2
+
+   do i = 1, timeLevs
+      nullify(scalarsField)
+      call mpas_pool_get_field(statePool, 'scalars', scalarsField, timeLevel=i)
+
+      if (.not. associated(scalarsField)) then
+         call mpas_log_write(trim(subname)//': ERROR: The ''scalars'' field was not found in the ''state'' pool', &
+                             messageType=MPAS_LOG_ERR)
+         ierr = 1
+         return
+      end if
+
+      if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qv', 1)
+      scalarsField % constituentNames(1) = 'qv'
+      call mpas_add_att(scalarsField % attLists(1) % attList, 'units', 'kg kg^{-1}')
+      call mpas_add_att(scalarsField % attLists(1) % attList, 'long_name', 'Water vapor mixing ratio')
+
+      do j = 2, size(constituent_name)
+         scalarsField % constituentNames(j) = trim(constituent_name(mpas_from_ufs_cnst(j)))
+      end do
+
+   end do
+
+   call mpas_pool_add_dimension(statePool, 'moist_start', 1)
+   call mpas_pool_add_dimension(statePool, 'moist_end', num_moist)
+
+   !
+   ! Print a tabular summary of the mapping between constituent indices
+   !
+   call mpas_log_write('')
+   call mpas_log_write('  i MPAS constituent mpas_from_ufs_cnst(i)       i UFS constituent  ufs_from_mpas_cnst(i)')
+   call mpas_log_write('------------------------------------------     ------------------------------------------')
+   do i = 1, min(num_scalars, size(constituent_name))
+      if (i <= num_moist) then
+         moisture_char = '*'
+      else
+         moisture_char = ' '
+      end if
+      write(tempstr, '(i3,1x,a16,1x,i18,8x,i3,1x,a16,1x,i18)') i, trim(scalarsField % constituentNames(i))//moisture_char, &
+                                                               mpas_from_ufs_cnst(i), &
+                                                               i, trim(constituent_name(i)), &
+                                                               ufs_from_mpas_cnst(i)
+      call mpas_log_write(trim(tempstr))
+   end do
+   call mpas_log_write('------------------------------------------     ------------------------------------------')
+   call mpas_log_write('* = constituent used as a moisture species in MPAS-A dycore')
+   call mpas_log_write('')
+
+
+   !
+   ! Define scalars_tend
+   !
+   nullify(tendPool)
+   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tendPool)
+
+   if (.not. associated(tendPool)) then
+      call mpas_log_write(trim(subname)//': ERROR: The ''tend'' pool was not found.', &
+                          messageType=MPAS_LOG_ERR)
+      ierr = 1
+      return
+   end if
+
+   timeLevs = 1
+
+   do i = 1, timeLevs
+      nullify(scalarsField)
+      call mpas_pool_get_field(tendPool, 'scalars_tend', scalarsField, timeLevel=i)
+
+      if (.not. associated(scalarsField)) then
+         call mpas_log_write(trim(subname)//': ERROR: The ''scalars_tend'' field was not found in the ''tend'' pool', &
+                             messageType=MPAS_LOG_ERR)
+         ierr = 1
+         return
+      end if
+
+      if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qv', 1)
+      scalarsField % constituentNames(1) = 'tend_qv'
+      call mpas_add_att(scalarsField % attLists(1) % attList, 'units', 'kg m^{-3} s^{-1}')
+      call mpas_add_att(scalarsField % attLists(1) % attList, 'long_name', 'Tendency of water vapor mixing ratio')
+
+      do j = 2, size(constituent_name)
+         scalarsField % constituentNames(j) = 'tend_'//trim(constituent_name(mpas_from_ufs_cnst(j)))
+      end do
+   end do
+
+   call mpas_pool_add_dimension(tendPool, 'moist_start', 1)
+   call mpas_pool_add_dimension(tendPool, 'moist_end', num_moist)
+
+ end subroutine ufs_mpas_define_scalars
+ 
  !> ########################################################################################
  !>
  !> \brief  Returns global mesh dimensions
@@ -1749,6 +2110,95 @@ contains
 
  end subroutine ufs_mpas_get_global_dims
 
+ !> ########################################################################################
+ !>
+ !> \brief  Returns global coordinate arrays
+ !> \author Michael Duda
+ !> \date   22 August 2019
+ !> \details
+ !>  This routine returns on all tasks arrays of latitude, longitude, and cell
+ !>  area for all (global) cells.
+ !>
+ !>  It is assumed that latCellGlobal, lonCellGlobal, and areaCellGlobal have
+ !>  been allocated by the caller with a size equal to the global number of
+ !>  cells in the mesh.
+ !>
+ !> \update: Dustin Swales April 2025 - Modified for use in UWM
+ !>
+ !> ########################################################################################
+ subroutine ufs_mpas_get_global_coords(latCellGlobal, lonCellGlobal, areaCellGlobal)
+   use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_dimension, mpas_pool_get_array
+   use mpas_derived_types, only : mpas_pool_type
+   use mpas_kind_types,    only : RKIND
+   use mpas_dmpar,         only : mpas_dmpar_sum_int, mpas_dmpar_max_real_array
+   use mpp_mod,            only : FATAL, mpp_error
+   real (kind=RKIND), dimension(:), intent(out) :: latCellGlobal
+   real (kind=RKIND), dimension(:), intent(out) :: lonCellGlobal
+   real (kind=RKIND), dimension(:), intent(out) :: areaCellGlobal
+
+   integer :: iCell
+
+   integer, pointer :: nCellsSolve
+   integer, dimension(:), pointer :: indexToCellID
+
+   type (mpas_pool_type), pointer :: meshPool
+   integer :: nCellsGlobal,ierr
+
+   real (kind=RKIND), dimension(:), pointer :: latCell
+   real (kind=RKIND), dimension(:), pointer :: lonCell
+   real (kind=RKIND), dimension(:), pointer :: areaCell
+   real (kind=RKIND), dimension(:), pointer :: temp
+
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_get_global_coords'
+
+
+   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', meshPool)
+   call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
+   call mpas_pool_get_array(meshPool, 'indexToCellID', indexToCellID)
+   call mpas_pool_get_array(meshPool, 'latCell', latCell)
+   call mpas_pool_get_array(meshPool, 'lonCell', lonCell)
+   call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
+
+   call mpas_dmpar_sum_int(domain_ptr % dminfo, nCellsSolve, nCellsGlobal)
+
+   ! check: size(latCellGlobal) ?= nCellsGlobal
+   allocate(temp(nCellsGlobal), stat=ierr)
+   if( ierr /= 0 ) call mpp_error(FATAL,subname//':failed to allocate temp array')
+
+   !
+   ! latCellGlobal
+   !
+   temp(:) = -huge(temp(0))
+   do iCell=1,nCellsSolve
+      temp(indexToCellID(iCell)) = latCell(iCell)
+   end do
+
+   call mpas_dmpar_max_real_array(domain_ptr % dminfo, nCellsGlobal, temp, latCellGlobal)
+
+   !
+   ! lonCellGlobal
+   !
+   temp(:) = -huge(temp(0))
+   do iCell=1,nCellsSolve
+      temp(indexToCellID(iCell)) = lonCell(iCell)
+   end do
+
+   call mpas_dmpar_max_real_array(domain_ptr % dminfo, nCellsGlobal, temp, lonCellGlobal)
+
+   !
+   ! areaCellGlobal
+   !
+   temp(:) = -huge(temp(0))
+   do iCell=1,nCellsSolve
+      temp(indexToCellID(iCell)) = areaCell(iCell)
+   end do
+
+   call mpas_dmpar_max_real_array(domain_ptr % dminfo, nCellsGlobal, temp, areaCellGlobal)
+
+   deallocate(temp)
+
+ end subroutine ufs_mpas_get_global_coords
+ 
  ! ##########################################################################################
  !
  ! ##########################################################################################
@@ -1824,7 +2274,7 @@ contains
    type (field3DReal), pointer :: field3d
    type (mpas_pool_field_info_type) :: fieldInfo
    character (len=StrKIND) :: elementName, elementNamePlural
-   logical :: meshFieldDim
+   logical :: meshFieldDim, cellFieldDIm
    integer :: i
    
    !
@@ -1839,10 +2289,12 @@ contains
       endif
       if ( field3d % isDecomposed ) then
          meshFieldDim = .false.
+         cellFieldDIm = .false.
          if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nCells') then
             elementName = 'Cell'
             elementNamePlural = 'Cells'
             meshFieldDim = .true.
+            cellFieldDIm = .true.
          else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nEdges') then
             elementName = 'Edge'
             elementNamePlural = 'Edges'
@@ -1865,10 +2317,12 @@ contains
       !
       if ( field2d % isDecomposed ) then
          meshFieldDim = .false.
+         cellFieldDIm =	.false.
          if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nCells') then
             elementName = 'Cell'
             elementNamePlural = 'Cells'
             meshFieldDim = .true.
+            cellFieldDIm = .true.
          else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nEdges') then
             elementName = 'Edge'
             elementNamePlural = 'Edges'
@@ -1889,15 +2343,11 @@ contains
       call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' //  &
                                    trim(elementNamePlural) // 'Solve', indexDimension)
       call mergeArrays(indices, indexArray(1:indexDimension))
-
-!      call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' // &
-!                                    trim(elementNamePlural) // 'Solve', indexDimension)
-!      allocate(indexArray(indexDimension))
-!      do i = 1, indexDimension
-!         indexArray(i) = i
-!      end do
-!      call mergeArrays(indices, indexArray(1:indexDimension))
-!      deallocate(indexArray)
+   endif
+   ! Save indices for P2D coupling in run phase(s).
+   if ( cellFieldDIm ) then
+      allocate(indicesGlobal(indexDimension))
+      indicesGlobal = indices
    endif
    
  end subroutine get_mpas_pio_decomp
@@ -1922,4 +2372,98 @@ contains
 
  end subroutine mergeArrays
  
+ subroutine hydrostatic_pressure(nCells, nVertLevels, qsize, index_qv, zz, zgrid, rho_zz, theta_m, &
+      exner, q, pmiddry, pintdry,pmid)
+   ! Compute dry hydrostatic pressure at layer interfaces and midpoints
+   !
+   ! Given arrays of zz, zgrid, rho_zz, and theta_m from the MPAS-A prognostic
+   ! state, compute dry hydrostatic pressure at layer interfaces and midpoints.
+   ! The vertical dimension for 3-d arrays is innermost, and k=1 represents
+   ! the lowest layer or level in the fields.
+   !
+   use mpas_constants,  only: cp, rgas, cv, gravity, p0, Rv_over_Rd => rvord
+   use mpas_kind_types, only: RKIND
+   ! Arguments
+   integer, intent(in) :: nCells
+   integer, intent(in) :: nVertLevels
+   integer, intent(in) :: qsize
+   integer, intent(in) :: index_qv
+   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: zz      ! d(zeta)/dz [-]
+   real(RKIND), dimension(nVertLevels+1, nCells),     intent(in) :: zgrid   ! geometric heights of layer interfaces [m]
+   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: rho_zz  ! dry density / zz [kg m^-3]
+   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: theta_m ! modified potential temperature
+   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: exner   ! Exner function
+   real(RKIND), dimension(qsize,nVertLevels, nCells), intent(in) :: q       ! water vapor dry mixing ratio
+   real(RKIND), dimension(nVertLevels, nCells),       intent(out):: pmiddry ! layer midpoint dry hydrostatic pressure [Pa]
+   real(RKIND), dimension(nVertLevels+1, nCells),     intent(out):: pintdry ! layer interface dry hydrostatic pressure [Pa]
+   real(RKIND), dimension(nVertLevels, nCells),       intent(out):: pmid    ! layer midpoint hydrostatic pressure [Pa]
+
+   ! Local variables
+   integer :: iCell, k, idx
+   real(RKIND), dimension(nVertLevels)          :: dz       ! Geometric layer thickness in column
+   real(RKIND), dimension(nVertLevels)          :: dp,dpdry ! Pressure thickness
+   real(RKIND), dimension(nVertLevels+1,nCells) :: pint  ! hydrostatic pressure at interface
+   real(RKIND) :: sum_water
+   real(RKIND) :: pk,rhok,rhodryk,thetavk,kap1,kap2,tvk,tk
+   real(RKIND), parameter :: epsilon = 0.05_RKIND
+   real(RKIND) :: dp_epsilon, dpdry_epsilon
+   !
+   ! For each column, integrate downward from model top to compute dry hydrostatic pressure at layer
+   ! midpoints and interfaces. The pressure averaged to layer midpoints should be consistent with
+   ! the ideal gas law using the rho_zz and theta values prognosed by MPAS at layer midpoints.
+   !
+   do iCell = 1, nCells
+      dz(:) = zgrid(2:nVertLevels+1,iCell) - zgrid(1:nVertLevels,iCell)
+      do k = nVertLevels, 1, -1
+        rhodryk  = zz(k,iCell)* rho_zz(k,iCell) !full CAM physics density
+        rhok = 1.0_RKIND
+        do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
+          rhok = rhok+q(idx,k,iCell)
+        end do
+        rhok     = rhok*rhodryk
+        dp(k)    = gravity*dz(k)*rhok
+        dpdry(k) = gravity*dz(k)*rhodryk
+      end do
+
+      k = nVertLevels
+      sum_water = 1.0_RKIND
+      do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
+        sum_water = sum_water+q(idx,k,iCell)
+      end do
+      rhok     = sum_water*zz(k,iCell) * rho_zz(k,iCell)
+      thetavk  = theta_m(k,iCell)/sum_water
+      tvk      = thetavk*exner(k,iCell)
+      pk       = dp(k)*rgas*tvk/(gravity*dz(k))
+      !
+      ! model top pressure consistently diagnosed using the assumption that the mid level
+      ! is at height z(nVertLevels-1)+0.5*dz
+      !
+      pintdry(nVertLevels+1,iCell) = pk-0.5_RKIND*dz(nVertLevels)*rhok*gravity  !hydrostatic
+      pint   (nVertLevels+1,iCell) = pintdry(nVertLevels+1,iCell)
+      do k = nVertLevels, 1, -1
+        !
+        ! compute hydrostatic dry interface pressure so that (pintdry(k+1)-pintdry(k))/g is pseudo density
+        !
+        sum_water = 1.0_RKIND
+        do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
+          sum_water = sum_water+q(idx,k,iCell)
+        end do
+        thetavk = theta_m(k,iCell)/sum_water!convert modified theta to virtual theta
+        tvk     = thetavk*exner(k,iCell)
+        tk      = tvk*sum_water/(1.0_RKIND+Rv_over_Rd*q(index_qv,k,iCell))
+        pint   (k,iCell) = pint   (k+1,iCell)+dp(k)
+        pintdry(k,iCell) = pintdry(k+1,iCell)+dpdry(k)
+        pmid(k,iCell)    = dp(k)   *rgas*tvk/(gravity*dz(k))
+        pmiddry(k,iCell) = dpdry(k)*rgas*tk /(gravity*dz(k))
+        !
+        ! PMID is not necessarily bounded by the hydrostatic interface pressure.
+        ! (has been found to be an issue at ~3.75km resolution in surface layer)
+        !
+        dp_epsilon = dp(k) * epsilon
+        dpdry_epsilon = dpdry(k)*epsilon
+        pmid   (k, iCell) = max(min(pmid   (k, iCell), pint   (k, iCell) - dp_epsilon), pint   (k + 1, iCell) + dp_epsilon)
+        pmiddry(k, iCell) = max(min(pmiddry(k, iCell), pintdry(k, iCell) - dpdry_epsilon), pintdry(k + 1, iCell) + dpdry_epsilon)
+     end do
+   end do
+end subroutine hydrostatic_pressure 
 end module ufs_mpas_subdriver
