@@ -173,11 +173,13 @@ module CCPP_driver
         kdt_iau = nint(GFS_control%iau_offset*3600./GFS_control%dtp)
         if (GFS_control%kdt-1 == kdt_iau) then
           iauwindow_center = .true.
+          if( GFS_control%me == 0)print *,'in ccpp step vary, iauwindow_center=',iauwindow_center,&
+            'kdt=',GFS_control%kdt,'dtp=',GFS_control%dtp,'iau_offset=',GFS_control%iau_offset
         else
           iauwindow_center = .false.
         endif
       endif
-      if ((mod(GFS_control%kdt-1,GFS_control%nszero)) == 0 .or. iauwindow_center) then
+      if ((mod(GFS_control%kdt-1,GFS_control%nszero)) == 0) then
         call GFS_Intdiag%phys_zero(GFS_control, iauwindow_center=iauwindow_center)
       endif
 
