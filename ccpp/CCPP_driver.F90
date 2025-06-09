@@ -169,14 +169,13 @@ module CCPP_driver
       endif
 
       !--- determine if physics diagnostics buckets need to be cleared
+      iauwindow_center = .false.
       if (GFS_control%iau_offset > 0) then
         kdt_iau = nint(GFS_control%iau_offset*3600./GFS_control%dtp)
         if (GFS_control%kdt-1 == kdt_iau) then
           iauwindow_center = .true.
           if( GFS_control%me == 0)print *,'in ccpp step vary, iauwindow_center=',iauwindow_center,&
             'kdt=',GFS_control%kdt,'dtp=',GFS_control%dtp,'iau_offset=',GFS_control%iau_offset
-        else
-          iauwindow_center = .false.
         endif
       endif
       if ((mod(GFS_control%kdt-1,GFS_control%nszero)) == 0) then
