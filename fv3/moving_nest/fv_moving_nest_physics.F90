@@ -59,12 +59,8 @@ module fv_moving_nest_physics_mod
   use mpp_domains_mod,        only: NORTH, SOUTH, EAST, WEST, CORNER, CENTER
   use mpp_domains_mod,        only: NUPDATE, SUPDATE, EUPDATE, WUPDATE, DGRID_NE
 
-#ifdef GFS_TYPES
-  use GFS_typedefs,           only: IPD_data_type => GFS_data_type, &
-      IPD_control_type => GFS_control_type, kind_phys
-#else
-  use IPD_typedefs,           only: IPD_data_type, IPD_control_type, kind_phys => IPD_kind_phys
-#endif
+  use GFS_typedefs,           only: GFS_sfcprop_type, GFS_tbd_type, GFS_cldprop_type, &
+                                    GFS_grid_type, GFS_diag_type, GFS_control_type, kind_phys
   use GFS_init,               only: GFS_grid_populate
 
   use boundary_mod,           only: update_coarse_grid, update_coarse_grid_mpp
@@ -113,11 +109,11 @@ module fv_moving_nest_physics_mod
   logical :: move_physics = .true.       ! Always true, unless developer sets move_physics to .False. here for debugging.
   logical :: move_nsst = .true.          ! Value is reset in fv_moving_nest_main.F90 from namelist options
 
-  ! Persistent variables to enable debug printing after range warnings.
-  type (fv_atmos_type), pointer                 :: save_Atm_n
-  type (block_control_type), pointer            :: save_Atm_block
-  type(IPD_control_type), pointer               :: save_IPD_Control
-  type(IPD_data_type), pointer                  :: save_IPD_Data(:)
+  !! Persistent variables to enable debug printing after range warnings.
+  !type (fv_atmos_type), pointer                 :: save_Atm_n
+  !type (block_control_type), pointer            :: save_Atm_block
+  !type(GFS_control_type), pointer               :: save_GFS_control
+  !type(GFS_sfcprop_type), pointer               :: save_GFS_sfcprop
 
 #include <fms_platform.h>
 
@@ -149,23 +145,24 @@ contains
   !>@brief The subroutine 'mn_phys_reset_sfc_props' sets the static surface parameters from the high-resolution input file data
   !>@details This subroutine relies on earlier code reading the data from files into the mn_static data structure
   !!  This subroutine does not yet handle ice points or frac_grid - fractional landfrac/oceanfrac values
-  subroutine mn_phys_reset_sfc_props(Atm, n, mn_static, Atm_block, IPD_data, ioffset, joffset, refine)
+  subroutine mn_phys_reset_sfc_props(Atm, n, mn_static, Atm_block, GFS_Sfcprop, ioffset, joffset, refine)
     type(fv_atmos_type), intent(inout),allocatable   :: Atm(:)              !< Array of atmospheric data
     integer, intent(in)                              :: n                   !< Current grid number
     type(mn_surface_grids), intent(in)               :: mn_static           !< Static surface data
     type(block_control_type), intent(in)             :: Atm_block           !< Physics block layout
-    type(IPD_data_type), intent(inout)               :: IPD_data(:)         !< Physics variable data
+    type(GFS_sfcprop_type), intent(inout)            :: GFS_Sfcprop         !< Physics variable data
     integer, intent(in)                              :: ioffset, joffset    !< Current nest offset in i,j direction
     integer, intent(in)                              :: refine              !< Nest refinement ratio
 
     ! For iterating through physics/surface vector data
-    integer                 :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx
+    integer                 :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, im
     real(kind=kind_phys)    :: phys_oro
 
     !print '("[INFO] MASK inside mn_phys_reset_sfc_props npe=",I0)', mpp_pe()
     call mn_phys_set_slmsk(Atm, n, mn_static, ioffset, joffset, refine)
 
     !  Reset the variables from the fix_sfc files
+    im = 0
     do nb = 1,Atm_block%nblks
       blen = Atm_block%blksz(nb)
       do ix = 1, blen
@@ -175,23 +172,25 @@ contains
         i_idx = (ioffset-1)*refine + i_pe
         j_idx = (joffset-1)*refine + j_pe
 
+        im = im + 1
+
         ! Reset the land sea mask from the hires parent data
-        IPD_data(nb)%Sfcprop%slmsk(ix) = mn_static%fp_ls%ls_mask_grid(i_idx, j_idx)
+        GFS_Sfcprop%slmsk(im) = mn_static%fp_ls%ls_mask_grid(i_idx, j_idx)
 
         !  IFD values are 0 for land, and 1 for oceans/lakes -- reverse of the land sea mask
         !  Land Sea Mask has values of 0 for oceans/lakes, 1 for land, 2 for sea ice
         !  TODO figure out what ifd should be for sea ice
         if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. 1 ) then
-          if (move_nsst) IPD_data(nb)%Sfcprop%ifd(ix) = 0         ! Land
-          IPD_data(nb)%Sfcprop%oceanfrac(ix) = 0   ! Land -- TODO permit fractions
-          IPD_data(nb)%Sfcprop%landfrac(ix) = 1    ! Land -- TODO permit fractions
+          if (move_nsst) GFS_Sfcprop%ifd(im) = 0         ! Land
+          GFS_Sfcprop%oceanfrac(im) = 0   ! Land -- TODO permit fractions
+          GFS_Sfcprop%landfrac(im) = 1    ! Land -- TODO permit fractions
         else
-          if (move_nsst) IPD_data(nb)%Sfcprop%ifd(ix) = 1         ! Ocean
-          IPD_data(nb)%Sfcprop%oceanfrac(ix) = 1   ! Ocean -- TODO permit fractions
-          IPD_data(nb)%Sfcprop%landfrac(ix) = 0    ! Ocean -- TODO permit fractions
+          if (move_nsst) GFS_Sfcprop%ifd(im) = 1         ! Ocean
+          GFS_Sfcprop%oceanfrac(im) = 1   ! Ocean -- TODO permit fractions
+          GFS_Sfcprop%landfrac(im) = 0    ! Ocean -- TODO permit fractions
         endif
 
-        IPD_data(nb)%Sfcprop%tg3(ix) = mn_static%fp_fix%deep_soil_temp_grid(i_idx, j_idx)
+        GFS_Sfcprop%tg3(im) = mn_static%fp_fix%deep_soil_temp_grid(i_idx, j_idx)
 
         ! Follow logic from FV3/io/FV3GFS_io.F90 line 1187
         ! TODO this will need to be more complicated if we support frac_grid
@@ -202,35 +201,34 @@ contains
         !    mn_static%soil_type_grid(i_idx, j_idx) < 0.5) then
         if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. nint(mn_static%fp_ls%land_frac_grid(i_idx, j_idx)) == 0 ) then
           ! Water soil type == lake, etc. -- override the other variables and make this water
-          !!print '("mn_phys_reset_sfc_props LAKE SOIL npe=",I0," x,y=",I0,",",I0," lat=",F10.3," lon=",F10.3)', mpp_pe(), i_idx, j_idx, IPD_data(nb)%Grid%xlat_d(ix), IPD_data(nb)%Grid%xlon_d(ix)-360.0
 
-          if (move_nsst) IPD_data(nb)%Sfcprop%ifd(ix) = 1         ! Ocean
-          IPD_data(nb)%Sfcprop%oceanfrac(ix) = 1   ! Ocean -- TODO permit fractions
-          IPD_data(nb)%Sfcprop%landfrac(ix) = 0    ! Ocean -- TODO permit fractions
+          if (move_nsst) GFS_Sfcprop%ifd(im) = 1         ! Ocean
+          GFS_Sfcprop%oceanfrac(im) = 1   ! Ocean -- TODO permit fractions
+          GFS_Sfcprop%landfrac(im) = 0    ! Ocean -- TODO permit fractions
 
-          IPD_data(nb)%Sfcprop%stype(ix) = 0
-          IPD_data(nb)%Sfcprop%slmsk(ix) = 0
+          GFS_Sfcprop%stype(im) = 0
+          GFS_Sfcprop%slmsk(im) = 0
         else
-          IPD_data(nb)%Sfcprop%stype(ix) = nint(mn_static%fp_ls%soil_type_grid(i_idx, j_idx))
+          GFS_Sfcprop%stype(im) = nint(mn_static%fp_ls%soil_type_grid(i_idx, j_idx))
         endif
 
-        !IPD_data(nb)%Sfcprop%vfrac(ix) = mn_static%veg_frac_grid(i_idx, j_idx)
-        IPD_data(nb)%Sfcprop%vtype(ix) = nint(mn_static%fp_fix%veg_type_grid(i_idx, j_idx))
-        IPD_data(nb)%Sfcprop%slope(ix) = nint(mn_static%fp_fix%slope_type_grid(i_idx, j_idx))
-        IPD_data(nb)%Sfcprop%snoalb(ix) = mn_static%fp_fix%max_snow_alb_grid(i_idx, j_idx)
+        !GFS_Sfcprop%vfrac(im) = mn_static%veg_frac_grid(i_idx, j_idx)
+        GFS_Sfcprop%vtype(im) = nint(mn_static%fp_fix%veg_type_grid(i_idx, j_idx))
+        GFS_Sfcprop%slope(im) = nint(mn_static%fp_fix%slope_type_grid(i_idx, j_idx))
+        GFS_Sfcprop%snoalb(im) = mn_static%fp_fix%max_snow_alb_grid(i_idx, j_idx)
 
-        IPD_data(nb)%Sfcprop%facsf(ix) = mn_static%fp_fix%facsf_grid(i_idx, j_idx)
-        IPD_data(nb)%Sfcprop%facwf(ix) = mn_static%fp_fix%facwf_grid(i_idx, j_idx)
+        GFS_Sfcprop%facsf(im) = mn_static%fp_fix%facsf_grid(i_idx, j_idx)
+        GFS_Sfcprop%facwf(im) = mn_static%fp_fix%facwf_grid(i_idx, j_idx)
 
-        IPD_data(nb)%Sfcprop%alvsf(ix) = mn_static%fp_fix%alvsf_grid(i_idx, j_idx)
-        IPD_data(nb)%Sfcprop%alvwf(ix) = mn_static%fp_fix%alvwf_grid(i_idx, j_idx)
-        IPD_data(nb)%Sfcprop%alnsf(ix) = mn_static%fp_fix%alnsf_grid(i_idx, j_idx)
-        IPD_data(nb)%Sfcprop%alnwf(ix) = mn_static%fp_fix%alnwf_grid(i_idx, j_idx)
+        GFS_Sfcprop%alvsf(im) = mn_static%fp_fix%alvsf_grid(i_idx, j_idx)
+        GFS_Sfcprop%alvwf(im) = mn_static%fp_fix%alvwf_grid(i_idx, j_idx)
+        GFS_Sfcprop%alnsf(im) = mn_static%fp_fix%alnsf_grid(i_idx, j_idx)
+        GFS_Sfcprop%alnwf(im) = mn_static%fp_fix%alnwf_grid(i_idx, j_idx)
 
         ! Reset the orography in the physics arrays, using the smoothed values from above
         phys_oro =  Atm(n)%phis(i_pe, j_pe) / grav
-        IPD_data(nb)%Sfcprop%oro(ix) = phys_oro
-        IPD_data(nb)%Sfcprop%oro_uf(ix) = phys_oro
+        GFS_Sfcprop%oro(im) = phys_oro
+        GFS_Sfcprop%oro_uf(im) = phys_oro
 
       enddo
     enddo
@@ -239,14 +237,14 @@ contains
 
   !>@brief The subroutine 'mn_phys_reset_phys_latlon' sets the lat/lons from the high-resolution input file data
   !>@details This subroutine sets lat/lons of the moved nest, then recalculates all the derived quantities (dx,dy,etc.)
-  subroutine mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, IPD_control, IPD_data)
+  subroutine mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, GFS_control, GFS_grid)
     type(fv_atmos_type), allocatable, intent(in)      :: Atm(:)               !< Array of atmospheric data
     integer, intent(in)                  :: n                    !< Current grid number
     type(grid_geometry), intent(in)      :: tile_geo             !< Bounds of this grid
     type(grid_geometry), intent(in)      :: fp_super_tile_geo    !< Bounds of high-resolution parent grid
     type(block_control_type), intent(in) :: Atm_block            !< Physics block layout
-    type(IPD_control_type), intent(in)   :: IPD_control          !< Physics metadata
-    type(IPD_data_type), intent(inout)   :: IPD_data(:)          !< Physics variable data
+    type(GFS_control_type), intent(in)   :: GFS_control          !< Physics metadata
+    type(GFS_grid_type), intent(inout)   :: GFS_grid             !< Physics variable data
 
     integer :: isc, jsc, iec, jec
     integer :: x, y, fp_i, fp_j
@@ -303,7 +301,7 @@ contains
       enddo
     enddo
 
-    call GFS_grid_populate(IPD_data%Grid, lons, lats, area)
+    call GFS_grid_populate(GFS_Grid, lons, lats, area)
 
     deallocate(lats)
     deallocate(lons)
@@ -314,11 +312,14 @@ contains
   !>@brief The subroutine 'mn_phys_fill_temp_variables' extracts 1D physics data into a 2D array for nest motion
   !>@details This subroutine fills in the mn_phys structure on the Atm object with 2D arrays of physics/surface variables.
   !!  Note that ice variables are not yet handled.
-  subroutine mn_phys_fill_temp_variables(Atm, Atm_block, IPD_Control, IPD_Data, n, child_grid_num, is_fine_pe, npz)
+  subroutine mn_phys_fill_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
     type (block_control_type), target, intent(in)            :: Atm_block         !< Physics block layout
-    type(IPD_control_type), target, intent(in)               :: IPD_Control       !< Physics metadata
-    type(IPD_data_type), target, intent(inout)               :: IPD_Data(:)       !< Physics variable data
+    type(GFS_control_type), target, intent(in)               :: GFS_control       !< Physics metadata
+    type(GFS_sfcprop_type), target, intent(in)               :: GFS_sfcprop       !< Physics variable data (surface)
+    type(GFS_tbd_type), target, intent(in)                   :: GFS_tbd           !< Physics variable data (tbd)
+    type(GFS_cldprop_type), target, intent(in)               :: GFS_cldprop       !< Physics variable data (clouds)
+    type(GFS_diag_type), target, intent(in)                  :: GFS_intdiag       !< Physics variable data (clouds)
     integer, intent(in)                                      :: n, child_grid_num !< Current grid number, child grid number
     logical, intent(in)                                      :: is_fine_pe        !< Is this a nest PE?
     integer, intent(in)                                      :: npz               !< Number of vertical levels
@@ -327,16 +328,16 @@ contains
     integer :: is, ie, js, je
     integer :: this_pe
 
-    integer :: nb, blen, i, j, k, ix, nv
+    integer :: nb, blen, i, j, k, ix, nv, im
     type(fv_moving_nest_physics_type), pointer       :: mn_phys
     integer :: err_field = 0
 
     this_pe = mpp_pe()
 
-    save_Atm_n => Atm(n)
-    save_Atm_block => Atm_block
-    save_IPD_Control => IPD_Control
-    save_IPD_Data => IPD_Data
+    !save_Atm_n => Atm(n)
+    !save_Atm_block => Atm_block
+    !save_GFS_control => GFS_control
+    !save_GFS_sfcprop => GFS_sfcprop
 
     isd = Atm(n)%bd%isd
     ied = Atm(n)%bd%ied
@@ -354,237 +355,155 @@ contains
 
     mn_phys%ts(is:ie, js:je) =  Atm(n)%ts(is:ie, js:je)
 
-    if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
-      nb = 1
-      if (.not. associated(IPD_Data(nb)%Sfcprop%scolor)) err_field = 51
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%snowxy)) err_field = 1
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%tvxy))  err_field = 2
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%tgxy))  err_field = 3
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%canicexy))  err_field = 4
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%canliqxy))  err_field = 5
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%eahxy))  err_field = 6
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%tahxy))  err_field = 7
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%cmxy))  err_field = 8
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%chxy))  err_field = 9
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%fwetxy))  err_field = 10
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%sneqvoxy))  err_field = 11
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%alboldxy))  err_field = 12
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%qsnowxy))  err_field = 13
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%wslakexy))  err_field = 14
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%zwtxy))  err_field = 15
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%waxy))  err_field = 16
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%wtxy))  err_field = 17
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%lfmassxy))  err_field = 18
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%rtmassxy))  err_field = 19
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%stmassxy))  err_field = 20
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%woodxy))  err_field = 21
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%stblcpxy))  err_field = 22
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%fastcpxy))  err_field = 23
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%xsaixy))  err_field = 24
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%xlaixy))  err_field = 25
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%taussxy))  err_field = 26
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%smcwtdxy))  err_field = 27
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%deeprechxy))  err_field = 28
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%rechxy))  err_field = 29
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-
-      if (.not. associated(IPD_Data(nb)%Sfcprop%snicexy))  err_field = 30
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%snliqxy))  err_field = 31
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%snowd))  err_field = 32
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%tsnoxy))  err_field = 33
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%weasd))  err_field = 34
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%zsnsoxy))  err_field = 35
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-      if (.not. associated(IPD_Data(nb)%Sfcprop%smoiseq))  err_field = 36
-      if (err_field .gt. 0) print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-
-      if (err_field .gt. 0) then
-        print '("[ERROR] WDR NOAH MP variable is not associated npe=",I0," err_field=",I0)', this_pe, err_field
-        stop
-      endif
-    endif
-
+    im = 0
     do nb = 1,Atm_block%nblks
       blen = Atm_block%blksz(nb)
       do ix = 1, blen
         ! Get the indices only once, before iterating through vertical levels or number of variables
         i = Atm_block%index(nb)%ii(ix)
         j = Atm_block%index(nb)%jj(ix)
+        im = im + 1
 
         if (move_physics) then
-          do k = 1, IPD_Control%lsoil
-            mn_phys%smc(i,j,k) = IPD_Data(nb)%Sfcprop%smc(ix,k)
-            mn_phys%stc(i,j,k) = IPD_Data(nb)%Sfcprop%stc(ix,k)
-            mn_phys%slc(i,j,k) = IPD_Data(nb)%Sfcprop%slc(ix,k)
+          do k = 1, GFS_control%lsoil
+            mn_phys%smc(i,j,k) = GFS_sfcprop%smc(im,k)
+            mn_phys%stc(i,j,k) = GFS_sfcprop%stc(im,k)
+            mn_phys%slc(i,j,k) = GFS_sfcprop%slc(im,k)
           enddo
 
-          mn_phys%emis_lnd(i,j)      = IPD_Data(nb)%Sfcprop%emis_lnd(ix)
-          mn_phys%emis_ice(i,j)      = IPD_Data(nb)%Sfcprop%emis_ice(ix)
-          mn_phys%emis_wat(i,j)      = IPD_Data(nb)%Sfcprop%emis_wat(ix)
+          mn_phys%emis_lnd(i,j)      = GFS_sfcprop%emis_lnd(im)
+          mn_phys%emis_ice(i,j)      = GFS_sfcprop%emis_ice(im)
+          mn_phys%emis_wat(i,j)      = GFS_sfcprop%emis_wat(im)
 
-          !mn_phys%sfalb_lnd(i,j)     = IPD_Data(nb)%Sfcprop%sfalb_lnd(ix)
-          !mn_phys%sfalb_lnd_bck(i,j) = IPD_Data(nb)%Sfcprop%sfalb_lnd_bck(ix)
-          !mn_phys%semis(i,j)      = IPD_Data(nb)%Radtend%semis(ix)
-          !mn_phys%semisbase(i,j)      = IPD_Data(nb)%Sfcprop%semisbase(ix)
-          !mn_phys%sfalb(i,j)      = IPD_Data(nb)%Radtend%sfalb(ix)
+          !mn_phys%sfalb_lnd(i,j)     = GFS_sfcprop%sfalb_lnd(im)
+          !mn_phys%sfalb_lnd_bck(i,j) = GFS_sfcprop%sfalb_lnd_bck(im)
+          !mn_phys%semis(i,j)      = GFS_Radtend%semis(im)
+          !mn_phys%semisbase(i,j)      = GFS_sfcprop%semisbase(im)
+          !mn_phys%sfalb(i,j)      = GFS_Radtend%sfalb(im)
 
-          mn_phys%albdirvis_lnd(i,j) = IPD_Data(nb)%Sfcprop%albdirvis_lnd(ix)
-          mn_phys%albdirnir_lnd(i,j) = IPD_Data(nb)%Sfcprop%albdirnir_lnd(ix)
-          mn_phys%albdifvis_lnd(i,j) = IPD_Data(nb)%Sfcprop%albdifvis_lnd(ix)
-          mn_phys%albdifnir_lnd(i,j) = IPD_Data(nb)%Sfcprop%albdifnir_lnd(ix)
+          mn_phys%albdirvis_lnd(i,j) = GFS_sfcprop%albdirvis_lnd(im)
+          mn_phys%albdirnir_lnd(i,j) = GFS_sfcprop%albdirnir_lnd(im)
+          mn_phys%albdifvis_lnd(i,j) = GFS_sfcprop%albdifvis_lnd(im)
+          mn_phys%albdifnir_lnd(i,j) = GFS_sfcprop%albdifnir_lnd(im)
 
-          mn_phys%u10m(i,j)  = IPD_Data(nb)%IntDiag%u10m(ix)
-          mn_phys%v10m(i,j)  = IPD_Data(nb)%IntDiag%v10m(ix)
-          mn_phys%tprcp(i,j)  = IPD_Data(nb)%Sfcprop%tprcp(ix)
+          mn_phys%u10m(i,j)  = GFS_intdiag%u10m(im)
+          mn_phys%v10m(i,j)  = GFS_intdiag%v10m(im)
+          mn_phys%tprcp(i,j) = GFS_sfcprop%tprcp(im)
 
-          do k = 1, IPD_Control%nmtvr
-            mn_phys%hprime(i,j,k)  = IPD_Data(nb)%Sfcprop%hprime(ix,k)
+          do k = 1, GFS_control%nmtvr
+            mn_phys%hprime(i,j,k)  = GFS_sfcprop%hprime(im,k)
           enddo
 
-          mn_phys%lakefrac(i,j) = IPD_Data(nb)%Sfcprop%lakefrac(ix)
-          mn_phys%lakedepth(i,j) = IPD_Data(nb)%Sfcprop%lakedepth(ix)
+          mn_phys%lakefrac(i,j) = GFS_Sfcprop%lakefrac(im)
+          mn_phys%lakedepth(i,j) = GFS_Sfcprop%lakedepth(im)
 
-          mn_phys%canopy(i,j) = IPD_Data(nb)%Sfcprop%canopy(ix)
-          mn_phys%vegfrac(i,j)= IPD_Data(nb)%Sfcprop%vfrac(ix)
-          mn_phys%uustar(i,j) = IPD_Data(nb)%Sfcprop%uustar(ix)
-          mn_phys%shdmin(i,j) = IPD_Data(nb)%Sfcprop%shdmin(ix)
-          mn_phys%shdmax(i,j) = IPD_Data(nb)%Sfcprop%shdmax(ix)
-          mn_phys%zorl(i,j)   = IPD_Data(nb)%Sfcprop%zorl(ix)
-          mn_phys%zorll(i,j)  = IPD_Data(nb)%Sfcprop%zorll(ix)
-          mn_phys%zorlwav(i,j)= IPD_Data(nb)%Sfcprop%zorlwav(ix)
-          mn_phys%zorlw(i,j)  = IPD_Data(nb)%Sfcprop%zorlw(ix)
-          mn_phys%usfco(i,j)  = IPD_Data(nb)%Sfcprop%usfco(ix)
-          mn_phys%vsfco(i,j)  = IPD_Data(nb)%Sfcprop%vsfco(ix)
-          mn_phys%tsfco(i,j)  = IPD_Data(nb)%Sfcprop%tsfco(ix)
-          mn_phys%tsfcl(i,j)  = IPD_Data(nb)%Sfcprop%tsfcl(ix)
-          mn_phys%tsfc(i,j)   = IPD_Data(nb)%Sfcprop%tsfc(ix)
+          mn_phys%canopy(i,j) = GFS_Sfcprop%canopy(im)
+          mn_phys%vegfrac(i,j)= GFS_Sfcprop%vfrac(im)
+          mn_phys%uustar(i,j) = GFS_Sfcprop%uustar(im)
+          mn_phys%shdmin(i,j) = GFS_Sfcprop%shdmin(im)
+          mn_phys%shdmax(i,j) = GFS_Sfcprop%shdmax(im)
+          mn_phys%zorl(i,j)   = GFS_Sfcprop%zorl(im)
+          mn_phys%zorll(i,j)  = GFS_Sfcprop%zorll(im)
+          mn_phys%zorlwav(i,j)= GFS_Sfcprop%zorlwav(im)
+          mn_phys%zorlw(i,j)  = GFS_Sfcprop%zorlw(im)
+          mn_phys%usfco(i,j)  = GFS_Sfcprop%usfco(im)
+          mn_phys%vsfco(i,j)  = GFS_Sfcprop%vsfco(im)
+          mn_phys%tsfco(i,j)  = GFS_Sfcprop%tsfco(im)
+          mn_phys%tsfcl(i,j)  = GFS_Sfcprop%tsfcl(im)
+          mn_phys%tsfc(i,j)   = GFS_Sfcprop%tsfc(im)
 
-          mn_phys%albdirvis_lnd(i,j)   = IPD_Data(nb)%Sfcprop%albdirvis_lnd(ix)
-          mn_phys%albdirnir_lnd(i,j)   = IPD_Data(nb)%Sfcprop%albdirnir_lnd(ix)
-          mn_phys%albdifvis_lnd(i,j)   = IPD_Data(nb)%Sfcprop%albdifvis_lnd(ix)
-          mn_phys%albdifnir_lnd(i,j)   = IPD_Data(nb)%Sfcprop%albdifnir_lnd(ix)
+          mn_phys%albdirvis_lnd(i,j)   = GFS_Sfcprop%albdirvis_lnd(im)
+          mn_phys%albdirnir_lnd(i,j)   = GFS_Sfcprop%albdirnir_lnd(im)
+          mn_phys%albdifvis_lnd(i,j)   = GFS_Sfcprop%albdifvis_lnd(im)
+          mn_phys%albdifnir_lnd(i,j)   = GFS_Sfcprop%albdifnir_lnd(im)
 
-          do nv = 1, IPD_Control%ntot2d
-            mn_phys%phy_f2d(i,j,nv) = IPD_Data(nb)%Tbd%phy_f2d(ix, nv)
+          do nv = 1, GFS_Control%ntot2d
+            mn_phys%phy_f2d(i,j,nv) = GFS_tbd%phy_f2d(im, nv)
           enddo
 
-          do k = 1, IPD_Control%levs
-            do nv = 1, IPD_Control%ntot3d
-              mn_phys%phy_f3d(i,j,k,nv) = IPD_Data(nb)%Tbd%phy_f3d(ix, k, nv)
+          do k = 1, GFS_control%levs
+            do nv = 1, GFS_control%ntot3d
+              mn_phys%phy_f3d(i,j,k,nv) = GFS_tbd%phy_f3d(im, k, nv)
             enddo
           enddo
 
           ! Cloud prop data has x,y dimensions
-          mn_phys%cv(i,j)  = IPD_Data(nb)%Cldprop%cv(ix)
-          mn_phys%cvt(i,j) = IPD_Data(nb)%Cldprop%cvt(ix)
-          mn_phys%cvb(i,j) = IPD_Data(nb)%Cldprop%cvb(ix)
+          mn_phys%cv(i,j)  = GFS_cldprop%cv(im)
+          mn_phys%cvt(i,j) = GFS_cldprop%cvt(im)
+          mn_phys%cvb(i,j) = GFS_cldprop%cvb(im)
         endif
 
         if (move_nsst) then
-          mn_phys%tref(i,j)   = IPD_Data(nb)%Sfcprop%tref(ix)
-          mn_phys%z_c(i,j)    = IPD_Data(nb)%Sfcprop%z_c(ix)
-          mn_phys%c_0(i,j)    = IPD_Data(nb)%Sfcprop%c_0(ix)
-          mn_phys%c_d(i,j)    = IPD_Data(nb)%Sfcprop%c_d(ix)
-          mn_phys%w_0(i,j)    = IPD_Data(nb)%Sfcprop%w_0(ix)
-          mn_phys%w_d(i,j)    = IPD_Data(nb)%Sfcprop%w_d(ix)
-          mn_phys%xt(i,j)     = IPD_Data(nb)%Sfcprop%xt(ix)
-          mn_phys%xs(i,j)     = IPD_Data(nb)%Sfcprop%xs(ix)
-          mn_phys%xu(i,j)     = IPD_Data(nb)%Sfcprop%xu(ix)
-          mn_phys%xv(i,j)     = IPD_Data(nb)%Sfcprop%xv(ix)
-          mn_phys%xz(i,j)     = IPD_Data(nb)%Sfcprop%xz(ix)
-          mn_phys%zm(i,j)     = IPD_Data(nb)%Sfcprop%zm(ix)
-          mn_phys%xtts(i,j)   = IPD_Data(nb)%Sfcprop%xtts(ix)
-          mn_phys%xzts(i,j)   = IPD_Data(nb)%Sfcprop%xzts(ix)
-          mn_phys%d_conv(i,j) = IPD_Data(nb)%Sfcprop%d_conv(ix)
-          mn_phys%dt_cool(i,j)= IPD_Data(nb)%Sfcprop%dt_cool(ix)
-          mn_phys%qrain(i,j)  = IPD_Data(nb)%Sfcprop%qrain(ix)
+          mn_phys%tref(i,j)   = GFS_sfcprop%tref(im)
+          mn_phys%z_c(i,j)    = GFS_sfcprop%z_c(im)
+          mn_phys%c_0(i,j)    = GFS_sfcprop%c_0(im)
+          mn_phys%c_d(i,j)    = GFS_sfcprop%c_d(im)
+          mn_phys%w_0(i,j)    = GFS_sfcprop%w_0(im)
+          mn_phys%w_d(i,j)    = GFS_sfcprop%w_d(im)
+          mn_phys%xt(i,j)     = GFS_sfcprop%xt(im)
+          mn_phys%xs(i,j)     = GFS_sfcprop%xs(im)
+          mn_phys%xu(i,j)     = GFS_sfcprop%xu(im)
+          mn_phys%xv(i,j)     = GFS_sfcprop%xv(im)
+          mn_phys%xz(i,j)     = GFS_sfcprop%xz(im)
+          mn_phys%zm(i,j)     = GFS_sfcprop%zm(im)
+          mn_phys%xtts(i,j)   = GFS_sfcprop%xtts(im)
+          mn_phys%xzts(i,j)   = GFS_sfcprop%xzts(im)
+          mn_phys%d_conv(i,j) = GFS_sfcprop%d_conv(im)
+          mn_phys%dt_cool(i,j)= GFS_sfcprop%dt_cool(im)
+          mn_phys%qrain(i,j)  = GFS_sfcprop%qrain(im)
         endif
 
-        if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
-          mn_phys%soilcolor(i,j)  = IPD_Data(nb)%Sfcprop%scolor(ix)
-          mn_phys%snowxy(i,j)     = IPD_Data(nb)%Sfcprop%snowxy(ix)
+        if (GFS_control%lsm == GFS_control%lsm_noahmp) then
+          mn_phys%soilcolor(i,j)  = GFS_sfcprop%scolor(im)
+          mn_phys%snowxy(i,j)     = GFS_sfcprop%snowxy(im)
           !if (i .eq. 149 .and. j .eq. 169) print '("[INFO] WDR SNOWXY MASK2D npe=",I0," i=",I0," j=",I0," snowxy=",E10.5)', this_pe, i, j, mn_phys%snowxy(i,j)
 
 
-          mn_phys%tvxy(i,j)       = IPD_Data(nb)%Sfcprop%tvxy(ix)
-          mn_phys%tgxy(i,j)       = IPD_Data(nb)%Sfcprop%tgxy(ix)
-          mn_phys%canicexy(i,j)   = IPD_Data(nb)%Sfcprop%canicexy(ix)
-          mn_phys%canliqxy(i,j)   = IPD_Data(nb)%Sfcprop%canliqxy(ix)
-          mn_phys%eahxy(i,j)      = IPD_Data(nb)%Sfcprop%eahxy(ix)
-          mn_phys%tahxy(i,j)      = IPD_Data(nb)%Sfcprop%tahxy(ix)
-          mn_phys%cmxy(i,j)       = IPD_Data(nb)%Sfcprop%cmxy(ix)
-          mn_phys%chxy(i,j)       = IPD_Data(nb)%Sfcprop%chxy(ix)
-          mn_phys%fwetxy(i,j)     = IPD_Data(nb)%Sfcprop%fwetxy(ix)
-          mn_phys%sneqvoxy(i,j)   = IPD_Data(nb)%Sfcprop%sneqvoxy(ix)
-          mn_phys%alboldxy(i,j)   = IPD_Data(nb)%Sfcprop%alboldxy(ix)
-          mn_phys%qsnowxy(i,j)    = IPD_Data(nb)%Sfcprop%qsnowxy(ix)
-          mn_phys%wslakexy(i,j)   = IPD_Data(nb)%Sfcprop%wslakexy(ix)
-          mn_phys%zwtxy(i,j)      = IPD_Data(nb)%Sfcprop%zwtxy(ix)
-          mn_phys%waxy(i,j)       = IPD_Data(nb)%Sfcprop%waxy(ix)
-          mn_phys%wtxy(i,j)       = IPD_Data(nb)%Sfcprop%wtxy(ix)
-          mn_phys%lfmassxy(i,j)   = IPD_Data(nb)%Sfcprop%lfmassxy(ix)
-          mn_phys%rtmassxy(i,j)   = IPD_Data(nb)%Sfcprop%rtmassxy(ix)
-          mn_phys%stmassxy(i,j)   = IPD_Data(nb)%Sfcprop%stmassxy(ix)
-          mn_phys%woodxy(i,j)     = IPD_Data(nb)%Sfcprop%woodxy(ix)
-          mn_phys%stblcpxy(i,j)   = IPD_Data(nb)%Sfcprop%stblcpxy(ix)
-          mn_phys%fastcpxy(i,j)   = IPD_Data(nb)%Sfcprop%fastcpxy(ix)
-          mn_phys%xsaixy(i,j)     = IPD_Data(nb)%Sfcprop%xsaixy(ix)
-          mn_phys%xlaixy(i,j)     = IPD_Data(nb)%Sfcprop%xlaixy(ix)
-          mn_phys%taussxy(i,j)    = IPD_Data(nb)%Sfcprop%taussxy(ix)
-          mn_phys%smcwtdxy(i,j)   = IPD_Data(nb)%Sfcprop%smcwtdxy(ix)
-          mn_phys%deeprechxy(i,j) = IPD_Data(nb)%Sfcprop%deeprechxy(ix)
-          mn_phys%rechxy(i,j)     = IPD_Data(nb)%Sfcprop%rechxy(ix)
+          mn_phys%tvxy(i,j)       = GFS_sfcprop%tvxy(im)
+          mn_phys%tgxy(i,j)       = GFS_sfcprop%tgxy(im)
+          mn_phys%canicexy(i,j)   = GFS_sfcprop%canicexy(im)
+          mn_phys%canliqxy(i,j)   = GFS_sfcprop%canliqxy(im)
+          mn_phys%eahxy(i,j)      = GFS_sfcprop%eahxy(im)
+          mn_phys%tahxy(i,j)      = GFS_sfcprop%tahxy(im)
+          mn_phys%cmxy(i,j)       = GFS_sfcprop%cmxy(im)
+          mn_phys%chxy(i,j)       = GFS_sfcprop%chxy(im)
+          mn_phys%fwetxy(i,j)     = GFS_sfcprop%fwetxy(im)
+          mn_phys%sneqvoxy(i,j)   = GFS_sfcprop%sneqvoxy(im)
+          mn_phys%alboldxy(i,j)   = GFS_sfcprop%alboldxy(im)
+          mn_phys%qsnowxy(i,j)    = GFS_sfcprop%qsnowxy(im)
+          mn_phys%wslakexy(i,j)   = GFS_sfcprop%wslakexy(im)
+          mn_phys%zwtxy(i,j)      = GFS_sfcprop%zwtxy(im)
+          mn_phys%waxy(i,j)       = GFS_sfcprop%waxy(im)
+          mn_phys%wtxy(i,j)       = GFS_sfcprop%wtxy(im)
+          mn_phys%lfmassxy(i,j)   = GFS_sfcprop%lfmassxy(im)
+          mn_phys%rtmassxy(i,j)   = GFS_sfcprop%rtmassxy(im)
+          mn_phys%stmassxy(i,j)   = GFS_sfcprop%stmassxy(im)
+          mn_phys%woodxy(i,j)     = GFS_sfcprop%woodxy(im)
+          mn_phys%stblcpxy(i,j)   = GFS_sfcprop%stblcpxy(im)
+          mn_phys%fastcpxy(i,j)   = GFS_sfcprop%fastcpxy(im)
+          mn_phys%xsaixy(i,j)     = GFS_sfcprop%xsaixy(im)
+          mn_phys%xlaixy(i,j)     = GFS_sfcprop%xlaixy(im)
+          mn_phys%taussxy(i,j)    = GFS_sfcprop%taussxy(im)
+          mn_phys%smcwtdxy(i,j)   = GFS_sfcprop%smcwtdxy(im)
+          mn_phys%deeprechxy(i,j) = GFS_sfcprop%deeprechxy(im)
+          mn_phys%rechxy(i,j)     = GFS_sfcprop%rechxy(im)
 
-          do k = 1, IPD_Control%lsoil
-             mn_phys%smoiseq(i,j,k) = IPD_Data(nb)%Sfcprop%smoiseq(ix,k)
+          do k = 1, GFS_control%lsoil
+             mn_phys%smoiseq(i,j,k) = GFS_sfcprop%smoiseq(im,k)
           enddo
 
           ! lsnow_lsm_lbound is a negative value, lsnow_ubound is usually 0
-          do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound
-            mn_phys%snicexy(i,j,k)    = IPD_Data(nb)%Sfcprop%snicexy(ix,k)
-            mn_phys%snliqxy(i,j,k)    = IPD_Data(nb)%Sfcprop%snliqxy(ix,k)
-            mn_phys%tsnoxy(i,j,k)     = IPD_Data(nb)%Sfcprop%tsnoxy(ix,k)
+          do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound
+            mn_phys%snicexy(i,j,k)    = GFS_sfcprop%snicexy(im,k)
+            mn_phys%snliqxy(i,j,k)    = GFS_sfcprop%snliqxy(im,k)
+            mn_phys%tsnoxy(i,j,k)     = GFS_sfcprop%tsnoxy(im,k)
           enddo
 
-          mn_phys%snowd(i,j)      = IPD_Data(nb)%Sfcprop%snowd(ix)
-          mn_phys%weasd(i,j)      = IPD_Data(nb)%Sfcprop%weasd(ix)
+          mn_phys%snowd(i,j)      = GFS_sfcprop%snowd(im)
+          mn_phys%weasd(i,j)      = GFS_sfcprop%weasd(im)
 
-          do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil
-            mn_phys%zsnsoxy(i,j,k)    = IPD_Data(nb)%Sfcprop%zsnsoxy(ix,k)
+          do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsoil
+            mn_phys%zsnsoxy(i,j,k)    = GFS_sfcprop%zsnsoxy(im,k)
           enddo
         endif
       enddo
@@ -595,11 +514,14 @@ contains
   !>@brief The subroutine 'mn_phys_apply_temp_variables' copies moved 2D data back into 1D physics arryas for nest motion
   !>@details This subroutine fills the 1D physics arrays from the mn_phys structure on the Atm object
   !!  Note that ice variables are not yet handled.
-  subroutine mn_phys_apply_temp_variables(Atm, Atm_block, IPD_Control, IPD_Data, n, child_grid_num, is_fine_pe, npz, a_step)
+  subroutine mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
     type (block_control_type), intent(in)                    :: Atm_block         !< Physics block layout
-    type(IPD_control_type), intent(in)                       :: IPD_Control       !< Physics metadata
-    type(IPD_data_type), intent(inout)                       :: IPD_Data(:)       !< Physics variable data
+    type(GFS_control_type), intent(in)                       :: GFS_control       !< Physics metadata
+    type(GFS_sfcprop_type), intent(inout)                    :: GFS_sfcprop       !< Physics variable data (surface)
+    type(GFS_tbd_type), intent(inout)                        :: GFS_tbd           !< Physics variable data (tbd)
+    type(GFS_cldprop_type), intent(inout)                    :: GFS_cldprop       !< Physics variable data (clouds)
+    type(GFS_diag_type), intent(inout)                       :: GFS_intdiag       !< Physics variable data (diagnostic)
     integer, intent(in)                                      :: n, child_grid_num !< Current grid number, child grid number
     logical, intent(in)                                      :: is_fine_pe        !< Is this a nest PE?
     integer, intent(in)                                      :: npz               !< Number of vertical levels
@@ -607,7 +529,7 @@ contains
 
     integer :: is, ie, js, je
     integer :: this_pe
-    integer :: nb, blen, i, j ,k, ix, nv
+    integer :: nb, blen, i, j ,k, ix, nv, im
     type(fv_moving_nest_physics_type), pointer       :: mn_phys
 
     this_pe = mpp_pe()
@@ -624,238 +546,233 @@ contains
       ! SST directly in Atm structure
       Atm(n)%ts(is:ie, js:je) =  mn_phys%ts(is:ie, js:je)
 
+      im = 0
       do nb = 1,Atm_block%nblks
         blen = Atm_block%blksz(nb)
         do ix = 1, blen
           i = Atm_block%index(nb)%ii(ix)
           j = Atm_block%index(nb)%jj(ix)
+          im = im +1
 
           if (move_physics) then
             ! Surface properties
-            !print '("[INFO] WDR smc set npe=",I0," smc(",I0,",",I0,",",I0,")=",E18.10," slmsk=",I0)', this_pe, i, j, 1, mn_phys%smc(i,j,1), int(mn_phys%slmsk(i,j))
-            do k = 1, IPD_Control%lsoil
-              !if ( int(mn_phys%slmsk(i,j)) .eq. 1 .and. mn_phys%smc(i,j,k) .ge. 100) then
-              !  IPD_Data(nb)%Sfcprop%smc(ix,k) = 0.3
-              !else
-              !  IPD_Data(nb)%Sfcprop%smc(ix,k) = mn_phys%smc(i,j,k)
-              !endif
-              IPD_Data(nb)%Sfcprop%smc(ix,k) = mn_phys%smc(i,j,k)
-              IPD_Data(nb)%Sfcprop%stc(ix,k) = mn_phys%stc(i,j,k)
-              IPD_Data(nb)%Sfcprop%slc(ix,k) = mn_phys%slc(i,j,k)
+            do k = 1, GFS_control%lsoil
+              GFS_sfcprop%smc(im,k) = mn_phys%smc(i,j,k)
+              GFS_sfcprop%stc(im,k) = mn_phys%stc(i,j,k)
+              GFS_sfcprop%slc(im,k) = mn_phys%slc(i,j,k)
             enddo
 
             ! EMIS PATCH - Force to positive at all locations.
             if (mn_phys%emis_lnd(i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%emis_lnd(ix) = mn_phys%emis_lnd(i,j)
+              GFS_sfcprop%emis_lnd(im) = mn_phys%emis_lnd(i,j)
             else
-              IPD_Data(nb)%Sfcprop%emis_lnd(ix) = 0.5
+              GFS_sfcprop%emis_lnd(im) = 0.5
             endif
             if (mn_phys%emis_ice(i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%emis_ice(ix) = mn_phys%emis_ice(i,j)
+              GFS_sfcprop%emis_ice(im) = mn_phys%emis_ice(i,j)
             else
-              IPD_Data(nb)%Sfcprop%emis_ice(ix) = 0.5
+              GFS_sfcprop%emis_ice(im) = 0.5
             endif
             if (mn_phys%emis_wat(i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%emis_wat(ix) = mn_phys%emis_wat(i,j)
+              GFS_sfcprop%emis_wat(im) = mn_phys%emis_wat(i,j)
             else
-              IPD_Data(nb)%Sfcprop%emis_wat(ix) = 0.5
+              GFS_sfcprop%emis_wat(im) = 0.5
             endif
 
-            !IPD_Data(nb)%Sfcprop%sfalb_lnd(ix) = mn_phys%sfalb_lnd(i,j)
-            !IPD_Data(nb)%Sfcprop%sfalb_lnd_bck(ix) = mn_phys%sfalb_lnd_bck(i,j)
-            !IPD_Data(nb)%Radtend%semis(ix) = mn_phys%semis(i,j)
-            !IPD_Data(nb)%Sfcprop%semisbase(ix) = mn_phys%semisbase(i,j)
-            !IPD_Data(nb)%Radtend%sfalb(ix) = mn_phys%sfalb(i,j)
+            !GFS_sfcprop%sfalb_lnd(im) = mn_phys%sfalb_lnd(i,j)
+            !GFS_sfcprop%sfalb_lnd_bck(im) = mn_phys%sfalb_lnd_bck(i,j)
+            !GFS_radtend%semis(im) = mn_phys%semis(i,j)
+            !GFS_sfcprop%semisbase(im) = mn_phys%semisbase(i,j)
+            !GFS_radtend%sfalb(im) = mn_phys%sfalb(i,j)
 
-            IPD_Data(nb)%IntDiag%u10m(ix) = mn_phys%u10m(i,j)
-            IPD_Data(nb)%IntDiag%v10m(ix) = mn_phys%v10m(i,j)
-            IPD_Data(nb)%Sfcprop%tprcp(ix) = mn_phys%tprcp(i,j)
+            GFS_intdiag%u10m(im) = mn_phys%u10m(i,j)
+            GFS_intdiag%v10m(im) = mn_phys%v10m(i,j)
+            GFS_sfcprop%tprcp(im) = mn_phys%tprcp(i,j)
 
-            do k = 1, IPD_Control%nmtvr
-              IPD_Data(nb)%Sfcprop%hprime(ix,k) = mn_phys%hprime(i,j,k)
+            do k = 1, GFS_control%nmtvr
+              GFS_sfcprop%hprime(im,k) = mn_phys%hprime(i,j,k)
             enddo
 
-            IPD_Data(nb)%Sfcprop%lakefrac(ix) = mn_phys%lakefrac(i,j)
-            IPD_Data(nb)%Sfcprop%lakedepth(ix) = mn_phys%lakedepth(i,j)
+            GFS_sfcprop%lakefrac(im) = mn_phys%lakefrac(i,j)
+            GFS_sfcprop%lakedepth(im) = mn_phys%lakedepth(i,j)
 
-            IPD_Data(nb)%Sfcprop%canopy(ix) = mn_phys%canopy(i,j)
-            IPD_Data(nb)%Sfcprop%vfrac(ix)  = mn_phys%vegfrac(i,j)
-            IPD_Data(nb)%Sfcprop%uustar(ix) = mn_phys%uustar(i,j)
-            IPD_Data(nb)%Sfcprop%shdmin(ix) = mn_phys%shdmin(i,j)
-            IPD_Data(nb)%Sfcprop%shdmax(ix) = mn_phys%shdmax(i,j)
+            GFS_sfcprop%canopy(im) = mn_phys%canopy(i,j)
+            GFS_sfcprop%vfrac(im)  = mn_phys%vegfrac(i,j)
+            GFS_sfcprop%uustar(im) = mn_phys%uustar(i,j)
+            GFS_sfcprop%shdmin(im) = mn_phys%shdmin(i,j)
+            GFS_sfcprop%shdmax(im) = mn_phys%shdmax(i,j)
 
             ! Set roughness lengths to physically reasonable values if they have fill value (possible at coastline)
             ! sea/land mask array (sea:0,land:1,sea-ice:2)
-            if (nint(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 1 .and. mn_phys%zorll(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%zorll(ix)  = 82.0   !
+            if (nint(GFS_sfcprop%slmsk(im)) .eq. 1 .and. mn_phys%zorll(i,j) .gt. 1e6) then
+              GFS_sfcprop%zorll(im)  = 82.0   !
             else
-              IPD_Data(nb)%Sfcprop%zorll(ix)  = mn_phys%zorll(i,j)
+              GFS_sfcprop%zorll(im)  = mn_phys%zorll(i,j)
             endif
 
-            if (nint(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 0 .and. mn_phys%zorlw(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%zorlw(ix)  = 83.0   !
+            if (nint(GFS_sfcprop%slmsk(im)) .eq. 0 .and. mn_phys%zorlw(i,j) .gt. 1e6) then
+              GFS_sfcprop%zorlw(im)  = 83.0   !
             else
-              IPD_Data(nb)%Sfcprop%zorlw(ix)  = mn_phys%zorlw(i,j)
+              GFS_sfcprop%zorlw(im)  = mn_phys%zorlw(i,j)
             endif
 
-            if (nint(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 0 .and. mn_phys%zorlwav(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%zorlwav(ix)  = 84.0   !
+            if (nint(GFS_sfcprop%slmsk(im)) .eq. 0 .and. mn_phys%zorlwav(i,j) .gt. 1e6) then
+              GFS_sfcprop%zorlwav(im)  = 84.0   !
             else
-              IPD_Data(nb)%Sfcprop%zorlwav(ix)  = mn_phys%zorlwav(i,j)
+              GFS_sfcprop%zorlwav(im)  = mn_phys%zorlwav(i,j)
             endif
 
             if (mn_phys%zorl(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%zorl(ix)   = 85.0
+              GFS_sfcprop%zorl(im)   = 85.0
             else
-              IPD_Data(nb)%Sfcprop%zorl(ix)   = mn_phys%zorl(i,j)
+              GFS_sfcprop%zorl(im)   = mn_phys%zorl(i,j)
             endif
 
-            if (nint(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 0 .and. mn_phys%usfco(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%usfco(ix)  = 0.0
+            if (nint(GFS_sfcprop%slmsk(im)) .eq. 0 .and. mn_phys%usfco(i,j) .gt. 1e6) then
+              GFS_sfcprop%usfco(im)  = 0.0
             else
-              IPD_Data(nb)%Sfcprop%usfco(ix)  = mn_phys%usfco(i,j)
+              GFS_sfcprop%usfco(im)  = mn_phys%usfco(i,j)
             endif
-            if (nint(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 0 .and. mn_phys%vsfco(i,j) .gt. 1e6) then
-              IPD_Data(nb)%Sfcprop%vsfco(ix)  = 0.0
+            if (nint(GFS_sfcprop%slmsk(im)) .eq. 0 .and. mn_phys%vsfco(i,j) .gt. 1e6) then
+              GFS_sfcprop%vsfco(im)  = 0.0
             else
-              IPD_Data(nb)%Sfcprop%vsfco(ix)  = mn_phys%vsfco(i,j)
+              GFS_sfcprop%vsfco(im)  = mn_phys%vsfco(i,j)
             endif
 
-            IPD_Data(nb)%Sfcprop%tsfco(ix)  = mn_phys%tsfco(i,j)
-            IPD_Data(nb)%Sfcprop%tsfcl(ix)  = mn_phys%tsfcl(i,j)
-            IPD_Data(nb)%Sfcprop%tsfc(ix)   = mn_phys%tsfc(i,j)
+            GFS_sfcprop%tsfco(im)  = mn_phys%tsfco(i,j)
+            GFS_sfcprop%tsfcl(im)  = mn_phys%tsfcl(i,j)
+            GFS_sfcprop%tsfc(im)   = mn_phys%tsfc(i,j)
 
             ! Set albedo values to physically reasonable values if they have negative fill values.
             if (mn_phys%albdirvis_lnd (i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%albdirvis_lnd (ix)   = mn_phys%albdirvis_lnd (i,j)
+              GFS_sfcprop%albdirvis_lnd (im)   = mn_phys%albdirvis_lnd (i,j)
             else
-              IPD_Data(nb)%Sfcprop%albdirvis_lnd (ix)   = 0.5
+              GFS_sfcprop%albdirvis_lnd (im)   = 0.5
             endif
 
             if (mn_phys%albdirnir_lnd (i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%albdirnir_lnd (ix)   = mn_phys%albdirnir_lnd (i,j)
+              GFS_sfcprop%albdirnir_lnd (im)   = mn_phys%albdirnir_lnd (i,j)
             else
-              IPD_Data(nb)%Sfcprop%albdirnir_lnd (ix)   = 0.5
+              GFS_sfcprop%albdirnir_lnd (im)   = 0.5
             endif
 
             if (mn_phys%albdifvis_lnd (i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%albdifvis_lnd (ix)   = mn_phys%albdifvis_lnd (i,j)
+              GFS_sfcprop%albdifvis_lnd (im)   = mn_phys%albdifvis_lnd (i,j)
             else
-              IPD_Data(nb)%Sfcprop%albdifvis_lnd (ix)   = 0.5
+              GFS_sfcprop%albdifvis_lnd (im)   = 0.5
             endif
 
             if (mn_phys%albdifnir_lnd (i,j) .ge. 0.0) then
-              IPD_Data(nb)%Sfcprop%albdifnir_lnd (ix)   = mn_phys%albdifnir_lnd (i,j)
+              GFS_sfcprop%albdifnir_lnd (im)   = mn_phys%albdifnir_lnd (i,j)
             else
-              IPD_Data(nb)%Sfcprop%albdifnir_lnd (ix)   = 0.5
+              GFS_sfcprop%albdifnir_lnd (im)   = 0.5
             endif
 
             ! Cloud properties
-            IPD_Data(nb)%Cldprop%cv(ix) = mn_phys%cv(i,j)
-            IPD_Data(nb)%Cldprop%cvt(ix) = mn_phys%cvt(i,j)
-            IPD_Data(nb)%Cldprop%cvb(ix) = mn_phys%cvb(i,j)
+            GFS_cldprop%cv(im) = mn_phys%cv(i,j)
+            GFS_cldprop%cvt(im) = mn_phys%cvt(i,j)
+            GFS_cldprop%cvb(im) = mn_phys%cvb(i,j)
 
-            do nv = 1, IPD_Control%ntot2d
-              IPD_Data(nb)%Tbd%phy_f2d(ix, nv) = mn_phys%phy_f2d(i,j,nv)
+            do nv = 1, GFS_control%ntot2d
+              GFS_tbd%phy_f2d(im, nv) = mn_phys%phy_f2d(i,j,nv)
             enddo
 
-            do k = 1, IPD_Control%levs
-              do nv = 1, IPD_Control%ntot3d
-                IPD_Data(nb)%Tbd%phy_f3d(ix, k, nv) = mn_phys%phy_f3d(i,j,k,nv)
+            do k = 1, GFS_control%levs
+              do nv = 1, GFS_control%ntot3d
+                GFS_tbd%phy_f3d(im, k, nv) = mn_phys%phy_f3d(i,j,k,nv)
               enddo
             enddo
           endif
 
           if (move_nsst) then
-            IPD_Data(nb)%Sfcprop%tref(ix)    = mn_phys%tref(i,j)
-            IPD_Data(nb)%Sfcprop%z_c(ix)     = mn_phys%z_c(i,j)
-            IPD_Data(nb)%Sfcprop%c_0(ix)     = mn_phys%c_0(i,j)
-            IPD_Data(nb)%Sfcprop%c_d(ix)     = mn_phys%c_d(i,j)
-            IPD_Data(nb)%Sfcprop%w_0(ix)     = mn_phys%w_0(i,j)
-            IPD_Data(nb)%Sfcprop%w_d(ix)     = mn_phys%w_d(i,j)
-            IPD_Data(nb)%Sfcprop%xt(ix)      = mn_phys%xt(i,j)
-            IPD_Data(nb)%Sfcprop%xs(ix)      = mn_phys%xs(i,j)
-            IPD_Data(nb)%Sfcprop%xu(ix)      = mn_phys%xu(i,j)
-            IPD_Data(nb)%Sfcprop%xv(ix)      = mn_phys%xv(i,j)
-            IPD_Data(nb)%Sfcprop%xz(ix)      = mn_phys%xz(i,j)
-            IPD_Data(nb)%Sfcprop%zm(ix)      = mn_phys%zm(i,j)
-            IPD_Data(nb)%Sfcprop%xtts(ix)    = mn_phys%xtts(i,j)
-            IPD_Data(nb)%Sfcprop%xzts(ix)    = mn_phys%xzts(i,j)
-            IPD_Data(nb)%Sfcprop%d_conv(ix)  = mn_phys%d_conv(i,j)
-            IPD_Data(nb)%Sfcprop%dt_cool(ix) = mn_phys%dt_cool(i,j)
-            IPD_Data(nb)%Sfcprop%qrain(ix)   = mn_phys%qrain(i,j)
+            GFS_sfcprop%tref(im)    = mn_phys%tref(i,j)
+            GFS_sfcprop%z_c(im)     = mn_phys%z_c(i,j)
+            GFS_sfcprop%c_0(im)     = mn_phys%c_0(i,j)
+            GFS_sfcprop%c_d(im)     = mn_phys%c_d(i,j)
+            GFS_sfcprop%w_0(im)     = mn_phys%w_0(i,j)
+            GFS_sfcprop%w_d(im)     = mn_phys%w_d(i,j)
+            GFS_sfcprop%xt(im)      = mn_phys%xt(i,j)
+            GFS_sfcprop%xs(im)      = mn_phys%xs(i,j)
+            GFS_sfcprop%xu(im)      = mn_phys%xu(i,j)
+            GFS_sfcprop%xv(im)      = mn_phys%xv(i,j)
+            GFS_sfcprop%xz(im)      = mn_phys%xz(i,j)
+            GFS_sfcprop%zm(im)      = mn_phys%zm(i,j)
+            GFS_sfcprop%xtts(im)    = mn_phys%xtts(i,j)
+            GFS_sfcprop%xzts(im)    = mn_phys%xzts(i,j)
+            GFS_sfcprop%d_conv(im)  = mn_phys%d_conv(i,j)
+            GFS_sfcprop%dt_cool(im) = mn_phys%dt_cool(i,j)
+            GFS_sfcprop%qrain(im)   = mn_phys%qrain(i,j)
           endif
 
-          if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
-            !if (this_pe .eq. 89) print '("[INFO] WDR SNOWXY npe=",I0," a_step=",I0," slmsk=",F7.3," snowxy(",I0,",",I0,")=",F12.5,",",E12.5," lat=",F10.5," lon=",F10.5)', this_pe, a_step, IPD_data(nb)%Sfcprop%slmsk(ix), i, j, mn_phys%snowxy(i,j), mn_phys%snowxy(i,j), IPD_data(nb)%Grid%xlat_d(ix), IPD_data(nb)%Grid%xlon_d(ix)-360.0
+          if (GFS_control%lsm == GFS_control%lsm_noahmp) then
 
-            IPD_Data(nb)%Sfcprop%scolor(ix)  = mn_phys%soilcolor(i,j)
-            IPD_Data(nb)%Sfcprop%snowxy(ix)     = mn_phys%snowxy(i,j)
-            IPD_Data(nb)%Sfcprop%tvxy(ix)       = mn_phys%tvxy(i,j)
-            IPD_Data(nb)%Sfcprop%tgxy(ix)       = mn_phys%tgxy(i,j)
-            IPD_Data(nb)%Sfcprop%canicexy(ix)   = mn_phys%canicexy(i,j)
-            IPD_Data(nb)%Sfcprop%canliqxy(ix)   = mn_phys%canliqxy(i,j)
-            IPD_Data(nb)%Sfcprop%eahxy(ix)      = mn_phys%eahxy(i,j)
-            IPD_Data(nb)%Sfcprop%tahxy(ix)      = mn_phys%tahxy(i,j)
-            IPD_Data(nb)%Sfcprop%cmxy(ix)       = mn_phys%cmxy(i,j)
-            IPD_Data(nb)%Sfcprop%chxy(ix)       = mn_phys%chxy(i,j)
-            IPD_Data(nb)%Sfcprop%fwetxy(ix)     = mn_phys%fwetxy(i,j)
-            IPD_Data(nb)%Sfcprop%sneqvoxy(ix)   = mn_phys%sneqvoxy(i,j)
-            IPD_Data(nb)%Sfcprop%alboldxy(ix)   = mn_phys%alboldxy(i,j)
-            IPD_Data(nb)%Sfcprop%qsnowxy(ix)    = mn_phys%qsnowxy(i,j)
-            IPD_Data(nb)%Sfcprop%wslakexy(ix)   = mn_phys%wslakexy(i,j)
-            IPD_Data(nb)%Sfcprop%zwtxy(ix)      = mn_phys%zwtxy(i,j)
-            IPD_Data(nb)%Sfcprop%waxy(ix)       = mn_phys%waxy(i,j)
-            IPD_Data(nb)%Sfcprop%wtxy(ix)       = mn_phys%wtxy(i,j)
-            IPD_Data(nb)%Sfcprop%lfmassxy(ix)   = mn_phys%lfmassxy(i,j)
-            IPD_Data(nb)%Sfcprop%rtmassxy(ix)   = mn_phys%rtmassxy(i,j)
-            IPD_Data(nb)%Sfcprop%stmassxy(ix)   = mn_phys%stmassxy(i,j)
-            IPD_Data(nb)%Sfcprop%woodxy(ix)     = mn_phys%woodxy(i,j)
-            IPD_Data(nb)%Sfcprop%stblcpxy(ix)   = mn_phys%stblcpxy(i,j)
-            IPD_Data(nb)%Sfcprop%fastcpxy(ix)   = mn_phys%fastcpxy(i,j)
-            IPD_Data(nb)%Sfcprop%xsaixy(ix)     = mn_phys%xsaixy(i,j)
-            IPD_Data(nb)%Sfcprop%xlaixy(ix)     = mn_phys%xlaixy(i,j)
-            IPD_Data(nb)%Sfcprop%taussxy(ix)    = mn_phys%taussxy(i,j)
-            IPD_Data(nb)%Sfcprop%smcwtdxy(ix)   = mn_phys%smcwtdxy(i,j)
-            IPD_Data(nb)%Sfcprop%deeprechxy(ix) = mn_phys%deeprechxy(i,j)
-            IPD_Data(nb)%Sfcprop%rechxy(ix)     = mn_phys%rechxy(i,j)
+            GFS_sfcprop%scolor(im)  = mn_phys%soilcolor(i,j)
+            GFS_sfcprop%snowxy(im)     = mn_phys%snowxy(i,j)
+            GFS_sfcprop%tvxy(im)       = mn_phys%tvxy(i,j)
+            GFS_sfcprop%tgxy(im)       = mn_phys%tgxy(i,j)
+            GFS_sfcprop%canicexy(im)   = mn_phys%canicexy(i,j)
+            GFS_sfcprop%canliqxy(im)   = mn_phys%canliqxy(i,j)
+            GFS_sfcprop%eahxy(im)      = mn_phys%eahxy(i,j)
+            GFS_sfcprop%tahxy(im)      = mn_phys%tahxy(i,j)
+            GFS_sfcprop%cmxy(im)       = mn_phys%cmxy(i,j)
+            GFS_sfcprop%chxy(im)       = mn_phys%chxy(i,j)
+            GFS_sfcprop%fwetxy(im)     = mn_phys%fwetxy(i,j)
+            GFS_sfcprop%sneqvoxy(im)   = mn_phys%sneqvoxy(i,j)
+            GFS_sfcprop%alboldxy(im)   = mn_phys%alboldxy(i,j)
+            GFS_sfcprop%qsnowxy(im)    = mn_phys%qsnowxy(i,j)
+            GFS_sfcprop%wslakexy(im)   = mn_phys%wslakexy(i,j)
+            GFS_sfcprop%zwtxy(im)      = mn_phys%zwtxy(i,j)
+            GFS_sfcprop%waxy(im)       = mn_phys%waxy(i,j)
+            GFS_sfcprop%wtxy(im)       = mn_phys%wtxy(i,j)
+            GFS_sfcprop%lfmassxy(im)   = mn_phys%lfmassxy(i,j)
+            GFS_sfcprop%rtmassxy(im)   = mn_phys%rtmassxy(i,j)
+            GFS_sfcprop%stmassxy(im)   = mn_phys%stmassxy(i,j)
+            GFS_sfcprop%woodxy(im)     = mn_phys%woodxy(i,j)
+            GFS_sfcprop%stblcpxy(im)   = mn_phys%stblcpxy(i,j)
+            GFS_sfcprop%fastcpxy(im)   = mn_phys%fastcpxy(i,j)
+            GFS_sfcprop%xsaixy(im)     = mn_phys%xsaixy(i,j)
+            GFS_sfcprop%xlaixy(im)     = mn_phys%xlaixy(i,j)
+            GFS_sfcprop%taussxy(im)    = mn_phys%taussxy(i,j)
+            GFS_sfcprop%smcwtdxy(im)   = mn_phys%smcwtdxy(i,j)
+            GFS_sfcprop%deeprechxy(im) = mn_phys%deeprechxy(i,j)
+            GFS_sfcprop%rechxy(im)     = mn_phys%rechxy(i,j)
 
-            do k = 1, IPD_Control%lsoil
-               IPD_Data(nb)%Sfcprop%smoiseq(ix,k)    = mn_phys%smoiseq(i,j,k)
+            do k = 1, GFS_control%lsoil
+               GFS_sfcprop%smoiseq(im,k)    = mn_phys%smoiseq(i,j,k)
             enddo
 
 
-            do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound
-              IPD_Data(nb)%Sfcprop%snicexy(ix,k)    = mn_phys%snicexy(i,j,k)
-              IPD_Data(nb)%Sfcprop%snliqxy(ix,k)    = mn_phys%snliqxy(i,j,k)
-              IPD_Data(nb)%Sfcprop%tsnoxy(ix,k)     = mn_phys%tsnoxy(i,j,k)
+            do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound
+              GFS_sfcprop%snicexy(im,k)    = mn_phys%snicexy(i,j,k)
+              GFS_sfcprop%snliqxy(im,k)    = mn_phys%snliqxy(i,j,k)
+              GFS_sfcprop%tsnoxy(im,k)     = mn_phys%tsnoxy(i,j,k)
             enddo
 
-            IPD_Data(nb)%Sfcprop%snowd(ix)      = mn_phys%snowd(i,j)
-            IPD_Data(nb)%Sfcprop%weasd(ix)      = mn_phys%weasd(i,j)
+            GFS_sfcprop%snowd(im)      = mn_phys%snowd(i,j)
+            GFS_sfcprop%weasd(im)      = mn_phys%weasd(i,j)
 
-            do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil
-              IPD_Data(nb)%Sfcprop%zsnsoxy(ix,k)    = mn_phys%zsnsoxy(i,j,k)
+            do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsoil
+              GFS_sfcprop%zsnsoxy(im,k)    = mn_phys%zsnsoxy(i,j,k)
             enddo
 
           endif
 
           ! Check if stype and vtype are properly set for land points.  Set to reasonable values if they have fill values.
-          if ( (int(IPD_data(nb)%Sfcprop%slmsk(ix)) .eq. 1) )  then
+          if ( (int(GFS_sfcprop%slmsk(im)) .eq. 1) )  then
 
-            if (IPD_data(nb)%Sfcprop%vtype(ix) .lt. 0.5) then
-              IPD_data(nb)%Sfcprop%vtype(ix) = 7    ! Force to grassland
+            if (GFS_sfcprop%vtype(im) .lt. 0.5) then
+              GFS_sfcprop%vtype(im) = 7    ! Force to grassland
             endif
 
-            if (IPD_data(nb)%Sfcprop%stype(ix) .lt. 0.5) then
-              IPD_data(nb)%Sfcprop%stype(ix) = 3    ! Force to sandy loam
+            if (GFS_sfcprop%stype(im) .lt. 0.5) then
+              GFS_sfcprop%stype(im) = 3    ! Force to sandy loam
             endif
 
-            if (IPD_data(nb)%Sfcprop%vtype_save(ix) .lt. 0.5) then
-              IPD_data(nb)%Sfcprop%vtype_save(ix) = 7    ! Force to grassland
+            if (GFS_sfcprop%vtype_save(im) .lt. 0.5) then
+              GFS_sfcprop%vtype_save(im) = 7    ! Force to grassland
             endif
-            if (IPD_data(nb)%Sfcprop%stype_save(ix) .lt. 0.5) then
-              IPD_data(nb)%Sfcprop%stype_save(ix) = 3    ! Force to sandy loam
+            if (GFS_sfcprop%stype_save(im) .lt. 0.5) then
+              GFS_sfcprop%stype_save(im) = 3    ! Force to sandy loam
             endif
 
           endif
@@ -868,10 +785,9 @@ contains
 
   !>@brief The subroutine 'mn_physfill_nest_halos_from_parent' transfers data from the coarse grid to the nest edge
   !>@details This subroutine must run on parent and nest PEs to complete the data transfers
-  subroutine mn_phys_fill_nest_halos_from_parent(Atm, IPD_Control, IPD_Data, mn_static, n, child_grid_num, is_fine_pe, nest_domain, nz)
+  subroutine mn_phys_fill_nest_halos_from_parent(Atm, GFS_control, mn_static, n, child_grid_num, is_fine_pe, nest_domain, nz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)            !< Array of atmospheric data
-    type(IPD_control_type), intent(in)                       :: IPD_Control       !< Physics metadata
-    type(IPD_data_type), intent(inout)                       :: IPD_Data(:)       !< Physics variable data
+    type(GFS_control_type), intent(in)                       :: GFS_control       !< Physics metadata
     type(mn_surface_grids), intent(in)                       :: mn_static         !< Static data
     integer, intent(in)                                      :: n, child_grid_num !< Current grid number, child grid number
     logical, intent(in)                                      :: is_fine_pe        !< Is this a nest PE?
@@ -887,10 +803,10 @@ contains
     !! For NOAHMP
     ! (/0.0, 0.0, 0.0,  0.1,0.4,1.0,2.0/) -- 3 snow levels, 4 soil levels
     ! TODO make this more flexible for number of snow and soil levels
-      !do k = IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil
+      !do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsoil
     real(kind=kind_phys) :: zsns_default(-2:4)
 
-    if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
+    if (GFS_control%lsm == GFS_control%lsm_noahmp) then
       zsns_default = [0.0, 0.0, 0.0,  -0.1,-0.4,-1.0,-2.0 ]
     else
       ! Expect that zsns_default is not used in this case, but just to be safe, set to 0
@@ -924,28 +840,27 @@ contains
       call fill_nest_halos_from_parent_masked("smc", mn_phys%smc, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, 1, IPD_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
+          is_fine_pe, nest_domain, position, 1, GFS_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
       ! Defaults - use surface temperature to set soil temperature at each level
       call fill_nest_halos_from_parent_masked("stc", mn_phys%stc, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, 1, IPD_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, mn_phys%ts)
+          is_fine_pe, nest_domain, position, 1, GFS_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, mn_phys%ts)
       ! Default - Arbitrary value 0.3
       call fill_nest_halos_from_parent_masked("slc", mn_phys%slc, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, 1, IPD_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
-
+          is_fine_pe, nest_domain, position, 1, GFS_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
 
       call fill_nest_halos_from_parent("phy_f2d", mn_phys%phy_f2d, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%ntot2d)
+          is_fine_pe, nest_domain, position, GFS_control%ntot2d)
 
       call fill_nest_halos_from_parent("phy_f3d", mn_phys%phy_f3d, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%levs)
+          is_fine_pe, nest_domain, position, GFS_control%levs)
 
       !!  Surface variables
 
@@ -1008,7 +923,7 @@ contains
       call fill_nest_halos_from_parent("hprime", mn_phys%hprime, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%nmtvr)
+          is_fine_pe, nest_domain, position, GFS_control%nmtvr)
 
       call fill_nest_halos_from_parent("lakefrac", mn_phys%lakefrac, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
@@ -1194,7 +1109,7 @@ contains
 
     endif
 
-    if (move_physics .and. IPD_Control%lsm == IPD_Control%lsm_noahmp) then
+    if (move_physics .and. GFS_control%lsm == GFS_control%lsm_noahmp) then
 
       !integer, parameter :: M_WATER = 0, M_LAND = 1, M_SEAICE = 2
 
@@ -1338,12 +1253,12 @@ contains
 
       call fill_nest_halos_from_parent_masked("snicexy", mn_phys%snicexy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound, &
+          is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound, &
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
 
       call fill_nest_halos_from_parent_masked("snliqxy", mn_phys%snliqxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound,  IPD_Control%lsnow_lsm_ubound, &
+          is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound,  GFS_control%lsnow_lsm_ubound, &
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
 
       ! surface snow thickness water equivalent over land - - default to 0
@@ -1354,7 +1269,7 @@ contains
       ! Temperature in surface snow -- TODO notes say default to 0, but I will put 273.15K
       call fill_nest_halos_from_parent_masked("tsnoxy", mn_phys%tsnoxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound, &
+          is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound, &
           !mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 273.15D0)
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
 
@@ -1366,12 +1281,12 @@ contains
       call fill_nest_halos_from_parent_masked("smoiseq", mn_phys%smoiseq, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, & 
           x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, 1, IPD_Control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
+          is_fine_pe, nest_domain, position, 1, GFS_control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
 
 
       call fill_nest_halos_from_parent_masked("zsnsoxy", mn_phys%zsnsoxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
-          is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil, &
+          is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsoil, &
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, zsns_default)
 
     endif
@@ -1380,10 +1295,9 @@ contains
 
   !>@brief The subroutine 'mn_phys_fill_intern_nest_halos' fills the intenal nest halos for the physics variables
   !>@details This subroutine is only called for the nest PEs.
-  subroutine mn_phys_fill_intern_nest_halos(moving_nest, IPD_Control, IPD_Data, domain_fine, is_fine_pe)
+  subroutine mn_phys_fill_intern_nest_halos(moving_nest, GFS_control, domain_fine, is_fine_pe)
     type(fv_moving_nest_type), target, intent(inout) :: moving_nest         !< Single instance of moving nest data
-    type(IPD_control_type), intent(in)               :: IPD_Control         !< Physics metadata
-    type(IPD_data_type), intent(inout)               :: IPD_Data(:)         !< Physics variable data
+    type(GFS_control_type), intent(in)               :: GFS_control         !< Physics metadata
     type(domain2d), intent(inout)                    :: domain_fine         !< Domain structure for this nest
     logical, intent(in)                              :: is_fine_pe          !< Is nest PE - should be True.  Argument is redundant.
 
@@ -1464,7 +1378,7 @@ contains
       call mn_var_fill_intern_nest_halos(mn_phys%qrain, domain_fine, is_fine_pe)
     endif
 
-    if (move_physics .and. IPD_Control%lsm == IPD_Control%lsm_noahmp) then
+    if (move_physics .and. GFS_control%lsm == GFS_control%lsm_noahmp) then
       call mn_var_fill_intern_nest_halos(mn_phys%soilcolor, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%snowxy, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%tvxy, domain_fine, is_fine_pe)
@@ -1510,11 +1424,10 @@ contains
 
   !>@brief The subroutine 'mn_phys_shift_data' shifts the variable in the nest, including interpolating at the leading edge
   !>@details This subroutine is called for the nest and parent PEs.
-  subroutine mn_phys_shift_data(Atm, IPD_Control, IPD_Data, n, child_grid_num, wt_h, wt_u, wt_v, &
+  subroutine mn_phys_shift_data(Atm, GFS_control, n, child_grid_num, wt_h, wt_u, wt_v, &
       delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, nz)
     type(fv_atmos_type), allocatable, target, intent(inout)  :: Atm(:)                  !< Array of atmospheric data
-    type(IPD_control_type), intent(in)                       :: IPD_Control             !< Physics metadata
-    type(IPD_data_type), intent(inout)                       :: IPD_Data(:)             !< Physics variable data
+    type(GFS_control_type), intent(in)                       :: GFS_control             !< Physics metadata
     integer, intent(in)                                      :: n, child_grid_num       !< Current grid number, child grid number
     real, allocatable, intent(in)                            :: wt_h(:,:,:), wt_u(:,:,:), wt_v(:,:,:) !< Interpolation weights
     integer, intent(in)                                      :: delta_i_c, delta_j_c    !< Nest motion in i,j direction
@@ -1541,18 +1454,18 @@ contains
     if (move_physics) then
       !! Soil variables
       call mn_var_shift_data(mn_phys%smc, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsoil)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsoil)
       call mn_var_shift_data(mn_phys%stc, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsoil)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsoil)
       call mn_var_shift_data(mn_phys%slc, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsoil)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsoil)
 
       !! Physics arrays
       call mn_var_shift_data(mn_phys%phy_f2d, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_control%ntot2d)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%ntot2d)
 
       call mn_var_shift_data(mn_phys%phy_f3d, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%levs)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%levs)
 
       ! Surface variables
 
@@ -1582,7 +1495,7 @@ contains
       call mn_var_shift_data(mn_phys%tprcp, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%hprime, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%nmtvr)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%nmtvr)
       call mn_var_shift_data(mn_phys%lakefrac, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%lakedepth, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
@@ -1668,7 +1581,7 @@ contains
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
     endif
 
-    if (move_physics .and. IPD_Control%lsm == IPD_Control%lsm_noahmp) then
+    if (move_physics .and. GFS_control%lsm == GFS_control%lsm_noahmp) then
       call mn_var_shift_data(mn_phys%soilcolor, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%snowxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
@@ -1730,21 +1643,21 @@ contains
       call mn_var_shift_data(mn_phys%rechxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%smoiseq, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsoil)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsoil)
 
 
       call mn_var_shift_data(mn_phys%snicexy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound)
       call mn_var_shift_data(mn_phys%snliqxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound)
       call mn_var_shift_data(mn_phys%snowd, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%tsnoxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound)
       call mn_var_shift_data(mn_phys%weasd, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%zsnsoxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
-          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, IPD_Control%lsnow_lsm_lbound, IPD_Control%lsoil)
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsoil)
 
     endif
 
@@ -1753,11 +1666,12 @@ contains
 
   !>@brief The subroutine 'mn_phys_dump_to_netcdf' dumps physics variables to debugging netCDF files
   !>@details This subroutine is called for the nest and parent PEs.
-  subroutine mn_phys_dump_to_netcdf(Atm, Atm_block, IPD_Control, IPD_Data, time_val, file_prefix, is_fine_pe, domain_coarse, domain_fine, nz)
+  subroutine mn_phys_dump_to_netcdf(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, time_val, file_prefix, is_fine_pe, domain_coarse, domain_fine, nz)
     type(fv_atmos_type), intent(in)            :: Atm                           !< Single instance of atmospheric data
     type (block_control_type), intent(in)      :: Atm_block                     !< Physics block layout
-    type(IPD_control_type), intent(in)         :: IPD_Control                   !< Physics metadata
-    type(IPD_data_type), intent(in)            :: IPD_Data(:)                   !< Physics variable data
+    type(GFS_control_type), intent(in)         :: GFS_control                   !< Physics metadata
+    type(GFS_sfcprop_type), intent(in)         :: GFS_sfcprop                   !< Physics variable data (surface)
+    type(GFS_tbd_type), intent(in)             :: GFS_tbd                       !< Physics variable data (tbd)
     integer, intent(in)                        :: time_val                      !< Timestep number for filename
     character(len=*), intent(in)               :: file_prefix                   !< Prefix for output netCDF filenames
     logical, intent(in)                        :: is_fine_pe                    !< Is this the nest PE?
@@ -1765,7 +1679,7 @@ contains
     integer, intent(in)                        :: nz                            !< Number of vertical levels
 
     integer :: is, ie, js, je
-    integer :: nb, blen, i, j, k, ix, nv
+    integer :: nb, blen, i, j, k, ix, nv, im
     integer :: this_pe
 
     integer            :: n_moist
@@ -1818,15 +1732,15 @@ contains
 
     ! Just allocate compute domain size here for outputs;  the nest moving code also has halos added, but we don't need them here.
     if (move_physics) then
-      allocate ( smc_pr_local(is:ie, js:je, IPD_Control%lsoil) )
-      allocate ( stc_pr_local(is:ie, js:je, IPD_Control%lsoil) )
-      allocate ( slc_pr_local(is:ie, js:je, IPD_Control%lsoil) )
+      allocate ( smc_pr_local(is:ie, js:je, GFS_control%lsoil) )
+      allocate ( stc_pr_local(is:ie, js:je, GFS_control%lsoil) )
+      allocate ( slc_pr_local(is:ie, js:je, GFS_control%lsoil) )
       allocate ( sealand_pr_local(is:ie, js:je) )
       allocate ( lakefrac_pr_local(is:ie, js:je) )
       allocate ( landfrac_pr_local(is:ie, js:je) )
       allocate ( emis_lnd_pr_local(is:ie, js:je) )
-      allocate ( phy_f2d_pr_local(is:ie, js:je, IPD_Control%ntot2d) )
-      allocate ( phy_f3d_pr_local(is:ie, js:je, IPD_Control%levs, IPD_Control%ntot3d) )
+      allocate ( phy_f2d_pr_local(is:ie, js:je, GFS_control%ntot2d) )
+      allocate ( phy_f3d_pr_local(is:ie, js:je, GFS_control%levs, GFS_control%ntot3d) )
       allocate ( tsfco_pr_local(is:ie, js:je) )
       allocate ( tsfcl_pr_local(is:ie, js:je) )
       allocate ( tsfc_pr_local(is:ie, js:je) )
@@ -1895,80 +1809,82 @@ contains
       snowxy_pr_local = +99999.9
     endif
 
+    im = 0
     do nb = 1,Atm_block%nblks
       blen = Atm_block%blksz(nb)
       do ix = 1, blen
         i = Atm_block%index(nb)%ii(ix)
         j = Atm_block%index(nb)%jj(ix)
+        im = im + 1
 
         if (move_physics) then
-          do k = 1, IPD_Control%lsoil
+          do k = 1, GFS_control%lsoil
             ! Use real() to lower the precision
-            smc_pr_local(i,j,k) = real(IPD_Data(nb)%Sfcprop%smc(ix,k))
-            stc_pr_local(i,j,k) = real(IPD_Data(nb)%Sfcprop%stc(ix,k))
-            slc_pr_local(i,j,k) = real(IPD_Data(nb)%Sfcprop%slc(ix,k))
+            smc_pr_local(i,j,k) = real(GFS_sfcprop%smc(im,k))
+            stc_pr_local(i,j,k) = real(GFS_sfcprop%stc(im,k))
+            slc_pr_local(i,j,k) = real(GFS_sfcprop%slc(im,k))
           enddo
 
-          sealand_pr_local(i,j) = real(IPD_Data(nb)%Sfcprop%slmsk(ix))
-          lakefrac_pr_local(i,j) = real(IPD_Data(nb)%Sfcprop%lakefrac(ix))
-          landfrac_pr_local(i,j) = real(IPD_Data(nb)%Sfcprop%landfrac(ix))
-          emis_lnd_pr_local(i,j) = real(IPD_Data(nb)%Sfcprop%emis_lnd(ix))
-          deep_soil_t_pr_local(i, j) = IPD_data(nb)%Sfcprop%tg3(ix)
-          soil_type_pr_local(i, j) = IPD_data(nb)%Sfcprop%stype(ix)
-          !veg_frac_pr_local(i, j) = IPD_data(nb)%Sfcprop%vfrac(ix)
-          veg_type_pr_local(i, j) = IPD_data(nb)%Sfcprop%vtype(ix)
-          slope_type_pr_local(i, j) = IPD_data(nb)%Sfcprop%slope(ix)
-          facsf_pr_local(i, j) = IPD_data(nb)%Sfcprop%facsf(ix)
-          facwf_pr_local(i, j) = IPD_data(nb)%Sfcprop%facwf(ix)
-          zorl_pr_local(i, j) = IPD_data(nb)%Sfcprop%zorl(ix)
-          zorlw_pr_local(i, j) = IPD_data(nb)%Sfcprop%zorlw(ix)
-          zorll_pr_local(i, j) = IPD_data(nb)%Sfcprop%zorll(ix)
-          zorli_pr_local(i, j) = IPD_data(nb)%Sfcprop%zorli(ix)
-          usfco_pr_local(i, j) = IPD_data(nb)%Sfcprop%usfco(ix)
-          vsfco_pr_local(i, j) = IPD_data(nb)%Sfcprop%vsfco(ix)
-          max_snow_alb_pr_local(i, j) = IPD_data(nb)%Sfcprop%snoalb(ix)
-          tsfco_pr_local(i, j) = IPD_data(nb)%Sfcprop%tsfco(ix)
-          tsfcl_pr_local(i, j) = IPD_data(nb)%Sfcprop%tsfcl(ix)
-          tsfc_pr_local(i, j)  = IPD_data(nb)%Sfcprop%tsfc(ix)
-          vegfrac_pr_local(i, j) = IPD_data(nb)%Sfcprop%vfrac(ix)
-          alvsf_pr_local(i, j) = IPD_data(nb)%Sfcprop%alvsf(ix)
-          alvwf_pr_local(i, j) = IPD_data(nb)%Sfcprop%alvwf(ix)
-          alnsf_pr_local(i, j) = IPD_data(nb)%Sfcprop%alnsf(ix)
-          alnwf_pr_local(i, j) = IPD_data(nb)%Sfcprop%alnwf(ix)
+          sealand_pr_local(i,j) = real(GFS_sfcprop%slmsk(im))
+          lakefrac_pr_local(i,j) = real(GFS_sfcprop%lakefrac(im))
+          landfrac_pr_local(i,j) = real(GFS_sfcprop%landfrac(im))
+          emis_lnd_pr_local(i,j) = real(GFS_sfcprop%emis_lnd(im))
+          deep_soil_t_pr_local(i, j) = GFS_sfcprop%tg3(im)
+          soil_type_pr_local(i, j) = GFS_sfcprop%stype(im)
+          !veg_frac_pr_local(i, j) = GFS_sfcprop%vfrac(im)
+          veg_type_pr_local(i, j) = GFS_sfcprop%vtype(im)
+          slope_type_pr_local(i, j) = GFS_sfcprop%slope(im)
+          facsf_pr_local(i, j) = GFS_sfcprop%facsf(im)
+          facwf_pr_local(i, j) = GFS_sfcprop%facwf(im)
+          zorl_pr_local(i, j) = GFS_sfcprop%zorl(im)
+          zorlw_pr_local(i, j) = GFS_sfcprop%zorlw(im)
+          zorll_pr_local(i, j) = GFS_sfcprop%zorll(im)
+          zorli_pr_local(i, j) = GFS_sfcprop%zorli(im)
+          usfco_pr_local(i, j) = GFS_sfcprop%usfco(im)
+          vsfco_pr_local(i, j) = GFS_sfcprop%vsfco(im)
+          max_snow_alb_pr_local(i, j) = GFS_sfcprop%snoalb(im)
+          tsfco_pr_local(i, j) = GFS_sfcprop%tsfco(im)
+          tsfcl_pr_local(i, j) = GFS_sfcprop%tsfcl(im)
+          tsfc_pr_local(i, j)  = GFS_sfcprop%tsfc(im)
+          vegfrac_pr_local(i, j) = GFS_sfcprop%vfrac(im)
+          alvsf_pr_local(i, j) = GFS_sfcprop%alvsf(im)
+          alvwf_pr_local(i, j) = GFS_sfcprop%alvwf(im)
+          alnsf_pr_local(i, j) = GFS_sfcprop%alnsf(im)
+          alnwf_pr_local(i, j) = GFS_sfcprop%alnwf(im)
 
-          do nv = 1, IPD_Control%ntot2d
+          do nv = 1, GFS_Control%ntot2d
             ! Use real() to lower the precision
-            phy_f2d_pr_local(i,j,nv) = real(IPD_Data(nb)%Tbd%phy_f2d(ix, nv))
+            phy_f2d_pr_local(i,j,nv) = real(GFS_tbd%phy_f2d(im, nv))
           enddo
 
-          do k = 1, IPD_Control%levs
-            do nv = 1, IPD_Control%ntot3d
+          do k = 1, GFS_control%levs
+            do nv = 1, GFS_control%ntot3d
               ! Use real() to lower the precision
-              phy_f3d_pr_local(i,j,k,nv) = real(IPD_Data(nb)%Tbd%phy_f3d(ix, k, nv))
+              phy_f3d_pr_local(i,j,k,nv) = real(GFS_tbd%phy_f3d(im, k, nv))
             enddo
           enddo
         endif
 
         if (move_nsst) then
-          tref_pr_local(i,j) = IPD_data(nb)%Sfcprop%tref(ix)
-          c_0_pr_local(i,j) = IPD_data(nb)%Sfcprop%c_0(ix)
-          xt_pr_local(i,j) = IPD_data(nb)%Sfcprop%xt(ix)
-          xu_pr_local(i,j) = IPD_data(nb)%Sfcprop%xu(ix)
-          xv_pr_local(i,j) = IPD_data(nb)%Sfcprop%xv(ix)
-          ifd_pr_local(i,j) = IPD_data(nb)%Sfcprop%ifd(ix)
+          tref_pr_local(i,j) = GFS_sfcprop%tref(im)
+          c_0_pr_local(i,j) = GFS_sfcprop%c_0(im)
+          xt_pr_local(i,j) = GFS_sfcprop%xt(im)
+          xu_pr_local(i,j) = GFS_sfcprop%xu(im)
+          xv_pr_local(i,j) = GFS_sfcprop%xv(im)
+          ifd_pr_local(i,j) = GFS_sfcprop%ifd(im)
         endif
 
         if (move_noahmp) then
-          snowxy_pr_local(i,j) = IPD_data(nb)%Sfcprop%snowxy(ix)
+          snowxy_pr_local(i,j) = GFS_sfcprop%snowxy(im)
         endif
 
       enddo
     enddo
 
     if (move_physics) then
-      !call mn_var_dump_to_netcdf(stc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, IPD_Control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILT")
-      !call mn_var_dump_to_netcdf(smc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, IPD_Control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILM")
-      !call mn_var_dump_to_netcdf(slc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, IPD_Control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILL")
+      !call mn_var_dump_to_netcdf(stc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, GFS_control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILT")
+      !call mn_var_dump_to_netcdf(smc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, GFS_control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILM")
+      !call mn_var_dump_to_netcdf(slc_pr_local, is_fine_pe, domain_coarse, domain_fine, position, GFS_control%lsoil, time_val, Atm%global_tile, file_prefix, "SOILL")
       call mn_var_dump_to_netcdf(sealand_pr_local, is_fine_pe, domain_coarse, domain_fine, position, time_val, Atm%global_tile, file_prefix, "LMASK")
       call mn_var_dump_to_netcdf(lakefrac_pr_local, is_fine_pe, domain_coarse, domain_fine, position, time_val, Atm%global_tile, file_prefix, "LAKEFRAC")
       call mn_var_dump_to_netcdf(landfrac_pr_local, is_fine_pe, domain_coarse, domain_fine, position, time_val, Atm%global_tile, file_prefix, "LANDFRAC")
@@ -1996,15 +1912,15 @@ contains
       call mn_var_dump_to_netcdf(usfco_pr_local, is_fine_pe, domain_coarse, domain_fine, position, time_val, Atm%global_tile, file_prefix, "SSU")
       call mn_var_dump_to_netcdf(vsfco_pr_local, is_fine_pe, domain_coarse, domain_fine, position, time_val, Atm%global_tile, file_prefix, "SSV")
 
-      do nv = 1, IPD_Control%ntot2d
+      do nv = 1, GFS_control%ntot2d
         write (phys_var_name, "(A4,I0.3)")  'PH2D', nv
         !call mn_var_dump_to_netcdf(phy_f2d_pr_local(:,:,nv), is_fine_pe, domain_coarse, domain_fine, position, 1, &
         !    time_val, Atm%global_tile, file_prefix, phys_var_name)
       enddo
 
-      do nv = 1, IPD_Control%ntot3d
+      do nv = 1, GFS_control%ntot3d
         write (phys_var_name, "(A4,I0.3)")  'PH3D', nv
-        !call mn_var_dump_to_netcdf(phy_f3d_pr_local(:,:,:,nv), is_fine_pe, domain_coarse, domain_fine, position, IPD_Control%levs, &
+        !call mn_var_dump_to_netcdf(phy_f3d_pr_local(:,:,:,nv), is_fine_pe, domain_coarse, domain_fine, position, GFS_control%levs, &
         !    time_val, Atm%global_tile, file_prefix, phys_var_name)
       enddo
     endif

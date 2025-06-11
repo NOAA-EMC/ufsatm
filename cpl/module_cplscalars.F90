@@ -116,7 +116,7 @@ contains
     if (mytask == 0) then
        call ESMF_FieldGet(lfield, farrayPtr = farrayptr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-       if (scalar_id < 0 .or. scalar_id > flds_scalar_num) then
+       if (scalar_id <= 0 .or. scalar_id > flds_scalar_num) then
           call ESMF_LogWrite(trim(subname)//": ERROR in scalar_id", ESMF_LOGMSG_INFO)
           rc = ESMF_FAILURE
           return

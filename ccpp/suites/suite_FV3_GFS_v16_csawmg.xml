@@ -12,7 +12,6 @@
   </group>
   <group name="radiation">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_rad_reset</scheme>
       <scheme>GFS_rrtmg_pre</scheme>
       <scheme>GFS_radiation_surface</scheme>
       <scheme>rad_sw_pre</scheme>
@@ -23,9 +22,8 @@
       <scheme>GFS_rrtmg_post</scheme>
     </subcycle>
   </group>
-  <group name="physics">
+  <group name="phys_ps">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_phys_reset</scheme>
       <scheme>GFS_suite_stateout_reset</scheme>
       <scheme>get_prs_fv3</scheme>
       <scheme>GFS_suite_interstitial_1</scheme>
@@ -60,7 +58,11 @@
       <scheme>cires_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
       <scheme>GFS_suite_stateout_update</scheme>
-      <scheme>h2ophys</scheme>
+    </subcycle>
+  </group>
+  <group name="phys_ts">
+    <subcycle loop="1">
+      <scheme>GFS_photochemistry</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>GFS_DCNV_generic_pre</scheme>

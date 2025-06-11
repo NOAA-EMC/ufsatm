@@ -6,7 +6,10 @@ module fv3atm_restart_io_mod
 
   use block_control_mod,  only: block_control_type
   use mpp_mod,            only: mpp_error, mpp_chksum, NOTE,   FATAL
-  use GFS_typedefs,       only: GFS_sfcprop_type, GFS_control_type, kind_phys, GFS_data_type
+  use GFS_typedefs,       only: GFS_statein_type, GFS_stateout_type
+  use GFS_typedefs,       only: GFS_sfcprop_type, GFS_control_type, kind_phys
+  use GFS_typedefs,       only: GFS_grid_type, GFS_cldprop_type, GFS_tbd_type
+  use GFS_typedefs,       only: GFS_radtend_type, GFS_coupling_type
   use GFS_restart,        only: GFS_restart_type
   use fms_mod,            only: stdout
   use fms2_io_mod,        only: FmsNetcdfDomainFile_t, unlimited,      &
@@ -16,7 +19,13 @@ module fv3atm_restart_io_mod
                                 read_restart, write_restart, write_data,     &
                                 get_global_io_domain_indices, get_dimension_size, &
                                 global_att_exists, get_global_attribute
-  use mpp_domains_mod,    only: domain2d
+#ifdef ENABLE_PARALLELRESTART
+  use mpp_domains_mod,    only: domain2d, mpp_get_domain_tile_commid, mpp_copy_domain, &
+                                  mpp_define_io_domain, mpp_get_layout
+#else
+  use mpp_domains_mod,    only: domain2d, mpp_copy_domain, &
+                                  mpp_define_io_domain, mpp_get_layout
+#endif
   use fv3atm_common_io,   only: create_2d_field_and_add_to_bundle, &
        create_3d_field_and_add_to_bundle, copy_from_gfs_data, axis_type
   use fv3atm_sfc_io
@@ -97,10 +106,10 @@ contains
   !>@brief Reads physics and surface fields.
   !> \section fv3atm_restart_read subroutine
   !! Calls sfc_prop_restart_read and phys_restart_read to read all surface and physics restart files.
-  subroutine fv3atm_restart_read (GFS_Data, GFS_Restart, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
+  subroutine fv3atm_restart_read (GFS_Sfcprop, GFS_Restart, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
     implicit none
-    type(GFS_data_type),      intent(inout) :: GFS_Data(:)
-    type(GFS_restart_type),   intent(inout) :: GFS_Restart
+    type(GFS_sfcprop_type),   intent(inout) :: GFS_Sfcprop
+    type(GFS_restart_type),   intent(inout) :: GFS_Restart(:)
     type(block_control_type), intent(in)    :: Atm_block
     type(GFS_control_type),   intent(inout) :: Model
     type(domain2d),           intent(in)    :: fv_domain
@@ -108,7 +117,7 @@ contains
     logical,                  intent(in)    :: ignore_rst_cksum
 
     !--- read in surface data from chgres
-    call sfc_prop_restart_read (GFS_Data%Sfcprop, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
+    call sfc_prop_restart_read (GFS_Sfcprop, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
 
     !--- read in physics restart data
     call phys_restart_read (GFS_Restart, Atm_block, Model, fv_domain, ignore_rst_cksum)
@@ -120,17 +129,17 @@ contains
   !! Calls sfc_prop_restart_write and phys_restart_write to write
   !! surface and physics restart fields. This pauses the model to
   !! write; it does not use the write component (quilt).
-  subroutine fv3atm_restart_write (GFS_Data, GFS_Restart, Atm_block, Model, fv_domain, timestamp)
+  subroutine fv3atm_restart_write (GFS_Sfcprop, GFS_Restart, Atm_block, Model, fv_domain, timestamp)
     implicit none
-    type(GFS_data_type),         intent(inout) :: GFS_Data(:)
-    type(GFS_restart_type),      intent(inout) :: GFS_Restart
+    type(GFS_sfcprop_type),      intent(inout) :: GFS_Sfcprop
+    type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
     type(block_control_type),    intent(in)    :: Atm_block
     type(GFS_control_type),      intent(in)    :: Model
     type(domain2d),              intent(in)    :: fv_domain
     character(len=32), optional, intent(in)    :: timestamp
 
     !--- write surface data from chgres
-    call sfc_prop_restart_write (GFS_Data%Sfcprop, Atm_block, Model, fv_domain, timestamp)
+    call sfc_prop_restart_write (GFS_Sfcprop, Atm_block, Model, fv_domain, timestamp)
 
     !--- write physics restart data
     call phys_restart_write (GFS_Restart, Atm_block, Model, fv_domain, timestamp)
@@ -140,14 +149,21 @@ contains
   !----------------
   ! fv3atm_checksum
   !----------------
-  subroutine fv3atm_checksum (Model, GFS_Data, Atm_block)
+  subroutine fv3atm_checksum (Model, GFS_Statein, GFS_Stateout, GFS_Grid, GFS_Tbd, GFS_Cldprop, GFS_Sfcprop, GFS_Radtend, GFS_Coupling, Atm_block)
     implicit none
     !--- interface variables
     type(GFS_control_type),    intent(in) :: Model
-    type(GFS_data_type),       intent(in) :: GFS_Data(:)
+    type(GFS_statein_type),    intent(in) :: GFS_Statein
+    type(GFS_stateout_type),   intent(in) :: GFS_Stateout
+    type(GFS_grid_type),       intent(in) :: GFS_Grid
+    type(GFS_tbd_type),        intent(in) :: GFS_Tbd
+    type(GFS_cldprop_type),    intent(in) :: GFS_Cldprop
+    type(GFS_sfcprop_type),    intent(in) :: GFS_Sfcprop
+    type(GFS_radtend_type),    intent(in) :: GFS_Radtend
+    type(GFS_coupling_type),   intent(in) :: GFS_Coupling
     type (block_control_type), intent(in) :: Atm_block
     !--- local variables
-    integer :: outunit, i, ix, nb, isc, iec, jsc, jec, lev, ntr, k
+    integer :: outunit, i, ix, im, nb, isc, iec, jsc, jec, lev, ntr, k
     integer :: nsfcprop2d, nt
     real(kind=kind_phys), allocatable :: temp2d(:,:,:)
     real(kind=kind_phys), allocatable :: temp3d(:,:,:,:)
@@ -161,7 +177,7 @@ contains
     jec = Model%jsc+Model%ny-1
     lev = Model%levs
 
-    ntr = size(GFS_Data(1)%Statein%qgrs,3)
+    ntr = size(GFS_Statein%qgrs,3)
 
     nsfcprop2d = 94
     if (Model%lsm == Model%lsm_noahmp) then
@@ -206,274 +222,291 @@ contains
       ! Copy into temp2d
       nt=0
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Statein%pgr)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%slmsk)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tsfc)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tisfc)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snowd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%zorl)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%fice)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%hprime(:,1))
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sncovr)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snoalb)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%alvsf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%alnsf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%alvwf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%alnwf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%facsf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%facwf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%slope)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%shdmin)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%shdmax)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tg3)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%vfrac)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%vtype)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%stype)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%scolor)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%uustar)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%oro)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%oro_uf)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%hice)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%weasd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%canopy)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%ffmm)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%ffhh)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%f10m)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tprcp)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%srflag)
+      ! DH* clean this up - create a new/replacement copy_from_GFS_data - this can be outside the block
+      ! loop, too!
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Statein%pgr        , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%slmsk      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tsfc       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tisfc      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snowd      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%zorl       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%fice       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%hprime(:,1), (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sncovr     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snoalb     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%alvsf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%alnsf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%alvwf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%alnwf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%facsf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%facwf      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%slope      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%shdmin     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%shdmax     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tg3        , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%vfrac      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%vtype      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%stype      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%scolor     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%uustar     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%oro        , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%oro_uf     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%hice       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%weasd      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%canopy     , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%ffmm       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%ffhh       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%f10m       , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tprcp      , (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%srflag     , (/iec-isc+1, jec-jsc+1/))
       lsm_choice: if (Model%lsm == Model%lsm_noah .or. Model%lsm == Model%lsm_noahmp) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%slc)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%smc)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%stc)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%slc, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%smc, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%stc, (/iec-isc+1, jec-jsc+1/))
       elseif (Model%lsm == Model%lsm_ruc) then
         do k=1,3
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sh2o(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sh2o(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
+      ! *DH
         ! Combine levels 4 to lsoil_lsm (9 for RUC) into one
-        nt=nt+1
-        do ix=1,Atm_block%blksz(nb)
-          temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%sh2o(ix,4:Model%lsoil_lsm))
-        enddo
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(sum(GFS_Sfcprop%sh2o(:,4:Model%lsoil_lsm), dim=1), (/iec-isc+1, jec-jsc+1/))
+        !nt=nt+1
+        !do ix=1,Atm_block%blksz(nb)
+        !  temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%sh2o(ix,4:Model%lsoil_lsm))
+        !enddo
+     ! DH*
         do k=1,3
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%smois(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%smois(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
+      ! *DH
         ! Combine levels 4 to lsoil_lsm (9 for RUC) into one
-        nt=nt+1
-        do ix=1,Atm_block%blksz(nb)
-          temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%smois(ix,4:Model%lsoil_lsm))
-        enddo
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(sum(GFS_Sfcprop%smois(:,4:Model%lsoil_lsm), dim=1), (/iec-isc+1, jec-jsc+1/))
+        !nt=nt+1
+        !do ix=1,Atm_block%blksz(nb)
+        !  temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%smois(ix,4:Model%lsoil_lsm))
+        !enddo
+     ! DH*
         do k=1,3
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tslb(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tslb(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
+      ! *DH
         ! Combine levels 4 to lsoil_lsm (9 for RUC) into one
-        nt=nt+1
-        do ix=1,Atm_block%blksz(nb)
-          temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%tslb(ix,4:Model%lsoil_lsm))
-        enddo
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(sum(GFS_Sfcprop%tslb(:,4:Model%lsoil_lsm), dim=1), (/iec-isc+1, jec-jsc+1/))
+        !nt=nt+1
+        !do ix=1,Atm_block%blksz(nb)
+        !  temp2d(ii1(ix),jj1(ix),nt) = sum(GFS_Data(nb)%Sfcprop%tslb(ix,4:Model%lsoil_lsm))
+        !enddo
       endif lsm_choice
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t2m)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%q2m)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%nirbmdi)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%nirdfdi)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%visbmdi)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%visdfdi)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%nirbmui)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%nirdfui)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%visbmui)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%visdfui)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%sfcdsw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%sfcnsw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Coupling%sfcdlw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%xlon)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%xlat)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%xlat_d)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%sinlat)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%coslat)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%area)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%dx)
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t2m, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%q2m, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%nirbmdi, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%nirdfdi, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%visbmdi, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%visdfdi, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%nirbmui, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%nirdfui, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%visbmui, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%visdfui, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%sfcdsw, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%sfcnsw, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Coupling%sfcdlw, (/iec-isc+1, jec-jsc+1/))
+      ! DH* clean this up - create a new/replacement copy_from_GFS_data
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%xlon,   (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%xlat,   (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%xlat_d, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%sinlat, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%coslat, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%area,   (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%dx,     (/iec-isc+1, jec-jsc+1/))
       if (Model%ntoz > 0) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%ddy_o3)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%ddy_o3, (/iec-isc+1, jec-jsc+1/))
       endif
       if (Model%h2o_phys) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Grid%ddy_h)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Grid%ddy_h, (/iec-isc+1, jec-jsc+1/))
       endif
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Cldprop%cv)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Cldprop%cvt)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Cldprop%cvb)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Radtend%sfalb)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Radtend%coszen)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Radtend%tsflw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Radtend%semis)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Radtend%coszdg)
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Cldprop%cv, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Cldprop%cvt, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Cldprop%cvb, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Radtend%sfalb, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Radtend%coszen, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Radtend%tsflw, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Radtend%semis, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Radtend%coszdg, (/iec-isc+1, jec-jsc+1/))
 
       ! Radtend%sfcfsw is an array of derived type, so we copy all
       ! eight elements of the type in one loop
       do ix=1,Atm_block%blksz(nb)
-        temp2d(ii1(ix),jj1(ix),nt+1) = GFS_Data(nb)%Radtend%sfcfsw(ix)%upfxc
-        temp2d(ii1(ix),jj1(ix),nt+2) = GFS_Data(nb)%Radtend%sfcfsw(ix)%upfx0
-        temp2d(ii1(ix),jj1(ix),nt+3) = GFS_Data(nb)%Radtend%sfcfsw(ix)%dnfxc
-        temp2d(ii1(ix),jj1(ix),nt+4) = GFS_Data(nb)%Radtend%sfcfsw(ix)%dnfx0
-        temp2d(ii1(ix),jj1(ix),nt+5) = GFS_Data(nb)%Radtend%sfcflw(ix)%upfxc
-        temp2d(ii1(ix),jj1(ix),nt+6) = GFS_Data(nb)%Radtend%sfcflw(ix)%upfx0
-        temp2d(ii1(ix),jj1(ix),nt+7) = GFS_Data(nb)%Radtend%sfcflw(ix)%dnfxc
-        temp2d(ii1(ix),jj1(ix),nt+8) = GFS_Data(nb)%Radtend%sfcflw(ix)%dnfx0
+        im = Model%chunk_begin(nb)+ix-1
+        temp2d(ii1(ix),jj1(ix),nt+1) = GFS_Radtend%sfcfsw(im)%upfxc
+        temp2d(ii1(ix),jj1(ix),nt+2) = GFS_Radtend%sfcfsw(im)%upfx0
+        temp2d(ii1(ix),jj1(ix),nt+3) = GFS_Radtend%sfcfsw(im)%dnfxc
+        temp2d(ii1(ix),jj1(ix),nt+4) = GFS_Radtend%sfcfsw(im)%dnfx0
+        temp2d(ii1(ix),jj1(ix),nt+5) = GFS_Radtend%sfcflw(im)%upfxc
+        temp2d(ii1(ix),jj1(ix),nt+6) = GFS_Radtend%sfcflw(im)%upfx0
+        temp2d(ii1(ix),jj1(ix),nt+7) = GFS_Radtend%sfcflw(im)%dnfxc
+        temp2d(ii1(ix),jj1(ix),nt+8) = GFS_Radtend%sfcflw(im)%dnfx0
       enddo
       nt = nt + 8
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tiice(:,1))
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tiice(:,2))
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdirvis_lnd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdirnir_lnd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdifvis_lnd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdifnir_lnd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%emis_lnd)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%emis_ice)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sncovr_ice)
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tiice(:,1),    (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tiice(:,2),    (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdirvis_lnd, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdirnir_lnd, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdifvis_lnd, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdifnir_lnd, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%emis_lnd,      (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%emis_ice,      (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sncovr_ice,    (/iec-isc+1, jec-jsc+1/))
 
       if (Model%use_cice_alb .or. Model%lsm == Model%lsm_ruc) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdirvis_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdirnir_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdifvis_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%albdifnir_ice)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdirvis_ice, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdirnir_ice, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdifvis_ice, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%albdifnir_ice, (/iec-isc+1, jec-jsc+1/))
       endif
 
       lsm_choice_2: if (Model%lsm == Model%lsm_noahmp) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snowxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tvxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tgxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%canicexy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%canliqxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%eahxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tahxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%cmxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%chxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%fwetxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sneqvoxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%alboldxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%qsnowxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%wslakexy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%zwtxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%waxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%wtxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%lfmassxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%rtmassxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%stmassxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%woodxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%stblcpxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%fastcpxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xsaixy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xlaixy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%taussxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%smcwtdxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%deeprechxy)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%rechxy)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snowxy,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tvxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tgxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%canicexy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%canliqxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%eahxy,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tahxy,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%cmxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%chxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%fwetxy,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sneqvoxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%alboldxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%qsnowxy,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%wslakexy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%zwtxy,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%waxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%wtxy,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%lfmassxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%rtmassxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%stmassxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%woodxy,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%stblcpxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%fastcpxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xsaixy,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xlaixy,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%taussxy,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%smcwtdxy,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%deeprechxy, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%rechxy,     (/iec-isc+1, jec-jsc+1/))
 
         ! These five arrays use bizarre indexing, so we use loops:
         do k=-2,0
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snicexy(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snicexy(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
 
         do k=-2,0
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snliqxy(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snliqxy(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
 
         do k=-2,0
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tsnoxy(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tsnoxy(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
 
         do k=1,4
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%smoiseq(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%smoiseq(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
 
         do k=-2,4
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%zsnsoxy(:,k))
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%zsnsoxy(:,k), (/iec-isc+1, jec-jsc+1/))
         enddo
       elseif (Model%lsm == Model%lsm_ruc) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%wetness)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%clw_surf_land)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%clw_surf_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%qwv_surf_land)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%qwv_surf_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tsnow_land)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tsnow_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snowfallac_land)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%snowfallac_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sfalb_lnd)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sfalb_lnd_bck)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%sfalb_ice)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%wetness,         (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%clw_surf_land,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%clw_surf_ice,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%qwv_surf_land,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%qwv_surf_ice,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tsnow_land,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tsnow_ice,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snowfallac_land, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%snowfallac_ice,  (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sfalb_lnd,       (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sfalb_lnd_bck,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%sfalb_ice,       (/iec-isc+1, jec-jsc+1/))
         if (Model%rdlai) then
-          call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xlaixy)
+          nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xlaixy, (/iec-isc+1, jec-jsc+1/))
         endif
       endif lsm_choice_2
 
       nstf_name_choice: if (Model%nstf_name(1) > 0) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%tref)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%z_c)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%c_0)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%c_d)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%w_0)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%w_d)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xt)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xs)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xu)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xz)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%zm)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xtts)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%xzts)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%ifd)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%dt_cool)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%qrain)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%tref,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%z_c,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%c_0,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%c_d,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%w_0,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%w_d,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xt,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xs,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xu,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xz,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%zm,      (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xtts,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%xzts,    (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%ifd,     (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%dt_cool, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%qrain,   (/iec-isc+1, jec-jsc+1/))
       endif nstf_name_choice
 
       ! Flake
       if (Model%lkm > 0 .and. Model%iopt_lake==Model%iopt_lake_flake) then
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%T_snow)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%T_ice)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%h_ML)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t_ML)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t_mnw)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%h_talb)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t_talb)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t_bot1)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%t_bot2)
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Sfcprop%c_t)
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%T_snow, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%T_ice,  (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%h_ML,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t_ML,   (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t_mnw,  (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%h_talb, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t_talb, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t_bot1, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%t_bot2, (/iec-isc+1, jec-jsc+1/))
+        nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Sfcprop%c_t,    (/iec-isc+1, jec-jsc+1/))
       endif
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Tbd%phy_f2d)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp2d,GFS_Data(nb)%Tbd%phy_fctd)
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Tbd%phy_f2d, (/iec-isc+1, jec-jsc+1/))
+      nt=nt+1; temp2d(isc:iec,jsc:jec,nt) = reshape(GFS_Tbd%phy_fctd, (/iec-isc+1, jec-jsc+1/))
+      ! *DH
 
       ! Copy to temp3dlevsp1
       nt=0
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3dlevsp1, GFS_Data(nb)%Statein%phii)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3dlevsp1, GFS_Data(nb)%Statein%prsi)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3dlevsp1, GFS_Data(nb)%Statein%prsik)
+      ! DH*
+      nt=nt+1; temp3dlevsp1(isc:iec,jsc:jec,1:lev+1,nt) = reshape(GFS_Statein%phii, (/iec-isc+1, jec-jsc+1, lev+1/))
+      nt=nt+1; temp3dlevsp1(isc:iec,jsc:jec,1:lev+1,nt) = reshape(GFS_Statein%prsi, (/iec-isc+1, jec-jsc+1, lev+1/))
+      nt=nt+1; temp3dlevsp1(isc:iec,jsc:jec,1:lev+1,nt) = reshape(GFS_Statein%prsik, (/iec-isc+1, jec-jsc+1, lev+1/))
+      ! *DH
 
       ! Copy to temp3d
       nt=0
 
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%phil)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%prsl)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%prslk)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%ugrs)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%vgrs)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%vvl)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%tgrs)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Stateout%gu0)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Stateout%gv0)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Stateout%gt0)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Radtend%htrsw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Radtend%htrlw)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Radtend%swhc)
-      call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Radtend%lwhc)
+      ! DH*
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%phil, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%prsl, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%prslk, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%ugrs, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%vgrs, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%vvl, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%tgrs, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Stateout%gu0, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Stateout%gv0, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Stateout%gt0, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Radtend%htrsw, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Radtend%htrlw, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Radtend%swhc, (/iec-isc+1, jec-jsc+1, lev/))
+      nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Radtend%lwhc, (/iec-isc+1, jec-jsc+1, lev/))
       do k = 1,Model%ntot3d
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Tbd%phy_f3d(:,:,k))
+        nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Tbd%phy_f3d(:,:,k), (/iec-isc+1, jec-jsc+1, lev/))
       enddo
       do k = 1,ntr
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Statein%qgrs(:,:,k))
-        call copy_from_GFS_Data(ii1,jj1,isc,jsc,nt,temp3d,GFS_Data(nb)%Stateout%gq0(:,:,k))
+        nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Statein%qgrs(:,:,k), (/iec-isc+1, jec-jsc+1, lev/))
+        nt=nt+1; temp3d(isc:iec,jsc:jec,1:lev,nt) = reshape(GFS_Stateout%gq0(:,:,k), (/iec-isc+1, jec-jsc+1, lev/))
       enddo
+      ! *DH
     enddo block_loop
 
 
@@ -505,9 +538,10 @@ contains
   !!  Also calculates sncovr if it is not present in the restart file.
   subroutine sfc_prop_restart_read (Sfcprop, Atm_block, Model, fv_domain, warm_start, ignore_rst_cksum)
     use fv3atm_rrfs_sd_io
+    use atmosphere_mod,     only: Atm,mygrid
     implicit none
     !--- interface variable definitions
-    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
+    type(GFS_sfcprop_type),    intent(inout) :: Sfcprop
     type (block_control_type), intent(in)    :: Atm_block
     type(GFS_control_type),    intent(inout) :: Model
     type (domain2d),           intent(in)    :: fv_domain
@@ -531,12 +565,25 @@ contains
 
     type(FmsNetcdfDomainFile_t) :: Oro_restart, Sfc_restart, dust12m_restart, emi_restart, rrfssd_restart
     type(FmsNetcdfDomainFile_t) :: Oro_ls_restart, Oro_ss_restart
+    type(domain2D) :: domain_for_read
+    integer :: read_layout(2)
 
     !--- OROGRAPHY FILE
 
     !--- open file
+#ifdef ENABLE_PARALLELRESTART
+    Oro_restart%use_collective = .true.
+    call mpp_get_layout(Atm(mygrid)%domain, read_layout)
+    call mpp_copy_domain(Atm(mygrid)%domain, domain_for_read)
+    call mpp_define_io_domain(domain_for_read, read_layout)
+    Oro_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    infile=trim(indir)//'/'//trim(fn_oro)
+    amiopen=open_file(Oro_restart, trim(infile), 'read', domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     infile=trim(indir)//'/'//trim(fn_oro)
     amiopen=open_file(Oro_restart, trim(infile), 'read', domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if (.not.amiopen) call mpp_error( FATAL, 'Error with opening file '//trim(infile) )
 
     call oro%register(Model,Oro_restart,Atm_block)
@@ -566,7 +613,7 @@ contains
       call close_file(dust12m_restart)
 
       !--- Copy to Sfcprop and free temporary arrays:
-      call rrfs_sd_emis%copy_dust12m(Sfcprop, Atm_block)
+      call rrfs_sd_emis%copy_dust12m(Model, Sfcprop, Atm_block)
 
       !----------------------------------------------
 
@@ -584,7 +631,7 @@ contains
       call close_file(emi_restart)
 
       !--- Copy to Sfcprop and free temporary arrays:
-      call rrfs_sd_emis%copy_emi(Sfcprop, Atm_block)
+      call rrfs_sd_emis%copy_emi(Model, Sfcprop, Atm_block)
 
       !----------------------------------------------
 
@@ -624,7 +671,7 @@ contains
              &INPUT/oro_data_ls.tile*.nc')
         call read_restart(Oro_ls_restart, ignore_checksum=ignore_rst_cksum)
         call close_file(Oro_ls_restart)
-        call oro_ls%copy(Sfcprop,Atm_block,1)
+        call oro_ls%copy(Model,Sfcprop,Atm_block,1)
       endif
 
       !--- open restart file
@@ -636,14 +683,22 @@ contains
            &INPUT/oro_data_ss.tile*.nc')
       call read_restart(Oro_ss_restart, ignore_checksum=ignore_rst_cksum)
       call close_file(Oro_ss_restart)
-      call oro_ss%copy(Sfcprop,Atm_block,15)
+      call oro_ss%copy(Model,Sfcprop,Atm_block,15)
     end if
 
     !--- SURFACE FILE
 
     !--- open file
+#ifdef ENABLE_PARALLELRESTART
+    Sfc_restart%use_collective = .true.
+    Sfc_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    infile=trim(indir)//'/'//trim(fn_srf)
+    amiopen=open_file(Sfc_restart, trim(infile), "read", domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     infile=trim(indir)//'/'//trim(fn_srf)
     amiopen=open_file(Sfc_restart, trim(infile), "read", domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if( .not.amiopen ) call mpp_error(FATAL, 'Error opening file'//trim(infile))
 
     if (global_att_exists(Sfc_restart, "file_version")) then
@@ -724,7 +779,7 @@ contains
     use fv3atm_rrfs_sd_io
     implicit none
     !--- interface variable definitions
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     type(domain2d),              intent(in) :: fv_domain
@@ -813,15 +868,16 @@ contains
   !! restart variables with the GFDL FMS restart subsystem.
   !! Calls a GFDL FMS routine to restore the data from a restart file.
   subroutine phys_restart_read (GFS_Restart, Atm_block, Model, fv_domain, ignore_rst_cksum)
+    use atmosphere_mod,     only: Atm,mygrid
     implicit none
     !--- interface variable definitions
-    type(GFS_restart_type),      intent(in) :: GFS_Restart
+    type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
     type(domain2d),              intent(in) :: fv_domain
     logical,                     intent(in) :: ignore_rst_cksum
     !--- local variables
-    integer :: i, j, k, nb, ix, num
+    integer :: i, j, k, nb, ix, num2, num3, ivar
     integer :: isc, iec, jsc, jec, nx, ny
     character(len=64) :: fname
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
@@ -832,6 +888,8 @@ contains
 
     type(phy_data_type) :: phy
     type(FmsNetcdfDomainFile_t) :: Phy_restart
+    type(domain2D) :: domain_for_read
+    integer :: read_layout(2)
 
     isc = Atm_block%isc
     iec = Atm_block%iec
@@ -844,7 +902,17 @@ contains
 
     !--- open restart file and register axes
     fname = trim(indir)//'/'//trim(fn_phy)
+#ifdef ENABLE_PARALLELRESTART
+    Phy_restart%use_collective = .true.
+    call mpp_get_layout(Atm(mygrid)%domain, read_layout)
+    call mpp_copy_domain(Atm(mygrid)%domain, domain_for_read)
+    call mpp_define_io_domain(domain_for_read, read_layout)
+    Phy_restart%tile_comm = mpp_get_domain_tile_commid(Atm(mygrid)%domain)
+
+    amiopen=open_file(Phy_restart, trim(fname), 'read', domain=domain_for_read, is_restart=.true., dont_add_res_to_filename=.true.)
+#else
     amiopen=open_file(Phy_restart, trim(fname), 'read', domain=fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)
+#endif
     if( amiopen ) then
       call register_axis(Phy_restart, 'xaxis_1', 'X')
       call register_axis(Phy_restart, 'yaxis_1', 'Y')
@@ -857,15 +925,21 @@ contains
 
     !--- register the restart fields
     if(was_allocated) then
-
-      do num = 1,phy%nvar2d
-        var2_p => phy%var2(:,:,num)
-        call register_restart_field(Phy_restart, trim(GFS_Restart%name2d(num)), var2_p, dimensions=(/'xaxis_1','yaxis_1','Time   '/),&
-             &is_optional=.true.)
-      enddo
-      do num = 1,phy%nvar3d
-        var3_p => phy%var3(:,:,:,num)
-        call register_restart_field(Phy_restart, trim(GFS_restart%name3d(num)), var3_p, dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/), is_optional=.true.)
+       num2 = 0
+       num3 = 0
+       do ivar = 1,size(GFS_Restart(:)%axes)
+          num2 = num2 + 1
+          if (GFS_Restart(ivar)%axes == 2) then
+            var2_p => phy%var2(:,:,num2)
+            call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var2_p, &
+                 dimensions=(/'xaxis_1','yaxis_1','Time   '/), is_optional=.true.)
+         end if
+         if (GFS_Restart(ivar)%axes == 3) then
+            num3 = num3 + 1
+            var3_p => phy%var3(:,:,:,num3)
+            call register_restart_field(Phy_restart, trim(GFS_restart(ivar)%name), var3_p, &
+                 dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/), is_optional=.true.)
+         end if
       enddo
       nullify(var2_p)
       nullify(var3_p)
@@ -876,7 +950,7 @@ contains
     call read_restart(Phy_restart, ignore_checksum=ignore_rst_cksum)
     call close_file(Phy_restart)
 
-    call phy%transfer_data(.true., GFS_Restart, Atm_block, Model)
+    call phy%transfer_data(.true., GFS_Restart, Atm_block, Model, .true.)
 
   end subroutine phys_restart_read
 
@@ -888,18 +962,18 @@ contains
   subroutine phys_restart_write (GFS_Restart, Atm_block, Model, fv_domain, timestamp)
     implicit none
     !--- interface variable definitions
-    type(GFS_restart_type),      intent(in) :: GFS_Restart
-    type(block_control_type),    intent(in) :: Atm_block
-    type(GFS_control_type),      intent(in) :: Model
-    type(domain2d),              intent(in) :: fv_domain
-    character(len=32), optional, intent(in) :: timestamp
+    type(GFS_restart_type),      intent(inout) :: GFS_Restart(:)
+    type(block_control_type),    intent(in   ) :: Atm_block
+    type(GFS_control_type),      intent(in   ) :: Model
+    type(domain2d),              intent(in   ) :: fv_domain
+    character(len=32), optional, intent(in   ) :: timestamp
     !--- local variables
-    integer :: i, j, k, nb, ix, num
+    integer :: i, j, k, nb, ix, num2, num3
     integer :: isc, iec, jsc, jec, nx, ny
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
     !--- used for axis data for fms2_io
-    integer :: is, ie
+    integer :: is, ie, ivar
     integer, allocatable, dimension(:) :: buffer
     character(7) :: indir='RESTART'
     character(72) :: infile
@@ -959,20 +1033,28 @@ contains
       call mpp_error(FATAL, 'Error opening file '//trim(infile))
     end if
 
-    do num = 1,phy%nvar2d
-      var2_p => phy%var2(:,:,num)
-      call register_restart_field(Phy_restart, trim(GFS_Restart%name2d(num)), var2_p, dimensions=(/'xaxis_1','yaxis_1','Time   '/),&
-           & chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1/), is_optional=.true.)
-    enddo
-    do num = 1,phy%nvar3d
-      var3_p => phy%var3(:,:,:,num)
-      call register_restart_field(Phy_restart, trim(GFS_Restart%name3d(num)), var3_p, dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/),&
-           & chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1,1/), is_optional=.true.)
+    num2 = 0
+    num3 = 0
+    do ivar = 1,size(GFS_restart(:)%axes)
+       if (GFS_Restart(ivar)%axes == 2) then
+          num2 = num2 + 1
+          var2_p => phy%var2(:,:,num2)
+          call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var2_p, &
+               dimensions=(/'xaxis_1','yaxis_1','Time   '/),&
+               chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1/), is_optional=.true.)
+       endif
+       if (GFS_Restart(ivar)%axes == 3) then
+          num3 = num3 + 1
+          var3_p => phy%var3(:,:,:,num3)
+          call register_restart_field(Phy_restart, trim(GFS_Restart(ivar)%name), var3_p,&
+               dimensions=(/'xaxis_1','yaxis_1','zaxis_1','Time   '/),&
+               chunksizes=(/xaxis_1_chunk,yaxis_1_chunk,1,1/), is_optional=.true.)
+       endif
     enddo
     nullify(var2_p)
     nullify(var3_p)
 
-    call phy%transfer_data(.false., GFS_Restart, Atm_block, Model)
+    call phy%transfer_data(.false., GFS_Restart, Atm_block, Model, .false.)
 
     call write_restart(Phy_restart)
     call close_file(Phy_restart)
@@ -985,8 +1067,8 @@ contains
   subroutine fv3atm_restart_register (Sfcprop, GFS_restart, Atm_block, Model)
     implicit none
 
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
-    type(GFS_restart_type),      intent(in) :: GFS_Restart
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
+    type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
 
@@ -1013,14 +1095,15 @@ contains
   end subroutine fv3atm_restart_register
 
   !>@Copies physics restart fields from write component data structures to the model grid.
-  subroutine fv_phy_restart_output(GFS_Restart, Atm_block)
+  subroutine fv_phy_restart_output(GFS_Restart, Atm_block, Model)
 
     implicit none
 
-    type(GFS_restart_type),      intent(in) :: GFS_Restart
-    type(block_control_type),    intent(in) :: Atm_block
+    type(GFS_restart_type),   intent(inout) :: GFS_Restart(:)
+    type(block_control_type), intent(in   ) :: Atm_block
+    type(GFS_control_type),   intent(in   ) :: Model
 
-    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block)
+    call phy_quilt%transfer_data(.false., GFS_Restart, Atm_block, Model, .false.)
 
   end subroutine fv_phy_restart_output
 
@@ -1029,7 +1112,7 @@ contains
     !--- interface variable definitions
     implicit none
 
-    type(GFS_sfcprop_type),      intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),      intent(in) :: Sfcprop
     type(block_control_type),    intent(in) :: Atm_block
     type(GFS_control_type),      intent(in) :: Model
 
@@ -1142,32 +1225,44 @@ contains
     use fv3atm_common_io, only: get_nx_ny_from_atm
     implicit none
     class(phy_data_type) :: phy
-    type(GFS_restart_type),      intent(in) :: GFS_Restart
+    type(GFS_restart_type),      intent(in) :: GFS_Restart(:)
     type(block_control_type),    intent(in) :: Atm_block
 
-    integer :: nx, ny, num
+    integer :: nx, ny, ivar, num2, num3
 
     phy_data_alloc = .false.
 
     if(associated(phy%var2)) return
 
     call get_nx_ny_from_atm(Atm_block, nx, ny)
-
     phy%npz = Atm_block%npz
-    phy%nvar2d = GFS_Restart%num2d
-    phy%nvar3d = GFS_Restart%num3d
 
+    !
+    ! Count the number of 2D and 3D restart fields, allocate space for physics data,
+    ! and gather metadata (e.g. names) for each field.
+    !
+    phy%nvar2d = 0
+    phy%nvar3d = 0
+    do ivar = 1,size(GFS_restart(:)%axes)
+       if (GFS_restart(ivar)%axes == 2) phy%nvar2d = phy%nvar2d + 1
+       if (GFS_restart(ivar)%axes == 3) phy%nvar3d = phy%nvar3d + 1
+    enddo
     allocate (phy%var2(nx,ny,phy%nvar2d), phy%var2_names(phy%nvar2d))
     allocate (phy%var3(nx,ny,phy%npz,phy%nvar3d), phy%var3_names(phy%nvar3d))
     phy%var2 = zero
     phy%var3 = zero
-    do num = 1,phy%nvar2d
-      phy%var2_names(num) = trim(GFS_Restart%name2d(num))
+    num2 = 0
+    num3 = 0
+    do ivar = 1,size(GFS_restart(:)%axes)
+       if (GFS_restart(ivar)%axes == 2) then
+          num2 = num2 + 1
+          phy%var2_names(num2) = trim(GFS_Restart(ivar)%name)
+       end if
+       if (GFS_restart(ivar)%axes == 3)	then
+          num3 = num3 + 1
+          phy%var3_names(num3) = trim(GFS_Restart(ivar)%name)
+       endif
     enddo
-    do num = 1,phy%nvar3d
-      phy%var3_names(num) = trim(GFS_Restart%name3d(num))
-    enddo
-
     phy_data_alloc = .true.
   end function phy_data_alloc
 
@@ -1178,16 +1273,17 @@ contains
   !! direction of the copy. For reading=.true., data is copied from the temporary arrays to the
   !! model grid (during restart read). For reading=.false., data is copied from the model grid to
   !! temporary arrays (for writing the restart).
-  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model)
+  subroutine phy_data_transfer_data(phy, reading, GFS_Restart, Atm_block, Model, reset_diag)
     use mpp_mod,            only: FATAL, mpp_error
     implicit none
     class(phy_data_type) :: phy
     logical, intent(in) :: reading
-    type(GFS_restart_type) :: GFS_Restart
+    type(GFS_restart_type), intent(inout) :: GFS_Restart(:)
     type(block_control_type) :: Atm_block
-    type(GFS_control_type), optional, intent(in) :: Model
+    type(GFS_control_type), intent(in) :: Model
+    logical, intent(in) :: reset_diag
 
-    integer :: i, j, k, num, nb, ix
+    integer :: i, j, k, ivar, nb, ix, im, num2, num3
 
     !--- register the restart fields
     if (.not. associated(phy%var2)) then
@@ -1199,81 +1295,81 @@ contains
       return ! should never get here
     endif
 
-    ! Copy 2D Vars
-
+    !--- place the data into the contiguous GFS containers.
     if(reading) then
-      !--- place the data into the block GFS containers
-      !--- phy%var* variables
-      do num = 1,phy%nvar2d
-        !$omp parallel do default(shared) private(i, j, nb, ix)
-        do nb = 1,Atm_block%nblks
-          do ix = 1, Atm_block%blksz(nb)
-            i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-            j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-            GFS_Restart%data(nb,num)%var2p(ix) = phy%var2(i,j,num)
-          enddo
-        enddo
-      enddo
+       ! 2D
+       num2 = 0
+       num3 = 0
+       do ivar = 1,size(GFS_restart(:)%axes)
+          if (GFS_restart(ivar)%axes == 2) then
+             num2 = num2 + 1
+             !$omp parallel do default(shared) private(i, j, nb, ix, im)
+             do nb = 1,Atm_block%nblks
+                do ix = 1, Atm_block%blksz(nb)
+                   im = Model%chunk_begin(nb)+ix-1
+                   i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
+                   j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+                   GFS_Restart(ivar)%data%var2(im) = phy%var2(i,j,num2)
+                   !--- if restart from init time, reset accumulated diag fields
+                   if (reset_diag) then
+                      if (GFS_restart(ivar)%reset .and. Model%phour < 1.e-7) then
+                         GFS_Restart(ivar)%data%var2(im) = zero
+                      endif
+                   endif
+                enddo
+             enddo
+          endif
+          ! 3D
+          if (GFS_restart(ivar)%axes == 3) then
+             num3 = num3 + 1
+             !$omp parallel do default(shared) private(i, j, k, nb, ix, im)
+             do nb = 1,Atm_block%nblks
+                do k=1,phy%npz
+                   do ix = 1, Atm_block%blksz(nb)
+                      im = Model%chunk_begin(nb)+ix-1
+                      i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
+                      j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+                      GFS_Restart(ivar)%data%var3(im,k) = phy%var3(i,j,k,num3)
+                   enddo
+                enddo
+             enddo
+          endif
+       enddo
+       
+    !--- place the data into the phy%var* variables.
     else
-      !--- 2D variables
-      do num = 1,phy%nvar2d
-        !$omp parallel do default(shared) private(i, j, nb, ix)
-        do nb = 1,Atm_block%nblks
-          do ix = 1, Atm_block%blksz(nb)
-            i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-            j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-            phy%var2(i,j,num) = GFS_Restart%data(nb,num)%var2p(ix)
-          enddo
-        enddo
-      enddo
-    endif
-
-    !-- if restart from init time, reset accumulated diag fields
-
-    if(reading .and. present(Model)) then
-      if(Model%phour < 1.e-7) then
-        do num = GFS_Restart%fdiag,GFS_Restart%ldiag
-          !$omp parallel do default(shared) private(i, j, nb, ix)
-          do nb = 1,Atm_block%nblks
-            do ix = 1, Atm_block%blksz(nb)
-              i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-              j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-              GFS_Restart%data(nb,num)%var2p(ix) = zero
-            enddo
-          enddo
-        enddo
-      endif
-    endif
-
-    ! Copy 3D Vars
-
-    if(reading) then
-      do num = 1,phy%nvar3d
-        !$omp parallel do default(shared) private(i, j, k, nb, ix)
-        do nb = 1,Atm_block%nblks
-          do k=1,phy%npz
-            do ix = 1, Atm_block%blksz(nb)
-              i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-              j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-              GFS_Restart%data(nb,num)%var3p(ix,k) = phy%var3(i,j,k,num)
-            enddo
-          enddo
-        enddo
-      enddo
-    else
-      !--- 3D variables
-      do num = 1,phy%nvar3d
-        !$omp parallel do default(shared) private(i, j, k, nb, ix)
-        do nb = 1,Atm_block%nblks
-          do k=1,phy%npz
-            do ix = 1, Atm_block%blksz(nb)
-              i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
-              j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
-              phy%var3(i,j,k,num) = GFS_Restart%data(nb,num)%var3p(ix,k)
-            enddo
-          enddo
-        enddo
-      enddo
+       num2 = 0
+       num3 = 0
+       do ivar = 1,size(GFS_restart(:)%axes)
+          ! 2D
+          if (GFS_restart(ivar)%axes == 2) then
+             num2 = num2 + 1
+             !$omp parallel do default(shared) private(i, j, nb, ix, im)
+             do nb = 1,Atm_block%nblks
+                do ix = 1, Atm_block%blksz(nb)
+                   im = Model%chunk_begin(nb)+ix-1
+                   i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
+                   j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+                   phy%var2(i,j,num2) = GFS_Restart(ivar)%data%var2(im)
+                enddo
+             enddo
+          endif
+          ! 3D
+          if (GFS_restart(ivar)%axes == 3) then
+             num3 = num3 + 1
+             !$omp parallel do default(shared) private(i, j, k, nb, ix, im)
+             do nb = 1,Atm_block%nblks
+                do k=1,phy%npz
+                   do ix = 1, Atm_block%blksz(nb)
+                      im = Model%chunk_begin(nb)+ix-1
+                      i = Atm_block%index(nb)%ii(ix) - Atm_block%isc + 1
+                      j = Atm_block%index(nb)%jj(ix) - Atm_block%jsc + 1
+                      phy%var3(i,j,k,num3) = GFS_Restart(ivar)%data%var3(im,k)
+                   enddo
+                enddo
+             enddo
+          endif
+       enddo
     endif
 
   end subroutine phy_data_transfer_data

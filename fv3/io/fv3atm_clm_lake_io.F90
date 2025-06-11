@@ -184,7 +184,7 @@ CONTAINS
   subroutine clm_lake_fill_data(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
@@ -232,42 +232,43 @@ CONTAINS
   subroutine clm_lake_copy_from_grid(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: nb, ix, isc, jsc, i, j
+    integer :: nb, ix, isc, jsc, i, j, im
     isc = Model%isc
     jsc = Model%jsc
 
     ! Copy data to temporary arrays
 
-    !$omp parallel do default(shared) private(i, j, nb, ix)
+    !$omp parallel do default(shared) private(i, j, nb, ix, im)
     do nb = 1, Atm_block%nblks
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - isc + 1
         j = Atm_block%index(nb)%jj(ix) - jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
 
-        clm_lake%T_snow(i,j) = Sfcprop(nb)%T_snow(ix)
-        clm_lake%T_ice(i,j) = Sfcprop(nb)%T_ice(ix)
-        clm_lake%lake_snl2d(i,j) = Sfcprop(nb)%lake_snl2d(ix)
-        clm_lake%lake_h2osno2d(i,j) = Sfcprop(nb)%lake_h2osno2d(ix)
-        clm_lake%lake_tsfc(i,j) = Sfcprop(nb)%lake_tsfc(ix)
-        clm_lake%lake_savedtke12d(i,j) = Sfcprop(nb)%lake_savedtke12d(ix)
-        clm_lake%lake_sndpth2d(i,j) = Sfcprop(nb)%lake_sndpth2d(ix)
-        clm_lake%clm_lakedepth(i,j) = Sfcprop(nb)%clm_lakedepth(ix)
-        clm_lake%clm_lake_initialized(i,j) = Sfcprop(nb)%clm_lake_initialized(ix)
-        clm_lake%input_lakedepth(i,j) = Sfcprop(nb)%input_lakedepth(ix)
+        clm_lake%T_snow(i,j) = Sfcprop%T_snow(im)
+        clm_lake%T_ice(i,j) = Sfcprop%T_ice(im)
+        clm_lake%lake_snl2d(i,j) = Sfcprop%lake_snl2d(im)
+        clm_lake%lake_h2osno2d(i,j) = Sfcprop%lake_h2osno2d(im)
+        clm_lake%lake_tsfc(i,j) = Sfcprop%lake_tsfc(im)
+        clm_lake%lake_savedtke12d(i,j) = Sfcprop%lake_savedtke12d(im)
+        clm_lake%lake_sndpth2d(i,j) = Sfcprop%lake_sndpth2d(im)
+        clm_lake%clm_lakedepth(i,j) = Sfcprop%clm_lakedepth(im)
+        clm_lake%clm_lake_initialized(i,j) = Sfcprop%clm_lake_initialized(im)
+        clm_lake%input_lakedepth(i,j) = Sfcprop%input_lakedepth(im)
 
-        clm_lake%lake_snow_z3d(i,j,:) = Sfcprop(nb)%lake_snow_z3d(ix,:)
-        clm_lake%lake_snow_dz3d(i,j,:) = Sfcprop(nb)%lake_snow_dz3d(ix,:)
-        clm_lake%lake_snow_zi3d(i,j,:) = Sfcprop(nb)%lake_snow_zi3d(ix,:)
-        clm_lake%lake_h2osoi_vol3d(i,j,:) = Sfcprop(nb)%lake_h2osoi_vol3d(ix,:)
-        clm_lake%lake_h2osoi_liq3d(i,j,:) = Sfcprop(nb)%lake_h2osoi_liq3d(ix,:)
-        clm_lake%lake_h2osoi_ice3d(i,j,:) = Sfcprop(nb)%lake_h2osoi_ice3d(ix,:)
-        clm_lake%lake_t_soisno3d(i,j,:) = Sfcprop(nb)%lake_t_soisno3d(ix,:)
-        clm_lake%lake_t_lake3d(i,j,:) = Sfcprop(nb)%lake_t_lake3d(ix,:)
-        clm_lake%lake_icefrac3d(i,j,:) = Sfcprop(nb)%lake_icefrac3d(ix,:)
+        clm_lake%lake_snow_z3d(i,j,:) = Sfcprop%lake_snow_z3d(im,:)
+        clm_lake%lake_snow_dz3d(i,j,:) = Sfcprop%lake_snow_dz3d(im,:)
+        clm_lake%lake_snow_zi3d(i,j,:) = Sfcprop%lake_snow_zi3d(im,:)
+        clm_lake%lake_h2osoi_vol3d(i,j,:) = Sfcprop%lake_h2osoi_vol3d(im,:)
+        clm_lake%lake_h2osoi_liq3d(i,j,:) = Sfcprop%lake_h2osoi_liq3d(im,:)
+        clm_lake%lake_h2osoi_ice3d(i,j,:) = Sfcprop%lake_h2osoi_ice3d(im,:)
+        clm_lake%lake_t_soisno3d(i,j,:) = Sfcprop%lake_t_soisno3d(im,:)
+        clm_lake%lake_t_lake3d(i,j,:) = Sfcprop%lake_t_lake3d(im,:)
+        clm_lake%lake_icefrac3d(i,j,:) = Sfcprop%lake_icefrac3d(im,:)
       enddo
     enddo
   end subroutine clm_lake_copy_from_grid
@@ -278,42 +279,43 @@ CONTAINS
   subroutine clm_lake_copy_to_grid(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
-    type(GFS_sfcprop_type),   intent(in) :: Sfcprop(:)
+    type(GFS_sfcprop_type),   intent(in) :: Sfcprop
     type(GFS_control_type),   intent(in) :: Model
     type(block_control_type), intent(in) :: Atm_block
 
-    integer :: nb, ix, isc, jsc, i, j
+    integer :: nb, ix, isc, jsc, i, j, im
     isc = Model%isc
     jsc = Model%jsc
 
     ! Copy data to temporary arrays
 
-    !$omp parallel do default(shared) private(i, j, nb, ix)
+    !$omp parallel do default(shared) private(i, j, nb, ix, im)
     do nb = 1, Atm_block%nblks
       do ix = 1, Atm_block%blksz(nb)
         i = Atm_block%index(nb)%ii(ix) - isc + 1
         j = Atm_block%index(nb)%jj(ix) - jsc + 1
+        im = Model%chunk_begin(nb)+ix-1
 
-        Sfcprop(nb)%T_snow(ix) = clm_lake%T_snow(i,j)
-        Sfcprop(nb)%T_ice(ix) = clm_lake%T_ice(i,j)
-        Sfcprop(nb)%lake_snl2d(ix) = clm_lake%lake_snl2d(i,j)
-        Sfcprop(nb)%lake_h2osno2d(ix) = clm_lake%lake_h2osno2d(i,j)
-        Sfcprop(nb)%lake_tsfc(ix) = clm_lake%lake_tsfc(i,j)
-        Sfcprop(nb)%lake_savedtke12d(ix) = clm_lake%lake_savedtke12d(i,j)
-        Sfcprop(nb)%lake_sndpth2d(ix) = clm_lake%lake_sndpth2d(i,j)
-        Sfcprop(nb)%clm_lakedepth(ix) = clm_lake%clm_lakedepth(i,j)
-        Sfcprop(nb)%clm_lake_initialized(ix) = clm_lake%clm_lake_initialized(i,j)
-        Sfcprop(nb)%input_lakedepth(ix) = clm_lake%input_lakedepth(i,j)
+        Sfcprop%T_snow(im) = clm_lake%T_snow(i,j)
+        Sfcprop%T_ice(im) = clm_lake%T_ice(i,j)
+        Sfcprop%lake_snl2d(im) = clm_lake%lake_snl2d(i,j)
+        Sfcprop%lake_h2osno2d(im) = clm_lake%lake_h2osno2d(i,j)
+        Sfcprop%lake_tsfc(im) = clm_lake%lake_tsfc(i,j)
+        Sfcprop%lake_savedtke12d(im) = clm_lake%lake_savedtke12d(i,j)
+        Sfcprop%lake_sndpth2d(im) = clm_lake%lake_sndpth2d(i,j)
+        Sfcprop%clm_lakedepth(im) = clm_lake%clm_lakedepth(i,j)
+        Sfcprop%clm_lake_initialized(im) = clm_lake%clm_lake_initialized(i,j)
+        Sfcprop%input_lakedepth(im) = clm_lake%input_lakedepth(i,j)
 
-        Sfcprop(nb)%lake_snow_z3d(ix,:) = clm_lake%lake_snow_z3d(i,j,:)
-        Sfcprop(nb)%lake_snow_dz3d(ix,:) = clm_lake%lake_snow_dz3d(i,j,:)
-        Sfcprop(nb)%lake_snow_zi3d(ix,:) = clm_lake%lake_snow_zi3d(i,j,:)
-        Sfcprop(nb)%lake_h2osoi_vol3d(ix,:) = clm_lake%lake_h2osoi_vol3d(i,j,:)
-        Sfcprop(nb)%lake_h2osoi_liq3d(ix,:) = clm_lake%lake_h2osoi_liq3d(i,j,:)
-        Sfcprop(nb)%lake_h2osoi_ice3d(ix,:) = clm_lake%lake_h2osoi_ice3d(i,j,:)
-        Sfcprop(nb)%lake_t_soisno3d(ix,:) = clm_lake%lake_t_soisno3d(i,j,:)
-        Sfcprop(nb)%lake_t_lake3d(ix,:) = clm_lake%lake_t_lake3d(i,j,:)
-        Sfcprop(nb)%lake_icefrac3d(ix,:) = clm_lake%lake_icefrac3d(i,j,:)
+        Sfcprop%lake_snow_z3d(im,:) = clm_lake%lake_snow_z3d(i,j,:)
+        Sfcprop%lake_snow_dz3d(im,:) = clm_lake%lake_snow_dz3d(i,j,:)
+        Sfcprop%lake_snow_zi3d(im,:) = clm_lake%lake_snow_zi3d(i,j,:)
+        Sfcprop%lake_h2osoi_vol3d(im,:) = clm_lake%lake_h2osoi_vol3d(i,j,:)
+        Sfcprop%lake_h2osoi_liq3d(im,:) = clm_lake%lake_h2osoi_liq3d(i,j,:)
+        Sfcprop%lake_h2osoi_ice3d(im,:) = clm_lake%lake_h2osoi_ice3d(i,j,:)
+        Sfcprop%lake_t_soisno3d(im,:) = clm_lake%lake_t_soisno3d(i,j,:)
+        Sfcprop%lake_t_lake3d(im,:) = clm_lake%lake_t_lake3d(i,j,:)
+        Sfcprop%lake_icefrac3d(im,:) = clm_lake%lake_icefrac3d(i,j,:)
       enddo
     enddo
   end subroutine clm_lake_copy_to_grid

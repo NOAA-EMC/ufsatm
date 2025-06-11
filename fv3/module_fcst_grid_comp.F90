@@ -293,8 +293,13 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 ! Write grid to netcdf file
     if( cplprint_flag ) then
       write (myGridStr,"(I0)") mygrid
-      call wrt_fcst_grid(grid, "diagnostic_FV3_fcstGrid"//trim(mygridStr)//".nc", &
-                         regridArea=.TRUE., rc=rc)
+      if (trim(name)=="global") then
+        call wrt_fcst_grid(grid, "diagnostic_FV3_fcstGrid"//trim(mygridStr)//".tile*.nc", &
+                           regridArea=.TRUE., rc=rc)
+      else
+        call wrt_fcst_grid(grid, "diagnostic_FV3_fcstGrid"//trim(mygridStr)//".nc", &
+                           regridArea=.TRUE., rc=rc)
+      end if
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
 
@@ -1153,6 +1158,9 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       call get_atmos_model_ungridded_dim(nlev=numLevels,         &
                                          nsoillev=numSoilLayers, &
                                          ntracers=numTracers)
+
+      call ESMF_ConfigDestroy(cf, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       if (mype == 0) write(*,*)'fcst_initialize total time: ', mpi_wtime() - timeis
 !

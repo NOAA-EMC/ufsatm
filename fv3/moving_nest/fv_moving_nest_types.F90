@@ -513,7 +513,7 @@ contains
     call mn_overwrite_with_nest_init_values("ls_mask", fp_ls%ls_mask_grid, nest_ls%ls_mask_grid, refine, ioffset, joffset)
 
     !if (is_fine_pe) then
-    !  call validate_navigation_fields("INIT", Atm_block, IPD_control, IPD_data, parent_grid_num, child_grid_num)
+    !  call validate_navigation_fields("INIT", Atm_block, GFS_control, GFS_sfcprop, parent_grid_num, child_grid_num)
     !endif
 
     call mn_overwrite_with_nest_init_values("soil_type", fp_ls%soil_type_grid, nest_ls%soil_type_grid, refine, ioffset, joffset)
@@ -583,7 +583,7 @@ contains
   subroutine  allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_noahmp, move_nsst, lsnow_lbound, lsnow_ubound, lsoil, nmtvr, levs, ntot2d, ntot3d, mn_phys)
     integer, intent(in)                           :: isd, ied, jsd, jed, npz
     logical, intent(in)                           :: move_physics, move_noahmp, move_nsst
-    integer, intent(in)                           :: lsnow_lbound, lsnow_ubound, lsoil, nmtvr, levs, ntot2d, ntot3d    ! From IPD_Control
+    integer, intent(in)                           :: lsnow_lbound, lsnow_ubound, lsoil, nmtvr, levs, ntot2d, ntot3d    ! From GFS_control
     type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
 
     ! The local/temporary variables need to be allocated to the larger data (compute + halos) domain so that the nest motion code has halos to use

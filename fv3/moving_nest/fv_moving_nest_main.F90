@@ -59,13 +59,8 @@ module fv_moving_nest_main_mod
   use tracer_manager_mod,     only: get_tracer_index, get_number_tracers, &
       NO_TRACER, get_tracer_names
   use DYCORE_typedefs,        only: DYCORE_data_type
-#ifdef GFS_TYPES
-  use GFS_typedefs,           only: IPD_data_type => GFS_data_type, &
-      IPD_control_type => GFS_control_type, kind_phys
-#else
-  use IPD_typedefs,           only: IPD_data_type, IPD_control_type, kind_phys => IPD_kind_phys
-#endif
-
+  use GFS_typedefs,           only: GFS_sfcprop_type, GFS_tbd_type, GFS_cldprop_type, &
+                                    GFS_grid_type, GFS_diag_type, GFS_control_type, kind_phys
   use fv_iau_mod,             only: IAU_external_data_type
 #ifdef MULTI_GASES
   use multi_gases_mod,  only: virq, virq_max, num_gas, ri, cpi
@@ -177,10 +172,14 @@ contains
   !>@brief The subroutine 'update_moving_nest' decides whether the nest should be moved, and if so, performs the move.
   !>@details This subroutine evaluates the automatic storm tracker (or prescribed motion configuration), then decides
   !!  if the nest should be moved.  If it should be moved, it calls fv_moving_nest_exec() to perform the nest move.
-  subroutine update_moving_nest(Atm_block, IPD_control, IPD_data, time_step)
+  subroutine update_moving_nest(Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, GFS_grid, time_step)
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
-    type(IPD_control_type), intent(in)   :: IPD_control   !< Physics metadata
-    type(IPD_data_type), intent(inout)   :: IPD_data(:)   !< Physics variable data
+    type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
+    type(GFS_sfcprop_type), intent(inout):: GFS_sfcprop   !< Physics variable data (surface)
+    type(GFS_tbd_type), intent(inout)    :: GFS_tbd       !< Physics variable data (tbd)
+    type(GFS_cldprop_type), intent(inout):: GFS_cldprop   !< Physics variable data (clouds)
+    type(GFS_diag_type), intent(inout)   :: GFS_intdiag   !< Physics variable data (diagnostic)
+    type(GFS_grid_type), intent(inout)   :: GFS_grid      !< Physics variable data (grid)
     type(time_type), intent(in)          :: time_step     !< Current timestep
 
     logical :: do_move
@@ -215,7 +214,8 @@ contains
     call mpp_set_current_pelist(Atm(n)%pelist)
 
     if (do_move) then
-      call fv_moving_nest_exec(Atm, Atm_block, IPD_control, IPD_data, delta_i_c, delta_j_c, n, nest_num, parent_grid_num, child_grid_num, dt_atmos)
+      call fv_moving_nest_exec(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, GFS_grid, &
+                               delta_i_c, delta_j_c, n, nest_num, parent_grid_num, child_grid_num, dt_atmos)
     endif
 
   end subroutine update_moving_nest
@@ -255,10 +255,10 @@ contains
 
 
 
-  subroutine log_landsea_mask(Atm_block, IPD_control, IPD_data, time_step, parent_grid_num, child_grid_num)
+  subroutine log_landsea_mask(Atm_block, GFS_control, GFS_sfcprop, time_step, parent_grid_num, child_grid_num)
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
-    type(IPD_control_type), intent(in)   :: IPD_control   !< Physics metadata
-    type(IPD_data_type), intent(in)      :: IPD_data(:)   !< Physics variable data
+    type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
+    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop(:)   !< Physics variable data
     type(time_type), intent(in)          :: time_step     !< Current timestep
     integer, intent(in)                  :: parent_grid_num, child_grid_num
 
@@ -267,7 +267,7 @@ contains
     character(len=1)    :: mask_char
     character(len=1)    :: num_char
     integer :: i,j
-    integer :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, refine
+    integer :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, refine, im
     integer :: ioffset, joffset
     real    :: local_slmsk(Atm(2)%bd%isd:Atm(2)%bd%ied, Atm(2)%bd%jsd:Atm(2)%bd%jed)
     integer :: nz, this_pe, n
@@ -303,16 +303,17 @@ contains
 
     local_slmsk = 8
     !print '("[INFO] WDR local_slmsk size npe=",I0," i=",I0,"-",I0," j=",I0,"-",I0," n=",I0)', this_pe, lbound(local_slmsk,1), ubound(local_slmsk,1), lbound(local_slmsk,2), ubound(local_slmsk,2), n
-
+    im = 0
     do nb = 1,Atm_block%nblks
       blen = Atm_block%blksz(nb)
       do ix = 1, blen
         i_pe = Atm_block%index(nb)%ii(ix)
         j_pe = Atm_block%index(nb)%jj(ix)
+        im = im + 1
 
         !print '("[INFO] WDR local_slmsk npe=",I0," i_pe=",I0," j_pe=",I0)', this_pe, i_pe, j_pe
 
-        local_slmsk(i_pe, j_pe) = IPD_data(nb)%Sfcprop%slmsk(ix)
+        local_slmsk(i_pe, j_pe) = GFS_sfcprop%slmsk(im)
 
         if (allocated(Moving_nest)) then
           if (allocated(Moving_nest(n)%mn_phys%slmsk)) then
@@ -321,12 +322,12 @@ contains
                 print '("[INFO] WDR mismatch local_slmsk_lake npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," slmsk=",I0," phys%slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
                     this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
-                    int(IPD_data(nb)%Sfcprop%stype(ix)), &
+                    int(GFS_sfcprop%stype(im)), &
                     int(mn_static%fp_ls%soil_type_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%landfrac(ix), &
+                    GFS_sfcprop%landfrac(im), &
                     int(mn_static%fp_ls%land_frac_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%lakefrac(ix), &
-                    IPD_data(nb)%Sfcprop%oceanfrac(ix)
+                    GFS_sfcprop%lakefrac(im), &
+                    GFS_sfcprop%oceanfrac(im)
               endif
             endif
           endif
@@ -400,11 +401,11 @@ contains
 
 
 
-  subroutine validate_navigation_fields(tag, Atm_block, IPD_control, IPD_data, parent_grid_num, child_grid_num)
+  subroutine validate_navigation_fields(tag, Atm_block, GFS_control, GFS_sfcprop, parent_grid_num, child_grid_num)
     character(len=*)                     :: tag
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
-    type(IPD_control_type), intent(in)   :: IPD_control   !< Physics metadata
-    type(IPD_data_type), intent(in)      :: IPD_data(:)   !< Physics variable data
+    type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
+    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop(:)   !< Physics variable data
     integer, intent(in)                  :: parent_grid_num, child_grid_num
 
 
@@ -412,7 +413,7 @@ contains
     character(len=1)    :: mask_char
     character(len=1)    :: num_char
     integer :: i,j
-    integer :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, refine
+    integer :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, refine, im
     integer :: ioffset, joffset
     real    :: local_slmsk(Atm(2)%bd%isd:Atm(2)%bd%ied, Atm(2)%bd%jsd:Atm(2)%bd%jed)
     integer :: nz, this_pe, n
@@ -428,15 +429,17 @@ contains
     local_slmsk = 8
     print '("[INFO] WDR VALIDATE local_slmsk size npe=",I0," i=",I0,"-",I0," j=",I0,"-",I0," n=",I0)', this_pe, lbound(local_slmsk,1), ubound(local_slmsk,1), lbound(local_slmsk,2), ubound(local_slmsk,2), n
 
+    im = 0
     do nb = 1,Atm_block%nblks
       blen = Atm_block%blksz(nb)
       do ix = 1, blen
         i_pe = Atm_block%index(nb)%ii(ix)
         j_pe = Atm_block%index(nb)%jj(ix)
+        im = im + 1
 
         !print '("[INFO] WDR local_slmsk npe=",I0," i_pe=",I0," j_pe=",I0)', this_pe, i_pe, j_pe
 
-        local_slmsk(i_pe, j_pe) = IPD_data(nb)%Sfcprop%slmsk(ix)
+        local_slmsk(i_pe, j_pe) = GFS_sfcprop%slmsk(im)
 
         if (allocated(Moving_nest)) then
           if (allocated(Moving_nest(n)%mn_phys%slmsk)) then
@@ -444,34 +447,32 @@ contains
 
             if (int(local_slmsk(i_pe,j_pe)) .ne. 8) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe))) then
-                print '("[INFO] WDR mismatch VALIDATE A tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," IPD%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
+                print '("[INFO] WDR mismatch VALIDATE A tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
                     tag, this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
                     int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    int(IPD_data(nb)%Sfcprop%stype(ix)), &
+                    int(GFS_sfcprop%stype(im)), &
                     int(mn_static%fp_ls%soil_type_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%landfrac(ix), &
+                    GFS_sfcprop%landfrac(im), &
                     int(mn_static%fp_ls%land_frac_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%lakefrac(ix), &
-                    IPD_data(nb)%Sfcprop%oceanfrac(ix)
+                    GFS_sfcprop%lakefrac(im), &
+                    GFS_sfcprop%oceanfrac(im)
               endif
 
 
 !              if ((i_pe .eq. 149 .and. j_pe .eq. 169) .or.(i_pe .eq. 152 .and. j_pe .eq. 169) .or. int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
-                print '("[INFO] WDR mismatch VALIDATE B tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," IPD%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
+                print '("[INFO] WDR mismatch VALIDATE B tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
                     tag, this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
                     int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    int(IPD_data(nb)%Sfcprop%stype(ix)), &
+                    int(GFS_sfcprop%stype(im)), &
                     int(mn_static%fp_ls%soil_type_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%landfrac(ix), &
+                    GFS_sfcprop%landfrac(im), &
                     int(mn_static%fp_ls%land_frac_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
-                    IPD_data(nb)%Sfcprop%lakefrac(ix), &
-                    IPD_data(nb)%Sfcprop%oceanfrac(ix)
+                    GFS_sfcprop%lakefrac(im), &
+                    GFS_sfcprop%oceanfrac(im)
               endif
-
-
 
             endif
           endif
@@ -479,17 +480,16 @@ contains
       enddo
     enddo
 
-
-
   end subroutine validate_navigation_fields
 
 
   !>@brief The subroutine 'dump_moving_nest' outputs native grid format data to netCDF files
   !>@details This subroutine exports model variables using FMS IO to netCDF files if tsvar_out is set to .True.
-  subroutine dump_moving_nest(Atm_block, IPD_control, IPD_data, time_step)
+  subroutine dump_moving_nest(Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, time_step)
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
-    type(IPD_control_type), intent(in)   :: IPD_control   !< Physics metadata
-    type(IPD_data_type), intent(in)      :: IPD_data(:)   !< Physics variable data
+    type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
+    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop   !< Physics variable data (surface)
+    type(GFS_tbd_type), intent(in)       :: GFS_tbd       !< Physics variable data (tbd)
     type(time_type), intent(in)          :: time_step     !< Current timestep
 
     type(domain2d), pointer              :: domain_coarse, domain_fine
@@ -510,19 +510,19 @@ contains
     ! Enable this to dump debug netCDF files.  Files are automatically closed when dumped.
     !if (mod(a_step, 80) .eq. 0 ) then
     !  if (tsvar_out) call mn_prog_dump_to_netcdf(Atm(n), a_step, "tsavar", is_fine_pe, domain_coarse, domain_fine, nz)
-    !  if (tsvar_out) call mn_phys_dump_to_netcdf(Atm(n), Atm_block, IPD_control, IPD_data, a_step, "tsavar", is_fine_pe, domain_coarse, domain_fine, nz)
+    !  if (tsvar_out) call mn_phys_dump_to_netcdf(Atm(n), Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, time_val, file_prefix, is_fine_pe, domain_coarse, domain_fine, nz)
     !endif
     !if (a_step .ge. 310) then
     !if (mod(a_step, 80) .eq. 0 ) then
-    !  if (tsvar_out) call mn_phys_dump_to_netcdf(Atm(n), Atm_block, IPD_control, IPD_data, a_step, "tsavar", is_fine_pe, domain_coarse, domain_fine, nz)
+    !  if (tsvar_out) call mn_phys_dump_to_netcdf(Atm(n), Atm_block, GFS_control, GFS_sfcprop, a_step, "tsavar", is_fine_pe, domain_coarse, domain_fine, nz)
     !endif
 
    ! if (is_fine_pe) then
-   !   call validate_navigation_fields("DUMP", Atm_block, IPD_control, IPD_data, parent_grid_num, child_grid_num)
+   !   call validate_navigation_fields("DUMP", Atm_block, GFS_control, GFS_sfcprop, parent_grid_num, child_grid_num)
    ! endif
 
     !if (this_pe .eq. 88 .or. this_pe .eq. 89) then
-    !  call log_landsea_mask(Atm_block, IPD_control, IPD_data, time_step, parent_grid_num, child_grid_num)
+    !  call log_landsea_mask(Atm_block, GFS_control, GFS_sfcprop, time_step, parent_grid_num, child_grid_num)
     !endif
 
   end subroutine dump_moving_nest
@@ -732,12 +732,17 @@ contains
   !>@brief The subroutine 'fv_moving_nest_exec' performs the nest move - most work occurs on nest PEs but some on parent PEs.
   !>@details This subroutine shifts the prognostic and physics/surface variables.
   !!  It also updates metadata and interpolation weights.
-  subroutine fv_moving_nest_exec(Atm, Atm_block, IPD_control, IPD_data, delta_i_c, delta_j_c, n, nest_num, parent_grid_num, child_grid_num, dt_atmos)
+  subroutine fv_moving_nest_exec(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, GFS_grid, &
+                                 delta_i_c, delta_j_c, n, nest_num, parent_grid_num, child_grid_num, dt_atmos)
     implicit none
     type(fv_atmos_type), allocatable, target, intent(inout) :: Atm(:)                !< Atmospheric variables
     type(block_control_type), intent(in)                    :: Atm_block             !< Physics block
-    type(IPD_control_type), intent(in)                      :: IPD_control           !< Physics metadata
-    type(IPD_data_type), intent(inout)                      :: IPD_data(:)           !< Physics variable data
+    type(GFS_control_type), intent(in)                      :: GFS_control           !< Physics metadata
+    type(GFS_sfcprop_type), intent(inout)                   :: GFS_sfcprop           !< Physics variable data (surface)
+    type(GFS_tbd_type), intent(inout)                       :: GFS_tbd               !< Physics variable data (tbd)
+    type(GFS_cldprop_type), intent(inout)                   :: GFS_cldprop           !< Physics variable data (clouds)
+    type(GFS_diag_type), intent(inout)                      :: GFS_intdiag           !< Physics variable data (diagnostic)
+    type(GFS_grid_type), intent(inout)                      :: GFS_grid              !< Physics variable data (grid)
     integer, intent(in)                                     :: delta_i_c, delta_j_c  !< Nest motion increments
     integer, intent(in)                                     :: n, nest_num           !< Nest indices
     integer, intent(in)                                     :: parent_grid_num, child_grid_num  !< Grid numbers
@@ -860,7 +865,7 @@ contains
 
     is_fine_pe = Atm(n)%neststruct%nested .and. ANY(Atm(n)%pelist(:) == this_pe)
 
-    if (IPD_Control%lsm == IPD_Control%lsm_noahmp) then
+    if (GFS_control%lsm == GFS_control%lsm_noahmp) then
       move_noahmp = .True.
     else
       move_noahmp = .False.
@@ -872,7 +877,7 @@ contains
 
       ! If NSST is turned off, do not move the NSST variables.
       !  Namelist switches are confusing; this should be the correct way to distinguish, not using nst_anl
-      if (IPD_Control%nstf_name(1) == 0) then
+      if (GFS_control%nstf_name(1) == 0) then
         move_nsst=.false.
       else
         move_nsst=.true.
@@ -884,8 +889,8 @@ contains
 
       call allocate_fv_moving_nest_prog_type(isd, ied, jsd, jed, npz, Moving_nest(n)%mn_prog)
       call allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_noahmp, move_nsst, &
-          IPD_Control%lsnow_lsm_lbound, IPD_Control%lsnow_lsm_ubound, IPD_Control%lsoil, &
-          IPD_Control%nmtvr, IPD_Control%levs, IPD_Control%ntot2d, IPD_Control%ntot3d, &
+          GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound, GFS_control%lsoil, &
+          GFS_control%nmtvr, GFS_control%levs, GFS_control%ntot2d, GFS_control%ntot3d, &
           Moving_nest(n)%mn_phys)
 
     endif
@@ -1062,7 +1067,7 @@ contains
       !!=====================================================================================
 
       call mn_prog_fill_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
-      call mn_phys_fill_temp_variables(Atm, Atm_block, IPD_control, IPD_data, n, child_grid_num, is_fine_pe, npz)
+      call mn_phys_fill_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
 
       if (use_timers) call mpp_clock_end (id_movnest1_9)
       if (use_timers) call mpp_clock_begin (id_movnest2)
@@ -1076,7 +1081,7 @@ contains
       !  This is before any nest motion has occurred
 
       call mn_prog_fill_nest_halos_from_parent(Atm, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
-      call mn_phys_fill_nest_halos_from_parent(Atm, IPD_control, IPD_data, mn_static, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
+      call mn_phys_fill_nest_halos_from_parent(Atm, GFS_control, mn_static, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
 
       if (use_timers) call mpp_clock_end (id_movnest2)
       if (use_timers) call mpp_clock_begin (id_movnest3)
@@ -1112,7 +1117,7 @@ contains
       ! TODO should/can this run before the mn_meta_move_nest?
       if (is_fine_pe) then
         call mn_prog_fill_intern_nest_halos(Atm(n), domain_fine, is_fine_pe)
-        call mn_phys_fill_intern_nest_halos(Moving_nest(n), IPD_control, IPD_data, domain_fine, is_fine_pe)
+        call mn_phys_fill_intern_nest_halos(Moving_nest(n), GFS_control, domain_fine, is_fine_pe)
       endif
 
       if (debug_sync) call mpp_sync(full_pelist)   ! Used to make debugging easier.  Can be removed.
@@ -1142,7 +1147,7 @@ contains
         if (use_timers) call mpp_clock_begin (id_movnest5_2)
 
         ! tile_geo holds the center lat/lons for the entire nest (all PEs).
-        call mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, IPD_control, IPD_data)
+        call mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, GFS_control, GFS_grid)
 
         if (use_timers) call mpp_clock_end (id_movnest5_2)
       endif
@@ -1198,7 +1203,7 @@ contains
           delta_i_c, delta_j_c, x_refine, y_refine, &
           is_fine_pe, global_nest_domain, nz)
 
-      call mn_phys_shift_data(Atm, IPD_control, IPD_data, n, child_grid_num, wt_h, wt_u, wt_v, &
+      call mn_phys_shift_data(Atm, GFS_control, n, child_grid_num, wt_h, wt_u, wt_v, &
           delta_i_c, delta_j_c, x_refine, y_refine, &
           is_fine_pe, global_nest_domain, nz)
 
@@ -1266,7 +1271,7 @@ contains
           Atm(n)%sgh(isc:iec, jsc:jec) = mn_static%fp_ls%orog_std_grid((ioffset-1)*x_refine+isc:(ioffset-1)*x_refine+iec, (joffset-1)*y_refine+jsc:(joffset-1)*y_refine+jec)
         endif
 
-        call mn_phys_reset_sfc_props(Atm, n, mn_static, Atm_block, IPD_data, ioffset, joffset, x_refine)
+        call mn_phys_reset_sfc_props(Atm, n, mn_static, Atm_block, GFS_sfcprop, ioffset, joffset, x_refine)
       endif
 
       !!=====================================================================================
@@ -1276,7 +1281,7 @@ contains
 
       ! Refill the halos around the edge of the nest from the parent
       call mn_prog_fill_nest_halos_from_parent(Atm, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
-      call mn_phys_fill_nest_halos_from_parent(Atm, IPD_control, IPD_data, mn_static, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
+      call mn_phys_fill_nest_halos_from_parent(Atm, GFS_control, mn_static, n, child_grid_num, is_fine_pe, global_nest_domain, nz)
 
       if (use_timers) call mpp_clock_end (id_movnest7_1)
 
@@ -1285,7 +1290,7 @@ contains
 
         ! Refill the internal halos after nest motion
         call mn_prog_fill_intern_nest_halos(Atm(n), domain_fine, is_fine_pe)
-        call mn_phys_fill_intern_nest_halos(Moving_nest(n), IPD_control, IPD_data, domain_fine, is_fine_pe)
+        call mn_phys_fill_intern_nest_halos(Moving_nest(n), GFS_control, domain_fine, is_fine_pe)
 
         if (use_timers) call mpp_clock_end (id_movnest7_2)
       endif
@@ -1297,12 +1302,14 @@ contains
       !!=====================================================================================
       if (use_timers) call mpp_clock_begin (id_movnest7_3)
 
+      call mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
+      call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
+
       if (is_fine_pe) then
         !print '("[INFO] WDR NOAHMP reset negative values npe=",I0)', mpp_pe()
         !          do i=isd,ied
         !            do j=jsd,jed
-
-        !  This just needs to check in the compute domain.  While the mn_phys fields extend into the halo, the IPD structure from CCPP only covers the compute domain.
+        !  This just needs to check in the compute domain.  While the mn_phys fields extend into the halo, the GFS structure from CCPP only covers the compute domain.
         do i=isc,iec
           do j=jsc,jec
 
@@ -1519,7 +1526,7 @@ contains
       endif
 
       call mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
-      call mn_phys_apply_temp_variables(Atm, Atm_block, IPD_control, IPD_data, n, child_grid_num, is_fine_pe, npz, a_step)
+      call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, n, child_grid_num, is_fine_pe, npz, a_step)
 
       if (use_timers) call mpp_clock_end (id_movnest7_3)
       if (use_timers) call mpp_clock_begin (id_movnest8)
