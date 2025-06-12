@@ -59,7 +59,9 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   use fv3atm_restart_io_mod,  only: fv_phy_restart_bundle_setup, fv_sfc_restart_bundle_setup
   use fv_ufs_restart_io_mod,  only: fv_core_restart_bundle_setup, &
                                     fv_srf_wnd_restart_bundle_setup, &
-                                    fv_tracer_restart_bundle_setup
+                                    fv_tracer_restart_bundle_setup, &
+                                    fv_diag_restart_bundle_setup
+  use module_diag_hailcast,   only: do_hailcast
 
   use fms2_io_mod,        only: FmsNetcdfFile_t, open_file, close_file, variable_exists, read_data
 
@@ -361,6 +363,9 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     else if (fb_name(1:21) == 'restart_fv_tracer.res') then
       call fv_tracer_restart_bundle_setup(fbList(1), grid, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    else if (fb_name(1:19) == 'restart_fv_diag.res') then
+      call fv_diag_restart_bundle_setup(fbList(1), grid, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     else
       do i=1, itemCount
         call fv_dyn_bundle_setup(Atmos%axes, fbList(i), grid, quilting=.true., rc=rc)
@@ -580,6 +585,11 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     integer,allocatable           :: grid_number_on_all_pets(:)
     logical,allocatable           :: is_moving_on_all_pets(:), is_moving(:)
     character(len=7)              :: nest_suffix
+
+    integer, parameter            :: MAX_NUM_DYN_BUNDLES = 10
+    character(len=esmf_maxstr), dimension(MAX_NUM_DYN_BUNDLES) :: dyn_bundles_name
+
+    integer                       :: num_dyn_bundles = 0
 
     type(FmsNetcdfFile_t)         :: fileobj
 !
@@ -1055,21 +1065,24 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
         if ( quilting_restart ) then
 
-          do i=1,3 ! 3 dynamics restart bundles
+          ! Number of non-optional dyn bundles (core, srf_wnd and tracer)
+          num_dyn_bundles = 3
+          dyn_bundles_name(1) = 'restart_fv_core.res'
+          dyn_bundles_name(2) = 'restart_fv_srf_wnd.res'
+          dyn_bundles_name(3) = 'restart_fv_tracer.res'
+
+          ! Optional dyn bundles
+          if (do_hailcast) then
+             num_dyn_bundles = num_dyn_bundles + 1
+             dyn_bundles_name(num_dyn_bundles) = 'restart_fv_diag.res'
+          end if
+
+          do i=1,num_dyn_bundles ! dynamics restart bundles
 
             tempState = ESMF_StateCreate(rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-            if (i == 1) then
-              name_FB = 'restart_fv_core.res'
-            elseif (i == 2) then
-              name_FB = 'restart_fv_srf_wnd.res'
-            elseif (i == 3) then
-              name_FB = 'restart_fv_tracer.res'
-            else
-              write(0,*)' unknown name_dynamics restart bundle ', i
-              ESMF_ERR_ABORT(101)
-            endif
+            name_FB = dyn_bundles_name(i)
 
             if (n > 1) then
               write(nest_suffix,'(A5,I2.2)') '.nest', n
