@@ -258,7 +258,7 @@ contains
   subroutine log_landsea_mask(Atm_block, GFS_control, GFS_sfcprop, time_step, parent_grid_num, child_grid_num)
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
     type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
-    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop(:)   !< Physics variable data
+    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop   !< Physics variable data
     type(time_type), intent(in)          :: time_step     !< Current timestep
     integer, intent(in)                  :: parent_grid_num, child_grid_num
 
@@ -319,7 +319,7 @@ contains
           if (allocated(Moving_nest(n)%mn_phys%slmsk)) then
             if (int(local_slmsk(i_pe,j_pe)) .ne. 8) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe))) then
-                print '("[INFO] WDR mismatch local_slmsk_lake npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," slmsk=",I0," phys%slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
+                print '("[INFO] WDR mismatch local_slmsk_lake npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," slmsk=",I0," phys%slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," GFS_sfcprop%landfrac=",F10.5," land_frac_grid=",F12.5," GFS_sfcprop%lakefrac=",F10.5," GFS_sfcprop%oceanfrac=",F10.5)', &
                     this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
                     int(GFS_sfcprop%stype(im)), &
@@ -405,7 +405,7 @@ contains
     character(len=*)                     :: tag
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
     type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
-    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop(:)   !< Physics variable data
+    type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop   !< Physics variable data
     integer, intent(in)                  :: parent_grid_num, child_grid_num
 
 
@@ -447,7 +447,7 @@ contains
 
             if (int(local_slmsk(i_pe,j_pe)) .ne. 8) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe))) then
-                print '("[INFO] WDR mismatch VALIDATE A tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
+                print '("[INFO] WDR mismatch VALIDATE A tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," GFS_sfcprop%landfrac=",F10.5," land_frac_grid=",F12.5," GFS_sfcprop%lakefrac=",F10.5," GFS_sfcprop%oceanfrac=",F10.5)', &
                     tag, this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
                     int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
@@ -462,7 +462,7 @@ contains
 
 !              if ((i_pe .eq. 149 .and. j_pe .eq. 169) .or.(i_pe .eq. 152 .and. j_pe .eq. 169) .or. int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
-                print '("[INFO] WDR mismatch VALIDATE B tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," ipd%landfrac=",F10.5," land_frac_grid=",F12.5," ipd%lakefrac=",F10.5," ipd%oceanfrac=",F10.5)', &
+                print '("[INFO] WDR mismatch VALIDATE B tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," GFS_sfcprop%landfrac=",F10.5," land_frac_grid=",F12.5," GFS_sfcprop%lakefrac=",F10.5," GFS_sfcprop%oceanfrac=",F10.5)', &
                     tag, this_pe,a_step,i_pe,j_pe, int(local_slmsk(i_pe,j_pe)), &
                     int(Moving_nest(n)%mn_phys%slmsk(i_pe,j_pe)), &
                     int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe)), &
@@ -1302,9 +1302,6 @@ contains
       !!=====================================================================================
       if (use_timers) call mpp_clock_begin (id_movnest7_3)
 
-      call mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
-      call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
-
       if (is_fine_pe) then
         !print '("[INFO] WDR NOAHMP reset negative values npe=",I0)', mpp_pe()
         !          do i=isd,ied
@@ -1526,7 +1523,7 @@ contains
       endif
 
       call mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
-      call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, n, child_grid_num, is_fine_pe, npz, a_step)
+      call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)
 
       if (use_timers) call mpp_clock_end (id_movnest7_3)
       if (use_timers) call mpp_clock_begin (id_movnest8)

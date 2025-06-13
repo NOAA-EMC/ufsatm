@@ -525,7 +525,6 @@ contains
     integer, intent(in)                                      :: n, child_grid_num !< Current grid number, child grid number
     logical, intent(in)                                      :: is_fine_pe        !< Is this a nest PE?
     integer, intent(in)                                      :: npz               !< Number of vertical levels
-    integer, intent(in)                                      :: a_step            !< Timestep for logging
 
     integer :: is, ie, js, je
     integer :: this_pe

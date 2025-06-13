@@ -62,14 +62,11 @@ module fv_moving_nest_mod
   use mpp_domains_mod,        only : NORTH, SOUTH, EAST, WEST, CORNER, CENTER
   use mpp_domains_mod,        only : NUPDATE, SUPDATE, EUPDATE, WUPDATE, DGRID_NE
 
-!#ifdef GFS_TYPES
-!  use GFS_typedefs,           only: IPD_data_type => GFS_data_type, &
-!                                    IPD_control_type => GFS_control_type, kind_phys
-!#else
-!  use IPD_typedefs,           only: IPD_data_type, IPD_control_type, kind_phys => IPD_kind_phys
-!#endif
-!  use GFS_init,               only: GFS_grid_populate
-
+#ifdef GFS_TYPES
+  use GFS_typedefs,           only: kind_phys
+#else
+  use IPD_typedefs,           only: kind_phys => IPD_kind_phys
+#endif
   use boundary_mod,           only: update_coarse_grid, update_coarse_grid_mpp
   use bounding_box_mod,       only: bbox, bbox_get_C2F_index, fill_bbox
 #ifdef OVERLOAD_R4
