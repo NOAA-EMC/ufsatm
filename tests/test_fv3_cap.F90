@@ -1,8 +1,8 @@
-program test_fv3_cap
+program test_output_hours
   use fv3atm_cap_mod, only: OutputHours_FrequencyInput, OutputHours_ArrayInput
   use module_fv3_config, only: dt_atmos, output_fh
   use module_fv3_io_def, only: lflname_fulltime
-  
+
   implicit none
   
   ! Test variables
@@ -213,4 +213,4 @@ contains
     
   end subroutine test_array_input
   
-end program test_fv3_cap
+end program test_output_hours

@@ -134,6 +134,8 @@ public get_atmos_model_ungridded_dim
 public atmos_model_get_nth_domain_info
 public addLsmask2grid
 public setup_exportdata
+public set_fhzero_loop, InitTimeFromIAUOffset
+public get_atmos_tracer_types
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >

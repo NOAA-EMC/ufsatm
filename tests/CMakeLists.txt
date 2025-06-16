@@ -25,7 +25,7 @@ function(add_fv3atm_serial_test TESTNAME)
   add_test(${TESTNAME} ${CMAKE_CURRENT_BINARY_DIR}/${TESTNAME})
 endfunction()
 
-foreach(testname test_fv3_cap)
+foreach(testname test_atmos_model test_fv3_cap test_module_wrt_grid_comp)
   add_fv3atm_mpi_test(${testname})
 endforeach()
 
