@@ -952,7 +952,7 @@ module fv3atm_cap_mod
               if( output_startfh == 0) then
                 output_fh(1) = dt_atmos/3600.
               else
-                output_fh(1) = output_startfh
+                output_fh(1) = output_startfh + dt_atmos/3600.
               endif
               do i=2,nfh
                 output_fh(i) = (i-1)*outputfh2(1) + output_startfh
