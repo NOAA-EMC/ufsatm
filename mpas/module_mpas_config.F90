@@ -24,6 +24,21 @@ module module_mpas_config
   !> Total number of mpi tasks for the forecast grid components
   integer                  :: fcst_ntasks
 
+  !> The first integration step
+  integer                  :: first_kdt
+
+  !> ID number for the coupled grids
+  integer                  :: cpl_grid_id
+
+  !> Flag to decide if model writes out coupled diagnostic fields
+  logical                  :: cplprint_flag = .false.
+
+  !> Flag to decide if write grid components is used
+  logical                  :: quilting = .false.
+
+  !> Flag to decide if write grid component writes out restart files
+  logical                  :: quilting_restart = .false.
+  
   !> Output frequency if this array has only two elements and the value of
   !! the second eletment is -1. Otherwise, it is the specific output forecast
   !! hours

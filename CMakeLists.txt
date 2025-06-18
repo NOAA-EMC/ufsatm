@@ -65,7 +65,7 @@ endif()
 if (FV3)
   set(DYCORE_TARGET ${DYCORE_TARGET_FV3}
     CACHE INTERNAL "DYCORE_TARGET Options: fv3atm")
-  set(DYCORE_TARGET_CAP_MOD fv3atm_cap_mod PARENT_SCOPE)
+  set(DYCORE_TARGET_CAP_MOD ufsatm_cap_mod PARENT_SCOPE)
 
   # These ifdefs need to be turned ON in the dycore.
   set(use_WRTCOMP ON)
@@ -75,6 +75,7 @@ if (FV3)
   if(MOVING_NEST)
     set(MOVING_NEST ON)
   endif()
+  add_definitions(-DATMFV3)
 
   if(HYDRO)
     set(HYDRO ON)
@@ -132,8 +133,8 @@ if (FV3)
 
   # FV3 drivers and dependencies
   add_library(${DYCORE_TARGET}
+    ufsatm_cap.F90
     fv3/atmos_model.F90
-    fv3/fv3_cap.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
     fv3/stochastic_physics/stochastic_physics_wrapper.F90
@@ -168,7 +169,7 @@ endif()
 ###############################################################################
 if (MPAS)
   set(DYCORE_TARGET ${DYCORE_TARGET_MPAS})
-
+  add_definitions(-DATMMPAS)
   # Include MPAS Cmake tools.
   include(${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/cmake/Functions/MPAS_Functions.cmake)
 
@@ -194,14 +195,39 @@ if (MPAS)
   # MPAS dynamical core
   add_subdirectory(mpas)
 
+  # Not used yet, but needed by ufsatm_cap.F90.
+  list(APPEND coupling_srcs
+    cpl/module_block_data.F90
+    cpl/module_cplfields.F90
+    cpl/module_cap_cpl.F90
+    cpl/module_cplscalars.F90)
+
+  # Not used yet, but needed by ufsatm_cap.F90.
+  list(APPEND io_srcs
+    #fv3/io/fv3atm_common_io.F90
+    #fv3/io/fv3atm_clm_lake_io.F90
+    #fv3/io/fv3atm_rrfs_sd_io.F90
+    #fv3/io/fv3atm_sfc_io.F90
+    #fv3/io/fv3atm_oro_io.F90
+    #fv3/io/fv3atm_history_io.F90
+    #fv3/io/fv3atm_restart_io.F90
+    fv3/io/module_write_netcdf.F90
+    fv3/io/module_write_restart_netcdf.F90
+    fv3/io/module_fv3_io_def.F90
+    fv3/io/module_write_internal_state.F90
+    fv3/io/module_wrt_grid_comp.F90)
+  
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
+    ufsatm_cap.F90
     atmos_util.F90
     mpas/atmos_model.F90
-    mpas/mpas_cap.F90
+    mpas/atmos_coupling.F90
     mpas/ufs_mpas_subdriver.F90
     mpas/module_mpas_config.F90
-    mpas/module_fcst_grid_comp.F90
+    mpas/module_mpas_fcst_grid_comp.F90
+    ${coupling_srcs}
+    ${io_srcs}
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )

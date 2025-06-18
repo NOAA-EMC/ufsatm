@@ -1,6 +1,6 @@
-!--------------- FV3 ATM solo model ----------------
+!--------------- UFS ATM solo model ----------------
 !
-!*** The FV3 atmosphere grid component nuopc cap
+!*** The UFS ATMosphere grid component nuopc cap 
 !
 ! Author:  Jun Wang@noaa.gov
 !
@@ -9,9 +9,9 @@
 ! 18 Apr 2017: J. Wang          set up fcst grid component and write grid components
 ! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
 ! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
-!
+! 06 Jun 2025: D. Swales        Generalize for MPAS dynamical core
 
-module fv3atm_cap_mod
+module ufsatm_cap_mod
 
   use ESMF
   use NUOPC
@@ -27,21 +27,31 @@ module fv3atm_cap_mod
                                     label_Finalize,                          &
                                     NUOPC_ModelGet
 !
+#ifdef ATMFV3
   use module_fv3_config,      only: quilting, quilting_restart, output_fh,   &
                                     dt_atmos,                                &
                                     calendar, cpl_grid_id,                   &
                                     cplprint_flag, first_kdt
-
+  use module_fcst_grid_comp,  only: fcstSS => SetServices
+#endif
   use module_fv3_io_def,      only: num_pes_fcst,write_groups,               &
                                     num_files, filename_base,                &
                                     wrttasks_per_group, n_group,             &
                                     lead_wrttask, last_wrttask,              &
                                     iau_offset, lflname_fulltime,            &
                                     time_unlimited
-!
-  use module_fcst_grid_comp,  only: fcstSS => SetServices
-
+  !
   use module_wrt_grid_comp,   only: wrtSS => SetServices
+
+#ifdef ATMMPAS
+  use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
+                                    fcst_mpi_comm, pio_ioformat, pio_iotype, &
+                                    pio_subsystem, pio_stride,               &
+                                    pio_numiotasks, pio_iodesc, cpl_grid_id, &
+                                    cplprint_flag, first_kdt, quilting,      &
+                                    quilting_restart
+  use module_mpas_fcst_grid_comp,  only: fcstSS => SetServices
+#endif
 !
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
@@ -115,13 +125,14 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! checking the import fields is a bit more complex because of coldstart option
+#ifdef ATMFV3
     call ESMF_MethodRemove(gcomp, label_CheckImport, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call NUOPC_CompSpecialize(gcomp, specLabel=label_CheckImport, &
                               specRoutine=fv3_checkimport, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#endif
     ! setup Run/Advance phase: phase1
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
                                  phaseLabelList=(/"phase1"/), userRoutine=routine_Run, rc=rc)
@@ -130,7 +141,7 @@ module fv3atm_cap_mod
     call NUOPC_CompSpecialize(gcomp, specLabel=label_Advance, &
                               specPhaseLabel="phase1", specRoutine=ModelAdvance_phase1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#ifdef ATMFV3
     ! setup Run/Advance phase: phase2
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
                                  phaseLabelList=(/"phase2"/), userRoutine=routine_Run, rc=rc)
@@ -160,7 +171,7 @@ module fv3atm_cap_mod
     call NUOPC_CompSpecialize(gcomp, specLabel=label_CheckImport, &
                               specPhaseLabel="phase2", specRoutine=NUOPC_NoOp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#endif
     ! model finalize method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=label_Finalize, &
                               specRoutine=ModelFinalize, rc=rc)
@@ -171,7 +182,13 @@ module fv3atm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine InitializeAdvertise(gcomp, rc)
-
+#ifdef ATMMPAS
+    use pio, only: pio_init, pio_setdebuglevel
+    use pio, only: PIO_REARR_BOX, PIO_REARR_SUBSET
+    use pio, only: PIO_64BIT_OFFSET, PIO_64BIT_DATA
+    use pio, only: PIO_IOTYPE_NETCDF, PIO_IOTYPE_PNETCDF
+    use pio, only: PIO_IOTYPE_NETCDF4C, PIO_IOTYPE_NETCDF4P
+#endif
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
 
@@ -210,7 +227,7 @@ module fv3atm_cap_mod
     type(ESMF_FieldBundle)                 :: mirrorFB
     type(ESMF_Field), allocatable          :: fieldList(:)
 
-    character(len=*),parameter             :: subname='(fv3_cap:InitializeAdvertise)'
+    character(len=*),parameter             :: subname='(ufsatm_cap:InitializeAdvertise)'
     real(kind=8)                           :: MPI_Wtime, timeis, timerhs
 
     integer                                :: wrttasks_per_group_from_parent, wrtLocalPet, num_threads
@@ -222,7 +239,11 @@ module fv3atm_cap_mod
     type(ESMF_StaggerLoc)                  :: staggerloc
     character(len=20)                      :: cvalue
     character(ESMF_MAXSTR)                 :: output_grid
-!
+    ! PIO
+    integer                                :: pio_root
+    integer                                :: pio_rearranger
+    integer                                :: pio_debug_level
+ 
 !------------------------------------------------------------------------
 !
     rc = ESMF_SUCCESS
@@ -231,9 +252,12 @@ module fv3atm_cap_mod
     call ESMF_GridCompGet(gcomp, name=gc_name, vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
+    !call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
+                    petCount=petcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+    
     ! num_threads is needed to compute actual wrttasks_per_group_from_parent
     call ESMF_InfoGetFromHost(gcomp, info=info, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -243,13 +267,13 @@ module fv3atm_cap_mod
     ! query for importState and exportState
     call NUOPC_ModelGet(gcomp, driverClock=clock, importState=importState, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#ifdef ATMFV3
     call ESMF_AttributeGet(gcomp, name="cpl_grid_id", value=value, defaultValue="1", &
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     cpl_grid_id = ESMF_UtilString2Int(value, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#endif
     call ESMF_AttributeGet(gcomp, name="ProfileMemory", value=value, defaultValue="false", &
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -277,6 +301,158 @@ module fv3atm_cap_mod
     write(msgString,'(A,i6)') trim(subname)//' dbug = ',dbug
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
+#ifdef ATMMPAS
+    ! #######################################################################################
+    !
+    ! PIO
+    !
+    ! #######################################################################################
+    ! pio_netcdf_format
+    call NUOPC_CompAttributeGet(gcomp, name='pio_netcdf_format', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'CLASSIC') then
+          pio_ioformat = 0
+       else if (trim(cvalue) .eq. '64BIT_OFFSET') then
+          pio_ioformat = PIO_64BIT_OFFSET
+       else if (trim(cvalue) .eq. '64BIT_DATA') then
+          pio_ioformat = PIO_64BIT_DATA
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_ioformat (CLASSIC|64BIT_OFFSET|64BIT_DATA)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = '64BIT_OFFSET'
+       pio_ioformat = PIO_64BIT_OFFSET
+    end if
+
+    ! pio_typename
+    call NUOPC_CompAttributeGet(gcomp, name='pio_typename', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'NETCDF') then
+          pio_iotype = PIO_IOTYPE_NETCDF
+       else if (trim(cvalue) .eq. 'PNETCDF') then
+          pio_iotype = PIO_IOTYPE_PNETCDF
+       else if (trim(cvalue) .eq. 'NETCDF4C') then
+          pio_iotype = PIO_IOTYPE_NETCDF4C
+       else if (trim(cvalue) .eq. 'NETCDF4P') then
+          pio_iotype = PIO_IOTYPE_NETCDF4P
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_typename (NETCDF|PNETCDF|NETCDF4C|NETCDF4P)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = 'NETCDF'
+       pio_iotype = PIO_IOTYPE_NETCDF
+    end if
+
+    ! pio_root
+    call NUOPC_CompAttributeGet(gcomp, name='pio_root', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_root
+       if (pio_root < 0) then
+          pio_root = 1
+       endif
+       pio_root = min(pio_root, petCount-1)
+    else
+       pio_root = 1
+    end if
+
+    ! pio_stride
+    call NUOPC_CompAttributeGet(gcomp, name='pio_stride', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_stride
+    else
+       pio_stride = -99
+    end if
+
+    ! pio_numiotasks
+    call NUOPC_CompAttributeGet(gcomp, name='pio_numiotasks', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_numiotasks
+    else
+       pio_numiotasks = -99
+    end if
+
+    ! check for parallel IO, it requires at least two io pes
+    if (petCount > 1 .and. pio_numiotasks == 1 .and. &
+       (pio_iotype .eq. PIO_IOTYPE_PNETCDF .or. pio_iotype .eq. PIO_IOTYPE_NETCDF4P)) then
+       pio_numiotasks = 2
+       pio_stride = min(pio_stride, petCount/2)
+    endif
+
+    if (pio_root + (pio_stride)*(pio_numiotasks-1) >= petCount .or. &
+        pio_stride <= 0 .or. pio_numiotasks <= 0 .or. pio_root < 0 .or. pio_root > petCount-1) then
+       if (petCount < 100) then
+          pio_stride = max(1, petCount/4)
+       else if(petCount < 1000) then
+          pio_stride = max(1, petCount/8)
+       else
+          pio_stride = max(1, petCount/16)
+       end if
+       if(pio_stride > 1) then
+          pio_numiotasks = petCount/pio_stride
+          pio_root = min(1, petCount-1)
+       else
+          pio_numiotasks = petCount
+          pio_root = 0
+       end if
+    end if
+
+    ! pio_rearranger
+    call NUOPC_CompAttributeGet(gcomp, name='pio_rearranger', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       cvalue = ESMF_UtilStringUpperCase(cvalue)
+       if (trim(cvalue) .eq. 'BOX') then
+          pio_rearranger = PIO_REARR_BOX
+       else if (trim(cvalue) .eq. 'SUBSET') then
+          pio_rearranger = PIO_REARR_SUBSET
+       else
+          call ESMF_LogWrite(trim("need to provide valid option for pio_rearranger (BOX|SUBSET)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       cvalue = 'SUBSET'
+       pio_rearranger = PIO_REARR_SUBSET
+    end if
+
+    ! Initialize PIO
+    allocate(pio_subsystem)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
+    
+    ! PIO debug related options
+    ! pio_debug_level
+    call NUOPC_CompAttributeGet(gcomp, name='pio_debug_level', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    if (isPresent .and. isSet) then
+       read(cvalue,*) pio_debug_level
+       if (pio_debug_level < 0 .or. pio_debug_level > 6) then
+          call ESMF_LogWrite(trim("MPAS_NUOPC_CAP: need to provide valid option for pio_debug_level (0-6)"), ESMF_LOGMSG_INFO)
+          return
+       end if
+    else
+       pio_debug_level = 0
+    end if
+
+    ! set PIO debug level
+    call pio_setdebuglevel(pio_debug_level)
+        
+#endif
+    
     ! set cpl_scalars from config. Default to null values for standalone
     flds_scalar_name = ''
     flds_scalar_num = 0
@@ -435,7 +611,7 @@ module fv3atm_cap_mod
     fcstComp = ESMF_GridCompCreate(petList=fcstPetList, name='fv3_fcst', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !
-    ! copy attributes from fv3cap component to fcstComp
+    ! copy attributes from ufscap component to fcstComp
     call ESMF_InfoGetFromHost(gcomp, info=parentInfo, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     call ESMF_InfoGetFromHost(fcstComp, info=childInfo, rc=rc)
@@ -469,12 +645,13 @@ module fv3atm_cap_mod
 ! determine number elements in fcstState
     call ESMF_StateGet(fcstState, itemCount=FBCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if(mype == 0) print *,'fv3_cap: field bundles in fcstComp export state, FBCount= ',FBcount
+    if(mype == 0) print *,'ufsatm_cap: field bundles in fcstComp export state, FBCount= ',FBcount
 !
 ! set start time for output
     output_startfh = 0.
 !
 ! query the is_moving array from the fcstState (was set by fcstComp.Initialize() above)
+#ifdef ATMFV3
     call ESMF_InfoGetFromHost(fcstState, info=info, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     call ESMF_InfoGetAlloc(info, key="is_moving", values=is_moving, rc=rc)
@@ -492,7 +669,7 @@ module fv3atm_cap_mod
     write(msgString,'(A,8L4)') trim(subname)//" is_moving = ", is_moving
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#endif
 !
 !-----------------------------------------------------------------------
 !***  create and initialize Write component(s).
@@ -828,7 +1005,7 @@ module fv3atm_cap_mod
                                                    routehandle=routehandle(j,1), &
                                                    rc=rc)
                   if (rc /= ESMF_SUCCESS) then
-                    call ESMF_LogWrite('fv3_cap.F90:InitializeAdvertise error in ESMF_FieldBundleRedistStore', ESMF_LOGMSG_ERROR, rc=rc)
+                    call ESMF_LogWrite('ufsatm_cap.F90:InitializeAdvertise error in ESMF_FieldBundleRedistStore', ESMF_LOGMSG_ERROR, rc=rc)
                     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                     ! call ESMF_Finalize(endflag=ESMF_END_ABORT)
                   endif
@@ -848,7 +1025,7 @@ module fv3atm_cap_mod
                                                    unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
                                                    srcTermProcessing=isrcTermProcessing, rc=rc)
                   if (rc /= ESMF_SUCCESS) then
-                    call ESMF_LogWrite('fv3_cap.F90:InitializeAdvertise error in ESMF_FieldBundleRegridStore', ESMF_LOGMSG_ERROR, rc=rc)
+                    call ESMF_LogWrite('ufsatm_cap.F90:InitializeAdvertise error in ESMF_FieldBundleRegridStore', ESMF_LOGMSG_ERROR, rc=rc)
                     call ESMF_Finalize(endflag=ESMF_END_ABORT)
                   endif
                   call ESMF_TraceRegionExit("ESMF_FieldBundleRegridStore()", rc=rc)
@@ -1024,7 +1201,7 @@ module fv3atm_cap_mod
     call ESMF_ConfigDestroy(cf, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap, init time=',MPI_Wtime()-timeis,mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap, init time=',MPI_Wtime()-timeis,mype
 !-----------------------------------------------------------------------
 !
   end subroutine InitializeAdvertise
@@ -1062,7 +1239,7 @@ module fv3atm_cap_mod
     timere = 0.
     timep2re = 0.
 
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap, initirealz time=',MPI_Wtime()-timeirs,mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap, initirealz time=',MPI_Wtime()-timeirs,mype
 
   end subroutine InitializeRealize
 
@@ -1078,20 +1255,20 @@ module fv3atm_cap_mod
 
     rc = ESMF_SUCCESS
     timers = MPI_Wtime()
-    if(write_runtimelog .and. timere>0. .and. lprint) print *,'in fv3_cap, time between fv3 run step=', timers-timere,mype
+    if(write_runtimelog .and. timere>0. .and. lprint) print *,'in ufsatm_cap, time between atmosphere run step=', timers-timere,mype
 
-    if (profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance: ")
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering UFSATM ModelAdvance: ")
 
     call ModelAdvance_phase1(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#ifdef ATMFV3
     call ModelAdvance_phase2(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    if (profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance: ")
+#endif
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving UFSATM ModelAdvance: ")
 
     timere = MPI_Wtime()
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap, time in fv3 run step=', timere-timers, mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap, time in atmosphere run step=', timere-timers, mype
 
   end subroutine ModelAdvance
 
@@ -1105,7 +1282,7 @@ module fv3atm_cap_mod
     type(ESMF_Clock)            :: clock
     integer                     :: urc
     logical                     :: fcstpe
-    character(len=*),parameter  :: subname='(fv3_cap:ModelAdvance_phase1)'
+    character(len=*),parameter  :: subname='(ufsatm_cap:ModelAdvance_phase1)'
     character(240)              :: msgString
     real(kind=8)                :: MPI_Wtime, timep1rs, timep1re
 
@@ -1113,7 +1290,7 @@ module fv3atm_cap_mod
 
     rc = ESMF_SUCCESS
     timep1rs = MPI_Wtime()
-    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in fv3_cap, time between fv3 run phase2 and phase1 ', timep1rs-timep2re,mype
+    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in ufsatm_cap, time between fv3 run phase2 and phase1 ', timep1rs-timep2re,mype
 
     if(profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance_phase1: ")
 
@@ -1145,7 +1322,7 @@ module fv3atm_cap_mod
     endif
 
     timep1re = MPI_Wtime()
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase1 time ', timep1re-timep1rs,mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap,modeladvance phase1 time ', timep1re-timep1rs,mype
     if (profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase1: ")
 
   end subroutine ModelAdvance_phase1
@@ -1165,7 +1342,7 @@ module fv3atm_cap_mod
     integer                     :: na, j, urc
     integer                     :: nfseconds
     logical                     :: fcstpe
-    character(len=*),parameter  :: subname='(fv3_cap:ModelAdvance_phase2)'
+    character(len=*),parameter  :: subname='(ufsatm_cap:ModelAdvance_phase2)'
 
     character(240)              :: msgString
 
@@ -1305,7 +1482,7 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     timep2re = MPI_Wtime()
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase2: ")
 
   end subroutine ModelAdvance_phase2
@@ -1516,10 +1693,10 @@ module fv3atm_cap_mod
     call ESMF_GridCompDestroy(fcstComp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !
-    if(write_runtimelog .and. lprint) print *,'in fv3_cap, finalize time=',MPI_Wtime()-timeffs, mype
+    if(write_runtimelog .and. lprint) print *,'in ufsatm_cap, finalize time=',MPI_Wtime()-timeffs, mype
 
   end subroutine ModelFinalize
 !
 !-----------------------------------------------------------------------------
 
-end module fv3atm_cap_mod
+end module ufsatm_cap_mod

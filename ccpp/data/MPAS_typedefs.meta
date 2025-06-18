@@ -1,35 +1,5 @@
 ########################################################################
 [ccpp-table-properties]
-  name = MPAS_control_type
-  type = ddt
-  dependencies =
-
-[ccpp-arg-table]
-  name = MPAS_control_type
-  type = ddt
-
-########################################################################
-[ccpp-table-properties]
-  name = MPAS_statein_type
-  type = ddt
-  dependencies = ../../mpas/MPAS-Model/src/framework/mpas_kind_types.F90
-
-[ccpp-arg-table]
-  name = MPAS_statein_type
-  type = ddt
-
-########################################################################
-[ccpp-table-properties]
-  name = MPAS_stateout_type
-  type = ddt
-  dependencies =
-
-[ccpp-arg-table]
-  name = MPAS_stateout_type
-  type = ddt
-
-########################################################################
-[ccpp-table-properties]
   name = MPAS_typedefs
   type = module
   relative_path = ../physics/physics/

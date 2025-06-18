@@ -3,23 +3,25 @@
 !>
 ! ###########################################################################################
 module MPAS_init
-  use machine,       only: kind_phys
-  use MPAS_typedefs, only: MPAS_control_type
-  use GFS_typedefs,  only: GFS_control_type, GFS_diag_type, GFS_grid_type, GFS_tbd_type
-  use GFS_typedefs,  only: GFS_sfcprop_type, GFS_statein_type, GFS_cldprop_type, GFS_radtend_type
-  use GFS_typedefs,  only: GFS_coupling_type
-  use CCPP_typedefs, only: GFS_interstitial_type
+  use machine,            only : kind_phys
+  use ufs_mpas_subdriver, only : MPAS_control_type
+  use GFS_typedefs,       only : GFS_control_type, GFS_diag_type, GFS_grid_type, GFS_tbd_type
+  use GFS_typedefs,       only : GFS_sfcprop_type, GFS_statein_type, GFS_cldprop_type
+  use GFS_typedefs,       only : GFS_radtend_type
+  use GFS_typedefs,       only : GFS_coupling_type
+  use CCPP_typedefs,      only : GFS_interstitial_type
 
   implicit none
 
-  public  MPAS_initialize
+  public :: MPAS_initialize
 
 contains
   !> #########################################################################################
   !> Procedure to initialize MPAS interface to CCPP Physics.
   !>
   !> #########################################################################################
-  subroutine MPAS_initialize (Model, Diag, Grid, Tbd, SfcProp, Statein, CldProp, RadTend, Coupling, MPAS, Interstitial)
+  subroutine MPAS_initialize (Model, Diag, Grid, Tbd, SfcProp, Statein, CldProp, RadTend,    &
+                              Coupling, MPAS, Interstitial)
 #ifdef _OPENMP
     use omp_lib
 #endif
@@ -53,12 +55,14 @@ contains
     nthrds = 1
 #endif
 
-    !--- set control properties (including namelist read)
-    call Model%init('MPAS', MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit, &
-         MPAS%levs, MPAS%dt_dycore, MPAS%dt_phys,  MPAS%iau_offset, MPAS%bdat, MPAS%cdat, &
-         MPAS%nwat, MPAS%tracer_names, MPAS%tracer_types, MPAS%input_nml_file,            &
-         MPAS%blksz, MPAS%restart, MPAS%mpi_comm, MPAS%fcst_ntasks, nthrds)
+    ! Set control properties (including physics namelist read)
+    call Model%init('MPAS', MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit,    &
+         MPAS%levs, real(MPAS%dt_dycore, kind_phys), real(MPAS%dt_phys, kind_phys),          &
+         MPAS%iau_offset, MPAS%bdat, MPAS%cdat, MPAS%nwat, MPAS%tracer_names,                &
+         MPAS%tracer_types, MPAS%input_nml_file, MPAS%blksz, MPAS%restart, MPAS%mpi_comm,    &
+         MPAS%fcst_ntasks, nthrds)
 
+    ! Allocate data containers for physics.
     call Grid%create(Model)
     call Diag%create(Model)
     call Tbd%create(Model)

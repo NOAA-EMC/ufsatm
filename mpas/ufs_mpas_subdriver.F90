@@ -1,6 +1,33 @@
+!> ###########################################################################################
+!> \file ufs_mpas_subdriver.F90
+!> UFSATM subdriver for MPAS dynamical core.
+!>
+!> Routines from the subdrivers for MPAS-A and CAM-SIMA have been adopted/modified here for use
+!> within the UFS Weather Model.
+!> MPAS-A Subdriver:    MPAS-Model/src/driver/mpas_subdriver.F
+!> CAM-SIMA (external): src/dynamics/mpas/driver/dyn_mpas_subdriver.F90
+!>                      (https://github.com/ESCOMP/CAM-SIMA/blob/development/)
+!>
+!> Overview:
+!> Initialization is broken down into two phases, with ufs_mpas_define_scalars() called in
+!> between:
+!> ufs_mpas_init_phase1:    Initialize MPAS framework, Read in namelist, Read static data.
+!> ufs_mpas_define_scalars: Set up scalars/tracers/constituents/... 
+!> ufs_mpas_init_phase2:    Complete MPAS initialization
+!>
+!> Forward integration of the dycore is handled in ufs_mpas_run. The current forecast time,
+!> forecast interval, and MPAS dycore time step are used to integrate the model forward in
+!> time. Afterwards, atm_compute_output_diagnostics() is called to compute fields needed by
+!> the Physics.
+!>
+!> Other public routines used the UFSATM driver
+!> ufs_mpas_open_init:      Open MPAS Initial Condition file, return PIO file handle.
+!>
+!> ###########################################################################################
 module ufs_mpas_subdriver
+  use mpi_f08
   use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type, mpas_TimeInterval_type
-  use mpas_kind_types,    only : StrKIND
+  use mpas_kind_types,    only : StrKIND, rkind
   use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config, only : ic_filename, lbc_filename
   use module_mpas_config, only : pio_iotype, fcst_mpi_comm, pioid
@@ -14,29 +41,337 @@ module ufs_mpas_subdriver
   
   private
 
+  public :: MPAS_control_type
   public :: ufs_mpas_init_phase1
+  public :: ufs_mpas_define_scalars
   public :: ufs_mpas_init_phase2
   public :: ufs_mpas_run
-  public :: ufs_mpas_dyn_set
   public :: ufs_mpas_open_init
-  public :: ufs_mpas_read_init
-  public :: ufs_mpas_to_physics
-  public :: ufs_physics_to_mpas
   public :: corelist, domain_ptr
   public :: constituent_name
   public :: is_water_species
+  public :: dyn_mpas_read_write_stream
 
+  !> #########################################################################################
+  !>
+  !> #########################################################################################
+  type MPAS_control_type
+
+     ! Namelist filename
+     character(len=64) :: fn_nml
+
+     ! Full namelist for use with internal file reads
+     character(len=:), pointer, dimension(:) :: input_nml_file => null()
+
+     ! MPI Bookkeeping
+     integer          :: me           !< current MPI-rank
+     integer          :: master       !< master MPI-rank
+     type(MPI_Comm)   :: mpi_comm     !< forecast tasks mpi communicator
+
+     ! ESMF 
+     integer          :: fcst_ntasks  !< total number of forecast tasks
+
+     ! Log file identifier
+     integer          :: nlunit       !< fortran unit number for file opens
+     integer          :: logunit      !< fortran unit number for writing logfile
+
+     ! UFS date(s) for model time.
+     integer          :: bdat(8)      !< model begin date in GFS format   (same as idat)
+     integer          :: cdat(8)      !< model current date in GFS format (same as jdat)
+
+     ! Spatial/Temporal parameters for physics/dynamics coupling.
+     real(rkind)      :: dt_dycore    !< dynamics time step in seconds
+     real(rkind)      :: dt_phys      !< physics  time step in seconds
+     integer          :: nblks        !< Number of data (physics) blocks.
+     integer, pointer :: blksz(:)     !< Block size for  data blocking (default blksz(1)=[nCells])
+     integer          :: levs         !< number of vertical levels
+
+     !
+     integer          :: iau_offset   !< iau running window length
+     logical          :: restart      !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
+
+     ! Tracers
+     integer                    :: nConstituents   !< Number of constituents (tracers).
+     integer                    :: nwat            !< number of hydrometeors in dcyore (including water vapor)
+     character(len=32), pointer :: tracer_names(:) !< tracers names to dereference tracer id
+     integer,           pointer :: tracer_types(:) !< tracers types: 0=generic, 1=chem,prog, 2=chem,diag
+     
+  end type MPAS_control_type
+
+  !> #########################################################################################
+  !
+  !> #########################################################################################
+  type :: var_info_type
+     private
+     character(64) :: name = ''
+     character(10) :: type = ''
+     integer :: rank = 0
+  end type var_info_type
+
+  !> #########################################################################################
+  !> This list corresponds to the "invariant" stream in MPAS registry.
+  !> It consists of variables that are members of the "mesh" struct.
+  !> #########################################################################################
+  type(var_info_type), parameter :: invariant_var_info_list(*) = [ &
+       var_info_type('angleEdge'                       , 'real'      , 1), &
+       var_info_type('areaCell'                        , 'real'      , 1), &
+       var_info_type('areaTriangle'                    , 'real'      , 1), &
+       var_info_type('bdyMaskCell'                     , 'integer'   , 1), &
+       var_info_type('bdyMaskEdge'                     , 'integer'   , 1), &
+       var_info_type('bdyMaskVertex'                   , 'integer'   , 1), &
+       var_info_type('cellTangentPlane'                , 'real'      , 3), &
+       var_info_type('cell_gradient_coef_x'            , 'real'      , 2), &
+       var_info_type('cell_gradient_coef_y'            , 'real'      , 2), &
+       var_info_type('cellsOnCell'                     , 'integer'   , 2), &
+       var_info_type('cellsOnEdge'                     , 'integer'   , 2), &
+       var_info_type('cellsOnVertex'                   , 'integer'   , 2), &
+       var_info_type('cf1'                             , 'real'      , 0), &
+       var_info_type('cf2'                             , 'real'      , 0), &
+       var_info_type('cf3'                             , 'real'      , 0), &
+       var_info_type('coeffs_reconstruct'              , 'real'      , 3), &
+       var_info_type('dcEdge'                          , 'real'      , 1), &
+       var_info_type('defc_a'                          , 'real'      , 2), &
+       var_info_type('defc_b'                          , 'real'      , 2), &
+       var_info_type('deriv_two'                       , 'real'      , 3), &
+       var_info_type('dss'                             , 'real'      , 2), &
+       var_info_type('dvEdge'                          , 'real'      , 1), &
+       var_info_type('dzu'                             , 'real'      , 1), &
+       var_info_type('edgeNormalVectors'               , 'real'      , 2), &
+       var_info_type('edgesOnCell'                     , 'integer'   , 2), &
+       var_info_type('edgesOnEdge'                     , 'integer'   , 2), &
+       var_info_type('edgesOnVertex'                   , 'integer'   , 2), &
+       var_info_type('fEdge'                           , 'real'      , 1), &
+       var_info_type('fVertex'                         , 'real'      , 1), &
+       var_info_type('fzm'                             , 'real'      , 1), &
+       var_info_type('fzp'                             , 'real'      , 1), &
+       var_info_type('indexToCellID'                   , 'integer'   , 1), &
+       var_info_type('indexToEdgeID'                   , 'integer'   , 1), &
+       var_info_type('indexToVertexID'                 , 'integer'   , 1), &
+       var_info_type('kiteAreasOnVertex'               , 'real'      , 2), &
+       var_info_type('latCell'                         , 'real'      , 1), &
+       var_info_type('latEdge'                         , 'real'      , 1), &
+       var_info_type('latVertex'                       , 'real'      , 1), &
+       var_info_type('localVerticalUnitVectors'        , 'real'      , 2), &
+       var_info_type('lonCell'                         , 'real'      , 1), &
+       var_info_type('lonEdge'                         , 'real'      , 1), &
+       var_info_type('lonVertex'                       , 'real'      , 1), &
+       var_info_type('meshDensity'                     , 'real'      , 1), &
+       var_info_type('nEdgesOnCell'                    , 'integer'   , 1), &
+       var_info_type('nEdgesOnEdge'                    , 'integer'   , 1), &
+       var_info_type('nominalMinDc'                    , 'real'      , 0), &
+       var_info_type('qv_init'                         , 'real'      , 1), &
+       var_info_type('rdzu'                            , 'real'      , 1), &
+       var_info_type('rdzw'                            , 'real'      , 1), &
+       var_info_type('t_init'                          , 'real'      , 2), &
+       var_info_type('u_init'                          , 'real'      , 1), &
+       var_info_type('v_init'                          , 'real'      , 1), &
+       var_info_type('verticesOnCell'                  , 'integer'   , 2), &
+       var_info_type('verticesOnEdge'                  , 'integer'   , 2), &
+       var_info_type('weightsOnEdge'                   , 'real'      , 2), &
+       var_info_type('xCell'                           , 'real'      , 1), &
+       var_info_type('xEdge'                           , 'real'      , 1), &
+       var_info_type('xVertex'                         , 'real'      , 1), &
+       var_info_type('yCell'                           , 'real'      , 1), &
+       var_info_type('yEdge'                           , 'real'      , 1), &
+       var_info_type('yVertex'                         , 'real'      , 1), &
+       var_info_type('zCell'                           , 'real'      , 1), &
+       var_info_type('zEdge'                           , 'real'      , 1), &
+       var_info_type('zVertex'                         , 'real'      , 1), &
+       var_info_type('zb'                              , 'real'      , 3), &
+       var_info_type('zb3'                             , 'real'      , 3), &
+       var_info_type('zgrid'                           , 'real'      , 2), &
+       var_info_type('zxu'                             , 'real'      , 2), &
+       var_info_type('zz'                              , 'real'      , 2)  &
+    ]
+
+  ! Whether a variable should be in input or restart can be determined by looking at
+  ! the `atm_init_coupled_diagnostics` subroutine in MPAS.
+  ! If a variable first appears on the LHS of an equation, it should be in restart.
+  ! If a variable first appears on the RHS of an equation, it should be in input.
+  ! The remaining ones of interest should be in output.
+
+  !> #########################################################################################
+  !> This list corresponds to the "input" stream in MPAS registry.
+  !> It consists of variables that are members of the "diag" and "state" struct.
+  !> Only variables that are specific to the "input" stream are included.
+  !> #########################################################################################
+  type(var_info_type), parameter :: input_var_info_list(*) = [ &
+       var_info_type('Time'                            , 'real'      , 0), &
+       var_info_type('initial_time'                    , 'character' , 0), &
+       var_info_type('rho'                             , 'real'      , 2), &
+       var_info_type('rho_base'                        , 'real'      , 2), &
+       var_info_type('scalars'                         , 'real'      , 3), &
+       var_info_type('theta'                           , 'real'      , 2), &
+       var_info_type('theta_base'                      , 'real'      , 2), &
+       var_info_type('u'                               , 'real'      , 2), &
+       var_info_type('w'                               , 'real'      , 2), &
+       var_info_type('xtime'                           , 'character' , 0)  &
+    ]
+
+  !> #########################################################################################
+  !> This list corresponds to the "restart" stream in MPAS registry.
+  !> It consists of variables that are members of the "diag" and "state" struct.
+  !> Only variables that are specific to the "restart" stream are included.
+  !> #########################################################################################
+  type(var_info_type), parameter :: restart_var_info_list(*) = [ &
+       var_info_type('exner'                           , 'real'      , 2), &
+       var_info_type('exner_base'                      , 'real'      , 2), &
+       var_info_type('pressure_base'                   , 'real'      , 2), &
+       var_info_type('pressure_p'                      , 'real'      , 2), &
+       var_info_type('rho_p'                           , 'real'      , 2), &
+       var_info_type('rho_zz'                          , 'real'      , 2), &
+       var_info_type('rtheta_base'                     , 'real'      , 2), &
+       var_info_type('rtheta_p'                        , 'real'      , 2), &
+       var_info_type('ru'                              , 'real'      , 2), &
+       var_info_type('ru_p'                            , 'real'      , 2), &
+       var_info_type('rw'                              , 'real'      , 2), &
+       var_info_type('rw_p'                            , 'real'      , 2), &
+       var_info_type('theta_m'                         , 'real'      , 2)  &
+    ]
+
+  !> #########################################################################################
+  !> This list corresponds to the "output" stream in MPAS registry.
+  !> It consists of variables that are members of the "diag" struct.
+  !> Only variables that are specific to the "output" stream are included.
+  !> #########################################################################################
+  type(var_info_type), parameter :: output_var_info_list(*) = [ &
+       var_info_type('divergence'                      , 'real'      , 2), &
+       var_info_type('pressure'                        , 'real'      , 2), &
+       var_info_type('relhum'                          , 'real'      , 2), &
+       var_info_type('surface_pressure'                , 'real'      , 1), &
+       var_info_type('uReconstructMeridional'          , 'real'      , 2), &
+       var_info_type('uReconstructZonal'               , 'real'      , 2), &
+       var_info_type('vorticity'                       , 'real'      , 2)  &
+    ]
+
+  !> #########################################################################################
+  !>
+  !> #########################################################################################
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
   type (mpas_TimeInterval_type)  :: integrationLength
-  integer, dimension(:), pointer :: indicesGlobal
   
   character(StrKIND), allocatable :: constituent_name(:)
   integer, allocatable :: index_constituent_to_mpas_scalar(:)
   integer, allocatable :: index_mpas_scalar_to_constituent(:)
   logical, allocatable :: is_water_species(:)  
 contains
+  !> #########################################################################################
+  !> Convert one or more values of any intrinsic data types to a character string for pretty
+  !> printing.
+  !> If `value` contains more than one element, the elements will be stringified, delimited by `separator`, then concatenated.
+  !> If `value` contains exactly one element, the element will be stringified without using `separator`.
+  !> If `value` contains zero element or is of unsupported data types, an empty character string is produced.
+  !> If `separator` is not supplied, it defaults to ", " (i.e., a comma and a space).
+  !> (KCW, 2024-02-04)
+  !> Ported for UWM (DJS: 2025)
+  !> #########################################################################################
+  pure function stringify(value, separator)
+    use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
+
+    class(*), intent(in) :: value(:)
+    character(*), optional, intent(in) :: separator
+    character(:), allocatable :: stringify
+
+    integer, parameter :: sizelimit = 1024
+
+    character(:), allocatable :: buffer, delimiter, format
+    character(:), allocatable :: value_c(:)
+    integer :: i, n, offset
+
+    if (present(separator)) then
+       delimiter = separator
+    else
+       delimiter = ', '
+    end if
+
+    n = min(size(value), sizelimit)
+
+    if (n == 0) then
+       stringify = ''
+
+       return
+    end if
+
+    select type (value)
+    type is (character(*))
+       allocate(character(len(value) * n + len(delimiter) * (n - 1)) :: buffer)
+
+       buffer(:) = ''
+       offset = 0
+
+       ! Workaround for a bug in GNU Fortran >= 12. This is perhaps the manifestation of GCC Bugzilla Bug 100819.
+       ! When a character string array is passed as the actual argument to an unlimited polymorphic dummy argument,
+       ! its array index and length parameter are mishandled.
+       allocate(character(len(value)) :: value_c(size(value)))
+
+       value_c(:) = value(:)
+
+       do i = 1, n
+          if (len(delimiter) > 0 .and. i > 1) then
+             buffer(offset + 1:offset + len(delimiter)) = delimiter
+             offset = offset + len(delimiter)
+          end if
+
+          if (len_trim(adjustl(value_c(i))) > 0) then
+             buffer(offset + 1:offset + len_trim(adjustl(value_c(i)))) = trim(adjustl(value_c(i)))
+             offset = offset + len_trim(adjustl(value_c(i)))
+          end if
+       end do
+
+       deallocate(value_c)
+    type is (integer(int32))
+       allocate(character(11 * n + len(delimiter) * (n - 1)) :: buffer)
+       allocate(character(17 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+
+       write(format, '(a, i0, 3a)') '(ss, ', n, '(i0, :, "', delimiter, '"))'
+       write(buffer, format) value
+    type is (integer(int64))
+       allocate(character(20 * n + len(delimiter) * (n - 1)) :: buffer)
+       allocate(character(17 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+
+       write(format, '(a, i0, 3a)') '(ss, ', n, '(i0, :, "', delimiter, '"))'
+       write(buffer, format) value
+    type is (logical)
+       allocate(character(1 * n + len(delimiter) * (n - 1)) :: buffer)
+       allocate(character(13 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+
+       write(format, '(a, i0, 3a)') '(', n, '(l1, :, "', delimiter, '"))'
+       write(buffer, format) value
+    type is (real(real32))
+       allocate(character(13 * n + len(delimiter) * (n - 1)) :: buffer)
+
+       if (maxval(abs(value)) < 1.0e5_real32) then
+          allocate(character(20 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+          write(format, '(a, i0, 3a)') '(ss, ', n, '(f13.6, :, "', delimiter, '"))'
+       else
+          allocate(character(23 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+          write(format, '(a, i0, 3a)') '(ss, ', n, '(es13.6e2, :, "', delimiter, '"))'
+       end if
+
+       write(buffer, format) value
+    type is (real(real64))
+       allocate(character(13 * n + len(delimiter) * (n - 1)) :: buffer)
+
+       if (maxval(abs(value)) < 1.0e5_real64) then
+          allocate(character(20 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+          write(format, '(a, i0, 3a)') '(ss, ', n, '(f13.6, :, "', delimiter, '"))'
+       else
+          allocate(character(23 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+          write(format, '(a, i0, 3a)') '(ss, ', n, '(es13.6e2, :, "', delimiter, '"))'
+       end if
+
+       write(buffer, format) value
+    class default
+       stringify = ''
+
+       return
+    end select
+
+    stringify = trim(buffer)
+  end function stringify
+  
   !> #########################################################################################
   !> Procedure to initialize UWM with MPAS dynamical core.
   !>
@@ -61,8 +396,6 @@ contains
     use field_manager_mod,          only : MODEL_ATMOS
     use fms2_io_mod,                only : file_exists
     use mpp_mod,                    only : FATAL, mpp_error
-    ! UFSATM
-    use mpas_typedefs,              only : mpas_control_type
     ! PIO
     use pio,                        only : pio_global, pio_get_att
     ! Arguments
@@ -122,16 +455,20 @@ contains
     ndate1 = time_start(1)*10000 + time_start(2)*100 + time_start(3)
     tod    = time_start(4)*3600  + time_start(5)*60  + time_start(6)
     call mpas_pool_add_config(domain_ptr % configs, 'config_start_time', date2yyyymmdd(ndate1)//'_'//sec2hms(tod))
+    !print*,'SWALES config_start_time = ',date2yyyymmdd(ndate1)//'_'//sec2hms(tod)
 
     ! Set forecast end time (config_stop_time)
     ndate2 = time_end(1)*10000   + time_end(2)*100   + time_end(3)
     tod	   = time_end(4)*3600    + time_end(5)*60    + time_end(6)
     call mpas_pool_add_config(domain_ptr % configs, 'config_stop_time', date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
+    !print*,'SWALES config_stop_time  = ',date2yyyymmdd(ndate2)//'_'//sec2hms(tod)
 
     ! Set forecaste run time (config_run_duration) #DJS2025 this is not correct. need to fix, but works for current test.
-    tod = ndate2 - ndate1 -1
+    tod = ndate2 - ndate1
     call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
-
+    !call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', '0_01:00:00')
+    !print*,'SWALES config_run_duration = ',trim(int2str(tod))//'_'//sec2hms(total_time)
+    
     ! Set other MPAS required configuration information.
     call mpas_pool_add_config(domain_ptr % configs, 'config_restart_timestamp_name', 'restart_timestamp')
     call mpas_pool_add_config(domain_ptr % configs, 'config_IAU_option',             'off')
@@ -183,69 +520,13 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
     call mpas_pool_add_dimension(domain_ptr % blocklist % dimensions, 'num_scalars', num_scalars)
-    !nullify(state)
     nullify(num_scalars)
-    
-    call mpas_pool_get_field(state, 'scalars', scalarsField, timeLevel=1)
-    !
     call mpas_pool_add_dimension(state, 'index_qv', 1)
-    scalarsField % constituentNames(1) = 'qv'
-    !
-    call mpas_pool_add_dimension(state, 'index_qc', 2)
-    scalarsField % constituentNames(2) = 'qc'
-    !
-    call mpas_pool_add_dimension(state, 'index_qr', 3)
-    scalarsField % constituentNames(3) = 'qr'
-    !
-    call mpas_pool_add_dimension(state, 'index_qs', 4)
-    scalarsField % constituentNames(4) = 'qs'
-    !
-    call mpas_pool_add_dimension(state, 'index_qi', 5)
-    scalarsField % constituentNames(5) = 'qi'
-    !
-    call mpas_pool_add_dimension(state, 'index_qh', 6)
-    scalarsField % constituentNames(6) = 'qh'
-    !
     call mpas_pool_add_dimension(state, 'moist_start', 1)
     call mpas_pool_add_dimension(state, 'moist_end', Cfg % nwat)
 
-    ! Set inital_time
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
-    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_start_time', config_start_time)
-    call mpas_pool_get_array(state, 'initial_time', initial_time,1)
-    initial_time = config_start_time
-    
-!    ! Define scalars_tend
-!    nullify(tend)
-!    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend', tend)
-    
-!    if (.not. associated(tend)) then
-!       call mpp_error(FATAL,subname//': ERROR: The ''tend'' pool was not found.')
-!       ierr = 1
-!       return
-!    end if
-
-!    nullify(scalarsField)
-!    call mpas_pool_get_field(tend, 'scalars_tend', scalarsField, timeLevel=1)
-
-!    if (.not. associated(scalarsField)) then
-!       call mpp_error(FATAL,subname//': ERROR: The ''scalars_tend'' field was not found in the ''tend'' pool')
-!       ierr = 1
-!       return
-!    end if
-!    call mpas_pool_add_dimension(tend, 'index_qv', 1)
-!    scalarsField % constituentNames(1) = 'tend_qv'
-!    call mpas_add_att(scalarsField % attLists(1) % attList, 'units', 'kg m^{-3} s^{-1}')
-!    call mpas_add_att(scalarsField % attLists(1) % attList, 'long_name', 'Tendency of water vapor mixing ratio')
-!    scalarsField % constituentNames(2) = 'tend_qc'
-!    scalarsField % constituentNames(3) = 'tend_qh'
-!    scalarsField % constituentNames(4) = 'tend_qr'
-!    scalarsField % constituentNames(5) = 'tend_qi'
-!    scalarsField % constituentNames(6) = 'tend_qs'
-    
-    
     ! Read in static (invariant) data
-    call ufs_mpas_read_invariant()
+    call dyn_mpas_read_write_stream( 'r', 'invariant')
 
     ! Compute unit vectors giving the local north and east directions as well as
     ! the unit normal vector for edges
@@ -280,26 +561,27 @@ contains
   !> Procedure to initialize UWM with MPAS dynamical core.
   !> 
   !> ########################################################################################
-  subroutine ufs_mpas_init_phase2(Cfg, Statein)
-    use mpas_typedefs,              only : mpas_control_type
-    use mpas_typedefs,              only : mpas_statein_type
+  subroutine ufs_mpas_init_phase2(Cfg)
     use mpas_kind_types,            only : StrKIND, RKIND
-    use mpas_derived_types,         only : mpas_pool_type, mpas_Time_Type
+    use mpas_derived_types,         only : mpas_pool_type, mpas_Time_Type, field0DReal, field2dreal
     use mpas_domain_routines,       only : mpas_pool_get_dimension
     use mpas_pool_routines,         only : mpas_pool_get_subpool
     use mpas_pool_routines,         only : mpas_pool_initialize_time_levels, mpas_pool_get_config
-    use mpas_pool_routines,         only : mpas_pool_get_array
+    use mpas_pool_routines,         only : mpas_pool_get_array, mpas_pool_get_field
     use mpas_atm_dimensions,        only : mpas_atm_set_dims
     use mpas_atm_threading,         only : mpas_atm_threading_init
     use mpp_mod,                    only : FATAL, mpp_error
     use mpas_atm_halos,             only : atm_build_halo_groups, exchange_halo_group
-    use atm_core,                   only : atm_mpas_init_block, core_clock => clock
+    use atm_core,                   only : atm_mpas_init_block
     use atm_time_integration,       only : mpas_atm_dynamics_init
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, mpas_START_TIME
-    use mpas_timekeeping,           only : mpas_set_timeInterval
+    use mpas_log,                   only : mpas_log_write
+    use mpas_attlist,               only : mpas_modify_att
+    use mpas_string_utils,          only : mpas_string_replace
+    use mpas_field_routines,        only : mpas_allocate_scratch_field
     ! Arguments
     type(mpas_control_type), intent(inout) :: Cfg
-    type(mpas_statein_type), intent(inout) :: Statein
+    !type(mpas_statein_type), intent(inout) :: Statein
     type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
@@ -312,10 +594,23 @@ contains
     character(len=StrKIND) :: startTimeStamp
     character (len=StrKIND), pointer :: xtime
     character (len=StrKIND), pointer :: initial_time1, initial_time2
+    type(field0dreal), pointer :: field_0d_real
+    type(field2dreal), pointer :: field_2d_real
+
+    nullify(state)
+    nullify(mesh)
+    !nullify(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
+    nullify(dt)
+    nullify(config_do_restart)
+    nullify(xtime)
+    nullify(initial_time1, initial_time2)
+    nullify(field_0d_real)
+    nullify(field_2d_real)
 
     !
     ! Setup threading
     !
+    call mpas_log_write('Setting up OpenMP threading')
     call mpas_atm_threading_init(domain_ptr%blocklist, ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//": Threading setup failed for core "//trim(domain_ptr % core % coreName))
@@ -324,84 +619,133 @@ contains
     !
     ! Set up inner dimensions used by arrays in optimized dynamics routines
     !
+    call mpas_log_write('Setting up dimensions')
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_dimension(state, 'nVertLevels', nVertLevels1)
     call mpas_pool_get_dimension(state, 'maxEdges', maxEdges1)
     call mpas_pool_get_dimension(state, 'maxEdges2', maxEdges2)
     call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
+    
     call mpas_atm_set_dims(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
     Cfg % levs = nVertLevels1
 
     !
-    ! Set "local" clock to point to the clock contained in the domain type
-    !
-    clock => domain_ptr % clock
-    core_clock => domain_ptr % clock
-
-    !
     ! Build halo exchange groups and set method for exchanging halos in a group
     !
+    call mpas_log_write('Building halo exchange groups.')
+
+    nullify(exchange_halo_group)
     call atm_build_halo_groups(domain_ptr, ierr)
+
     if (ierr /= 0) then
        call mpp_error(FATAL,subname//": failed to build MPAS-A halo exchange groups.")
     end if
+    if (.not. associated(exchange_halo_group)) then
+       call mpp_error(FATAL,subname//": failed to build MPAS-A halo exchange groups.")
+    end if
 
+    ! Variables in MPAS "state" pool have more than one time level. Copy the values from the first time level of
+    ! such variables into all subsequent time levels to initialize them.
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_do_restart', config_do_restart)
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
 
+    if (.not. config_do_restart) then
+       call mpas_log_write('Initializing time levels')
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+       call mpas_pool_initialize_time_levels(state)
+       nullify(state)
+    end if
+    nullify (config_do_restart)
+
+    call exchange_halo_group(domain_ptr, 'initialization:u',ierr=ierr)
+    if ( ierr /= 0 ) then
+       call mpp_error(FATAL,subname//'Failed to exchange halo layers for group "initialization:u"')
+    end if
+
+    call mpas_log_write('Initializing atmospheric variables')
+    
     ! How many calls to MPAS dycore for each ATMosphere time step?
     Cfg%dt_dycore = dt
     n_atmos = dt_atmos/dt
-
-    if (.not. config_do_restart) then
-       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
-       call mpas_pool_initialize_time_levels(state)
-    end if
-
+    
     !
     ! Set startTimeStamp based on the start time of the simulation clock
     !
-    startTime = mpas_get_clock_time(clock, mpas_START_TIME, ierr)
+    startTime = mpas_get_clock_time(domain_ptr % clock, mpas_START_TIME, ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//": failed to get mpas_START_TIME")
     end if
-    call mpas_get_time(startTime, dateTimeString=startTimeStamp)
+    call mpas_get_time(startTime, dateTimeString=startTimeStamp, ierr=ierr)
+    if ( ierr /= 0 ) then
+       call mpp_error(FATAL,subname//": failed to get mpas_START_TIME")
+    end if
 
-    call exchange_halo_group(domain_ptr, 'initialization:u')
-
+    
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    !call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
 
     call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, domain_ptr % blocklist, mesh, dt)
 
-    call mpas_pool_get_array(state, 'xtime', xtime, 1)
+    nullify(mesh)
+    nullify(dt)
+
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    call mpas_pool_get_array(state, 'xtime', xtime, timelevel=1)
     xtime = startTimeStamp
+    nullify(xtime)
 
     ! Initialize initial_time in second time level. We need to do this because initial state
     ! is read into time level 1, and if we write output from the set of state arrays that
     ! represent the original time level 2, the initial_time field will be invalid.
-
-    call mpas_pool_get_array(state, 'initial_time', initial_time1, 1)
-    call mpas_pool_get_array(state, 'initial_time', initial_time2, 2)
+    call mpas_pool_get_array(state, 'initial_time', initial_time1, timelevel=1)
+    call mpas_pool_get_array(state, 'initial_time', initial_time2, timelevel=2)
     initial_time2 = initial_time1
+
+    !
+    ! Set time units to CF-compliant "seconds since <date and time>".
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    call mpas_pool_get_field(state, 'Time', field_0d_real, timelevel=1)
     
-    call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw')
+    if (.not. associated(field_0d_real)) then
+       call mpp_error(FATAL,subname//'Failed to find variable "Time"')
+    end if
+
+    call mpas_modify_att(field_0d_real % attlists(1) % attlist, 'units', &
+         'seconds since ' // mpas_string_replace(initial_time1, '_', ' '), ierr=ierr)
+
+    if (ierr /= 0) then
+       call mpp_error(FATAL,subname//'Failed to set time units')
+    end if
+
+    nullify(initial_time1, initial_time2)
+    nullify(state)
+    nullify(field_0d_real)
+    
+    call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw',ierr=ierr)
+    if ( ierr /= 0 ) then
+       call mpp_error(FATAL,subname//'Failed to exchange halo layers for group "initialization:ru,rw"')
+    end if
 
     !
     ! Prepare the dynamics for integration
     !
+    call mpas_log_write('Initializing the dynamics')
     call mpas_atm_dynamics_init(domain_ptr)
 
     !
-    ! Initialize physics tendencies needed by MPAS.
+    ! Some additional "scratch" fields are needed for interoperability with CAM-SIMA, but they are not initialized by
+    ! `mpas_atm_dynamics_init`. Initialize them below.
     !
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_ru_physics',     Statein % ru_tend)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', Statein % rtheta_tend)
-    call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics',    Statein % rho_tend)
+!    call mpas_pool_get_field(domain_ptr % blocklist % allfields, 'tend_uzonal', field_2d_real, timelevel=1)
+!    call mpas_allocate_scratch_field(field_2d_real)
+!    nullify(field_2d_real)
+    
+!    call mpas_pool_get_field(domain_ptr % blocklist % allfields, 'tend_umerid', field_2d_real, timelevel=1)
+!    call mpas_allocate_scratch_field(field_2d_real)
+!    nullify(field_2d_real)
 
-    ! Set dycore time interval.
-    call mpas_set_timeInterval(integrationLength, dt=dt, ierr=ierr)
+    call mpas_log_write('Successful initialization of MPAS dynamical core')
 
   end subroutine ufs_mpas_init_phase2
 
@@ -410,26 +754,22 @@ contains
   !> Loop over dynamical time-step(s) and increment MPAS state (timelevel 1->2)
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_run(statein, stateout)
-    ! UFSATM
-    use mpas_typedefs,        only : mpas_statein_type, mpas_stateout_type
+  subroutine ufs_mpas_run()
     ! MPAS
-    use atm_core,             only : atm_do_timestep
+    use atm_core,             only : atm_do_timestep, atm_compute_output_diagnostics
     use mpas_domain_routines, only : mpas_pool_get_dimension
     use mpas_derived_types,   only : mpas_Time_type, mpas_pool_type
     use mpas_kind_types,      only : StrKIND, RKIND, R8KIND
     use mpas_constants,       only : rvord
     use mpas_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
     use mpas_pool_routines,   only : mpas_pool_shift_time_levels, mpas_pool_get_array
+    use mpas_timekeeping,     only : mpas_set_timeInterval
     use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
     use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
     use mpas_log,             only : mpas_log_write
     use mpas_timer,           only : mpas_timer_start, mpas_timer_stop
-    ! Arguments
-    type(mpas_statein_type),  intent(inout) :: statein
-    type(mpas_stateout_type), intent(inout) :: stateout
     ! Locals
-    real (kind=RKIND), pointer :: dt
+    real (kind=RKIND), pointer :: config_dt
     type (mpas_pool_type), pointer :: state, diag, mesh
     type (mpas_Time_type) :: timeNow, timeStop
     character(len=StrKIND) :: timeStamp
@@ -440,28 +780,32 @@ contains
     real(kind=RKIND), dimension(:,:,:), pointer :: scalars
     integer :: itimestep
     real (kind=R8KIND) :: integ_start_time, integ_stop_time 
-    integer, parameter :: id = 40
     logical, pointer :: config_apply_lbcs
+
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
     
-    clock => domain_ptr % clock
-
     ! Eventually, dt should be domain specific
-    call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', dt)
-
+    call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
+    call mpas_set_timeInterval(integrationLength, S=nint(config_dt))
+    
     !
     ! Read initial boundary state
     ! NOT YET IMPLEMENTED (Follow src/core_atmosphere/mpas_atm_core.F:atm_core_run())
+    !
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_apply_lbcs', config_apply_lbcs)
     if (config_apply_lbcs) then
        
     endif
     
     ! During integration, time level 1 stores the model state at the beginning of the
-    !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
+    !   time step, and time level 2 stores the state advanced config_dt in time by timestep(...)
     itimestep=1
+    !do while (.not. mpas_is_clock_stop_time(domain_ptr % clock))
     do itime = 1, n_atmos
        ! Get current time.
-       timeNow  = mpas_get_clock_time(clock, mpas_NOW, ierr)
+       timeNow  = mpas_get_clock_time(domain_ptr % clock, mpas_NOW, ierr)
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
        call mpas_log_write('') 
        call mpas_log_write(' MPAS dynamics start timestep '//trim(timeStamp))
@@ -469,317 +813,27 @@ contains
        ! Integrate forward one dycore time step
        call mpas_timer_start('time integration')
        call mpas_dmpar_get_time(integ_start_time)
-       call atm_do_timestep(domain_ptr, dt, itimestep)
+       call atm_do_timestep(domain_ptr, config_dt, itimestep)
        call mpas_dmpar_get_time(integ_stop_time)
        call mpas_timer_stop('time integration')
        call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
        
        ! Move time level 2 fields back into time level 1 for next time step
-       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
        call mpas_pool_shift_time_levels(state)
 
        ! Advance clock.
        itimestep = itimestep + 1
-       call mpas_advance_clock(clock)
-       timeNow = mpas_get_clock_time(clock, mpas_NOW, ierr)
-
-       ! Print IN/OUT state (DEBUGGING)
-       !print*,'u(IN,OUT):       ',statein % uperp(1,id),     stateout % uperp(1,id)
-       !print*,'w(IN,OUT):       ',statein % w(1,id),         stateout % w(1,id)
-       !print*,'theta_m(IN,OUT): ',statein % theta_m(1,id),   stateout % theta_m(1,id)
-       !print*,'rho_zz(IN,OUT):  ',statein % rho_zz(1,id),    stateout % rho_zz(1,id)
-       !print*,'scalars(IN,OUT): ',statein % tracers(1,1,id), stateout % tracers(1,1,id)
+       call mpas_advance_clock(domain_ptr % clock)
+       timeNow = mpas_get_clock_time(domain_ptr % clock, mpas_NOW, ierr)
     end do
 
     !
     ! Compute diagnostic fields from the final prognostic state
-    ! From mpas_atm_core.F:_atm_compute_output_diagnostics()
     !
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag', diag)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
-    call mpas_pool_get_dimension(state, 'index_qv', index_qv)
-    call mpas_pool_get_dimension(state, 'nCellsSolve', nCellsSolve)
-    call mpas_pool_get_array(state, 'theta_m', theta_m, timeLevel=1)
-    call mpas_pool_get_array(state, 'rho_zz',  rho_zz,  timeLevel=1)
-    call mpas_pool_get_array(state, 'scalars', scalars, timeLevel=1)
-    call mpas_pool_get_array(mesh,  'zz',      zz)
-    call mpas_pool_get_array(diag,  'theta',   theta)
-    call mpas_pool_get_array(diag,  'rho',     rho)
-
-    rho(:,1:nCellsSolve) = rho_zz(:,1:nCellsSolve) * zz(:,1:nCellsSolve)
-    theta(:,1:nCellsSolve) = theta_m(:,1:nCellsSolve) / (1.0_RKIND + rvord * scalars(index_qv,:,1:nCellsSolve))
-    
-    !
-    ! Update final prognostic state
-    !
-    call mpas_pool_get_array(state, 'u',       statein % uperp,   timeLevel=1)
-    call mpas_pool_get_array(state, 'w',       statein % w,       timeLevel=1)
-    call mpas_pool_get_array(state, 'theta_m', statein % theta_m, timeLevel=1)
-    call mpas_pool_get_array(state, 'rho_zz',  statein % rho_zz,  timeLevel=1)
-    call mpas_pool_get_array(state, 'scalars', statein % tracers, timeLevel=1)
-    stateout % uperp   => statein % uperp
-    stateout % w       => statein % w
-    stateout % theta_m => statein % theta_m
-    stateout % rho_zz  => statein % rho_zz
-    stateout % tracers => statein % tracers
+    call atm_compute_output_diagnostics(state, 1, diag, mesh)
 
   end subroutine ufs_mpas_run
-  
-  !> #########################################################################################
-  !> Procedure to populate input/output state for MPAS dycore.
-  !>
-  !> #########################################################################################
-  subroutine ufs_mpas_dyn_set(statein, stateout)
-    ! UFSATM
-    use mpas_typedefs,        only : mpas_statein_type, mpas_stateout_type
-    ! MPAS
-    use mpas_derived_types,   only : mpas_pool_type
-    use mpas_pool_routines,   only : mpas_pool_get_subpool
-    use mpas_pool_routines,   only : mpas_pool_get_array
-    use mpas_domain_routines, only : mpas_pool_get_dimension
-    use mpas_kind_types,      only : RKIND
-    ! FMS
-    use mpp_mod,              only : FATAL, mpp_error
-    ! Arguments
-    type(mpas_statein_type), intent(inout) :: statein
-    type(mpas_stateout_type), intent(inout) :: stateout
-    ! Locals
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_dyn_set'
-    type(mpas_pool_type), pointer :: mesh_pool
-    type(mpas_pool_type), pointer :: state_pool
-    type(mpas_pool_type), pointer :: diag_pool
-    integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, &
-         nVerticesSolve, index_qv, index_qc, index_qh, index_qr, index_qi, index_qs
-    integer :: i1, i2, ierr
-    real(kind=RKIND),dimension(:,:),pointer  :: rtheta_p
 
-    ! Scalars
-    call ufs_mpas_define_scalars(statein % mpas_from_ufs_cnst, stateout % ufs_from_mpas_cnst, ierr)
-    if (ierr /= 0) then
-       call mpp_error(FATAL,trim(subname)//'ERROR: Set-up of constituents for MPAS-A dycore failed.')
-    end if
-
-    !
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',         mesh_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state',        state_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',         diag_pool)
-
-    ! Get dimensions
-    call mpas_pool_get_dimension(mesh_pool,  'nCells',         nCells)
-    call mpas_pool_get_dimension(mesh_pool,  'nEdges',         nEdges)
-    call mpas_pool_get_dimension(mesh_pool,  'nVertices',      nVertices)
-    call mpas_pool_get_dimension(mesh_pool,  'nVertLevels',    nVertLevels)
-    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve',    nCellsSolve)
-    call mpas_pool_get_dimension(mesh_pool,  'nEdgesSolve',    nEdgesSolve)
-    call mpas_pool_get_dimension(mesh_pool,  'nVerticesSolve', nVerticesSolve)
-    call mpas_pool_get_dimension(state_pool, 'index_qv',       index_qv)
-    call mpas_pool_get_dimension(state_pool, 'index_qc',       index_qc)
-    call mpas_pool_get_dimension(state_pool, 'index_qh',       index_qh)
-    call mpas_pool_get_dimension(state_pool, 'index_qr',       index_qr)
-    call mpas_pool_get_dimension(state_pool, 'index_qi',       index_qi)
-    call mpas_pool_get_dimension(state_pool, 'index_qs',       index_qs)
-
-    ! Set dimensions
-    statein % nCells         = nCells
-    statein % nEdges         = nEdges
-    statein % nVertices      = nVertices
-    statein % nVertLevels    = nVertLevels
-    statein % nCellsSolve    = nCellsSolve
-    statein % nEdgesSolve    = nEdgesSolve
-    statein % nVerticesSolve = nVerticesSolve
-    statein % index_qv       = index_qv
-    statein % index_qc       = index_qc
-    statein % index_qh       = index_qh
-    statein % index_qr       = index_qr
-    statein % index_qi       = index_qi
-    statein % index_qs       = index_qs
-
-    ! In MPAS timeLevel=1 is the current state.  So the fields input to the dycore should
-    ! be in timeLevel=1.
-    call mpas_pool_get_array(state_pool, 'u',                      statein % uperp,   timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'w',                      statein % w,       timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'theta_m',                statein % theta_m, timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'rho_zz',                 statein % rho_zz,  timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'scalars',                statein % tracers, timeLevel=1)
-    !
-    call mpas_pool_get_array(diag_pool, 'rho_base',                statein % rho_base)
-    call mpas_pool_get_array(diag_pool, 'theta_base',              statein % theta_base)
-    !
-    call mpas_pool_get_array(mesh_pool,  'zgrid',                  statein % zint)
-    call mpas_pool_get_array(mesh_pool,  'zz',                     statein % zz)
-    call mpas_pool_get_array(mesh_pool,  'fzm',                    statein % fzm)
-    call mpas_pool_get_array(mesh_pool,  'fzp',                    statein % fzp)
-    call mpas_pool_get_array(mesh_pool,  'areaCell',               statein % areaCell)
-    !
-    call mpas_pool_get_array(mesh_pool,  'east',                   statein % east)
-    call mpas_pool_get_array(mesh_pool,  'north',                  statein % north)
-    call mpas_pool_get_array(mesh_pool,  'edgeNormalVectors',      statein % normal)
-    call mpas_pool_get_array(mesh_pool,  'cellsOnEdge',            statein % cellsOnEdge)
-    !
-    call mpas_pool_get_array(diag_pool,  'theta',                  statein % theta)
-    call mpas_pool_get_array(diag_pool,  'exner',                  statein % exner)
-    call mpas_pool_get_array(diag_pool,  'rho',                    statein % rho)
-    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      statein % ux)
-    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', statein % uy)
-
-    ! Compute variables needed in the MPAS dynamical core.
-    
-    ! density-weighted perturbation potential temperature:
-    !call mpas_pool_get_array(diag_pool,  'rtheta_p',               rtheta_p)
-    !rtheta_p = statein % rho_zz * statein % theta_m - (statein % rho_base * statein % theta_base)
-    
-    ! Let dynamics export state point to memory managed by MPAS-Atmosphere
-    ! Exception: pmiddry and pintdry are not managed by the MPAS infrastructure
-    stateout % nCells         = statein % nCells
-    stateout % nEdges         = statein % nEdges
-    stateout % nVertices      = statein % nVertices
-    stateout % nVertLevels    = statein % nVertLevels
-    stateout % nCellsSolve    = statein % nCellsSolve
-    stateout % nEdgesSolve    = statein % nEdgesSolve
-    stateout % nVerticesSolve = statein % nVerticesSolve
-    stateout % index_qv       = statein % index_qv
-    stateout % index_qc       = statein % index_qc
-    stateout % index_qh       = statein % index_qh
-    stateout % index_qr       = statein % index_qr
-    stateout % index_qi       = statein % index_qi
-    stateout % index_qs       = statein % index_qs
-
-    ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
-    ! in timeLevel=1. Thus we want stateout to also point to timeLevel=1. Can just copy
-    ! the pointers from statein.
-    stateout % uperp   => statein % uperp
-    stateout % w       => statein % w
-    stateout % theta_m => statein % theta_m
-    stateout % rho_zz  => statein % rho_zz
-    stateout % tracers => statein % tracers
-
-    ! These components don't have a time level index.
-    stateout % zint  => statein % zint
-    stateout % zz    => statein % zz
-    stateout % fzm   => statein % fzm
-    stateout % fzp   => statein % fzp
-    
-    stateout % theta => statein % theta
-    stateout % exner => statein % exner
-    stateout % rho   => statein % rho
-    stateout % ux    => statein % ux
-    stateout % uy    => statein % uy
-
-    ! Hydrostatic pressure
-    allocate(stateout % pmiddry(stateout % nVertLevels,   stateout % nCells), stat=ierr)
-    if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pmiddry array')
-
-    allocate(stateout % pintdry(stateout % nVertLevels+1, stateout % nCells), stat=ierr)
-    if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pintdry array')
-
-    ! Pressure
-    allocate(stateout % pmid(stateout % nVertLevels,   stateout % nCells), stat=ierr)
-    if( ierr /= 0 ) call mpp_error(FATAL,subname//': failed to allocate stateout%pmiddry array')
-
-    call mpas_pool_get_array(diag_pool, 'vorticity',  stateout % vorticity)
-    call mpas_pool_get_array(diag_pool, 'divergence', stateout % divergence)
-
-  end subroutine ufs_mpas_dyn_set
-
-  !> #########################################################################################
-  !> Procedure to populate inputs to the CCPP physics using outputs the MPAS dynamical core.
-  !>
-  !> Use indicesGlobal to map from MPAS dycore deceomposition to CCPP Physics contiguous data
-  !> structures.
-  !>
-  !> #########################################################################################
-  subroutine ufs_mpas_to_physics(MPAS_state, physics_state)
-    use mpas_typedefs,        only : mpas_stateout_type
-    use GFS_typedefs,         only : GFS_statein_type
-    use mpas_derived_types,   only : mpas_pool_type
-    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
-    use atm_core,             only : atm_compute_output_diagnostics
-    use mpas_kind_types,      only : RKIND
-
-    type(mpas_stateout_type), intent(inout) :: mpas_state
-    type(GFS_statein_type),   intent(inout) :: physics_state
-    ! Locals
-    type(mpas_pool_type), pointer :: state_pool
-    type(mpas_pool_type), pointer :: diag_pool
-    type(mpas_pool_type), pointer :: mesh_pool
-    integer :: iCell, iCol, iTracer
-    integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv
-    real(RKIND), pointer :: surface_p(:)
-
-    ! Set MPAS pools
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
-
-    ! Get MPAS dimensions
-    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
-    call mpas_pool_get_dimension(state_pool, 'num_scalars', num_scalars)
-    call mpas_pool_get_dimension(state_pool, 'index_qv',    index_qv)
-    call mpas_pool_get_dimension(state_pool, 'moist_end',   nwat)
-    
-    ! Grab fields from MPAS pools
-    call mpas_pool_get_array(diag_pool,  'theta',                  MPAS_state % theta)
-    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      MPAS_state % ux)
-    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', MPAS_state % uy)
-    call mpas_pool_get_array(state_pool, 'scalars',                MPAS_state % tracers, timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'w',                      MPAS_state % w, timeLevel=1)
-    call mpas_pool_get_array(diag_pool,  'exner',                  MPAS_state % exner)
-    call mpas_pool_get_array(mesh_pool,  'zgrid',                  MPAS_state % zint)
-    call mpas_pool_get_array(mesh_pool,  'zz',                     MPAS_state % zz)
-    call mpas_pool_get_array(state_pool, 'theta_m',                MPAS_state % theta_m, timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'rho_zz',                 MPAS_state % rho_zz,  timeLevel=1)
-
-    ! Copy fields from MPAS data containers to physics data containers.
-    ! [k, i] -> [i, k]
-    ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % tgrs(iCol,:)   = MPAS_state % theta(nVertLevels:1:-1,iCell)
-       physics_state % ugrs(iCol,:)   = MPAS_state % ux(nVertLevels:1:-1,iCell)
-       physics_state % vgrs(iCol,:)   = MPAS_state % uy(nVertLevels:1:-1,iCell)
-       physics_state % phil(iCol,:)   = MPAS_state % zz(nVertLevels:1:-1,iCell)
-       physics_state % phii(iCol,:)   = MPAS_state % zint(nVertLevels+1:1:-1,iCell)
-       physics_state % prslk(iCol,:)  = MPAS_state % exner(nVertLevels:1:-1,iCell)
-       physics_state % vvl(iCol,:)    = MPAS_state % w(nVertLevels:1:-1,iCell)
-       do iTracer = 1,num_scalars
-          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCell)
-       enddo
-    enddo
-
-    ! Compute hydrostatic pressures
-    call hydrostatic_pressure(nCellsSolve, nVertLevels, nwat, index_qv, MPAS_state % zz,    &
-         MPAS_state % zint, MPAS_state % rho_zz, MPAS_state % theta_m, MPAS_state % exner,  &
-         MPAS_state % tracers, MPAS_state % pmiddry, MPAS_state % pintdry, MPAS_state % pmid)
-
-    ! Copy MPAS pressures into physics data containers.
-    ! [k, i] -> [i, k]
-    ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % pgr(iCol)    = MPAS_state % pintdry(1,iCell)
-       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCell)
-       physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCell)
-    enddo
-    print*,'SWALES physics_state % pgr(iCol) = ',physics_state % prsi(:,nVertLevels+1)
-   
-  end subroutine ufs_mpas_to_physics
-
-  !> #########################################################################################
-  !> Procedure to populate inputs to the MPAS dynamical core using outputs from the CCPP physics
-  !>
-  !> #########################################################################################
-  subroutine ufs_physics_to_mpas(physics_state, mpas_state)
-    use mpas_typedefs,  only : mpas_statein_type
-    use GFS_typedefs,   only : GFS_stateout_type
-    type(GFS_stateout_type), intent(in   ) :: physics_state
-    type(mpas_statein_type), intent(inout) :: mpas_state
-    
-    ! [i, k] -> [k, i]
-    ! top-down -> bottom-up ordering convention
-    
-    ! Thermodynamic conversions from moist (CCPP) to dry (MPAS)
-    
-  end subroutine ufs_physics_to_mpas
   
   !> #########################################################################################
   !> Procedure to open MPAS IC file.
@@ -820,6 +874,7 @@ contains
     use mpas_derived_types, only: mpas_pool_type
     use mpas_kind_types,    only: StrKIND, RKIND
     use mpas_pool_routines, only: mpas_pool_add_config
+    use mpas_log,           only : mpas_log_write
     use mpas_typedefs,      only: r8 => kind_dbl_prec
     use fms_mod,            only: check_nml_error
     use mpp_mod,            only: input_nml_file
@@ -928,7 +983,8 @@ contains
 
     ! Read in namelists...
     if (me == master) then
-       print*,'Reading MPAS-A dynamical core namelist'
+       !print*,'Reading MPAS-A dynamical core namelist'
+       call mpas_log_write('Reading MPAS-A dynamical core namelist')
        ! nhyd_model
        read(input_nml_file, nml=mpas_nhyd_model, iostat=io)
        ierr = check_nml_error(io, 'mpas_nhyd_model')
@@ -1141,632 +1197,1365 @@ contains
 
  end subroutine read_mpas_namelist
 
+ !> ######################################################################################## 
+ ! subroutine dyn_mpas_read_write_stream
+ !
+ !> summary: Read or write an MPAS stream.
+ !> author: Kuan-Chih Wang
+ !> date: 2024-03-15
+ !>
+ !> In the context of MPAS, the concept of a "pool" resembles a group of
+ !> (related) variables, while the concept of a "stream" resembles a file.
+ !> This subroutine reads or writes an MPAS stream. It provides the mechanism
+ !> for CAM-SIMA to input/output data to/from MPAS dynamical core.
+ !> Analogous to the `{read,write}_stream` subroutines in MPAS stream manager.
+ !
  !> ########################################################################################
- !>
- !> \brief  Reads time-invariant ("static") fields from an MPAS-A mesh file
- !> \author Michael Duda
- !> \date   6 January 2020
- !> \details
- !>  This routine takes as input an opened PIO file descriptor and a routine
- !>  to call if catastrophic errors are encountered. An MPAS stream is constructed
- !>  from this file descriptor, and most of the fields that exist in MPAS's
- !>  "mesh" pool are read from this stream.
- !>  Upon successful completion, valid mesh fields may be accessed from the mesh
- !>  pool.
- !>
- !> \update: Dustin Swales April 2025 - Modified for use in UWM
- !>
- !> ########################################################################################
- subroutine ufs_mpas_read_invariant()
-   ! MPAS
-   use mpas_kind_types,     only : StrKIND
-   use mpas_io_streams,     only : mpas_createStream, mpas_closeStream, mpas_streamAddField
-   use mpas_io_streams,     only : mpas_readStream
-   use mpas_derived_types,  only : mpas_IO_READ, mpas_IO_NETCDF, mpas_Stream_type, mpas_pool_type
-   use mpas_derived_types,  only : field0DReal, field1DReal, field2DReal, field3DReal
-   use mpas_derived_types,  only : field1DInteger, field2DInteger, mpas_STREAM_NOERR
-   use mpas_pool_routines,  only : mpas_pool_get_subpool, mpas_pool_get_field, mpas_pool_create_pool
-   use mpas_pool_routines,  only : mpas_pool_destroy_pool, mpas_pool_add_config
-   use mpas_dmpar,          only : mpas_dmpar_exch_halo_field
-   use mpas_stream_manager, only : postread_reindex
-   ! FMS
+ subroutine dyn_mpas_read_write_stream(stream_mode, stream_name)
+   ! Module(s) from external libraries.
+   use pio, only: file_desc_t
    use mpp_mod,             only : FATAL, mpp_error
-   ! Arguments
-   ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_invariant'
-   character(len=StrKIND) :: errString
-   integer :: ierr
-   integer :: ierr_total
-   type (mpas_pool_type), pointer :: meshPool
-   type (mpas_pool_type), pointer :: reindexPool
-   type (mpas_pool_type), pointer :: allPackages, reindexPkgs
-   type (field1DReal), pointer :: latCell, lonCell, xCell, yCell, zCell
-   type (field1DReal), pointer :: latEdge, lonEdge, xEdge, yEdge, zEdge
-   type (field1DReal), pointer :: latVertex, lonVertex, xVertex, yVertex, zVertex
-   type (field1DInteger), pointer :: indexToCellID, indexToEdgeID, indexToVertexID
-   type (field1DReal), pointer :: fEdge, fVertex
-   type (field1DReal), pointer :: areaCell, areaTriangle, dcEdge, dvEdge, angleEdge
-   type (field2DReal), pointer :: kiteAreasOnVertex, weightsOnEdge
-   type (field1DReal), pointer :: meshDensity
-   type (field1DInteger), pointer :: nEdgesOnCell, nEdgesOnEdge
-   type (field2DInteger), pointer :: cellsOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, verticesOnCell, &
-                                     verticesOnEdge, edgesOnVertex, cellsOnVertex
-   type (field0DReal), pointer :: cf1, cf2, cf3
-   type (field1DReal), pointer :: rdzw, dzu, rdzu, fzm, fzp
-   type (field2DReal), pointer :: zgrid, zxu, zz
-   type (field3DReal), pointer :: zb, zb3, deriv_two, cellTangentPlane, coeffs_reconstruct
+   ! Module(s) from MPAS.
+   use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
+   use mpas_io_streams,     only : mpas_closestream, mpas_readstream, mpas_writestream
+   use mpas_pool_routines,  only : mpas_pool_destroy_pool
+   use mpas_stream_manager, only : postread_reindex, prewrite_reindex, postwrite_reindex
+   use mpas_log,            only : mpas_log_write
+   use mpas_atm_halos,      only : exchange_halo_group
 
-   type (field2DReal), pointer :: edgeNormalVectors, localVerticalUnitVectors, defc_a, defc_b
-   type (field2DReal), pointer :: cell_gradient_coef_x, cell_gradient_coef_y
+   character(*), intent(in) :: stream_mode
+   character(*), intent(in) :: stream_name
 
-   type (mpas_Stream_type) :: mesh_stream
+   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_read_write_stream'
+   integer :: i, ierr
+   type(mpas_pool_type), pointer :: mpas_pool
+   type(mpas_stream_type), pointer :: mpas_stream
+   type(var_info_type), allocatable :: var_info_list(:)
 
-   nullify(cell_gradient_coef_x)
-   nullify(cell_gradient_coef_y)
+   call mpas_log_write('')
 
-   call mpas_createStream(mesh_stream, domain_ptr % ioContext, 'not_used', mpas_IO_NETCDF, mpas_IO_READ, &
-                           pio_file_desc=pioid, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) then
-      call mpp_error(FATAL,subname//': FATAL: Failed to create static input stream.')
+   nullify(mpas_pool)
+   nullify(mpas_stream)
+
+   call	mpas_log_write( 'Initializing stream "' // trim(adjustl(stream_name)) // '"')
+
+   call dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pioid, stream_mode, stream_name)
+
+   if (.not. associated(mpas_pool)) then
+      call mpp_error(FATAL,subname//'Failed to initialize stream "' // trim(adjustl(stream_name)) // '"')
    end if
 
-   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', meshPool)
-
-   call mpas_pool_get_field(meshPool, 'latCell', latCell)
-   call mpas_pool_get_field(meshPool, 'lonCell', lonCell)
-   call mpas_pool_get_field(meshPool, 'xCell', xCell)
-   call mpas_pool_get_field(meshPool, 'yCell', yCell)
-   call mpas_pool_get_field(meshPool, 'zCell', zCell)
-
-   call mpas_pool_get_field(meshPool, 'latEdge', latEdge)
-   call mpas_pool_get_field(meshPool, 'lonEdge', lonEdge)
-   call mpas_pool_get_field(meshPool, 'xEdge', xEdge)
-   call mpas_pool_get_field(meshPool, 'yEdge', yEdge)
-   call mpas_pool_get_field(meshPool, 'zEdge', zEdge)
-
-   call mpas_pool_get_field(meshPool, 'latVertex', latVertex)
-   call mpas_pool_get_field(meshPool, 'lonVertex', lonVertex)
-   call mpas_pool_get_field(meshPool, 'xVertex', xVertex)
-   call mpas_pool_get_field(meshPool, 'yVertex', yVertex)
-   call mpas_pool_get_field(meshPool, 'zVertex', zVertex)
-
-   call mpas_pool_get_field(meshPool, 'indexToCellID', indexToCellID)
-   call mpas_pool_get_field(meshPool, 'indexToEdgeID', indexToEdgeID)
-   call mpas_pool_get_field(meshPool, 'indexToVertexID', indexToVertexID)
-
-   call mpas_pool_get_field(meshPool, 'fEdge', fEdge)
-   call mpas_pool_get_field(meshPool, 'fVertex', fVertex)
-
-   call mpas_pool_get_field(meshPool, 'areaCell', areaCell)
-   call mpas_pool_get_field(meshPool, 'areaTriangle', areaTriangle)
-   call mpas_pool_get_field(meshPool, 'dcEdge', dcEdge)
-   call mpas_pool_get_field(meshPool, 'dvEdge', dvEdge)
-   call mpas_pool_get_field(meshPool, 'angleEdge', angleEdge)
-   call mpas_pool_get_field(meshPool, 'kiteAreasOnVertex', kiteAreasOnVertex)
-   call mpas_pool_get_field(meshPool, 'weightsOnEdge', weightsOnEdge)
-
-   call mpas_pool_get_field(meshPool, 'meshDensity', meshDensity)
-
-   call mpas_pool_get_field(meshPool, 'nEdgesOnCell', nEdgesOnCell)
-   call mpas_pool_get_field(meshPool, 'nEdgesOnEdge', nEdgesOnEdge)
-
-   call mpas_pool_get_field(meshPool, 'cellsOnEdge', cellsOnEdge)
-   call mpas_pool_get_field(meshPool, 'edgesOnCell', edgesOnCell)
-   call mpas_pool_get_field(meshPool, 'edgesOnEdge', edgesOnEdge)
-   call mpas_pool_get_field(meshPool, 'cellsOnCell', cellsOnCell)
-   call mpas_pool_get_field(meshPool, 'verticesOnCell', verticesOnCell)
-   call mpas_pool_get_field(meshPool, 'verticesOnEdge', verticesOnEdge)
-   call mpas_pool_get_field(meshPool, 'edgesOnVertex', edgesOnVertex)
-   call mpas_pool_get_field(meshPool, 'cellsOnVertex', cellsOnVertex)
-
-   call mpas_pool_get_field(meshPool, 'cf1', cf1)
-   call mpas_pool_get_field(meshPool, 'cf2', cf2)
-   call mpas_pool_get_field(meshPool, 'cf3', cf3)
-
-   call mpas_pool_get_field(meshPool, 'rdzw', rdzw)
-   call mpas_pool_get_field(meshPool, 'dzu', dzu)
-   call mpas_pool_get_field(meshPool, 'rdzu', rdzu)
-   call mpas_pool_get_field(meshPool, 'fzm', fzm)
-   call mpas_pool_get_field(meshPool, 'fzp', fzp)
-
-   call mpas_pool_get_field(meshPool, 'zgrid', zgrid)
-   call mpas_pool_get_field(meshPool, 'zxu', zxu)
-   call mpas_pool_get_field(meshPool, 'zz', zz)
-   call mpas_pool_get_field(meshPool, 'zb', zb)
-   call mpas_pool_get_field(meshPool, 'zb3', zb3)
-
-   call mpas_pool_get_field(meshPool, 'deriv_two', deriv_two)
-   call mpas_pool_get_field(meshPool, 'cellTangentPlane', cellTangentPlane)
-   call mpas_pool_get_field(meshPool, 'coeffs_reconstruct', coeffs_reconstruct)
-
-   call mpas_pool_get_field(meshPool, 'edgeNormalVectors', edgeNormalVectors)
-   call mpas_pool_get_field(meshPool, 'localVerticalUnitVectors', localVerticalUnitVectors)
-
-   call mpas_pool_get_field(meshPool, 'defc_a', defc_a)
-   call mpas_pool_get_field(meshPool, 'defc_b', defc_b)
-
-   ierr_total = 0
-
-   call mpas_streamAddField(mesh_stream, latCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, lonCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, xCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, yCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, latEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, lonEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, xEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, yEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, latVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, lonVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, xVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, yVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, indexToCellID, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, indexToEdgeID, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, indexToVertexID, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, fEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, fVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, areaCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, areaTriangle, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, dcEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, dvEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, angleEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, kiteAreasOnVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, weightsOnEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, meshDensity, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, nEdgesOnCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, nEdgesOnEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, cellsOnEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, edgesOnCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, edgesOnEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, cellsOnCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, verticesOnCell, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, verticesOnEdge, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, edgesOnVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, cellsOnVertex, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, cf1, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, cf2, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, cf3, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, rdzw, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, dzu, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, rdzu, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, fzm, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, fzp, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, zgrid, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zxu, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zz, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zb, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, zb3, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, deriv_two, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, cellTangentPlane, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, coeffs_reconstruct, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   call mpas_streamAddField(mesh_stream, edgeNormalVectors, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, localVerticalUnitVectors, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, defc_a, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-   call mpas_streamAddField(mesh_stream, defc_b, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) ierr_total = ierr_total + 1
-
-   if (ierr_total > 0) then
-      write(errString, '(a,i0,a)') subname//': FATAL: Failed to add ', ierr_total, ' fields to static input stream.'
-      call mpp_error(FATAL,trim(errString))
+   if (.not. associated(mpas_stream)) then
+      call mpp_error(FATAL,subname//'Failed to initialize stream "' // trim(adjustl(stream_name)) // '"')
    end if
 
-   call mpas_readStream(mesh_stream, 1, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) then
-      call mpp_error(FATAL,subname//': FATAL: Failed to read static input stream.')
+   select case (trim(adjustl(stream_mode)))
+   case ('r', 'read')
+      call mpas_log_write('Reading stream "' // trim(adjustl(stream_name)) // '"')
+
+      call mpas_readstream(mpas_stream, 1, ierr=ierr)
+
+      if (ierr /= mpas_stream_noerr) then
+         call mpp_error(FATAL,subname//'Failed to read stream "' // trim(adjustl(stream_name)) // '"')
+      end if
+
+      ! Exchange halo layers because new data have just been read.
+      var_info_list = parse_stream_name(stream_name)
+
+      do i = 1, size(var_info_list)
+         call dyn_mpas_exchange_halo(var_info_list(i) % name)
+         if ( ierr /= 0 ) then
+            call mpp_error(FATAL,subname//'Failed to exchange halo layers for group '//var_info_list(i) % name)
+         end if
+      end do
+
+      ! For any connectivity arrays in this stream, convert global indexes to local indexes.
+      call postread_reindex(domain_ptr % blocklist % allfields, domain_ptr % packages, &
+           mpas_pool, mpas_pool)
+   case ('w', 'write')
+      call mpas_log_write('Writing stream "' // trim(adjustl(stream_name)) // '"')
+
+      ! WARNING:
+      ! The `{pre,post}write_reindex` subroutines are STATEFUL because they store information inside their module
+      ! (i.e., module variables). They MUST be called in pairs, like below, to prevent undefined behaviors.
+
+      ! For any connectivity arrays in this stream, temporarily convert local indexes to global indexes.
+      call prewrite_reindex(domain_ptr % blocklist % allfields, domain_ptr % packages, &
+           mpas_pool, mpas_pool)
+
+      call mpas_writestream(mpas_stream, 1, ierr=ierr)
+
+      if (ierr /= mpas_stream_noerr) then
+         call mpp_error(FATAL,subname//'Failed to write stream "' // trim(adjustl(stream_name)) // '"')
+      end if
+
+      ! For any connectivity arrays in this stream, reset global indexes back to local indexes.
+      call postwrite_reindex(domain_ptr % blocklist % allfields, mpas_pool)
+   case default
+      call mpp_error(FATAL,subname//'Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"')
+   end select
+
+   call mpas_log_write('Closing stream "' // trim(adjustl(stream_name)) // '"')
+
+   call mpas_closestream(mpas_stream, ierr=ierr)
+
+   if (ierr /= mpas_stream_noerr) then
+      call mpp_error(FATAL,subname//'Failed to close stream "' // trim(adjustl(stream_name)) // '"')
    end if
 
-   call mpas_closeStream(mesh_stream, ierr=ierr)
-   if (ierr /= mpas_STREAM_NOERR) then
-      call mpp_error(FATAL,subname//': FATAL: Failed to close static input stream.')
-   end if
+   ! Deallocate temporary pointers to avoid memory leaks.
+   call mpas_pool_destroy_pool(mpas_pool)
+   nullify(mpas_pool)
+   
+   deallocate(mpas_stream)
+   nullify(mpas_stream)
 
-   !
-   ! Perform halo updates for all decomposed fields (i.e., fields with
-   ! an outermost dimension of nCells, nVertices, or nEdges)
-   !
-   call mpas_dmpar_exch_halo_field(latCell)
-   call mpas_dmpar_exch_halo_field(lonCell)
-   call mpas_dmpar_exch_halo_field(xCell)
-   call mpas_dmpar_exch_halo_field(yCell)
-   call mpas_dmpar_exch_halo_field(zCell)
-
-   call mpas_dmpar_exch_halo_field(latEdge)
-   call mpas_dmpar_exch_halo_field(lonEdge)
-   call mpas_dmpar_exch_halo_field(xEdge)
-   call mpas_dmpar_exch_halo_field(yEdge)
-   call mpas_dmpar_exch_halo_field(zEdge)
-
-   call mpas_dmpar_exch_halo_field(latVertex)
-   call mpas_dmpar_exch_halo_field(lonVertex)
-   call mpas_dmpar_exch_halo_field(xVertex)
-   call mpas_dmpar_exch_halo_field(yVertex)
-   call mpas_dmpar_exch_halo_field(zVertex)
-
-   call mpas_dmpar_exch_halo_field(indexToCellID)
-   call mpas_dmpar_exch_halo_field(indexToEdgeID)
-   call mpas_dmpar_exch_halo_field(indexToVertexID)
-
-   call mpas_dmpar_exch_halo_field(fEdge)
-   call mpas_dmpar_exch_halo_field(fVertex)
-
-   call mpas_dmpar_exch_halo_field(areaCell)
-   call mpas_dmpar_exch_halo_field(areaTriangle)
-   call mpas_dmpar_exch_halo_field(dcEdge)
-   call mpas_dmpar_exch_halo_field(dvEdge)
-   call mpas_dmpar_exch_halo_field(angleEdge)
-   call mpas_dmpar_exch_halo_field(kiteAreasOnVertex)
-   call mpas_dmpar_exch_halo_field(weightsOnEdge)
-
-   call mpas_dmpar_exch_halo_field(meshDensity)
-
-   call mpas_dmpar_exch_halo_field(nEdgesOnCell)
-   call mpas_dmpar_exch_halo_field(nEdgesOnEdge)
-
-   call mpas_dmpar_exch_halo_field(cellsOnEdge)
-   call mpas_dmpar_exch_halo_field(edgesOnCell)
-   call mpas_dmpar_exch_halo_field(edgesOnEdge)
-   call mpas_dmpar_exch_halo_field(cellsOnCell)
-   call mpas_dmpar_exch_halo_field(verticesOnCell)
-   call mpas_dmpar_exch_halo_field(verticesOnEdge)
-   call mpas_dmpar_exch_halo_field(edgesOnVertex)
-   call mpas_dmpar_exch_halo_field(cellsOnVertex)
-
-   call mpas_dmpar_exch_halo_field(zgrid)
-   call mpas_dmpar_exch_halo_field(zxu)
-   call mpas_dmpar_exch_halo_field(zz)
-   call mpas_dmpar_exch_halo_field(zb)
-   call mpas_dmpar_exch_halo_field(zb3)
-
-   call mpas_dmpar_exch_halo_field(deriv_two)
-   call mpas_dmpar_exch_halo_field(cellTangentPlane)
-   call mpas_dmpar_exch_halo_field(coeffs_reconstruct)
-
-   call mpas_dmpar_exch_halo_field(edgeNormalVectors)
-   call mpas_dmpar_exch_halo_field(localVerticalUnitVectors)
-   call mpas_dmpar_exch_halo_field(defc_a)
-   call mpas_dmpar_exch_halo_field(defc_b)
-   !
-   ! Re-index from global index space to local index space
-   !
-   call mpas_pool_create_pool(reindexPool)
-
-   call mpas_pool_add_config(reindexPool, 'cellsOnEdge', 1)
-   call mpas_pool_add_config(reindexPool, 'edgesOnCell', 1)
-   call mpas_pool_add_config(reindexPool, 'edgesOnEdge', 1)
-   call mpas_pool_add_config(reindexPool, 'cellsOnCell', 1)
-   call mpas_pool_add_config(reindexPool, 'verticesOnCell', 1)
-   call mpas_pool_add_config(reindexPool, 'verticesOnEdge', 1)
-   call mpas_pool_add_config(reindexPool, 'edgesOnVertex', 1)
-   call mpas_pool_add_config(reindexPool, 'cellsOnVertex', 1)
-
-   ! Use an empty package list for reindexPool
-   call mpas_pool_create_pool(reindexPkgs)
-
-   call postread_reindex(meshPool, domain_ptr % streamManager % allPackages, &
-                         reindexPool, reindexPkgs)
-
-   call mpas_pool_destroy_pool(reindexPool)
-   call mpas_pool_destroy_pool(reindexPkgs)
-
- end subroutine ufs_mpas_read_invariant
+   call mpas_log_write(subname // ' completed')
+ end subroutine dyn_mpas_read_write_stream
 
  !> ########################################################################################
- !> Procedure to read MPAS IC file and populate UWM data containers.
+ ! subroutine dyn_mpas_exchange_halo
+ !
+ !> summary: Update the halo layers of the named field.
+ !> author: Michael Duda
+ !> date: 16 January 2020
  !>
+ !> Given a field name that is defined in MPAS registry, this subroutine updates
+ !> the halo layers for that field.
+ !> Ported and refactored for CAM-SIMA. (KCW, 2024-03-18)
+ !> Ported and refactored for UWM (DJS: 2025)
+ !
  !> ########################################################################################
- subroutine ufs_mpas_read_init(statein)
-   ! UFSATM
-   use mpas_typedefs,      only : mpas_statein_type
-   ! MPAS
-   use mpas_kind_types,    only : RKIND
-   use mpas_constants,     only : rvord
-   use mpas_derived_types, only : field2DReal, field3DReal, mpas_pool_type
-   use mpas_vector_reconstruction, only : mpas_reconstruct
-   use mpas_pool_routines, only : mpas_pool_get_field, mpas_pool_get_subpool, mpas_pool_get_array
+ subroutine dyn_mpas_exchange_halo(field_name)
+   ! Module(s) from MPAS.
+   use mpas_derived_types, only : field1dinteger, field2dinteger, field3dinteger,           &
+                                  field1dreal, field2dreal, field3dreal, field4dreal,       &
+                                  field5dreal, mpas_pool_field_info_type, mpas_pool_integer,&
+                                  mpas_pool_real
    use mpas_dmpar,         only : mpas_dmpar_exch_halo_field
+   use mpas_pool_routines, only : mpas_pool_get_field, mpas_pool_get_field_info
+   use mpp_mod,            only : FATAL, mpp_error
+   use mpas_log,           only : mpas_log_write
+   character(*), intent(in) :: field_name
 
-   ! Arguments
-   type (mpas_statein_type), intent(inout), target :: statein
-   ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init'
-   integer :: index_qv, index_qc, index_qh, index_qr, index_qi, index_qs, ierr
-   ! Local MPAS pointers
-   real(RKIND), pointer :: uperp(:,:)     ! Normal velocity at edges [m/s]  (nlev,nedge)
-   real(RKIND), pointer :: w(:,:)         ! Vertical velocity [m/s]        (nlev+1,ncol)
-   real(RKIND), pointer :: theta_m(:,:)   ! Moist potential temperature [K]  (nlev,ncol)
-   real(RKIND), pointer :: rho_zz(:,:)    ! Dry density [kg/m^3]
-                                          ! divided by d(zeta)/dz            (nlev,ncol)
-   real(RKIND), pointer :: tracers(:,:,:) ! Tracers [kg/kg dry air]       (nq,nlev,ncol)
-   real(RKIND), pointer :: zint(:,:)      ! Geometric height [m]
-                                          ! at layer interfaces            (nlev+1,ncol)
-   real(RKIND), pointer :: zz(:,:)        ! Vertical coordinate metric [1]
-                                          ! at layer midpoints               (nlev,ncol)
-   real(RKIND), pointer :: theta(:,:)     ! Potential temperature [K]        (nlev,ncol)
-   real(RKIND), pointer :: rho(:,:)       ! Dry density [kg/m^3]             (nlev,ncol)
-   real(RKIND), pointer :: ux(:,:)        ! Zonal veloc at center [m/s]      (nlev,ncol)
-   real(RKIND), pointer :: uy(:,:)        ! Meridional veloc at center [m/s] (nlev,ncol)
-   real(RKIND), pointer :: theta_base(:,:)
-   real(RKIND), pointer :: rho_base(:,:)
-   type (field2DReal), pointer :: field_real2d
-   type (field3DReal), pointer :: field_real3d
-   real(RKIND), allocatable :: mpas3d(:,:,:)
-   integer :: ij
-   type(mpas_pool_type), pointer :: mesh_pool
-   type(mpas_pool_type), pointer :: diag_pool
-   real(RKIND), pointer :: uReconstructX(:,:)
-   real(RKIND), pointer :: uReconstructY(:,:)
-   real(RKIND), pointer :: uReconstructZ(:,:)
+   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_exchange_halo'
+   type(field1dinteger), pointer :: field_1d_integer
+   type(field2dinteger), pointer :: field_2d_integer
+   type(field3dinteger), pointer :: field_3d_integer
+   type(field1dreal), pointer :: field_1d_real
+   type(field2dreal), pointer :: field_2d_real
+   type(field3dreal), pointer :: field_3d_real
+   type(field4dreal), pointer :: field_4d_real
+   type(field5dreal), pointer :: field_5d_real
+   type(mpas_pool_field_info_type) :: mpas_pool_field_info
 
-   ! Local pointers
-   uperp      => statein % uperp
-   w          => statein % w
-   theta_m    => statein % theta_m
-   rho_zz     => statein % rho_zz
-   tracers    => statein % tracers
-   zz         => statein % zz
-   theta      => statein % theta
-   rho        => statein % rho
-   ux         => statein % ux
-   uy         => statein % uy
-   rho_base   => statein % rho_base
-   theta_base => statein % theta_base
+   call mpas_log_write(subname // ' entered')
 
-   ! Tracer indices
-   index_qv = statein % index_qv
-   index_qc = statein % index_qc
-   index_qh = statein % index_qh
-   index_qr = statein % index_qr
-   index_qi = statein % index_qi
-   index_qs = statein % index_qs
+   nullify(field_1d_integer)
+   nullify(field_2d_integer)
+   nullify(field_3d_integer)
+   nullify(field_1d_real)
+   nullify(field_2d_real)
+   nullify(field_3d_real)
+   nullify(field_4d_real)
+   nullify(field_5d_real)
 
-   ! Read fields
-   call ufs_mpas_read_init_field('u',          (/statein % nVertLevels,   statein % nEdgesSolve, 1/), uperp)
-   call ufs_mpas_read_init_field('w',          (/statein % nVertLevels+1, statein % nCellsSolve, 1/), w)
-   call ufs_mpas_read_init_field('theta',      (/statein % nVertLevels,   statein % nCellsSolve, 1/), theta)
-   call ufs_mpas_read_init_field('rho',        (/statein % nVertLevels,   statein % nCellsSolve, 1/), rho)
-   call ufs_mpas_read_init_field('theta_base', (/statein % nVertLevels,   statein % nCellsSolve, 1/), theta_base)
-   call ufs_mpas_read_init_field('rho_base',   (/statein % nVertLevels,   statein % nCellsSolve, 1/), rho_base)
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qv,:,:), tracer_name='qv')
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qc,:,:), tracer_name='qc')
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qh,:,:), tracer_name='qh')
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qr,:,:), tracer_name='qr')
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qi,:,:), tracer_name='qi')
-   call ufs_mpas_read_init_field('scalars',    (/statein % nVertLevels,   statein % nCellsSolve, 1/), tracers(index_qs,:,:), tracer_name='qs')   
+   call mpas_log_write('Inquiring field information for "' // trim(adjustl(field_name)) // '"')
 
-   ! Compute derived quantities.
-   theta_m(:,1:statein % nCellsSolve) = theta(:,1:statein % nCellsSolve) * (1.0_RKIND + rvord * tracers(index_qv,:,1:statein % nCellsSolve))
-   rho_zz(:,1:statein % nCellsSolve)  = rho(:,1:statein % nCellsSolve) / zz(:,1:statein % nCellsSolve)
+   call mpas_pool_get_field_info(domain_ptr % blocklist % allfields, &
+        trim(adjustl(field_name)), mpas_pool_field_info)
+
+   if (mpas_pool_field_info % fieldtype == -1 .or. &
+        mpas_pool_field_info % ndims == -1 .or. &
+        mpas_pool_field_info % nhalolayers == -1) then
+      call mpp_error(FATAL,subname//'Invalid field information for "' // trim(adjustl(field_name)) // '"')
+   end if
    
-   ! Update halos for initial state fields
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'u', field_real2d, timeLevel=1)
-   uperp(:,statein % nEdges + 1) = uperp(:,statein % nEdges)
-   call mpas_dmpar_exch_halo_field(field_real2d)
-
-   ! Reconstruct ux and uy from uperp.
-   ! This is only needed because during CAM's initialization the physics package
-   ! is called before the dycore advances a step.
-   nullify(mesh_pool)
-   nullify(diag_pool)
-   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh_pool)
-   call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag', diag_pool)
-
-   ! The uReconstruct{X,Y,Z} arguments to mpas_reconstruct are required, but these
-   ! field already exist in the diag pool
-   nullify(uReconstructX)
-   nullify(uReconstructY)
-   nullify(uReconstructZ)
-   call mpas_pool_get_array(diag_pool, 'uReconstructX', uReconstructX)
-   call mpas_pool_get_array(diag_pool, 'uReconstructY', uReconstructY)
-   call mpas_pool_get_array(diag_pool, 'uReconstructZ', uReconstructZ)
-
-      call mpas_reconstruct(mesh_pool, uperp, &
-         uReconstructX, uReconstructY, uReconstructZ, &
-         ux, uy)
-
+   ! No halo layers to exchange. This field is not decomposed.
+   if (mpas_pool_field_info % nhalolayers == 0) then
+      call mpas_log_write('Skipping field "' // trim(adjustl(field_name)) // '" due to not decomposed')
+      
+      return
+   end if
    
-
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'w', field_real2d, timeLevel=1)
-   w(:,statein % nCells + 1) = w(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
-
-   nullify(field_real3d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'scalars', field_real3d, timeLevel=1)
-   tracers(:,:,statein % nCells + 1) =	tracers(:,:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real3d)
-
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta_m', field_real2d, timeLevel=1)
-   theta_m(:,statein % nCells + 1) =	theta_m(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
-
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho_zz', field_real2d, timeLevel=1)
-   rho_zz(:,statein % nCells + 1) =	rho_zz(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
+   call mpas_log_write('Exchanging halo layers for "' // trim(adjustl(field_name)) // '"')
    
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho', field_real2d)
-   rho(:,statein % nCells + 1) =  rho(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
+   select case (mpas_pool_field_info % fieldtype)
+   case (mpas_pool_integer)
+      select case (mpas_pool_field_info % ndims)
+      case (1)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_1d_integer, timelevel=1)
+         
+         if (.not. associated(field_1d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+         
+         call mpas_dmpar_exch_halo_field(field_1d_integer)
+         
+         nullify(field_1d_integer)
+      case (2)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_2d_integer, timelevel=1)
+                        
+         if (.not. associated(field_2d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
 
-   theta(:,statein % nCells + 1) = theta(:,statein % nCells)
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta', field_real2d)
-   call mpas_dmpar_exch_halo_field(field_real2d)
+         call mpas_dmpar_exch_halo_field(field_2d_integer)
+         
+         nullify(field_2d_integer)
+      case (3)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_3d_integer, timelevel=1)
 
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'theta_base', field_real2d)
-   theta_base(:,statein % nCells + 1) = theta_base(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
+         if (.not. associated(field_3d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
 
-   nullify(field_real2d)
-   call mpas_pool_get_field(domain_ptr % blocklist % allFields, 'rho_base', field_real2d)
-   rho_base(:,statein % nCells + 1) =  rho_base(:,statein % nCells)
-   call mpas_dmpar_exch_halo_field(field_real2d)
+         call mpas_dmpar_exch_halo_field(field_3d_integer)
 
- end subroutine ufs_mpas_read_init
+         nullify(field_3d_integer)
+      case default
+         call mpp_error(FATAL,subname//'Unsupported field rank ' // stringify([mpas_pool_field_info % ndims]))
+      end select
+   case (mpas_pool_real)
+      select case (mpas_pool_field_info % ndims)
+      case (1)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_1d_real, timelevel=1)
 
- !> ########################################################################################
- !> Procedure to read MPAS initial-condition data from opened PIO file.
+         if (.not. associated(field_1d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+
+         call mpas_dmpar_exch_halo_field(field_1d_real)
+
+         nullify(field_1d_real)
+      case (2)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_2d_real, timelevel=1)
+
+         if (.not. associated(field_2d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+
+         call mpas_dmpar_exch_halo_field(field_2d_real)
+
+         nullify(field_2d_real)
+      case (3)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_3d_real, timelevel=1)
+
+         if (.not. associated(field_3d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+
+         call mpas_dmpar_exch_halo_field(field_3d_real)
+
+         nullify(field_3d_real)
+      case (4)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_4d_real, timelevel=1)
+
+         if (.not. associated(field_4d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+
+         call mpas_dmpar_exch_halo_field(field_4d_real)
+
+         nullify(field_4d_real)
+      case (5)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(field_name)), field_5d_real, timelevel=1)
+
+         if (.not. associated(field_5d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
+         end if
+
+         call mpas_dmpar_exch_halo_field(field_5d_real)
+
+         nullify(field_5d_real)
+      case default
+         call mpp_error(FATAL,subname//'Unsupported field rank ' // stringify([mpas_pool_field_info % ndims]))
+      end select
+   case default
+      call mpp_error(FATAL,subname//'Unsupported field type (Must be one of: integer, real)')
+   end select
+
+   call mpas_log_write(subname // ' completed')
+ end subroutine dyn_mpas_exchange_halo
+
+ !> ######################################################################################## 
+ ! subroutine dyn_mpas_init_stream_with_pool
+ !
+ !> summary: Initialize an MPAS stream with an accompanying MPAS pool.
+ !> author: Kuan-Chih Wang
+ !> date: 2024-03-14
  !>
- !> ########################################################################################
- subroutine ufs_mpas_read_init_field(varname, dims, varOUT, tracer_name)
-   ! PIO
-   use pio,                  only : var_desc_t, PIO_NOERR, PIO_inq_varid, pio_get_var
-   use pio,                  only : PIO_inq_varndims, PIO_inq_vardimid, PIO_inq_dimlen
-   use pio,                  only : io_desc_t, pio_initdecomp, pio_real, pio_read_darray
-   ! FMS
-   use mpp_mod,              only : FATAL, mpp_error
-   ! MPAS
-   use mpas_kind_types,      only : StrKIND, RKIND
-   use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
-   use mpas_derived_types,   only : mpas_pool_field_info_type, field3DReal
-   ! Arguments
-   character(len=*), intent(in   ) :: varname
-   integer,          intent(in   ) :: dims(3)
-   real(RKIND),      intent(inout) :: varOUT(:,:)
-   character(len=*), intent(in   ), optional :: tracer_name
-   ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_read_init_field'
-   integer :: ierr, i1, i2, i3, indx, pd
-   type(var_desc_t) :: varid
-   type(io_desc_t) :: iodesc
-   real(RKIND), allocatable :: field(:,:)
-   integer :: i, ndims
-   integer, dimension(:), allocatable :: dimlist, dimids
-   integer, dimension(:), pointer :: indices
-   integer, dimension(:), pointer :: dof
-   character(len=64) :: varname_local
- 
-   ! Tracers are stored in 3D MPAS variable "scalars". Here we read in the tracers as
-   ! 2D fields from the MPAS IC file to populate the 3D array.
-   if (trim(varname) == 'scalars') then
-      if (present(tracer_name)) then
-         varname_local = tracer_name
-      else
-         varname_local = 'qv'
-      endif
-   else
-      varname_local = varname
-   endif
+ !> In the context of MPAS, the concept of a "pool" resembles a group of
+ !> (related) variables, while the concept of a "stream" resembles a file.
+ !> This subroutine initializes an MPAS stream with an accompanying MPAS pool by
+ !> adding variable and attribute information to them. After that, MPAS is ready
+ !> to perform IO on them.
+ !> Analogous to the `build_stream` and `mpas_stream_mgr_add_field`
+ !> subroutines in MPAS stream manager.
+ !>
+ !> Ported and refactored for UWM (DJS: 2025)
+ !
+ !> ######################################################################################## 
+ subroutine dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pio_file, stream_mode,  &
+                                           stream_name)
+   ! Module(s) from external libraries.
+   use pio, only: file_desc_t, pio_file_is_open
+   ! Module(s) from MPAS.
+   use mpas_derived_types, only : field0dchar, field1dchar, field0dinteger, field1dinteger,&
+                                  field2dinteger, field3dinteger, field0dreal, field1dreal,&
+                                  field2dreal, field3dreal, field4dreal, field5dreal,      &
+                                  mpas_io_native_precision, mpas_io_pnetcdf, mpas_io_read, &
+                                  mpas_io_write, mpas_pool_type, mpas_stream_noerr,        &
+                                  mpas_stream_type
+   use mpas_io_streams,    only : mpas_createstream, mpas_streamaddfield
+   use mpas_pool_routines, only : mpas_pool_add_config, mpas_pool_create_pool, mpas_pool_get_field
+   use mpas_kind_types,    only : StrKIND, RKIND
+   use mpp_mod,            only : FATAL, mpp_error
+   use mpas_log,           only : mpas_log_write
 
-   ! Check that variable exists in file.
-   ierr = PIO_inq_varid(pioid, trim(varname_local), varid)
-   if (ierr /= PIO_NOERR) then
-      call mpp_error(FATAL,subname//": variable "//trim(varname_local)//" is not on file")
-   else
-      ! Get dimensions
-      ndims = 0
-      ierr = PIO_inq_varndims(pioid, varid, ndims)
-      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_varndims")
-      allocate(dimids(ndims))
-      ierr = PIO_inq_vardimid(pioid, varid, dimids(1:ndims))
-      allocate(dimlist(ndims))
-      do i = 1, ndims
-         ierr = PIO_inq_dimlen(pioid, dimids(i), dimlist(i))
-         if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_inq_dimlen")
-      end do
+   type(mpas_pool_type), pointer, intent(out) :: mpas_pool
+   type(mpas_stream_type), pointer, intent(out) :: mpas_stream
+   type(file_desc_t), pointer, intent(in) :: pio_file
+   character(*), intent(in) :: stream_mode
+   character(*), intent(in) :: stream_name
 
-      ! Get MPAS domain decomposition.
-      call get_mpas_pio_decomp(varname, indices)
+   interface add_stream_attribute
+      procedure :: add_stream_attribute_0d
+      procedure :: add_stream_attribute_1d
+   end interface add_stream_attribute
 
-      ! Initialize domain decomp.
-      allocate(dof(dimlist(1)*size(indices)))
-      indx=1
-      do i2=1,size(indices)
-         do i1=1,dimlist(1)
-            dof(indx) = i1 + int(indices(i2)-1)*int(dimlist(1))
-            indx = indx + 1
-         end do
-      end do
-      call pio_initdecomp(pio_subsystem, pio_real, dims, dof, iodesc)
-      deallocate(dof)
-
-      ! Read in distributed array data.
-      allocate(field(dims(1), dims(2)))
-      call pio_read_darray(pioid, varid, iodesc, field, ierr)
-      if (ierr /= 0) call mpp_error(FATAL,subname//": Error with PIO_read_darray for "//trim(varname_local))
-      varOUT(:,1:dims(2)) = field(:,:dims(2))
-      deallocate(field)
-
-   endif
+   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_init_stream_with_pool'
+   character(strkind) :: stream_filename
+   integer :: i, ierr, stream_format
+   !> Whether a variable is present on the file (i.e., `pio_file`).
+   logical, allocatable :: var_is_present(:)
+   !> Whether a variable is type, kind, and rank compatible with what MPAS expects on the file (i.e., `pio_file`).
+   logical, allocatable :: var_is_tkr_compatible(:)
+   type(field0dchar), pointer :: field_0d_char
+   type(field1dchar), pointer :: field_1d_char
+   type(field0dinteger), pointer :: field_0d_integer
+   type(field1dinteger), pointer :: field_1d_integer
+   type(field2dinteger), pointer :: field_2d_integer
+   type(field3dinteger), pointer :: field_3d_integer
+   type(field0dreal), pointer :: field_0d_real
+   type(field1dreal), pointer :: field_1d_real
+   type(field2dreal), pointer :: field_2d_real
+   type(field3dreal), pointer :: field_3d_real
+   type(field4dreal), pointer :: field_4d_real
+   type(field5dreal), pointer :: field_5d_real
+   type(var_info_type), allocatable :: var_info_list(:)
    
- end subroutine ufs_mpas_read_init_field
+   call mpas_log_write(subname // ' entered')
+   
+   nullify(field_0d_char)
+   nullify(field_1d_char)
+   nullify(field_0d_integer)
+   nullify(field_1d_integer)
+   nullify(field_2d_integer)
+   nullify(field_3d_integer)
+   nullify(field_0d_real)
+   nullify(field_1d_real)
+   nullify(field_2d_real)
+   nullify(field_3d_real)
+   nullify(field_4d_real)
+   nullify(field_5d_real)
+
+   call mpas_pool_create_pool(mpas_pool)
+
+   allocate(mpas_stream, stat=ierr)
+
+   if (ierr /= 0) then
+      call mpp_error(FATAL,subname//'Failed to allocate stream "' // trim(adjustl(stream_name)) // '"')
+   end if
+
+   ! Not actually used because a PIO file descriptor is directly supplied.
+   stream_filename = 'external stream'
+   stream_format = mpas_io_pnetcdf
+
+   call mpas_log_write('Checking PIO file descriptor')
+
+   if (.not. associated(pio_file)) then
+      call mpp_error(FATAL,subname//'Invalid PIO file descriptor')
+   end if
+
+   if (.not. pio_file_is_open(pio_file)) then
+      call mpp_error(FATAL,subname//'Invalid PIO file descriptor')
+   end if
+
+   select case (trim(adjustl(stream_mode)))
+   case ('r', 'read')
+      call mpas_log_write('Creating stream "' // trim(adjustl(stream_name)) // '" for reading')
+
+      call mpas_createstream( &
+           mpas_stream, domain_ptr % iocontext, stream_filename, stream_format, mpas_io_read,  &
+           clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
+           precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
+   case ('w', 'write')
+      call mpas_log_write('Creating stream "' // trim(adjustl(stream_name)) // '" for writing')
+
+      call mpas_createstream( &
+           mpas_stream, domain_ptr % iocontext, stream_filename, stream_format, mpas_io_write, &
+           clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
+           precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
+   case default
+      call mpp_error(FATAL,subname//'Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"')
+   end select
+
+   if (ierr /= mpas_stream_noerr) then
+      call mpp_error(FATAL,subname//'Failed to create stream "' // trim(adjustl(stream_name)) // '"')
+   end if
+
+   var_info_list = parse_stream_name(stream_name)
+
+   ! Add variables contained in `var_info_list` to stream.
+   do i = 1, size(var_info_list)
+      call mpas_log_write('var_info_list(' // stringify([i]) // ') % name = ' // stringify([var_info_list(i) % name]))
+      call mpas_log_write('var_info_list(' // stringify([i]) // ') % type = ' // stringify([var_info_list(i) % type]))
+      call mpas_log_write('var_info_list(' // stringify([i]) // ') % rank = ' // stringify([var_info_list(i) % rank]))
+
+      if (trim(adjustl(stream_mode)) == 'r' .or. trim(adjustl(stream_mode)) == 'read') then
+         call dyn_mpas_check_variable_status(var_is_present, var_is_tkr_compatible, pio_file, var_info_list(i))
+
+         ! Do not hard crash the model if a variable is missing and cannot be read.
+         ! This can happen if users attempt to initialize/restart the model with data generated by
+         ! older versions of MPAS. Print a debug message to let users decide if this is acceptable.
+         if (.not. any(var_is_present)) then
+            call mpas_log_write('Skipping variable "' // trim(adjustl(var_info_list(i) % name)) // '" due to not present')
+
+            cycle
+         end if
+
+         if (any(var_is_present .and. .not. var_is_tkr_compatible)) then
+            call mpas_log_write('Skipping variable "' // trim(adjustl(var_info_list(i) % name)) // '" due to not TKR compatible')
+
+            !cycle
+         end if
+      end if
+
+      ! Add "<variable name>" to pool with the value of `1`.
+      ! The existence of "<variable name>" in pool causes it to be considered for IO in MPAS.
+      call mpas_pool_add_config(mpas_pool, trim(adjustl(var_info_list(i) % name)), 1)
+      ! Add "<variable name>:packages" to pool with the value of an empty character string.
+      ! This causes "<variable name>" to be always considered active for IO in MPAS.
+      !call mpas_pool_add_config(mpas_pool, trim(adjustl(var_info_list(i) % name) // ':packages'), '')
+
+      ! Add "<variable name>" to stream.
+      call mpas_log_write('Adding variable "' // trim(adjustl(var_info_list(i) % name)) // &
+           '" to stream "' // trim(adjustl(stream_name)) // '"')
+
+      select case (trim(adjustl(var_info_list(i) % type)))
+      case ('character')
+         select case (var_info_list(i) % rank)
+         case (0)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_0d_char, timelevel=1)
+
+            if (.not. associated(field_0d_char)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_0d_char, ierr=ierr)
+
+            nullify(field_0d_char)
+         case (1)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_1d_char, timelevel=1)
+
+            if (.not. associated(field_1d_char)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_1d_char, ierr=ierr)
+
+            nullify(field_1d_char)
+         case default
+            call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
+                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"')
+         end select
+      case ('integer')
+         select case (var_info_list(i) % rank)
+         case (0)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=1)
+
+            if (.not. associated(field_0d_integer)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_0d_integer, ierr=ierr)
+
+            nullify(field_0d_integer)
+         case (1)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=1)
+
+            if (.not. associated(field_1d_integer)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_1d_integer, ierr=ierr)
+
+            nullify(field_1d_integer)
+         case (2)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=1)
+            
+            if (.not. associated(field_2d_integer)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_2d_integer, ierr=ierr)
+
+            nullify(field_2d_integer)
+         case (3)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=1)
+
+            if (.not. associated(field_3d_integer)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_3d_integer, ierr=ierr)
+
+            nullify(field_3d_integer)
+         case default
+            call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
+                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"')
+         end select
+      case ('real')
+         select case (var_info_list(i) % rank)
+         case (0)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_0d_real, timelevel=1)
+
+            if (.not. associated(field_0d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_0d_real, ierr=ierr)
+            
+            nullify(field_0d_real)
+         case (1)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_1d_real, timelevel=1)
+
+            if (.not. associated(field_1d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_1d_real, ierr=ierr)
+
+            nullify(field_1d_real)
+         case (2)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=1)
+
+            if (.not. associated(field_2d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+            
+            call mpas_streamaddfield(mpas_stream, field_2d_real, ierr=ierr)
+
+            nullify(field_2d_real)
+         case (3)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_3d_real, timelevel=1)
+
+            if (.not. associated(field_3d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_3d_real, ierr=ierr)
+
+            nullify(field_3d_real)
+         case (4)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_4d_real, timelevel=1)
+
+            if (.not. associated(field_4d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_4d_real, ierr=ierr)
+
+            nullify(field_4d_real)
+         case (5)
+            call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+                 trim(adjustl(var_info_list(i) % name)), field_5d_real, timelevel=1)
+
+            if (.not. associated(field_5d_real)) then
+               call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
+            end if
+
+            call mpas_streamaddfield(mpas_stream, field_5d_real, ierr=ierr)
+            
+            nullify(field_5d_real)
+         case default
+            call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
+                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"')
+         end select
+      case default
+         call mpp_error(FATAL,subname//'Unsupported variable type "' // trim(adjustl(var_info_list(i) % type)) // &
+              '" for "' // trim(adjustl(var_info_list(i) % name)) // '"')
+      end select
+
+      if (ierr /= mpas_stream_noerr) then
+         call mpp_error(FATAL,subname//'Failed to add variable "' // trim(adjustl(var_info_list(i) % name)) // &
+              '" to stream "' // trim(adjustl(stream_name)) // '"')
+      end if
+   end do
+
+   if (trim(adjustl(stream_mode)) == 'w' .or. trim(adjustl(stream_mode)) == 'write') then
+      ! Add MPAS-specific attributes to stream.
+
+      ! Attributes related to MPAS core (i.e., `core_type`).
+      call add_stream_attribute('conventions', domain_ptr % core % conventions)
+      call add_stream_attribute('core_name', domain_ptr % core % corename)
+      call add_stream_attribute('git_version', domain_ptr % core % git_version)
+      call add_stream_attribute('model_name', domain_ptr % core % modelname)
+      call add_stream_attribute('source', domain_ptr % core % source)
+
+      ! Attributes related to MPAS domain (i.e., `domain_type`).
+      call add_stream_attribute('is_periodic', domain_ptr % is_periodic)
+      call add_stream_attribute('mesh_spec', domain_ptr % mesh_spec)
+      call add_stream_attribute('on_a_sphere', domain_ptr % on_a_sphere)
+      call add_stream_attribute('parent_id',  domain_ptr % parent_id)
+      call add_stream_attribute('sphere_radius', domain_ptr % sphere_radius)
+      call add_stream_attribute('x_period',  domain_ptr % x_period)
+      call add_stream_attribute('y_period',  domain_ptr % y_period)
+   end if
+
+   call mpas_log_write(subname // ' completed')
+ contains
+   !> Helper subroutine for adding a 0-d stream attribute by calling `mpas_writestreamatt` with error checking.
+   !> (KCW, 2024-03-14)
+   subroutine add_stream_attribute_0d(attribute_name, attribute_value)
+     ! Module(s) from MPAS.
+     use mpas_io_streams, only : mpas_writestreamatt
+     use mpas_log,        only : mpas_log_write
+     character(*), intent(in) :: attribute_name
+     class(*), intent(in) :: attribute_value
+
+     call mpas_log_write('Adding attribute "' // trim(adjustl(attribute_name)) // &
+          '" to stream "' // trim(adjustl(stream_name)) // '"')
+
+     select type (attribute_value)
+     type is (character(*))
+        call mpas_writestreamatt(mpas_stream, &
+             trim(adjustl(attribute_name)), trim(adjustl(attribute_value)), syncval=.false., ierr=ierr)
+     type is (integer)
+        call mpas_writestreamatt(mpas_stream, &
+             trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+     type is (logical)
+        if (attribute_value) then
+           ! Logical `.true.` becomes character string "YES".
+           call mpas_writestreamatt(mpas_stream, &
+                trim(adjustl(attribute_name)), 'YES', syncval=.false., ierr=ierr)
+        else
+           ! Logical `.false.` becomes character string "NO".
+           call mpas_writestreamatt(mpas_stream, &
+                trim(adjustl(attribute_name)), 'NO', syncval=.false., ierr=ierr)
+        end if
+     type is (real(rkind))
+        call mpas_writestreamatt(mpas_stream, &
+             trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+     class default
+        call mpp_error(FATAL,subname//'Unsupported attribute type (Must be one of: character, integer, logical, real)')
+     end select
+
+     if (ierr /= mpas_stream_noerr) then
+        call mpp_error(FATAL,subname//'Failed to add attribute "' // trim(adjustl(attribute_name)) // &
+             '" to stream "' // trim(adjustl(stream_name)) // '"')
+     end if
+   end subroutine add_stream_attribute_0d
+
+   !> Helper subroutine for adding a 1-d stream attribute by calling `mpas_writestreamatt` with error checking.
+   !> (KCW, 2024-03-14)
+   subroutine add_stream_attribute_1d(attribute_name, attribute_value)
+     ! Module(s) from MPAS.
+     use mpas_io_streams, only : mpas_writestreamatt
+     use mpas_log,        only : mpas_log_write
+     character(*), intent(in) :: attribute_name
+     class(*), intent(in) :: attribute_value(:)
+
+     call mpas_log_write('Adding attribute "' // trim(adjustl(attribute_name)) // &
+          '" to stream "' // trim(adjustl(stream_name)) // '"')
+     
+     select type (attribute_value)
+     type is (integer)
+        call mpas_writestreamatt(mpas_stream, &
+             trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+     type is (real(rkind))
+        call mpas_writestreamatt(mpas_stream, &
+             trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+     class default
+        call mpp_error(FATAL,subname//'Unsupported attribute type (Must be one of: integer, real)')
+     end select
+
+     if (ierr /= mpas_stream_noerr) then
+        call mpp_error(FATAL,subname//'Failed to add attribute "' // trim(adjustl(attribute_name)) // &
+             '" to stream "' // trim(adjustl(stream_name)) // '"')
+     end if
+   end subroutine add_stream_attribute_1d
+ end subroutine dyn_mpas_init_stream_with_pool
  
+ !> Parse a stream name, which consists of one or more stream name fragments, and return the corresponding variable information
+ !> as a list of `var_info_type`. Multiple stream name fragments should be separated by "+" (i.e., a plus, meaning "addition"
+ !> operation) or "-" (i.e., a minus, meaning "subtraction" operation).
+ !> A stream name fragment can be a predefined stream name (e.g., "invariant", "input", etc.) or a single variable name.
+ !> For example, a stream name of "invariant+input+restart" means the union of variables in the "invariant", "input", and
+ !> "restart" streams.
+ !> Duplicate variable information in the resulting list is discarded.
+ !> (KCW, 2024-06-01)
+ pure function parse_stream_name(stream_name) result(var_info_list)
+   character(*), intent(in) :: stream_name
+   type(var_info_type), allocatable :: var_info_list(:)
+        
+   character(*), parameter :: supported_stream_name_operator = '+-'
+   character(1) :: stream_name_operator
+   character(:), allocatable :: stream_name_fragment
+   character(len(invariant_var_info_list % name)), allocatable :: var_name_list(:)
+   integer :: i, j, n, offset
+   type(var_info_type), allocatable :: var_info_list_buffer(:)
+
+   n = len_trim(stream_name)
+
+   if (n == 0) then
+      ! Empty character string means empty list.
+      var_info_list = parse_stream_name_fragment('')
+
+      return
+   end if
+
+   i = scan(stream_name, supported_stream_name_operator)
+
+   if (i == 0) then
+      ! No operators are present in the stream name. It is just a single stream name fragment.
+      stream_name_fragment = stream_name
+      var_info_list = parse_stream_name_fragment(stream_name_fragment)
+
+      return
+   end if
+
+   offset = 0
+   var_info_list = parse_stream_name_fragment('')
+
+   do while (.true.)
+      ! Extract operator from the stream name.
+      if (offset > 0) then
+         stream_name_operator = stream_name(offset:offset)
+      else
+         stream_name_operator = '+'
+      end if
+
+      ! Extract stream name fragment from the stream name.
+      if (i > 1) then
+         stream_name_fragment = stream_name(offset + 1:offset + i - 1)
+      else
+         stream_name_fragment = ''
+      end if
+
+      ! Process the stream name fragment according to the operator.
+      if (len_trim(stream_name_fragment) > 0) then
+         var_info_list_buffer = parse_stream_name_fragment(stream_name_fragment)
+         
+         select case (stream_name_operator)
+         case ('+')
+            var_info_list = [var_info_list, var_info_list_buffer]
+         case ('-')
+            do j = 1, size(var_info_list_buffer)
+               var_name_list = var_info_list % name
+               var_info_list = pack(var_info_list, var_name_list /= var_info_list_buffer(j) % name)
+            end do
+         case default
+            ! Do nothing for unknown operators. Should not happen at all.
+         end select
+      end if
+
+      offset = offset + i
+
+      ! Terminate loop when everything in the stream name has been processed.
+      if (offset + 1 > n) then
+         exit
+      end if
+
+      i = scan(stream_name(offset + 1:), supported_stream_name_operator)
+      
+      ! Run the loop one last time for the remaining stream name fragment.
+      if (i == 0) then
+         i = n - offset + 1
+      end if
+   end do
+
+   ! Discard duplicate variable information by names.
+   var_name_list = var_info_list % name
+   var_info_list = var_info_list(index_unique(var_name_list))
+ end function parse_stream_name
+
+ !> Parse a stream name fragment and return the corresponding variable information as a list of `var_info_type`.
+ !> A stream name fragment can be a predefined stream name (e.g., "invariant", "input", etc.) or a single variable name.
+ !> (KCW, 2024-06-01)
+ pure function parse_stream_name_fragment(stream_name_fragment) result(var_info_list)
+   character(*), intent(in) :: stream_name_fragment
+   type(var_info_type), allocatable :: var_info_list(:)
+
+   character(len(invariant_var_info_list % name)), allocatable :: var_name_list(:)
+   type(var_info_type), allocatable :: var_info_list_buffer(:)
+
+   select case (trim(adjustl(stream_name_fragment)))
+   case ('')
+      allocate(var_info_list(0))
+   case ('invariant')
+      allocate(var_info_list, source=invariant_var_info_list)
+   case ('input')
+      allocate(var_info_list, source=input_var_info_list)
+   case ('restart')
+      allocate(var_info_list, source=restart_var_info_list)
+   case ('output')
+      allocate(var_info_list, source=output_var_info_list)
+   case default
+      allocate(var_info_list(0))
+      
+      var_name_list = invariant_var_info_list % name
+      
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(invariant_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+      
+      var_name_list = input_var_info_list % name
+      
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(input_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+      
+      var_name_list = restart_var_info_list % name
+      
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(restart_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+      
+      var_name_list = output_var_info_list % name
+      
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(output_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+   end select
+ end function parse_stream_name_fragment
+
+ !> Return the index of unique elements in `array`, which can be any intrinsic data types, as an integer array.
+ !> If `array` contains zero element or is of unsupported data types, an empty integer array is produced.
+ !> For example, `index_unique([1, 2, 3, 1, 2, 3, 4, 5])` returns `[1, 2, 3, 7, 8]`.
+ !> (KCW, 2024-03-22)
+ pure function index_unique(array)
+   use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
+
+   class(*), intent(in) :: array(:)
+   integer, allocatable :: index_unique(:)
+
+   character(:), allocatable :: array_c(:)
+   integer :: i, n
+   logical :: mask_unique(size(array))
+
+   n = size(array)
+   
+   if (n == 0) then
+      allocate(index_unique(0))
+
+      return
+   end if
+
+   mask_unique = .false.
+
+   select type (array)
+   type is (character(*))
+      ! Workaround for a bug in GNU Fortran >= 12. This is perhaps the manifestation of GCC Bugzilla Bug 100819.
+      ! When a character string array is passed as the actual argument to an unlimited polymorphic dummy argument,
+      ! its array index and length parameter are mishandled.
+      allocate(character(len(array)) :: array_c(size(array)))
+         
+      array_c(:) = array(:)
+         
+      do i = 1, n
+         if (.not. any(array_c(i) == array_c .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+         
+      deallocate(array_c)
+   type is (integer(int32))
+      do i = 1, n
+         if (.not. any(array(i) == array .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+   type is (integer(int64))
+      do i = 1, n
+         if (.not. any(array(i) == array .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+   type is (logical)
+      do i = 1, n
+         if (.not. any((array(i) .eqv. array) .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+   type is (real(real32))
+      do i = 1, n
+         if (.not. any(array(i) == array .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+   type is (real(real64))
+      do i = 1, n
+         if (.not. any(array(i) == array .and. mask_unique)) then
+            mask_unique(i) = .true.
+         end if
+      end do
+   class default
+      allocate(index_unique(0))
+
+      return
+   end select
+      
+   index_unique = pack([(i, i = 1, n)], mask_unique)
+ end function index_unique
+
+ !> ######################################################################################## 
+ ! subroutine dyn_mpas_check_variable_status
+ !
+ !> summary: Check and return variable status on the given file.
+ !> author: Kuan-Chih Wang
+ !> date: 2024-06-04
+ !>
+ !> On the given file (i.e., `pio_file`), this subroutine checks whether the
+ !> given variable (i.e., `var_info`) is present, and whether it is "TKR"
+ !> compatible with what MPAS expects. "TKR" means type, kind, and rank.
+ !> This subroutine can handle both ordinary variables and variable arrays.
+ !> They are indicated by the `var` and `var_array` elements, respectively,
+ !> in MPAS registry. For an ordinary variable, the checks are performed on
+ !> itself. Otherwise, for a variable array, the checks are performed on its
+ !> constituent parts instead.
+ !
+ !> ######################################################################################## 
+ subroutine dyn_mpas_check_variable_status(var_is_present, var_is_tkr_compatible, pio_file,&
+                                           var_info)
+   ! Module(s) from external libraries.
+   use pio, only: file_desc_t, pio_file_is_open, pio_char, pio_int, pio_real, pio_double,  &
+                  pio_inq_varid, pio_inq_varndims, pio_inq_vartype, pio_noerr
+   ! Module(s) from MPAS.
+   use mpas_derived_types, only : field0dchar, field1dchar, field0dinteger, field1dinteger,&
+                                  field2dinteger, field3dinteger, field0dreal, field1dreal,&
+                                  field2dreal, field3dreal, field4dreal, field5dreal
+   use mpas_kind_types,    only : r4kind, r8kind
+   use mpas_pool_routines, only : mpas_pool_get_field
+   use mpas_log,           only : mpas_log_write
+   use mpas_kind_types,    only : StrKIND, RKIND
+   use mpp_mod,            only : FATAL, mpp_error
+   
+   logical, allocatable, intent(out) :: var_is_present(:)
+   logical, allocatable, intent(out) :: var_is_tkr_compatible(:)
+   type(file_desc_t), pointer, intent(in) :: pio_file
+   type(var_info_type), intent(in) :: var_info
+
+   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_check_variable_status'
+   character(strkind), allocatable :: var_name_list(:)
+   integer :: i, ierr, varid, varndims, vartype
+   type(field0dchar), pointer :: field_0d_char
+   type(field1dchar), pointer :: field_1d_char
+   type(field0dinteger), pointer :: field_0d_integer
+   type(field1dinteger), pointer :: field_1d_integer
+   type(field2dinteger), pointer :: field_2d_integer
+   type(field3dinteger), pointer :: field_3d_integer
+   type(field0dreal), pointer :: field_0d_real
+   type(field1dreal), pointer :: field_1d_real
+   type(field2dreal), pointer :: field_2d_real
+   type(field3dreal), pointer :: field_3d_real
+   type(field4dreal), pointer :: field_4d_real
+   type(field5dreal), pointer :: field_5d_real
+
+   call mpas_log_write(subname // ' entered')
+
+   nullify(field_0d_char)
+   nullify(field_1d_char)
+   nullify(field_0d_integer)
+   nullify(field_1d_integer)
+   nullify(field_2d_integer)
+   nullify(field_3d_integer)
+   nullify(field_0d_real)
+   nullify(field_1d_real)
+   nullify(field_2d_real)
+   nullify(field_3d_real)
+   nullify(field_4d_real)
+   nullify(field_5d_real)
+
+   ! Extract a list of variable names to check on the file.
+   ! For an ordinary variable, this list just contains its name.
+   ! For a variable array, this list contains the names of its constituent parts.
+   select case (trim(adjustl(var_info % type)))
+   case ('character')
+      select case (var_info % rank)
+      case (0)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_0d_char, timelevel=1)
+
+         if (.not. associated(field_0d_char)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)))
+         end if
+
+         if (field_0d_char % isvararray .and. associated(field_0d_char % constituentnames)) then
+            allocate(var_name_list(size(field_0d_char % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+            
+            var_name_list(:) = field_0d_char % constituentnames(:)
+         end if
+
+         nullify(field_0d_char)
+      case (1)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_1d_char, timelevel=1)
+
+         if (.not. associated(field_1d_char)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)))
+         end if
+
+         if (field_1d_char % isvararray .and. associated(field_1d_char % constituentnames)) then
+            allocate(var_name_list(size(field_1d_char % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_1d_char % constituentnames(:)
+         end if
+
+         nullify(field_1d_char)
+      case default
+         call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info % rank]) // &
+              ' for "' // trim(adjustl(var_info % name)) // '"')
+      end select
+   case ('integer')
+      select case (var_info % rank)
+      case (0)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_0d_integer, timelevel=1)
+
+         if (.not. associated(field_0d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_0d_integer % isvararray .and. associated(field_0d_integer % constituentnames)) then
+            allocate(var_name_list(size(field_0d_integer % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_0d_integer % constituentnames(:)
+         end if
+
+         nullify(field_0d_integer)
+      case (1)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_1d_integer, timelevel=1)
+
+         if (.not. associated(field_1d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_1d_integer % isvararray .and. associated(field_1d_integer % constituentnames)) then
+            allocate(var_name_list(size(field_1d_integer % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_1d_integer % constituentnames(:)
+         end if
+
+         nullify(field_1d_integer)
+      case (2)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_2d_integer, timelevel=1)
+
+         if (.not. associated(field_2d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_2d_integer % isvararray .and. associated(field_2d_integer % constituentnames)) then
+            allocate(var_name_list(size(field_2d_integer % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_2d_integer % constituentnames(:)
+         end if
+
+         nullify(field_2d_integer)
+      case (3)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_3d_integer, timelevel=1)
+
+         if (.not. associated(field_3d_integer)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_3d_integer % isvararray .and. associated(field_3d_integer % constituentnames)) then
+            allocate(var_name_list(size(field_3d_integer % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_3d_integer % constituentnames(:)
+         end if
+
+         nullify(field_3d_integer)
+      case default
+         call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info % rank]) // &
+              ' for "' // trim(adjustl(var_info % name)) // '"')
+      end select
+   case ('real')
+      select case (var_info % rank)
+      case (0)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_0d_real, timelevel=1)
+
+         if (.not. associated(field_0d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_0d_real % isvararray .and. associated(field_0d_real % constituentnames)) then
+            allocate(var_name_list(size(field_0d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_0d_real % constituentnames(:)
+         end if
+
+         nullify(field_0d_real)
+      case (1)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_1d_real, timelevel=1)
+
+         if (.not. associated(field_1d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_1d_real % isvararray .and. associated(field_1d_real % constituentnames)) then
+            allocate(var_name_list(size(field_1d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_1d_real % constituentnames(:)
+         end if
+
+         nullify(field_1d_real)
+      case (2)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_2d_real, timelevel=1)
+
+         if (.not. associated(field_2d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_2d_real % isvararray .and. associated(field_2d_real % constituentnames)) then
+            allocate(var_name_list(size(field_2d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_2d_real % constituentnames(:)
+         end if
+
+         nullify(field_2d_real)
+      case (3)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_3d_real, timelevel=1)
+
+         if (.not. associated(field_3d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_3d_real % isvararray .and. associated(field_3d_real % constituentnames)) then
+            allocate(var_name_list(size(field_3d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_3d_real % constituentnames(:)
+         end if
+
+         nullify(field_3d_real)
+      case (4)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_4d_real, timelevel=1)
+
+         if (.not. associated(field_4d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_4d_real % isvararray .and. associated(field_4d_real % constituentnames)) then
+            allocate(var_name_list(size(field_4d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_4d_real % constituentnames(:)
+         end if
+
+         nullify(field_4d_real)
+      case (5)
+         call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
+              trim(adjustl(var_info % name)), field_5d_real, timelevel=1)
+
+         if (.not. associated(field_5d_real)) then
+            call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info % name)) // '"')
+         end if
+
+         if (field_5d_real % isvararray .and. associated(field_5d_real % constituentnames)) then
+            allocate(var_name_list(size(field_5d_real % constituentnames)), stat=ierr)
+
+            if (ierr /= 0) then
+               call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+            end if
+
+            var_name_list(:) = field_5d_real % constituentnames(:)
+         end if
+
+         nullify(field_5d_real)
+      case default
+         call mpp_error(FATAL,subname//'Unsupported variable rank ' // stringify([var_info % rank]) // &
+              ' for "' // trim(adjustl(var_info % name)) // '"')
+      end select
+   case default
+      call mpp_error(FATAL,subname//'Unsupported variable type "' // trim(adjustl(var_info % type)) // &
+           '" for "' // trim(adjustl(var_info % name)) // '"')
+   end select
+
+   if (.not. allocated(var_name_list)) then
+      allocate(var_name_list(1), stat=ierr)
+
+      if (ierr /= 0) then
+         call mpp_error(FATAL,subname//'Failed to allocate var_name_list')
+      end if
+
+      var_name_list(1) = var_info % name
+   end if
+
+   allocate(var_is_present(size(var_name_list)), stat=ierr)
+
+   if (ierr /= 0) then
+      call mpp_error(FATAL,subname//'Failed to allocate var_is_present')
+   end if
+
+   var_is_present(:) = .false.
+
+   allocate(var_is_tkr_compatible(size(var_name_list)), stat=ierr)
+
+   if (ierr /= 0) then
+      call mpp_error(FATAL,subname//'Failed to allocate var_is_tkr_compatible')
+   end if
+
+   var_is_tkr_compatible(:) = .false.
+
+   if (.not. associated(pio_file)) then
+      return
+   end if
+
+   if (.not. pio_file_is_open(pio_file)) then
+      return
+   end if
+
+   call mpas_log_write('Checking variable "' // trim(adjustl(var_info % name)) // &
+        '" for presence and TKR compatibility')
+
+   do i = 1, size(var_name_list)
+      ! Check if the variable is present on the file.
+      ierr = pio_inq_varid(pio_file, trim(adjustl(var_name_list(i))), varid)
+
+      if (ierr /= pio_noerr) then
+         cycle
+      end if
+
+      var_is_present(i) = .true.
+
+      ! Check if the variable is "TK"R compatible between MPAS and the file.
+      ierr = pio_inq_vartype(pio_file, varid, vartype)
+
+      if (ierr /= pio_noerr) then
+         cycle
+      end if
+
+      select case (trim(adjustl(var_info % type)))
+      case ('character')
+         if (vartype /= pio_char) then
+            cycle
+         end if
+      case ('integer')
+         if (vartype /= pio_int) then
+            cycle
+         end if
+      case ('real')
+         ! When MPAS dynamical core is compiled at single precision, pairing it with double precision input data
+         ! is not allowed to prevent loss of precision.
+         if (rkind == r4kind .and. vartype /= pio_real) then
+            cycle
+         end if
+
+         ! When MPAS dynamical core is compiled at double precision, pairing it with single and double precision
+         ! input data is allowed.
+         if (rkind == r8kind .and. vartype /= pio_real .and. vartype /= pio_double) then
+            cycle
+         end if
+      case default
+         cycle
+      end select
+
+      ! Check if the variable is TK"R" compatible between MPAS and the file.
+      ierr = pio_inq_varndims(pio_file, varid, varndims)
+
+      if (ierr /= pio_noerr) then
+         cycle
+      end if
+
+      if (varndims /= var_info % rank) then
+         cycle
+      end if
+
+      var_is_tkr_compatible(i) = .true.
+   end do
+
+   call mpas_log_write('var_name_list = ' // stringify(var_name_list))
+   call mpas_log_write('var_is_present = ' // stringify(var_is_present))
+   call mpas_log_write('var_is_tkr_compatible = ' // stringify(var_is_tkr_compatible))
+
+   call mpas_log_write(subname // ' completed')
+ end subroutine dyn_mpas_check_variable_status
+    
  !> ########################################################################################
  !>
  !> \brief  Computes local unit north, east, and edge-normal vectors
@@ -2251,219 +3040,5 @@ contains
    write(int2str,'(i0)') n
      
  end function int2str
-
- !> #########################################################################################
- !> Procedure to retreieve MPAS domain decomposition <indices>, for <varname>.
- !>
- !> ######################################################################################### 
- subroutine get_mpas_pio_decomp(varname, indices)
-   use mpas_kind_types,      only : StrKIND, RKIND
-   use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
-   use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array
-   use mpas_pool_routines,   only : mpas_pool_get_dimension
-   use mpas_derived_types,   only : mpas_pool_field_info_type, field2DReal, field3DReal
-   use mpas_derived_types,   only : mpas_pool_type
-   ! Arguments
-   character(len=*), intent(in)  :: varname
-   integer, dimension(:), pointer, intent(inout) :: indices
-   ! Locals
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::get_mpas_pio_decomp'
-   integer, dimension(:), pointer :: indexArray
-   integer, pointer :: indexDimension
-   type (field2DReal), pointer :: field2d
-   type (field3DReal), pointer :: field3d
-   type (mpas_pool_field_info_type) :: fieldInfo
-   character (len=StrKIND) :: elementName, elementNamePlural
-   logical :: meshFieldDim, cellFieldDIm
-   integer :: i
-   
-   !
-   call mpas_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
-   if (trim(varname) == 'scalars') then
-      nullify(field3d)
-      if (fieldInfo % nTimeLevels > 1) then
-         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
-                                  timeLevel=fieldInfo % nTimeLevels )
-      else
-         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
-      endif
-      if ( field3d % isDecomposed ) then
-         meshFieldDim = .false.
-         cellFieldDIm = .false.
-         if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nCells') then
-            elementName = 'Cell'
-            elementNamePlural = 'Cells'
-            meshFieldDim = .true.
-            cellFieldDIm = .true.
-         else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-            elementName = 'Edge'
-            elementNamePlural = 'Edges'
-            meshFieldDim = .true.
-         else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-            elementName = 'Vertex'
-            elementNamePlural = 'Vertices'
-            meshFieldDim = .true.
-         end if
-      endif
-      nullify(field3d)
-   else
-      nullify(field2d)
-      if (fieldInfo % nTimeLevels > 1) then
-         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
-                                  timeLevel=fieldInfo % nTimeLevels )
-      else
-         call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
-      endif
-      !
-      if ( field2d % isDecomposed ) then
-         meshFieldDim = .false.
-         cellFieldDIm =	.false.
-         if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nCells') then
-            elementName = 'Cell'
-            elementNamePlural = 'Cells'
-            meshFieldDim = .true.
-            cellFieldDIm = .true.
-         else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-            elementName = 'Edge'
-            elementNamePlural = 'Edges'
-            meshFieldDim = .true.
-         else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-            elementName = 'Vertex'
-            elementNamePlural = 'Vertices'
-            meshFieldDim = .true.
-         end if
-      endif
-      nullify(field2d)
-   endif
-   !
-   if ( meshFieldDim ) then
-      allocate(indices(0))
-      call mpas_pool_get_array(domain_ptr % blocklist % allFields, 'indexTo' // &
-                               trim(elementName) // 'ID', indexArray)
-      call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' //  &
-                                   trim(elementNamePlural) // 'Solve', indexDimension)
-      call mergeArrays(indices, indexArray(1:indexDimension))
-   endif
-   ! Save indices for P2D coupling in run phase(s).
-   if ( cellFieldDIm ) then
-      allocate(indicesGlobal(indexDimension))
-      indicesGlobal = indices
-   endif
-   
- end subroutine get_mpas_pio_decomp
  
- subroutine mergeArrays(array1, array2)
-   implicit none
-   integer, dimension(:), pointer :: array1
-   integer, dimension(:), intent(in) :: array2
-   integer :: n1, n2
-   integer, dimension(:), pointer :: newArray
-
-   n1 = size(array1)
-   n2 = size(array2)
-
-   allocate(newArray(n1+n2))
-
-   newArray(1:n1) = array1(:)
-   newArray(n1+1:n1+n2) = array2(:)
-
-   deallocate(array1)
-   array1 => newArray
-
- end subroutine mergeArrays
- 
- subroutine hydrostatic_pressure(nCells, nVertLevels, qsize, index_qv, zz, zgrid, rho_zz, theta_m, &
-      exner, q, pmiddry, pintdry,pmid)
-   ! Compute dry hydrostatic pressure at layer interfaces and midpoints
-   !
-   ! Given arrays of zz, zgrid, rho_zz, and theta_m from the MPAS-A prognostic
-   ! state, compute dry hydrostatic pressure at layer interfaces and midpoints.
-   ! The vertical dimension for 3-d arrays is innermost, and k=1 represents
-   ! the lowest layer or level in the fields.
-   !
-   use mpas_constants,  only: cp, rgas, cv, gravity, p0, Rv_over_Rd => rvord
-   use mpas_kind_types, only: RKIND
-   ! Arguments
-   integer, intent(in) :: nCells
-   integer, intent(in) :: nVertLevels
-   integer, intent(in) :: qsize
-   integer, intent(in) :: index_qv
-   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: zz      ! d(zeta)/dz [-]
-   real(RKIND), dimension(nVertLevels+1, nCells),     intent(in) :: zgrid   ! geometric heights of layer interfaces [m]
-   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: rho_zz  ! dry density / zz [kg m^-3]
-   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: theta_m ! modified potential temperature
-   real(RKIND), dimension(nVertLevels, nCells),       intent(in) :: exner   ! Exner function
-   real(RKIND), dimension(qsize,nVertLevels, nCells), intent(in) :: q       ! water vapor dry mixing ratio
-   real(RKIND), dimension(nVertLevels, nCells),       intent(out):: pmiddry ! layer midpoint dry hydrostatic pressure [Pa]
-   real(RKIND), dimension(nVertLevels+1, nCells),     intent(out):: pintdry ! layer interface dry hydrostatic pressure [Pa]
-   real(RKIND), dimension(nVertLevels, nCells),       intent(out):: pmid    ! layer midpoint hydrostatic pressure [Pa]
-
-   ! Local variables
-   integer :: iCell, k, idx
-   real(RKIND), dimension(nVertLevels)          :: dz       ! Geometric layer thickness in column
-   real(RKIND), dimension(nVertLevels)          :: dp,dpdry ! Pressure thickness
-   real(RKIND), dimension(nVertLevels+1,nCells) :: pint  ! hydrostatic pressure at interface
-   real(RKIND) :: sum_water
-   real(RKIND) :: pk,rhok,rhodryk,thetavk,kap1,kap2,tvk,tk
-   real(RKIND), parameter :: epsilon = 0.05_RKIND
-   real(RKIND) :: dp_epsilon, dpdry_epsilon
-   !
-   ! For each column, integrate downward from model top to compute dry hydrostatic pressure at layer
-   ! midpoints and interfaces. The pressure averaged to layer midpoints should be consistent with
-   ! the ideal gas law using the rho_zz and theta values prognosed by MPAS at layer midpoints.
-   !
-   do iCell = 1, nCells
-      dz(:) = zgrid(2:nVertLevels+1,iCell) - zgrid(1:nVertLevels,iCell)
-      do k = nVertLevels, 1, -1
-        rhodryk  = zz(k,iCell)* rho_zz(k,iCell) !full CAM physics density
-        rhok = 1.0_RKIND
-        do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
-          rhok = rhok+q(idx,k,iCell)
-        end do
-        rhok     = rhok*rhodryk
-        dp(k)    = gravity*dz(k)*rhok
-        dpdry(k) = gravity*dz(k)*rhodryk
-      end do
-
-      k = nVertLevels
-      sum_water = 1.0_RKIND
-      do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
-        sum_water = sum_water+q(idx,k,iCell)
-      end do
-      rhok     = sum_water*zz(k,iCell) * rho_zz(k,iCell)
-      thetavk  = theta_m(k,iCell)/sum_water
-      tvk      = thetavk*exner(k,iCell)
-      pk       = dp(k)*rgas*tvk/(gravity*dz(k))
-      !
-      ! model top pressure consistently diagnosed using the assumption that the mid level
-      ! is at height z(nVertLevels-1)+0.5*dz
-      !
-      pintdry(nVertLevels+1,iCell) = pk-0.5_RKIND*dz(nVertLevels)*rhok*gravity  !hydrostatic
-      pint   (nVertLevels+1,iCell) = pintdry(nVertLevels+1,iCell)
-      do k = nVertLevels, 1, -1
-        !
-        ! compute hydrostatic dry interface pressure so that (pintdry(k+1)-pintdry(k))/g is pseudo density
-        !
-        sum_water = 1.0_RKIND
-        do idx=2,qsize!dry_air_species_num+1,thermodynamic_active_species_num
-          sum_water = sum_water+q(idx,k,iCell)
-        end do
-        thetavk = theta_m(k,iCell)/sum_water!convert modified theta to virtual theta
-        tvk     = thetavk*exner(k,iCell)
-        tk      = tvk*sum_water/(1.0_RKIND+Rv_over_Rd*q(index_qv,k,iCell))
-        pint   (k,iCell) = pint   (k+1,iCell)+dp(k)
-        pintdry(k,iCell) = pintdry(k+1,iCell)+dpdry(k)
-        pmid(k,iCell)    = dp(k)   *rgas*tvk/(gravity*dz(k))
-        pmiddry(k,iCell) = dpdry(k)*rgas*tk /(gravity*dz(k))
-        !
-        ! PMID is not necessarily bounded by the hydrostatic interface pressure.
-        ! (has been found to be an issue at ~3.75km resolution in surface layer)
-        !
-        dp_epsilon = dp(k) * epsilon
-        dpdry_epsilon = dpdry(k)*epsilon
-        pmid   (k, iCell) = max(min(pmid   (k, iCell), pint   (k, iCell) - dp_epsilon), pint   (k + 1, iCell) + dp_epsilon)
-        pmiddry(k, iCell) = max(min(pmiddry(k, iCell), pintdry(k, iCell) - dpdry_epsilon), pintdry(k + 1, iCell) + dpdry_epsilon)
-     end do
-   end do
-end subroutine hydrostatic_pressure 
 end module ufs_mpas_subdriver

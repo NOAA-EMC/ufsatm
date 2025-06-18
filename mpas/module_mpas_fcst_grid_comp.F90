@@ -6,7 +6,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !> ESMF forecast gridded component for MPAS ATMosphere.
 !>
 ! ###########################################################################################
-module module_fcst_grid_comp
+module module_mpas_fcst_grid_comp
   use mpi_f08
   use esmf
   use nuopc
@@ -15,7 +15,7 @@ module module_fcst_grid_comp
                                 operator (>), operator (/=), operator (/), operator (==),   &
                                 operator (*), THIRTY_DAY_MONTHS, JULIAN, GREGORIAN, NOLEAP, &
                                 NO_CALENDAR, date_to_string, get_date, get_time
-  use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_data_type
+  use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
                                 atmos_model_microphysics
   use constants_mod,      only: constants_init
@@ -33,8 +33,8 @@ module module_fcst_grid_comp
   private
 
   !---- model defined-types ----
-  type(atmos_data_type), save :: Atmos
-  integer                     :: n_atmsteps
+  type(atmos_control_type), save :: Atmos
+  integer                        :: n_atmsteps
 
   !----- coupled model data -----
   integer :: calendar_type = -99
@@ -335,4 +335,4 @@ contains
     if (mype == 0) write(*,*)'PASS(fcst_finalize): total is ', mpi_wtime() - tbeg1
     
   end subroutine fcst_finalize
-end module  module_fcst_grid_comp
+end module  module_mpas_fcst_grid_comp

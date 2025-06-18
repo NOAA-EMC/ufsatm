@@ -25,8 +25,7 @@ VARIABLE_DEFINITION_FILES = [
     '../ccpp/data/CCPP_typedefs.F90',
     '../ccpp/data/GFS_typedefs.F90',
     '../ccpp/data/MPAS_typedefs.F90',
-    '../ccpp/data/CCPP_data.F90',
-    '../ccpp/data/MPAS_data.F90'
+    '../ccpp/data/CCPP_data.F90'
     ]
 
 TYPEDEFS_NEW_METADATA = {
@@ -66,14 +65,8 @@ TYPEDEFS_NEW_METADATA = {
     'CCPP_data' : {
         'CCPP_data' : '',
         },
-    'MPAS_data' : {
-        'MPAS_data' : '',
-        },
     'MPAS_typedefs' : {
         'MPAS_typedefs'         : '',
-        'MAPS_control_type'     : 'MPAS_Control',
-        'MAPS_statein_type'     : 'MPAS_Statein',
-        'MPAS_stateout_type'    : 'MPAS_Stateout',
         },
     'GFS_typedefs' : {
         'GFS_control_type'      : 'GFS_Control',
