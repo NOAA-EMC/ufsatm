@@ -1011,7 +1011,7 @@ subroutine update_atmos_model_state (Atmos, rc)
           time_intfull = time_intfull - Atmos%iau_offset*3600.
         endif
       endif
-      if (mpp_pe() == mpp_root_pe()) write(6,*) 'gfs diags time since last bucket empty: ',time_int,'hrs',' time_intfull=', &
+      if (mpp_pe() == mpp_root_pe()) write(6,*) 'gfs diags time since last bucket empty: ',time_int,' time_intfull=', &
          time_intfull,' kdt=',GFS_control%kdt
       call atmosphere_nggps_diag(Atmos%Time)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
