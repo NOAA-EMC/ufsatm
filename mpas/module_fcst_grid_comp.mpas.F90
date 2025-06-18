@@ -6,7 +6,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !> ESMF forecast gridded component for MPAS ATMosphere.
 !>
 ! ###########################################################################################
-module module_mpas_fcst_grid_comp
+module module_fcst_grid_comp
   use mpi_f08
   use esmf
   use nuopc
@@ -335,4 +335,4 @@ contains
     if (mype == 0) write(*,*)'PASS(fcst_finalize): total is ', mpi_wtime() - tbeg1
     
   end subroutine fcst_finalize
-end module  module_mpas_fcst_grid_comp
+end module  module_fcst_grid_comp

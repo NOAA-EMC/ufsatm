@@ -29,8 +29,9 @@ set(DYCORE_TARGET_MPAS ufsatm_mpas)
 set(DYCORE_TARGET_FV3  ufsatm_fv3)
 
 ###############################################################################
-### All dynamical cores
+### Dynamical Cores
 ###############################################################################
+
 # CCPP
 set(MPI ON)
 add_subdirectory(ccpp)
@@ -59,6 +60,30 @@ if(BUILD_CI_TESTING)
   add_subdirectory(tests)
 endif()
 
+# Not used yet by MPAS in UFSATM, but needed by ufsatm_cap.F90 to work.
+list(APPEND coupling_srcs
+  cpl/module_block_data.F90
+  cpl/module_cplfields.F90
+  cpl/module_cap_cpl.F90
+  cpl/module_cplscalars.F90)
+
+list(APPEND io_srcs
+  io/module_write_netcdf.F90
+  io/module_write_restart_netcdf.F90
+  io/module_fv3_io_def.F90
+  io/module_write_internal_state.F90
+  io/module_wrt_grid_comp.F90)
+
+# Eventually these could be shared by MPAS, and merged with {io_srcs} list.
+list(APPEND fv3_io_srcs
+  io/fv3atm_common_io.F90
+  io/fv3atm_clm_lake_io.F90
+  io/fv3atm_rrfs_sd_io.F90
+  io/fv3atm_sfc_io.F90
+  io/fv3atm_oro_io.F90
+  io/fv3atm_history_io.F90
+  io/fv3atm_restart_io.F90)
+
 ###############################################################################
 ### UFSATM with FV3 dynamical core
 ###############################################################################
@@ -66,6 +91,7 @@ if (FV3)
   set(DYCORE_TARGET ${DYCORE_TARGET_FV3}
     CACHE INTERNAL "DYCORE_TARGET Options: fv3atm")
   set(DYCORE_TARGET_CAP_MOD ufsatm_cap_mod PARENT_SCOPE)
+
 
   # These ifdefs need to be turned ON in the dycore.
   set(use_WRTCOMP ON)
@@ -75,6 +101,8 @@ if (FV3)
   if(MOVING_NEST)
     set(MOVING_NEST ON)
   endif()
+
+  # Macro used by NUOPC Cap for FV3 dycore.
   add_definitions(-DATMFV3)
 
   if(HYDRO)
@@ -86,7 +114,7 @@ if (FV3)
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
     add_subdirectory(upp)
-    set(POST_SRC fv3/io/post_nems_routines.F90 fv3/io/post_fv3.F90)
+    set(POST_SRC io/post_nems_routines.F90 io/post_fv3.F90)
     list(APPEND _ufsatm_defs_private INLINE_POST)
   endif()
 
@@ -138,22 +166,9 @@ if (FV3)
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
     fv3/stochastic_physics/stochastic_physics_wrapper.F90
-    cpl/module_block_data.F90
-    cpl/module_cplfields.F90
-    cpl/module_cap_cpl.F90
-    cpl/module_cplscalars.F90
-    fv3/io/fv3atm_common_io.F90
-    fv3/io/fv3atm_clm_lake_io.F90
-    fv3/io/fv3atm_rrfs_sd_io.F90
-    fv3/io/fv3atm_sfc_io.F90
-    fv3/io/fv3atm_oro_io.F90
-    fv3/io/fv3atm_history_io.F90
-    fv3/io/fv3atm_restart_io.F90
-    fv3/io/module_write_netcdf.F90
-    fv3/io/module_write_restart_netcdf.F90
-    fv3/io/module_fv3_io_def.F90
-    fv3/io/module_write_internal_state.F90
-    fv3/io/module_wrt_grid_comp.F90
+    ${coupling_srcs}
+    ${fv3_io_srcs}
+    ${io_srcs}
     ${moving_nest_srcs}
     ${POST_SRC}
     )
@@ -169,7 +184,10 @@ endif()
 ###############################################################################
 if (MPAS)
   set(DYCORE_TARGET ${DYCORE_TARGET_MPAS})
+
+  # Macro used by NUOPC Cap for MPAS dycore.
   add_definitions(-DATMMPAS)
+
   # Include MPAS Cmake tools.
   include(${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/cmake/Functions/MPAS_Functions.cmake)
 
@@ -195,28 +213,6 @@ if (MPAS)
   # MPAS dynamical core
   add_subdirectory(mpas)
 
-  # Not used yet, but needed by ufsatm_cap.F90.
-  list(APPEND coupling_srcs
-    cpl/module_block_data.F90
-    cpl/module_cplfields.F90
-    cpl/module_cap_cpl.F90
-    cpl/module_cplscalars.F90)
-
-  # Not used yet, but needed by ufsatm_cap.F90.
-  list(APPEND io_srcs
-    #fv3/io/fv3atm_common_io.F90
-    #fv3/io/fv3atm_clm_lake_io.F90
-    #fv3/io/fv3atm_rrfs_sd_io.F90
-    #fv3/io/fv3atm_sfc_io.F90
-    #fv3/io/fv3atm_oro_io.F90
-    #fv3/io/fv3atm_history_io.F90
-    #fv3/io/fv3atm_restart_io.F90
-    fv3/io/module_write_netcdf.F90
-    fv3/io/module_write_restart_netcdf.F90
-    fv3/io/module_fv3_io_def.F90
-    fv3/io/module_write_internal_state.F90
-    fv3/io/module_wrt_grid_comp.F90)
-  
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
@@ -225,7 +221,7 @@ if (MPAS)
     mpas/atmos_coupling.F90
     mpas/ufs_mpas_subdriver.F90
     mpas/module_mpas_config.F90
-    mpas/module_mpas_fcst_grid_comp.F90
+    mpas/module_fcst_grid_comp.mpas.F90
     ${coupling_srcs}
     ${io_srcs}
     ccpp/data/MPAS_typedefs.F90
@@ -266,7 +262,7 @@ if (FV3)
 					 fms)
   if(INLINE_POST)
     target_link_libraries(${DYCORE_TARGET} PUBLIC upp::upp)
-  endif()				       
+  endif()
 endif()
 
 if (MPAS)

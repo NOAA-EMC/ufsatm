@@ -9,7 +9,7 @@
 ! 18 Apr 2017: J. Wang          set up fcst grid component and write grid components
 ! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
 ! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
-! 06 Jun 2025: D. Swales        Generalize for MPAS dynamical core
+! 06 Jun 2025: D. Swales        Generalization for MPAS dynamical core
 
 module ufsatm_cap_mod
 
@@ -32,7 +32,14 @@ module ufsatm_cap_mod
                                     dt_atmos,                                &
                                     calendar, cpl_grid_id,                   &
                                     cplprint_flag, first_kdt
-  use module_fcst_grid_comp,  only: fcstSS => SetServices
+#endif
+#ifdef ATMMPAS
+  use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
+                                    fcst_mpi_comm, pio_ioformat, pio_iotype, &
+                                    pio_subsystem, pio_stride,               &
+                                    pio_numiotasks, pio_iodesc, cpl_grid_id, &
+                                    cplprint_flag, first_kdt, quilting,      &
+                                    quilting_restart
 #endif
   use module_fv3_io_def,      only: num_pes_fcst,write_groups,               &
                                     num_files, filename_base,                &
@@ -42,17 +49,8 @@ module ufsatm_cap_mod
                                     time_unlimited
   !
   use module_wrt_grid_comp,   only: wrtSS => SetServices
-
-#ifdef ATMMPAS
-  use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
-                                    fcst_mpi_comm, pio_ioformat, pio_iotype, &
-                                    pio_subsystem, pio_stride,               &
-                                    pio_numiotasks, pio_iodesc, cpl_grid_id, &
-                                    cplprint_flag, first_kdt, quilting,      &
-                                    quilting_restart
-  use module_mpas_fcst_grid_comp,  only: fcstSS => SetServices
-#endif
-!
+  use module_fcst_grid_comp,  only: fcstSS => SetServices
+  !
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
   use module_cap_cpl,         only: diagnose_cplFields
@@ -97,14 +95,14 @@ module ufsatm_cap_mod
   contains
 
 !-----------------------------------------------------------------------
-!------------------- Solo fv3atm code starts here ----------------------
+!------------------- Solo ufsatm code starts here ----------------------
 !-----------------------------------------------------------------------
 
   subroutine SetServices(gcomp, rc)
 
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    character(len=*),parameter  :: subname='(fv3atm_cap:SetServices)'
+    character(len=*),parameter  :: subname='(ufsatm_cap:SetServices)'
 
     rc = ESMF_SUCCESS
 
@@ -130,7 +128,7 @@ module ufsatm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call NUOPC_CompSpecialize(gcomp, specLabel=label_CheckImport, &
-                              specRoutine=fv3_checkimport, rc=rc)
+                              specRoutine=ufsatm_checkimport, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
     ! setup Run/Advance phase: phase1
@@ -151,7 +149,7 @@ module ufsatm_cap_mod
                               specPhaseLabel="phase2", specRoutine=ModelAdvance_phase2, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    ! specializations to set fv3 cap run clock (model clock)
+    ! specializations to set ufsatm cap run clock (model clock)
     call ESMF_MethodRemove(gcomp, label=label_SetRunClock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -161,7 +159,7 @@ module ufsatm_cap_mod
 
     ! specializations required to support 'inline' run sequences
     call NUOPC_CompSpecialize(gcomp, specLabel=label_CheckImport, &
-                              specPhaseLabel="phase1", specRoutine=fv3_checkimport, rc=rc)
+                              specPhaseLabel="phase1", specRoutine=ufsatm_checkimport, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call NUOPC_CompSpecialize(gcomp, specLabel=label_TimestampExport, &
@@ -251,13 +249,16 @@ module ufsatm_cap_mod
 
     call ESMF_GridCompGet(gcomp, name=gc_name, vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    !call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#ifdef ATMFV3
+    call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+#endif
+#ifdef ATMMPAS
     call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
                     petCount=petcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    
+#endif
+
     ! num_threads is needed to compute actual wrttasks_per_group_from_parent
     call ESMF_InfoGetFromHost(gcomp, info=info, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -593,7 +594,7 @@ module ufsatm_cap_mod
 ! set up fcst grid component
 !
 !----------------------------------------------------------------------
-!*** create fv3 atm tasks and quilt servers
+!*** create ufsatm tasks and quilt servers
 !-----------------------------------------------------------------------
 !
 ! create fcst grid component
@@ -608,7 +609,7 @@ module ufsatm_cap_mod
     do j=1, num_pes_fcst
       fcstPetList(j) = j - 1
     enddo
-    fcstComp = ESMF_GridCompCreate(petList=fcstPetList, name='fv3_fcst', rc=rc)
+    fcstComp = ESMF_GridCompCreate(petList=fcstPetList, name='ufsatm_fcst', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !
     ! copy attributes from ufscap component to fcstComp
@@ -709,9 +710,9 @@ module ufsatm_cap_mod
                                 line=__LINE__, file=__FILE__, rcToReturn=rc)
           return
         endif
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3", name="grid_id", value=grid_id, rc=rc)
+        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="UFSATM", name="grid_id", value=grid_id, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3-nooutput", name="frestart", valueList=frestart, rc=rc)
+        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="UFSATM-nooutput", name="frestart", valueList=frestart, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         is_moving_fb(i) = is_moving(grid_id)
@@ -738,7 +739,7 @@ module ufsatm_cap_mod
 !      print *,'af wrtComp(i)=',i,'name=',trim(cwrtcomp),'rc=',rc
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-! copy attributes from fv3cap component to wrtComp
+! copy attributes from ufsatm_cap component to wrtComp
         call ESMF_InfoGetFromHost(wrtComp(i), info=childInfo, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
         call ESMF_InfoUpdate(lhs=childInfo, rhs=parentInfo, rc=rc)
@@ -941,7 +942,7 @@ module ufsatm_cap_mod
             if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
+            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="UFSATM-nooutput", &
                                    name="output_grid", value=output_grid, isPresent=isPresent, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -980,7 +981,7 @@ module ufsatm_cap_mod
               inquire(FILE=trim(rh_filename), EXIST=rh_file_exist)
 
               if (rh_file_exist .and. use_saved_routehandles) then
-                if(mype==0) print *,'in fv3cap init, routehandle file ',trim(rh_filename), ' exists'
+                if(mype==0) print *,'in ufsatm_cap init, routehandle file ',trim(rh_filename), ' exists'
 
                 write(msgString,*) "Calling into ESMF_RouteHandleCreate(from file)...", trim(rh_filename)
                 call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
@@ -1044,7 +1045,7 @@ module ufsatm_cap_mod
                   call ESMF_RouteHandleWrite(routehandle(j,1), fileName=trim(rh_filename), rc=rc)
                   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                   call ESMF_TraceRegionExit("ESMF_RouteHandleWrite()", rc=rc)
-                  if(mype==0) print *,'in fv3cap init, saved routehandle file ',trim(rh_filename)
+                  if(mype==0) print *,'in ufsatm_cap init, saved routehandle file ',trim(rh_filename)
 
                   write(msgString,*) "... returned from ESMF_RouteHandleWrite."
                   call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
@@ -1081,7 +1082,7 @@ module ufsatm_cap_mod
 
 ! end write_groups
       enddo   ! i=1, write_groups
-      if(mype==0) print *,'in fv3cap init, time wrtcrt/regrdst',MPI_Wtime()-timerhs
+      if(mype==0) print *,'in ufsatm_cap init, time wrtcrt/regrdst',MPI_Wtime()-timerhs
       deallocate(petList)
       deallocate(originPetList)
       deallocate(targetPetList)
@@ -1093,7 +1094,7 @@ module ufsatm_cap_mod
       if(iau_offset > 0) then
         output_startfh = iau_offset
       endif
-      if(mype==0) print *,'in fv3 cap init, output_startfh=',output_startfh,' iau_offset=',iau_offset
+      if(mype==0) print *,'in ufsatm cap init, output_startfh=',output_startfh,' iau_offset=',iau_offset
 !
 !-----------------------------------------------------------------------
 !***  SET THE FIRST WRITE GROUP AS THE FIRST ONE TO ACT.
@@ -1213,7 +1214,7 @@ module ufsatm_cap_mod
     integer, intent(out) :: rc
 
     ! local variables
-    character(len=*),parameter :: subname='(fv3atm_cap:InitializeRealize)'
+    character(len=*),parameter :: subname='(ufsatm_cap:InitializeRealize)'
     type(ESMF_Clock)           :: clock
     type(ESMF_State)           :: importState, exportState
     integer                    :: urc
@@ -1290,23 +1291,23 @@ module ufsatm_cap_mod
 
     rc = ESMF_SUCCESS
     timep1rs = MPI_Wtime()
-    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in ufsatm_cap, time between fv3 run phase2 and phase1 ', timep1rs-timep2re,mype
+    if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in ufsatm_cap, time between ufsatm run phase2 and phase1 ', timep1rs-timep2re,mype
 
-    if(profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance_phase1: ")
+    if(profile_memory) call ESMF_VMLogMemInfo("Entering UFSATM ModelAdvance_phase1: ")
 
     call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call ESMF_ClockPrint(clock, options="currTime", &
-                         preString="entering FV3_ADVANCE phase1 with clock current: ", &
+                         preString="entering UFSATM_ADVANCE phase1 with clock current: ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
     call ESMF_ClockPrint(clock, options="startTime", &
-                         preString="entering FV3_ADVANCE phase1 with clock start:   ", &
+                         preString="entering UFSATM_ADVANCE phase1 with clock start:   ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
     call ESMF_ClockPrint(clock, options="stopTime", &
-                         preString="entering FV3_ADVANCE phase1 with clock stop:    ", &
+                         preString="entering UFSATM_ADVANCE phase1 with clock stop:    ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
 
@@ -1323,7 +1324,7 @@ module ufsatm_cap_mod
 
     timep1re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in ufsatm_cap,modeladvance phase1 time ', timep1re-timep1rs,mype
-    if (profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase1: ")
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving UFSATM ModelAdvance_phase1: ")
 
   end subroutine ModelAdvance_phase1
 
@@ -1358,7 +1359,7 @@ module ufsatm_cap_mod
     rc = ESMF_SUCCESS
     timep2rs = MPI_Wtime()
 
-    if(profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance_phase2: ")
+    if(profile_memory) call ESMF_VMLogMemInfo("Entering UFSATM ModelAdvance_phase2: ")
 
     call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1459,15 +1460,15 @@ module ufsatm_cap_mod
     endif ! quilting
 
     call ESMF_ClockPrint(clock, options="currTime", &
-                         preString="leaving FV3_ADVANCE phase2 with clock current: ", &
+                         preString="leaving UFSATM_ADVANCE phase2 with clock current: ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
     call ESMF_ClockPrint(clock, options="startTime", &
-                         preString="leaving FV3_ADVANCE phase2 with clock start:   ", &
+                         preString="leaving UFSATM_ADVANCE phase2 with clock start:   ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
     call ESMF_ClockPrint(clock, options="stopTime", &
-                         preString="leaving FV3_ADVANCE phase2 with clock stop:    ", &
+                         preString="leaving UFSATM_ADVANCE phase2 with clock stop:    ", &
                          unit=msgString)
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO)
 
@@ -1483,7 +1484,7 @@ module ufsatm_cap_mod
 
     timep2re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in ufsatm_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
-    if(profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase2: ")
+    if(profile_memory) call ESMF_VMLogMemInfo("Leaving UFSATM ModelAdvance_phase2: ")
 
   end subroutine ModelAdvance_phase2
 
@@ -1523,7 +1524,7 @@ module ufsatm_cap_mod
 
 !-----------------------------------------------------------------------------
 
-  subroutine fv3_checkimport(gcomp, rc)
+  subroutine ufsatm_checkimport(gcomp, rc)
 
 !***  Check the import state fields
 
@@ -1532,7 +1533,7 @@ module ufsatm_cap_mod
     integer, intent(out)       :: rc
 
     ! local variables
-    character(len=*),parameter :: subname='(fv3atm_cap:fv3_checkimport)'
+    character(len=*),parameter :: subname='(ufsatmatm_cap:ufsatm_checkimport)'
     integer                    :: n, nf
     type(ESMF_Clock)           :: clock
     type(ESMF_Time)            :: currTime, invalidTime
@@ -1556,7 +1557,7 @@ module ufsatm_cap_mod
     date(1:6) = 0
     call ESMF_TimeGet(time=currTime,yy=date(1),mm=date(2),dd=date(3),h=date(4), &
                       m=date(5),s=date(6),rc=rc)
-!   if(mype==0) print *,'in fv3_checkimport, currtime=',date(1:6)
+!   if(mype==0) print *,'in ufsatm_checkimport, currtime=',date(1:6)
 
     ! set up invalid time (by convention)
     call ESMF_TimeSet(invalidTime, yy=99999999, mm=01, dd=01, &
@@ -1572,7 +1573,7 @@ module ufsatm_cap_mod
 
     importFieldsValid(:) = .true.
     if (associated(fieldList)) then
-!     if(mype==0) print *,'in fv3_checkimport, inside associated(fieldList)'
+!     if(mype==0) print *,'in ufsatm_checkimport, inside associated(fieldList)'
       do n = 1,size(fieldList)
         call ESMF_FieldGet(fieldList(n), name=fldname, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1603,14 +1604,14 @@ module ufsatm_cap_mod
             return
           end if
         end if
-        write(msgString,'(A,2i4,l3)') "fv3_checkimport "//trim(fldname),n,nf,importFieldsValid(nf)
+        write(msgString,'(A,2i4,l3)') "ufsatm_checkimport "//trim(fldname),n,nf,importFieldsValid(nf)
         call ESMF_LogWrite(msgString,ESMF_LOGMSG_INFO,rc=rc)
       enddo
 
       deallocate(fieldList)
     endif
 
-  end subroutine fv3_checkimport
+  end subroutine ufsatm_checkimport
 
 !-----------------------------------------------------------------------------
 
@@ -1621,7 +1622,7 @@ module ufsatm_cap_mod
     integer, intent(out)       :: rc
 
     ! local variables
-    character(len=*),parameter :: subname='(fv3atm_cap:TimestampExport_phase1)'
+    character(len=*),parameter :: subname='(ufsatm_cap:TimestampExport_phase1)'
     type(ESMF_Clock)           :: driverClock, modelClock
     type(ESMF_State)           :: exportState
 
@@ -1651,7 +1652,7 @@ module ufsatm_cap_mod
     integer, intent(out)       :: rc
 
     ! local variables
-    character(len=*),parameter :: subname='(fv3atm_cap:ModelFinalize)'
+    character(len=*),parameter :: subname='(ufsatm_cap:ModelFinalize)'
     integer                    :: i, urc
     type(ESMF_VM)              :: vm
     real(kind=8)               :: MPI_Wtime, timeffs
