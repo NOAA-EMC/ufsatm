@@ -712,9 +712,9 @@ module ufsatm_cap_mod
                                 line=__LINE__, file=__FILE__, rcToReturn=rc)
           return
         endif
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="UFSATM", name="grid_id", value=grid_id, rc=rc)
+        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3", name="grid_id", value=grid_id, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="UFSATM-nooutput", name="frestart", valueList=frestart, rc=rc)
+        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3-nooutput", name="frestart", valueList=frestart, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         is_moving_fb(i) = is_moving(grid_id)
@@ -944,7 +944,7 @@ module ufsatm_cap_mod
             if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="UFSATM-nooutput", &
+            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
                                    name="output_grid", value=output_grid, isPresent=isPresent, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
