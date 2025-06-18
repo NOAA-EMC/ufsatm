@@ -1,4 +1,4 @@
-module mod_atmos_util
+module mod_ufsatm_util
   implicit none
   public :: get_atmos_tracer_types
 contains
@@ -111,4 +111,4 @@ contains
   end subroutine get_atmos_tracer_types
   ! </SUBROUTINE>
 
-end module mod_atmos_util
+end module mod_ufsatm_util

@@ -162,6 +162,7 @@ if (FV3)
   # FV3 drivers and dependencies
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
+    ufsatm_util.F90
     fv3/atmos_model.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
@@ -216,12 +217,12 @@ if (MPAS)
   # MPAS drivers and dependencies
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
-    atmos_util.F90
+    ufsatm_util.F90
     mpas/atmos_model.F90
-    mpas/atmos_coupling.F90
-    mpas/ufs_mpas_subdriver.F90
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
+    mpas/atmos_coupling.F90
+    mpas/ufs_mpas_subdriver.F90
     ${coupling_srcs}
     ${io_srcs}
     ccpp/data/MPAS_typedefs.F90

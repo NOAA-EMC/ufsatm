@@ -39,7 +39,7 @@ module atmos_model_mod
   use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename, lbc_filename
   use module_mpas_config,    only : lonCellGlobal, latCellGlobal, areaCellGlobal
   use module_mpas_config,    only : pi
-  use mod_atmos_util,        only : get_atmos_tracer_types
+  use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
   use omp_lib
 #endif
