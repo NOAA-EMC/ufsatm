@@ -949,11 +949,7 @@ module fv3atm_cap_mod
             if( nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/outputfh2(1)) + 1
             if( nfh > 0) then
               allocate(output_fh(nfh))
-              if( output_startfh == 0) then
-                output_fh(1) = dt_atmos/3600.
-              else
-                output_fh(1) = output_startfh + dt_atmos/3600.
-              endif
+              output_fh(1) = output_startfh + dt_atmos/3600.
               do i=2,nfh
                 output_fh(i) = (i-1)*outputfh2(1) + output_startfh
                 ! Except fh000, which is the first time output, if any other of the
