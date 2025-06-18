@@ -11,8 +11,7 @@ The subcomponents include:
    from the [Geophysical Fluid Dynamics Laboratory](https://www.gfdl.noaa.gov/).
 
 - The Model for Prediction Across Scales - Atmosphere (MPAS-A)	dynamical
-   core developed by [NSF-NCAR's Mesoscale and Micrometeorology Laboratory (MMM)]
-   (https://www.mmm.ucar.edu/models/mpas).
+   core developed by [NSF-NCAR Mesoscale and Micrometeorology Laboratory (MMM)](https://www.mmm.ucar.edu/models/mpas).
    - [MPAS Model](https://github.com/ufs-community/MPAS-Model)
 
 - The Common Community Physics Package (CCPP) supported by the
