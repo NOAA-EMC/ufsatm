@@ -17,6 +17,7 @@ module CCPP_data
                              GFS_radtend_type,       &
                              GFS_coupling_type,      &
                              GFS_diag_type
+
     implicit none
 
     private

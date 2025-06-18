@@ -1,8 +1,14 @@
+! ###########################################################################################
+!> \file ufsatm_util.F90
+!>
+!> This module contaion code that could be shared across dynamical core atmospheric drivers.
+!> 
+! ###########################################################################################
 module mod_ufsatm_util
   implicit none
   public :: get_atmos_tracer_types
 contains
-  !#######################################################################
+  ! #########################################################################################
   ! <SUBROUTINE NAME="get_atmos_tracer_types">
   ! <DESCRIPTION>
   !  Identify and return usage and type id of atmospheric tracers.
@@ -35,6 +41,7 @@ contains
   !  tracers is validated against the model's internal assumptions.
   !
   ! </DESCRIPTION>
+  ! #########################################################################################
   subroutine get_atmos_tracer_types(tracer_types)
 
     use field_manager_mod,  only: parse

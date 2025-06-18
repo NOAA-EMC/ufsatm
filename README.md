@@ -1,5 +1,5 @@
 
-# fv3atm
+# ufsatm
 
 This repository contains a driver and key subcomponents of the
 atmospheric component of the NOAA's [Unified Forecast System
@@ -7,19 +7,27 @@ atmospheric component of the NOAA's [Unified Forecast System
 
 The subcomponents include:
 
- - The Finite-Volume Cubed-Sphere (FV3) dynamical core, originally
-from the [Geophysical Fluid Dynamics
-Laboratory](https://www.gfdl.noaa.gov/).
- - The Common Community Physics Package (CCPP) supported by the
+- The Finite-Volume Cubed-Sphere (FV3) dynamical core, originally
+   from the [Geophysical Fluid Dynamics Laboratory](https://www.gfdl.noaa.gov/).
+
+- The Model for Prediction Across Scales - Atmosphere (MPAS-A)	dynamical
+   core developed by [NSF-NCAR's Mesoscale and Micrometeorology Laboratory (MMM)]
+   (https://www.mmm.ucar.edu/models/mpas).
+   - [MPAS Model](https://github.com/ufs-community/MPAS-Model)
+
+- The Common Community Physics Package (CCPP) supported by the
    [Developmental Testbed Center
    (DTC)](https://dtcenter.org/community-code/common-community-physics-package-ccpp),
    including:
    - [CCPP Framework](https://github.com/NCAR/ccpp-framework).
    - [CCPP Physics](https://github.com/NCAR/ccpp-physics)
- - wrapper code to call [UFS stochastic
+
+- wrapper code to call [UFS stochastic
    physics](https://stochastic-physics.readthedocs.io/en/latest/)
- - The io code handles netCDF I/O.
- - The cpl coupler code connects the different components and allows
+
+- The io code handles netCDF I/O.
+
+- The cpl coupler code connects the different components and allows
    them to communicate.
 
 ## Prerequisites
@@ -41,13 +49,13 @@ This package also requires the following external packages:
  - [ESMF](https://github.com/esmf-org/esmf)
  - [GFDL's Flexible Modeling System](https://github.com/NOAA-GFDL/FMS)
 
-## Obtaining fv3atm
+## Obtaining ufsatm
 
-To obtain fv3atm, clone the git repository, and update the submodules:
+To obtain ufsatm, clone the git repository, and update the submodules:
 
 ```
-git clone https://github.com/NOAA-EMC/fv3atm.git
-cd fv3atm
+git clone https://github.com/NOAA-EMC/ufsatm.git
+cd ufsatm
 git submodule update --init --recursive
 ```
 
