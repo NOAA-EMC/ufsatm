@@ -47,10 +47,11 @@ module ufsatm_cap_mod
                                     lead_wrttask, last_wrttask,              &
                                     iau_offset, lflname_fulltime,            &
                                     time_unlimited
-  !
-  use module_wrt_grid_comp,   only: wrtSS => SetServices
+!
   use module_fcst_grid_comp,  only: fcstSS => SetServices
-  !
+
+  use module_wrt_grid_comp,   only: wrtSS => SetServices
+!
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
   use module_cap_cpl,         only: diagnose_cplFields
