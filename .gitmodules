@@ -8,8 +8,7 @@
   branch = main
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  #url = https://github.com/ufs-community/ccpp-physics
-  url = https://github.com/RuiyuSun/ccpp-physics.git 
+  url = https://github.com/ufs-community/ccpp-physics
   branch = gcycleupdate
 [submodule "upp"]
   path = upp
