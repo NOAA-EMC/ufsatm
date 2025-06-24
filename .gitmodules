@@ -1,7 +1,9 @@
 [submodule "fv3/atmos_cubed_sphere"]
   path = fv3/atmos_cubed_sphere
-  url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
-  branch = dev/emc
+  #url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
+  #branch = dev/emc
+  url = https://github.com/BrianCurtis-NOAA/GFDL_atmos_cubed_sphere
+  branch = nco_debug_changes
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
@@ -12,5 +14,7 @@
   branch = ufs/dev
 [submodule "upp"]
   path = upp
-  url = https://github.com/NOAA-EMC/UPP
-  branch = develop
+  #url = https://github.com/NOAA-EMC/UPP
+  #branch = develop
+  url = https://github.com/BrianCurtis-NOAA/UPP
+  branch = nco_debug_changes
