@@ -147,7 +147,7 @@ module fv_moving_nest_main_mod
 #endif
 
   ! Enable these for more debugging outputs
-  logical :: debug_log = .false.    !< Produces logging to out.* file
+  logical :: debug_log = .false.    !< Enable logging output
   logical :: tsvar_out = .false.    !< Produces netCDF outputs; be careful to not exceed file number limits set in namelist
 
   !> Clock ids for moving_nest performance metering

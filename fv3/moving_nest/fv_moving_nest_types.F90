@@ -74,7 +74,7 @@ module fv_moving_nest_types_mod
 
     !real, allocatable  :: dx(:,:)
     !real, allocatable  :: dy(:,:)
-    real(kind=kind_phys), allocatable  :: area(:,:) !< ???
+    real(kind=kind_phys), allocatable  :: area(:,:) !< Grid point area
   end type grid_geometry
 
   type fv_moving_nest_prog_type
@@ -256,7 +256,7 @@ contains
   !> @brief Initialize moving nest
   !>
   !> @param[in] Atm Atm object
-  !> @param[in] this_grid ???
+  !> @param[in] this_grid Index of Atm
   !>
   !> @author
   subroutine fv_moving_nest_init(Atm, this_grid)
@@ -331,7 +331,7 @@ contains
 
   !> @brief Deallocate moving nest
   !>
-  !> @param[in] n ???
+  !> @param[in] n Index of nest
   !>
   !> @author
   subroutine deallocate_fv_moving_nests(n)
@@ -347,7 +347,7 @@ contains
 
   !> @brief Deallocate moving nest prognostic and physics
   !>
-  !> @param[in] n ???
+  !> @param[in] n Index of nest
   !>
   !> @author
   subroutine deallocate_fv_moving_nest(n)
@@ -360,11 +360,11 @@ contains
   
   !> @brief Allocate mn_prog%delz
   !>
-  !> @param[in] isd ???
-  !> @param[in] ied ???
-  !> @param[in] jsd ???
-  !> @param[in] jed ???
-  !> @param[in] npz ???
+  !> @param[in] isd i-coordinate start
+  !> @param[in] ied i-coordinate end
+  !> @param[in] jsd j-coordinate start
+  !> @param[in] jed j-coordinate end
+  !> @param[in] npz Number of levels
   !> @param[inout] mn_prog Moving nest prognostic variables
   !>
   !> @author
@@ -391,18 +391,18 @@ contains
 
   !> Allocate moving nest physics variables
   !>
-  !> @param[in] isd ???
-  !> @param[in] ied ???
-  !> @param[in] jsd ???
-  !> @param[in] jed ???
-  !> @param[in] npz ???
-  !> @param[in] move_physics ???
-  !> @param[in] move_nsst ???
+  !> @param[in] isd i-coordinate start
+  !> @param[in] ied i-coordinate end
+  !> @param[in] jsd j-coordinate start
+  !> @param[in] jed j-coordinate end
+  !> @param[in] npz Number of levels
+  !> @param[in] move_physics Logical for moving physics
+  !> @param[in] move_nsst Logical for NSST
   !> @param[in] lsoil Soil layers
-  !> @param[in] nmtvr ???
-  !> @param[in] levs ???
-  !> @param[in] ntot2d ???
-  !> @param[in] ntot3d ???
+  !> @param[in] nmtvr Number of statistical measures of subgrid orography
+  !> @param[in] levs Number of levels
+  !> @param[in] ntot2d Allocation dimension 2d
+  !> @param[in] ntot3d Allocation dimension 3d
   !> @param[inout] mn_phys Moving nest physics variables
   !>
   !> @author

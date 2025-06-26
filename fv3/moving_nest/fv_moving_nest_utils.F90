@@ -91,10 +91,10 @@ module fv_moving_nest_utils_mod
   integer, parameter:: f_p = selected_real_kind(20)
 #endif
 
-  integer, parameter :: UWIND = 1 !< ???
-  integer, parameter :: VWIND = 2 !< ???
+  integer, parameter :: UWIND = 1 !< Designate u-wind component parameter
+  integer, parameter :: VWIND = 2 !< Designate v-wind component parameter
 
-  logical :: debug_log = .false. !< ???
+  logical :: debug_log = .false. !< Enable logging output
 
 
 #include <fms_platform.h>
@@ -174,12 +174,12 @@ contains
   !                                             S (i-1,j+1) +
   !                                             S (i-1,j-1) )
 
-  !> ???
+  !> @brief GEMPACK 5-point smoother
   !>
-  !> @param[in] data_var ???
-  !> @param[in] i ???
-  !> @param[in] j ???
-  !> @param[out] val ???
+  !> @param[in] data_var Data array
+  !> @param[in] i i index
+  !> @param[in] j j index
+  !> @param[out] val Smoothed result
   !>
   !> @author
   subroutine smooth_5_point(data_var, i, j, val)
@@ -197,12 +197,12 @@ contains
 
   end subroutine smooth_5_point
 
-  !> ???
+  !> @brief GEMPACK 9-point smoother
   !>
-  !> @param[in] data_var ???
-  !> @param[in] i ???
-  !> @param[in] j ???
-  !> @param[out] val ???
+  !> @param[in] data_var Data array
+  !> @param[in] i i index
+  !> @param[in] j j index
+  !> @param[out] val Smoothed result
   !>
   !> @author
   subroutine smooth_9_point(data_var, i, j, val)
@@ -221,18 +221,18 @@ contains
 
   end subroutine smooth_9_point
 
-  ! blend_size is 5 for static nests.  We may increase it for moving nests.
-  !  This is only called for fine PEs.
-  !  Blends a few points into the nest.  Calls zs filtering if enabled in namelist.
-  !> ???
+  !> @brief Set bleneded terrain
+  !> @details blend_size is 5 for static nests.  We may increase it for moving nests.
+  !>   This is only called for fine PEs. 
+  !>   Blends a few points into the nest.  Calls zs filtering if enabled in namelist.
   !>
-  !> @param[inout] Atm ???
+  !> @param[inout] Atm Atm data array
   !> @param[in] parent_orog_grid Coarse grid orography
   !> @param[in] nest_orog_grid Orography for the full panel of the parent, at high-resolution
   !> @param[in] refine ???
-  !> @param[in] halo_size ???
-  !> @param[in] blend_size ???
-  !> @param[in] a_step ???
+  !> @param[in] halo_size Size of halo around grid point
+  !> @param[in] blend_size Size of blended area around grid point
+  !> @param[in] a_step ??
   !>
   !> @author
   subroutine set_blended_terrain(Atm, parent_orog_grid, nest_orog_grid, refine, halo_size, blend_size, a_step)
@@ -317,14 +317,14 @@ contains
 
   end subroutine set_blended_terrain
 
-  !> ???
+  !> @brief Set nest smoothed terrain
   !>
-  !> @param[inout] Atm ???
+  !> @param[inout] Atm Allocatable array of fv_atmos_type type
   !> @param[in] fp_orog Orography for the full panel of the parent, at high-resolution
-  !> @param[in] refine ???
-  !> @param[in] num_points ???
-  !> @param[in] halo_size ???
-  !> @param[in] blend_size ???
+  !> @param[in] refine Refinement ratio
+  !> @param[in] num_points Number of points
+  !> @param[in] halo_size Size of halo around grid point
+  !> @param[in] blend_size Size of blending area around grid point
   !>
   !> @author
   subroutine set_smooth_nest_terrain(Atm, fp_orog, refine, num_points, halo_size, blend_size)
@@ -392,18 +392,18 @@ contains
 
   end subroutine set_smooth_nest_terrain
 
-  !> @brief Fill nest halos from parent
+  !> @brief Fill nest halos from parent for 2d single precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r4_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
@@ -463,18 +463,18 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_2d
 
-  !> ???
+  !> @brief Fill nest halos from parent for 2d double precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r8_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
@@ -535,21 +535,21 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r8_2d
 
-  !> ???
+  !> @brief Fill nest halos from parent from mask
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
-  !> @param[in] mask_var ???
-  !> @param[in] mask_val ???
-  !> @param[in] default_val ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] mask_var Masked array of values
+  !> @param[in] mask_val Array to denote mask
+  !> @param[in] default_val Default value for masked points
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_masked(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, mask_var, mask_val, default_val)
@@ -612,19 +612,19 @@ contains
 
   end subroutine fill_nest_halos_from_parent_masked
 
-  !> ???
+  !> @brief Fill nest halos from parent for 3d single precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
-  !> @param[in] nz ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Number of vertical levels
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r4_3d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
@@ -684,19 +684,19 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_3d
 
-  !> ???
+  !> @brief Fill nest halos from parent for 3d double precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
-  !> @param[in] nz ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Number of vertical levels
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r8_3d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
@@ -756,19 +756,19 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r8_3d
 
-  !> ???
+  !> @brief Fill nest halos from parent for 4d single precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
-  !> @param[in] nz ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Number of vertical levels
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r4_4d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
@@ -835,19 +835,19 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_4d
 
-  !> ???
+  !> @brief Fill nest halos from parent for 4d double precision data
   !>
-  !> @param[in] var_name ???
-  !> @param[inout] data_var ???
-  !> @param[in] interp_type ???
-  !> @param[in] wt ???
-  !> @param[in] ind ???
-  !> @param[in] x_refine ???
-  !> @param[in] y_refine ???
-  !> @param[in] is_fine_pe ???
-  !> @param[inout] nest_domain ???
-  !> @param[in] position ???
-  !> @param[in] nz ???
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Number of vertical levels
   !>
   !> @author
   subroutine fill_nest_halos_from_parent_r8_4d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
