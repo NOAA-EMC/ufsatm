@@ -41,27 +41,36 @@ module fv_moving_nest_types_mod
 
   type fv_moving_nest_flag_type
     ! Moving Nest Namelist Variables
-    logical               :: is_moving_nest = .false. !< ???
-    character(len=120)    :: surface_dir = "INPUT/moving_nest" !< ???
-    integer               :: terrain_smoother = 4 !< ???
-    integer               :: vortex_tracker = 0 !< ???
-    integer               :: ntrack = 1 !< ???
-    integer               :: corral_x = 5 !< ???
-    integer               :: corral_y = 5 !< ???
-    integer               :: outatcf_lun = 600 !< ???
+    logical               :: is_moving_nest = .false. !< Logical to designate moving nest
+    character(len=120)    :: surface_dir = "INPUT/moving_nest" !< Input files path
+    !> Terrain smoothing options:
+    !> 0 -- all high-resolution data, 1 - static nest smoothing algorithm with blending zone of 5 points, 
+    !> 2 - blending zone of 10 points, 5 - 5 point smoother, 9 - 9 point smoother
+    integer               :: terrain_smoother = 4
+    !> Vortex tracker options:
+    !> 0 - not a moving nest, tracker not needed, 1 - prescribed nest moving, 2 - following child domain center
+    !> 3 - tracking Min MSLP, 6 - simplified version of GFDL tracker, adopted from HWRF's internal vortex tracker.
+    !> 7 - nearly the full storm tracking algorithm from GFDL vortex tracker. 
+    !> The only part that is missing is the part that gives up when the storm dissipates, which is left out intentionally. 
+    !> Adopted from HWRF's internal vortex tracker.
+    integer               :: vortex_tracker = 0
+    integer               :: ntrack = 1 !< number of dt_atmos steps to call the vortex tracker, tracker time step = ntrack*dt_atmos
+    integer               :: corral_x = 5 !< Minimum parent gridpoints on each side of nest in i direction
+    integer               :: corral_y = 5 !< Minimum parent gridpoints on each side of nest in j direction
+    integer               :: outatcf_lun = 600 !< base fortran unit number to write out the partial atcfunix file from the internal tracker
 
     ! Moving nest related variables
-    integer               :: move_cd_x = 0 !< ???
-    integer               :: move_cd_y = 0 !< ???
-    logical               :: do_move = .false. !< ???
+    integer               :: move_cd_x = 0 !< the number of parent domain grid cells to move in i direction
+    integer               :: move_cd_y = 0 !< the number of parent domain grid cells to move in j direction
+    logical               :: do_move = .false. !< Logical to inicate nest movement
   end type fv_moving_nest_flag_type
 
   !> Encapsulates the grid definition data, such as read from the netCDF files
   type grid_geometry
     integer   :: nx, ny, nxp, nyp
 
-    real(kind=kind_phys), allocatable  :: lats(:,:) !< ???
-    real(kind=kind_phys), allocatable  :: lons(:,:) !< ???
+    real(kind=kind_phys), allocatable  :: lats(:,:) !< Latitude
+    real(kind=kind_phys), allocatable  :: lons(:,:) !< Longitude
 
     !real, allocatable  :: dx(:,:)
     !real, allocatable  :: dy(:,:)
@@ -208,18 +217,18 @@ module fv_moving_nest_types_mod
   end type fv_moving_nest_physics_type
 
   type fv_moving_nest_type
-    type(fv_moving_nest_flag_type)    :: mn_flag   !< ??? ! Mostly namelist variables
-    type(mn_surface_grids)            :: mn_static !< ???
-    type(fv_moving_nest_prog_type)    :: mn_prog !< ???
-    type(fv_moving_nest_physics_type) :: mn_phys !< ???
+    type(fv_moving_nest_flag_type)    :: mn_flag   !< Moving nest flag variables
+    type(mn_surface_grids)            :: mn_static !< Moving nest static variables
+    type(fv_moving_nest_prog_type)    :: mn_prog !< Moving nest prognostic variables
+    type(fv_moving_nest_physics_type) :: mn_phys !< Moving nest physics variables
 
-    type(grid_geometry)               :: parent_geo !< ???
-    type(grid_geometry)               :: fp_super_tile_geo !< ???
+    type(grid_geometry)               :: parent_geo !< Outer nest grid geometry 
+    type(grid_geometry)               :: fp_super_tile_geo !< Inner nest grid geometry
   end type fv_moving_nest_type
 
   ! Moving Nest Namelist Variables
-  logical, dimension(MAX_NNEST) :: is_moving_nest = .False. !< ???
-  character(len=120)            :: surface_dir = "INPUT/moving_nest" !< ???
+  logical, dimension(MAX_NNEST) :: is_moving_nest = .False. !< Logical to designate moving nest
+  character(len=120)            :: surface_dir = "INPUT/moving_nest" !< Input files path
   integer, dimension(MAX_NNEST) :: terrain_smoother = 4  !< 0 -- all high-resolution data, 1 - static nest smoothing algorithm with blending zone of 5 points, 2 - blending zone of 10 points, 5 - 5 point smoother, 9 - 9 point smoother
   integer, dimension(MAX_NNEST) :: vortex_tracker = 0 !< 0 - not a moving nest, tracker not needed
   !< 1 - prescribed nest moving
@@ -240,13 +249,13 @@ module fv_moving_nest_types_mod
 
   integer, dimension(MAX_NNEST) :: outatcf_lun = 600  !< base fortran unit number to write out the partial atcfunix file from the internal tracker
 
-  type(fv_moving_nest_type), _ALLOCATABLE, target    :: Moving_nest(:) !< ???
+  type(fv_moving_nest_type), _ALLOCATABLE, target    :: Moving_nest(:) !< Nest object
 
 contains
 
-  !> ???
+  !> @brief Initialize moving nest
   !>
-  !> @param[in] Atm ???
+  !> @param[in] Atm Atm object
   !> @param[in] this_grid ???
   !>
   !> @author
@@ -299,7 +308,7 @@ contains
 
   end subroutine fv_moving_nest_init
 
-  !> ???
+  !> @brief Read in moving nest namelist variables
   !>
   !> @author
   subroutine read_namelist_moving_nest_nml
@@ -320,7 +329,7 @@ contains
 
   end subroutine read_namelist_moving_nest_nml
 
-  !> ???
+  !> @brief Deallocate moving nest
   !>
   !> @param[in] n ???
   !>
@@ -336,7 +345,7 @@ contains
     deallocate(Moving_nest)
   end subroutine deallocate_fv_moving_nests
 
-  !> ???
+  !> @brief Deallocate moving nest prognostic and physics
   !>
   !> @param[in] n ???
   !>
@@ -349,14 +358,14 @@ contains
 
   end subroutine deallocate_fv_moving_nest
   
-  !> ???
+  !> @brief Allocate mn_prog%delz
   !>
   !> @param[in] isd ???
   !> @param[in] ied ???
   !> @param[in] jsd ???
   !> @param[in] jed ???
   !> @param[in] npz ???
-  !> @param[inout] mn_prog ???
+  !> @param[inout] mn_prog Moving nest prognostic variables
   !>
   !> @author
   subroutine  allocate_fv_moving_nest_prog_type(isd, ied, jsd, jed, npz, mn_prog)
@@ -368,9 +377,9 @@ contains
 
   end subroutine allocate_fv_moving_nest_prog_type
 
-  !> ???
+  !> @brief Deallocate mn_prog%delz
   !>
-  !> @param[inout] mn_prog ???
+  !> @param[inout] mn_prog Moving nest prognostic variables
   !>
   !> @author
   subroutine  deallocate_fv_moving_nest_prog_type(mn_prog)
@@ -380,7 +389,7 @@ contains
 
   end subroutine deallocate_fv_moving_nest_prog_type
 
-  !> ???
+  !> Allocate moving nest physics variables
   !>
   !> @param[in] isd ???
   !> @param[in] ied ???
@@ -389,12 +398,12 @@ contains
   !> @param[in] npz ???
   !> @param[in] move_physics ???
   !> @param[in] move_nsst ???
-  !> @param[in] lsoil ???
+  !> @param[in] lsoil Soil layers
   !> @param[in] nmtvr ???
   !> @param[in] levs ???
   !> @param[in] ntot2d ???
   !> @param[in] ntot3d ???
-  !> @param[inout] mn_phys ???
+  !> @param[inout] mn_phys Moving nest physics variables
   !>
   !> @author
   subroutine  allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_nsst, lsoil, nmtvr, levs, ntot2d, ntot3d, mn_phys)
@@ -580,9 +589,9 @@ contains
 
   end subroutine allocate_fv_moving_nest_physics_type
   
-  !> ???
+  !> @brief Deallocate mn_phys%ts
   !>
-  !> @param[inout] mn_phys ???
+  !> @param[inout] mn_phys Moving nest physics variables
   !>
   !> @author
   subroutine  deallocate_fv_moving_nest_physics_type(mn_phys)

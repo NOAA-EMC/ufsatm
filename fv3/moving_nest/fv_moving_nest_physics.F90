@@ -94,12 +94,12 @@ module fv_moving_nest_physics_mod
 #endif
 
 #ifdef OVERLOAD_R4
-  real, parameter:: real_snan=x'FFBFFFFF' !< ???
+  real, parameter:: real_snan=x'FFBFFFFF' !< NaN initialization
 #else
-  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !< ???
+  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !< NaN initialization
 #endif
 
-  logical :: debug_log = .false.         !< ???
+  logical :: debug_log = .false.         !< Enable logging output
   logical :: move_physics = .true.       !< Always true, unless developer sets move_physics to .False. here for debugging.
   logical :: move_nsst = .true.          !< Value is reset in fv_moving_nest_main.F90 from namelist options
 
@@ -1113,9 +1113,9 @@ contains
   !> @param[in] GFS_control Physics metadata
   !> @param[in] n Current grid number
   !> @param[in] child_grid_num Child grid number
-  !> @param[in] wt_h Interpolation weights ???
-  !> @param[in] wt_u Interpolation weights ???
-  !> @param[in] wt_v Interpolation weights ???
+  !> @param[in] wt_h Interpolation weights
+  !> @param[in] wt_u Interpolation weights (unused)
+  !> @param[in] wt_v Interpolation weights (unused)
   !> @param[in] delta_i_c Nest motion in i direction
   !> @param[in] delta_j_c Nest motion in j direction
   !> @param[in] x_refine Nest refinement in x direction

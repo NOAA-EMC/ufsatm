@@ -36,10 +36,10 @@ module bounding_box_mod
   !> Simple aggregation of the start and end indices of a 2D grid
   !> Makes argument lists clearer to read
   type bbox
-    integer :: is !< ???
-    integer :: ie !< ???
-    integer :: js !< ???
-    integer :: je !< ???
+    integer :: is !< starting i-component
+    integer :: ie !< ending i-component
+    integer :: js !< starting j-component
+    integer :: je !< ending j-component
   end type bbox
 
   interface fill_bbox
@@ -53,10 +53,10 @@ module bounding_box_mod
 
 contains
 
-  !> ???
+  !> @brief Create 2d single precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_2d(out_bbox, in_grid)
@@ -68,10 +68,10 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_2d
-  !> ???
+  !> @brief Create 3d single precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_3d(out_bbox, in_grid)
@@ -83,10 +83,10 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_3d
-  !> ???
+  !> @brief Create 4d single precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_4d(out_bbox, in_grid)
@@ -98,10 +98,10 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_4d
-  !> ???
+  !> @brief Create 2d double precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_2d(out_bbox, in_grid)
@@ -113,10 +113,10 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_2d
-  !> ???
+  !> @brief Create 3d double precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_3d(out_bbox, in_grid)
@@ -128,10 +128,10 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_3d
-  !> ???
+  !> @brief Create 4d double precision bounding box
   !>
-  !> @param[out] out_bbox ???
-  !> @param[in] in_grid ???
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_4d(out_bbox, in_grid)
@@ -150,11 +150,11 @@ contains
   !>
   !> Simplifies the call signature with the bbox type rather than 
   !> 4 separate integers.
-  !> @param[in] nest_domain ???
-  !> @param[out] bbox_fine ???
-  !> @param[out] bbox_coarse ???
-  !> @param[in] direction ???
-  !> @param[in] position ???
+  !> @param[in] nest_domain Nested domain object
+  !> @param[out] bbox_fine Fine resolution bounding box (inner)
+  !> @param[out] bbox_coarse Coarse resolution bounding box (outer)
+  !> @param[in] direction Mapping direction 
+  !> @param[in] position Location
   !>  
   !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine bbox_get_C2F_index(nest_domain, bbox_fine, bbox_coarse, direction,  position)

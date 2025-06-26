@@ -1,8 +1,5 @@
 !> @file
 !> @brief The FV3 atmosphere grid component nuopc cap.
-!> @author Jun Wang @date 01/2017
-
-!> @brief The FV3 atmosphere grid component nuopc cap.
 !>
 !> FV3 ATM solo model
 !>
@@ -114,7 +111,7 @@ module fv3atm_cap_mod
 !------------------- Solo fv3atm code starts here ----------------------
 !-----------------------------------------------------------------------
 
-  !> SetServices subroutine, register subroutines that are implemented in the NUOPC cap
+  !> @brief SetServices subroutine, register subroutines that are implemented in the NUOPC cap
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -199,7 +196,7 @@ module fv3atm_cap_mod
   end subroutine SetServices
 
 !-----------------------------------------------------------------------------
-  !> The implementation of the Advertise subroutine, which is registered for the label_Advertise specialization. During this phase, all import and export fileds should be advertized.
+  !> @brief The implementation of the Advertise subroutine, which is registered for the label_Advertise specialization. During this phase, all import and export fileds should be advertized.
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1067,7 +1064,7 @@ module fv3atm_cap_mod
 
 !-----------------------------------------------------------------------------
 
-  !> Realize subroutine, which specializes label_RealizeProvided. During this phase, fields that were previously advertised should now be realized.
+  !> @brief Realize subroutine, which specializes label_RealizeProvided. During this phase, fields that were previously advertised should now be realized.
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1109,7 +1106,7 @@ module fv3atm_cap_mod
   end subroutine InitializeRealize
 
 !-----------------------------------------------------------------------------
-  !> ModelAdvance subroutine, which specializes label_Advance
+  !> @brief ModelAdvance subroutine, which specializes label_Advance
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1143,7 +1140,7 @@ module fv3atm_cap_mod
   end subroutine ModelAdvance
 
 !-----------------------------------------------------------------------------
-  !> ModelAdvance_phase1 subroutine, which specializes label_Advance 'phase1'
+  !> @brief ModelAdvance_phase1 subroutine, which specializes label_Advance 'phase1'
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1203,7 +1200,7 @@ module fv3atm_cap_mod
   end subroutine ModelAdvance_phase1
 
 !-----------------------------------------------------------------------------
-  !> ModelAdvance_phase2 subroutine, which specializes label_Advance 'phase2'
+  !> @brief ModelAdvance_phase2 subroutine, which specializes label_Advance 'phase2'
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1368,7 +1365,7 @@ module fv3atm_cap_mod
   end subroutine ModelAdvance_phase2
 
 !-----------------------------------------------------------------------------
-  !> ModelSetRunClock subroutine, which specializes label_SetRunClock
+  !> @brief ModelSetRunClock subroutine, which specializes label_SetRunClock
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1503,7 +1500,7 @@ module fv3atm_cap_mod
   end subroutine fv3_checkimport
 
 !-----------------------------------------------------------------------------
-  !> TimestampExport_phase1 subroutine, which specializes label_TimestampExport
+  !> @brief TimestampExport_phase1 subroutine, which specializes label_TimestampExport
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.
@@ -1538,7 +1535,7 @@ module fv3atm_cap_mod
   end subroutine TimestampExport_phase1
 
 !-----------------------------------------------------------------------------
-  !> ModelFinalize subroutine, which specializes label_Finalize
+  !> @brief ModelFinalize subroutine, which specializes label_Finalize
   !>
   !> @param[in] gcomp fv3atm grid component
   !> @param[out] rc Return code.

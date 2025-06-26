@@ -223,7 +223,7 @@ contains
 
   end subroutine update_moving_nest
 
-  !> ???
+  !> @brief Deallocate grid structures
   !> 
   !> @author W. Ramstrom, AOML/HRD (William.Ramstrom@noaa.gov) @date  05/27/2021
   subroutine moving_nest_end()
@@ -253,7 +253,7 @@ contains
     if (mygrid .eq. 2) call allocate_tracker(mygrid, Atm(mygrid)%bd%isc, Atm(mygrid)%bd%iec, Atm(mygrid)%bd%jsc, Atm(mygrid)%bd%jec)
   end subroutine nest_tracker_init
 
-  !> ???
+  !> @brief Deallocate ngrids
   !>
   !> @author W. Ramstrom, AOML/HRD (William.Ramstrom@noaa.gov) @date  05/27/2021
   subroutine nest_tracker_end()
@@ -306,7 +306,7 @@ contains
   !>@details Starts timers for subcomponents of moving nest code to determine performance.  mpp routines group them into separate
   !! sections for parent and nest PEs.
   !>
-  !> @param[in] use_timers ???
+  !> @param[in] use_timers Logical to activate mpp_clock timers
   !>
   !> @author W. Ramstrom, AOML/HRD (William.Ramstrom@noaa.gov) @date  05/27/2021
   subroutine fv_moving_nest_init_clocks(use_timers)

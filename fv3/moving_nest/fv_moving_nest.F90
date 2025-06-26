@@ -98,12 +98,12 @@ module fv_moving_nest_mod
 #endif
 
 #ifdef OVERLOAD_R4
-  real, parameter:: real_snan=x'FFBFFFFF' !<???
+  real, parameter:: real_snan=x'FFBFFFFF' !< NaN initialization
 #else
-  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !<???
+  real, parameter:: real_snan=x'FFF7FFFFFFFFFFFF' !< NaN initialization
 #endif
 
-  logical :: debug_log = .false. !<???
+  logical :: debug_log = .false. !< Enable logging output
 
 #include <fms_platform.h>
 
@@ -583,10 +583,10 @@ contains
   !>
   !> @param[in] Atm data array
   !> @param[in] n Grid numbers.
-  !> @param[out] nest_x ???
-  !> @param[out] nest_y ???
-  !> @param[out] parent_x ???
-  !> @param[out] parent_y ???
+  !> @param[out] nest_x x-coordinate for nested grid
+  !> @param[out] nest_y y-coordinate for nested grid
+  !> @param[out] parent_x x-coordinate for outer grid
+  !> @param[out] parent_y y-coordinate for outer grid
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_nest_alignment(Atm, n, nest_x, nest_y, parent_x, parent_y)
@@ -616,15 +616,15 @@ contains
 
   end subroutine calc_nest_alignment
   
-  !> ???
+  !> @brief Checks the nested grid for alignment within outer grid
   !>
   !> @param[in] nest_geo Tile geometry
   !> @param[in] parent_geo Parent grid at high-resolution geometry
-  !> @param[in] nest_x ???
-  !> @param[in] nest_y ???
-  !> @param[in] parent_x ???
-  !> @param[in] parent_y ???
-  !> @param[out] found ???
+  !> @param[in] nest_x x-coordinate for nested grid
+  !> @param[in] nest_y y-coordinate for nested grid
+  !> @param[in] parent_x x-coordinate for outer grid
+  !> @param[in] parent_y y-coordinate for outer grid
+  !> @param[out] found Logical flag for correct nest alignment
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine check_nest_alignment(nest_geo, parent_geo, nest_x, nest_y, parent_x, parent_y, found)
@@ -1134,7 +1134,7 @@ contains
   !> @param[inout] wt Interpolation weights
   !> @param[in] istart_coarse Initial nest offsets
   !> @param[in] jstart_coarse Initial nest offsets
-  !> @param[in] ind ???
+  !> @param[in] ind Index parameter
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_meta_recalc( delta_i_c, delta_j_c, x_refine, y_refine, tile_geo, parent_geo, fp_super_tile_geo, &
@@ -1216,7 +1216,7 @@ contains
   !>
   !> @param[in] delta_i_c Coarse grid delta i for nest move.
   !> @param[in] delta_j_c Coarse grid delta j for nest move.
-  !> @param[inout] ind ???  
+  !> @param[inout] ind Index parameter  
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine mn_shift_index(delta_i_c, delta_j_c, ind)
@@ -2597,13 +2597,13 @@ contains
 
   !>@brief The subroutine 'init_ijk_mem' was copied from dyn_core.F90 to avoid circular dependencies
   !>
-  !> @param[in] i1 ???
-  !> @param[in] i2 ???
-  !> @param[in] j1 ???
-  !> @param[in] j1 ???
-  !> @param[in] km ???
-  !> @param[inout] array ???
-  !> @param[in] var ???
+  !> @param[in] i1 Start of i-index
+  !> @param[in] i2 End of i-index
+  !> @param[in] j1 Start of j-index
+  !> @param[in] j2 End of j-index
+  !> @param[in] km Number of k-levels
+  !> @param[inout] array Initialized array
+  !> @param[in] var Initialization variable
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine init_ijk_mem(i1, i2, j1, j2, km, array, var)
@@ -3008,17 +3008,17 @@ contains
 
   end subroutine assign_n_grids
 
-  !> ???
+  !> @brief Check to see if grid point is within the grid bounds
   !>
-  !> @param[in] p_grid ???
-  !> @param[in] ic ???
-  !> @param[in] jc ???
-  !> @param[in] n_grid1 ???
-  !> @param[in] n_grid2 ???
-  !> @param[in] istag ???
-  !> @param[in] jstag ???
-  !> @param[out] is_inside ???
-  !> @param[in] verbose ???
+  !> @param[in] p_grid Outer grid
+  !> @param[in] ic i-coordinate index
+  !> @param[in] jc j-coordinate index
+  !> @param[in] n_grid1 nested grid lonitude index
+  !> @param[in] n_grid2 nested grid latitude index
+  !> @param[in] istag i-coordinate stagger index
+  !> @param[in] jstag j-coordinate stagger index
+  !> @param[out] is_inside logical to verify if point is inside nest
+  !> @param[in] verbose logical for verbose output
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_inside(p_grid, ic, jc, n_grid1, n_grid2, istag, jstag, is_inside, verbose)
@@ -3070,7 +3070,7 @@ contains
   !> @param[in] y_refine Nest refinement.
   !> @param[in] istag Stagger.
   !> @param[in] jstag Stagger.
-  !> @param[in] ind ???
+  !> @param[in] ind Index parameter
   !>
   !> @author W. Ramstrom, AOML/HRD  @date 01/15/2021
   subroutine calc_nest_halo_weights(bbox_fine, bbox_coarse, p_grid, n_grid, wt, istart_coarse, jstart_coarse, x_refine, y_refine, istag, jstag, ind)

@@ -2041,7 +2041,7 @@ contains
     call mpp_error(NOTE, message)
   end subroutine get_tracker_distsq
 
-  !> ???
+  !> @brief Calculate great circle distance
   !>
   !> @param[in] rlonb ???
   !> @param[in] rlatb ???
@@ -2124,7 +2124,7 @@ contains
     return
   end subroutine calcdist
 
-  !> ???
+  !> @brief Return latitude and longitude
   !>
   !> @param[inout] Atm ???
   !> @param[in] iguess ???
@@ -2193,17 +2193,18 @@ contains
     endif
   end subroutine get_lonlat
 
-  !> ???
+  !> @brief Adjust lat and lon if outside boundaries
+  !> @details  This modifies a (lat,lon) pair so that the longitude fits
+  !>   between [-180,180] and the latitude between [-90,90], taking
+  !>   into account spherical geometry.
+  !>   NOTE: inputs and outputs are in degrees
   !>
-  !> @param[inout] xlon1 ???
-  !> @param[inout] ylat1 ???
+  !> @param[inout] xlon1 Longitude
+  !> @param[inout] ylat1 Latitude
   !>
   !> @author
   subroutine clean_lon_lat(xlon1,ylat1)
     real, intent(inout) :: xlon1,ylat1
-    ! This modifies a (lat,lon) pair so that the longitude fits
-    ! between [-180,180] and the latitude between [-90,90], taking
-    ! into account spherical geometry.
     ! NOTE: inputs and outputs are in degrees
     xlon1=(mod(xlon1+3600.+180.,360.)-180.)
     ylat1=(mod(ylat1+3600.+180.,360.)-180.)
@@ -2217,8 +2218,7 @@ contains
   end subroutine clean_lon_lat
 
   !> @brief Simple routine returns an N or S for the hemisphere of a latitude
-  !> @param[in] lat ???
-  !> @return ???
+  !> @param[in] lat Latitude
   !>
   !> @author
   character(1) function get_lat_ns(lat)
@@ -2232,8 +2232,7 @@ contains
     endif
   end function get_lat_ns
   !> @brief Simple routine returns an E or W for the hemisphere of a longitude
-  !> @param[in] lat ???
-  !> @return ???
+  !> @param[in] lon Longitude
   !>
   !> @author
   character(1) function get_lon_ew(lon)
@@ -2247,7 +2246,9 @@ contains
     endif
   end function get_lon_ew
 
-  !> ???
+  !> @brief Update tracker location
+  !> @details This updates the tracker i/j fix location and square of the
+  !>  distance to the tracker center after a nest move.
   !>
   !> @param[inout] Atm ???
   !>

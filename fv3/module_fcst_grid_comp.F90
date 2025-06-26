@@ -1,20 +1,18 @@
+!> @file
+!> @brief Forecast gridded component
+!>
+!> ## Module History
+!> Date | Author | Modification
+!> -----|--------|-------------
+!> Apr 2017:  J. Wang  - initial code for forecast grid component
+!>
+!> @author Jun Wang @date 01/2017
+
 #define ESMF_ERR_ABORT(rc) \
 if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundError(rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-!-----------------------------------------------------------------------
-!
   module module_fcst_grid_comp
-!
-!-----------------------------------------------------------------------
-!***  Forecast gridded component.
-!-----------------------------------------------------------------------
-!***
-!***  HISTORY
-!***
-!       Apr 2017:  J. Wang  - initial code for forecast grid component
-!
-!---------------------------------------------------------------------------------
-!
+
   use mpi_f08
   use esmf
   use nuopc

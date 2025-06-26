@@ -1,10 +1,6 @@
 !> @file
 !> @brief fv3 configure variables from model_configure.
 !> @author Jun Wang @date 01/2017
-
-!> @brief fv3 configure variables from model_configure.
-!>
-!> @author Jun Wang @date 01/2017
   module module_fv3_config
 
   use mpi_f08
@@ -39,8 +35,8 @@
 
 
   !> Output frequency if this array has only two elements and the value of
-  !! the second eletment is -1. Otherwise, it is the specific output forecast
-  !! hours
+  !> the second eletment is -1. Otherwise, it is the specific output forecast
+  !> hours
   real,dimension(:),allocatable                   :: output_fh
 
   !> Calendar type
