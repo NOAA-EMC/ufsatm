@@ -7663,6 +7663,12 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[do_ngw_ec]
+  standard_name = flag_for_ngw_ec
+  long_name = flag to activate ecmwf ngwd
+  units = flag
+  dimensions = ()
+  type = logical
 [do_ugwp_v1]
   standard_name = flag_for_ugwp_version_1
   long_name = flag to activate ver 1 CIRES UGWP
