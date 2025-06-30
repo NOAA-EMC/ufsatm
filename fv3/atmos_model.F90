@@ -1,3 +1,23 @@
+!> @file
+!> @brief Driver for the atmospheric model, contains routines to advance the
+!>   atmospheric model state by one time step.
+!>
+!> @details This version of atmos_model_mod has been designed around the implicit
+!>    version diffusion scheme of the GCM. It requires two routines to advance
+!>    the atmospheric model one time step into the future. These two routines
+!>    correspond to the down and up sweeps of the standard tridiagonal solver.
+!>    Most atmospheric processes (dynamics,radiation,etc.) are performed
+!>    in the down routine. The up routine finishes the vertical diffusion
+!>    and computes moisture related terms (convection,large-scale condensation,
+!>    and precipitation).
+!>    The boundary variables needed by other component models for coupling
+!>    are contained in a derived data type. A variable of this derived type
+!>    is returned when initializing the atmospheric model. It is used by other
+!>    routines in this module and by coupling routines. The contents of
+!>    this derived type should only be modified by the atmospheric model.
+!>
+!> @author
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -18,29 +38,6 @@
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
 module atmos_model_mod
-!-----------------------------------------------------------------------
-!<OVERVIEW>
-!  Driver for the atmospheric model, contains routines to advance the
-!  atmospheric model state by one time step.
-!</OVERVIEW>
-
-!<DESCRIPTION>
-!     This version of atmos_model_mod has been designed around the implicit
-!     version diffusion scheme of the GCM. It requires two routines to advance
-!     the atmospheric model one time step into the future. These two routines
-!     correspond to the down and up sweeps of the standard tridiagonal solver.
-!     Most atmospheric processes (dynamics,radiation,etc.) are performed
-!     in the down routine. The up routine finishes the vertical diffusion
-!     and computes moisture related terms (convection,large-scale condensation,
-!     and precipitation).
-
-!     The boundary variables needed by other component models for coupling
-!     are contained in a derived data type. A variable of this derived type
-!     is returned when initializing the atmospheric model. It is used by other
-!     routines in this module and by coupling routines. The contents of
-!     this derived type should only be modified by the atmospheric model.
-
-!</DESCRIPTION>
 
 use mpp_mod,            only: mpp_pe, mpp_root_pe, mpp_clock_id, mpp_clock_begin
 use mpp_mod,            only: mpp_clock_end, CLOCK_COMPONENT, MPP_CLOCK_SYNC
@@ -137,97 +134,99 @@ public setup_exportdata
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
+ !> Calculate gradient on cubic sphere grid.
  type atmos_data_type
-     integer                       :: axes(4)            ! axis indices (returned by diag_manager) for the atmospheric grid
-                                                         ! (they correspond to the x, y, pfull, phalf axes)
-     integer, pointer              :: pelist(:) =>null() ! pelist where atmosphere is running.
-     integer                       :: layout(2)          ! computer task laytout
-     logical                       :: regional           ! true if domain is regional
-     logical                       :: nested             ! true if there is a nest
-     logical                       :: moving_nest_parent ! true if this grid has a moving nest child
-     logical                       :: is_moving_nest     ! true if this is a moving nest grid
-     logical                       :: isAtCapTime        ! true if currTime is at the cap driverClock's currTime
-     integer                       :: ngrids             !
-     integer                       :: mygrid             !
-     integer                       :: mlon, mlat
-     integer                       :: iau_offset         ! iau running window length
-     logical                       :: pe                 ! current pe.
-     real(kind=GFS_kind_phys), pointer, dimension(:)     :: ak, bk
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon_bnd  => null() ! local longitude axis grid box corners in radians.
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat_bnd  => null() ! local latitude axis grid box corners in radians.
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon      => null() ! local longitude axis grid box centers in radians.
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat      => null() ! local latitude axis grid box centers in radians.
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: dx, dy
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: area
-     real(kind=GFS_kind_phys), pointer, dimension(:,:,:) :: layer_hgt, level_hgt
-     type(domain2d)                :: domain             ! domain decomposition
-     type(domain2d)                :: domain_for_read    ! domain decomposition
-     type(time_type)               :: Time               ! current time
-     type(time_type)               :: Time_step          ! atmospheric time step.
-     type(time_type)               :: Time_init          ! reference time.
-     type(grid_box_type)           :: grid               ! hold grid information needed for 2nd order conservative flux exchange
-     type(GFS_externaldiag_type), pointer, dimension(:) :: Diag
- end type atmos_data_type
-                                                         ! to calculate gradient on cubic sphere grid.
+     !> axis indices (returned by diag_manager) for the atmospheric grid
+     !> (they correspond to the x, y, pfull, phalf axes)
+     integer                       :: axes(4)            
+     integer, pointer              :: pelist(:) =>null() !< pelist where atmosphere is running.
+     integer                       :: layout(2)          !< computer task laytout
+     logical                       :: regional           !< true if domain is regional
+     logical                       :: nested             !< true if there is a nest
+     logical                       :: moving_nest_parent !< true if this grid has a moving nest child
+     logical                       :: is_moving_nest     !< true if this is a moving nest grid
+     logical                       :: isAtCapTime        !< true if currTime is at the cap driverClock's currTime
+     integer                       :: ngrids             !< Number of grids
+     integer                       :: mygrid             !< Current grid
+     integer                       :: mlon, mlat         !< Longitude and latitude
+     integer                       :: iau_offset         !< iau running window length
+     logical                       :: pe                 !< current pe.
+     real(kind=GFS_kind_phys), pointer, dimension(:)     :: ak, bk !< Vertical level coordinates
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon_bnd  => null() !< local longitude axis grid box corners in radians.
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat_bnd  => null() !< local latitude axis grid box corners in radians.
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon      => null() !< local longitude axis grid box centers in radians.
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat      => null() !< local latitude axis grid box centers in radians.
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: dx, dy !< Grid spacing
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: area !< Grid point area
+     real(kind=GFS_kind_phys), pointer, dimension(:,:,:) :: layer_hgt, level_hgt !< Heights at grid point center and edges
+     type(domain2d)                :: domain             !< domain decomposition
+     type(domain2d)                :: domain_for_read    !< domain decomposition
+     type(time_type)               :: Time               !< current time
+     type(time_type)               :: Time_step          !< atmospheric time step.
+     type(time_type)               :: Time_init          !< reference time.
+     type(grid_box_type)           :: grid               !< hold grid information needed for 2nd order conservative flux exchange
+     type(GFS_externaldiag_type), pointer, dimension(:) :: Diag !< Contains diagnostic data
+ end type atmos_data_type                                          
 !</PUBLICTYPE >
 
-! these two arrays, lon_bnd_work and lat_bnd_work are 'working' arrays, always allocated
-! as (nlon+1, nlat+1) and are used to get the corner lat/lon values from the dycore.
-! these values are then copied to Atmos%lon_bnd, Atmos%lat_bnd which are allocated with
-! sizes that correspond to the corner coordinates distgrid in fcstGrid
+!> lon_bnd_work and lat_bnd_work are 'working' arrays, always allocated
+!> as (nlon+1, nlat+1) and are used to get the corner lat/lon values from the dycore.
+!> these values are then copied to Atmos%lon_bnd, Atmos%lat_bnd which are allocated with
+!> sizes that correspond to the corner coordinates distgrid in fcstGrid
 real(kind=GFS_kind_phys), pointer, dimension(:,:), save :: lon_bnd_work  => null()
+!> See lon_bnd_work
 real(kind=GFS_kind_phys), pointer, dimension(:,:), save :: lat_bnd_work  => null()
-integer, save :: i_bnd_size, j_bnd_size
+integer, save :: i_bnd_size, j_bnd_size !< Boundary array size
 
-integer :: fv3Clock, getClock, updClock, setupClock, radClock, physClock
+integer :: fv3Clock, getClock, updClock, setupClock, radClock, physClock !< Timing clocks
 
 !-----------------------------------------------------------------------
-integer :: blocksize    = 1
-logical :: chksum_debug = .false.
-logical :: dycore_only  = .false.
-logical :: debug        = .false.
+integer :: blocksize    = 1 !< Number of grid points in a block
+logical :: chksum_debug = .false. !< Logical for checksum debugging
+logical :: dycore_only  = .false. !< Logical for running only dynamical core
+logical :: debug        = .false. !< Logical for running debug mode
 !logical :: debug        = .true.
-logical :: sync         = .false.
-real    :: avg_max_length=3600.
-logical :: ignore_rst_cksum = .false.
+logical :: sync         = .false. !< Logical to enable sync for timing
+real    :: avg_max_length=3600. !< Maximum length for time averaging
+logical :: ignore_rst_cksum = .false. !< Logical to ignore restart file checksum
 namelist /atmos_model_nml/ blocksize, chksum_debug, dycore_only, debug, sync, ccpp_suite, avg_max_length, &
                            ignore_rst_cksum
 
-type (time_type) :: diag_time, diag_time_fhzero
+type (time_type) :: diag_time, diag_time_fhzero !< Time diagnostic and forecast hour zero time diagnostic
 
 !--- concurrent and decoupled radiation and physics variables
 !-------------------
 !  DYCORE containers
 !-------------------
-type(DYCORE_data_type),    allocatable :: DYCORE_Data(:)  ! number of blocks
+type(DYCORE_data_type),    allocatable :: DYCORE_Data(:)  !< number of blocks
 
 !----------------
 !  GFS containers
 !----------------
-type(GFS_externaldiag_type), target :: GFS_Diag(DIAG_SIZE)
-type(GFS_restart_type)     , allocatable, target :: GFS_restart_var(:)
+type(GFS_externaldiag_type), target :: GFS_Diag(DIAG_SIZE) !< Contains external diagnostic data
+type(GFS_restart_type)     , allocatable, target :: GFS_restart_var(:) !< Contains restart variables
 
 !--------------
 ! IAU container
 !--------------
-type(iau_external_data_type)        :: IAU_Data ! number of blocks
+type(iau_external_data_type)        :: IAU_Data !< number of blocks
 
 !-----------------
 !  Block container
 !-----------------
-type (block_control_type), target   :: Atm_block
+type (block_control_type), target   :: Atm_block !< Stucture for threading
 
 !-----------------------------------------------------------------------
 
-character(len=128) :: version = '$Id$'
-character(len=128) :: tagname = '$Name$'
+character(len=128) :: version = '$Id$' !< Version control string
+character(len=128) :: tagname = '$Name$' !< Version control tag string
 
 #ifdef NAM_phys
   logical,parameter :: flip_vc = .false.
 #else
   logical,parameter :: flip_vc = .true.
 #endif
-
+  !> Setting constant parameters
   real(kind=GFS_kind_phys), parameter :: zero    = 0.0_GFS_kind_phys,     &
                                          one     = 1.0_GFS_kind_phys,     &
                                          epsln   = 1.0e-10_GFS_kind_phys, &
@@ -236,26 +235,19 @@ character(len=128) :: tagname = '$Name$'
 contains
 
 !#######################################################################
-! <SUBROUTINE NAME="update_atmos_radiation_physics">
+!> @brief Update radiation physics in Atmos
 !
-!<DESCRIPTION>
-!   Called every time step as the atmospheric driver to compute the
-!   atmospheric tendencies for dynamics, radiation, vertical diffusion of
-!   momentum, tracers, and heat/moisture.  For heat/moisture only the
-!   downward sweep of the tridiagonal elimination is performed, hence
-!   the name "_down".
-!</DESCRIPTION>
-
-!   <TEMPLATE>
-!     call  update_atmos_radiation_physics (Atmos)
-!   </TEMPLATE>
-
-! <INOUT NAME="Atmos" TYPE="type(atmos_data_type)">
-!   Derived-type variable that contains fields needed by the flux exchange module.
-!   These fields describe the atmospheric grid and are needed to
-!   compute/exchange fluxes with other component models.  All fields in this
-!   variable type are allocated for the global grid (without halo regions).
-! </INOUT>
+!> @details Called every time step as the atmospheric driver to compute the
+!>   atmospheric tendencies for dynamics, radiation, vertical diffusion of
+!>   momentum, tracers, and heat/moisture.  For heat/moisture only the
+!>   downward sweep of the tridiagonal elimination is performed, hence
+!>   the name "_down".
+!>
+!>  @param[in,out] Atmos  Derived-type variable that contains fields needed 
+!>    by the flux exchange module. These fields describe the atmospheric grid 
+!>    and are needed to compute/exchange fluxes with other component models.  
+!>    All fields in this variable type are allocated for the global grid 
+!>    (without halo regions).
 
 subroutine update_atmos_radiation_physics (Atmos)
 !-----------------------------------------------------------------------
@@ -429,28 +421,18 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !-----------------------------------------------------------------------
  end subroutine update_atmos_radiation_physics
-! </SUBROUTINE>
-
 
 !#######################################################################
-! <SUBROUTINE NAME="atmos_timestep_diagnostics">
-!
-! <OVERVIEW>
-! Calculates per-timestep, domain-wide, diagnostic, information and
-! prints to stdout from master rank. Must be called after physics
-! update but before first_time_step flag is cleared.
-! </OVERVIEW>
+!> @brief Calculate diagnositc information every time step
+!> @details Calculates per-timestep, domain-wide, diagnostic, information and
+!>   prints to stdout from master rank. Must be called after physics
+!>   update but before first_time_step flag is cleared.
+!>
+!> @param[inout] Atmos Derived-type variable that contains fields needed by the 
+!>   flux exchange module. These fields describe the atmospheric grid and are needed
+!>   to compute/exchange fluxes with other component models.  All fields in this
+!>   variable type are allocated for the global grid (without halo regions).
 
-!   <TEMPLATE>
-!     call  atmos_timestep_diagnostics (Atmos)
-!   </TEMPLATE>
-
-! <INOUT NAME="Atmos" TYPE="type(atmos_data_type)">
-!   Derived-type variable that contains fields needed by the flux exchange module.
-!   These fields describe the atmospheric grid and are needed to
-!   compute/exchange fluxes with other component models.  All fields in this
-!   variable type are allocated for the global grid (without halo regions).
-! </INOUT>
 subroutine atmos_timestep_diagnostics(Atmos)
   use mpi_f08
   implicit none
@@ -516,14 +498,14 @@ subroutine atmos_timestep_diagnostics(Atmos)
 
 !-----------------------------------------------------------------------
 end subroutine atmos_timestep_diagnostics
-! </SUBROUTINE>
 
 !#######################################################################
-! <SUBROUTINE NAME="atmos_model_init">
-!
-! <OVERVIEW>
-! Routine to initialize the atmospheric model
-! </OVERVIEW>
+!> @brief Routine to initialize the atmospheric model
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+!> @param[in] Time_init Reference time
+!> @param[in] Time Current time
+!> @param[in] Time_step Atmospheric time step
 
 subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
@@ -854,13 +836,12 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
 !-----------------------------------------------------------------------
 end subroutine atmos_model_init
-! </SUBROUTINE>
-
 
 !#######################################################################
-! <SUBROUTINE NAME="update_atmos_model_dynamics"
-!
-! <OVERVIEW>
+!> @brief Run the atmospheric dynamics to advect the properties
+!> 
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+
 subroutine update_atmos_model_dynamics (Atmos)
 ! run the atmospheric dynamics to advect the properties
   type (atmos_data_type), intent(in) :: Atmos
@@ -887,21 +868,16 @@ subroutine update_atmos_model_dynamics (Atmos)
     call mpp_clock_end(fv3Clock)
 
 end subroutine update_atmos_model_dynamics
-! </SUBROUTINE>
-
 
 !#######################################################################
-! <SUBROUTINE NAME="atmos_model_exchange_phase_1"
-!
-! <OVERVIEW>
-!   Perform data exchange with coupled components in run phase 1
-! </OVERVIEW>
-!
-! <DESCRIPTION>
-!  This subroutine currently exports atmospheric fields and tracers
-!  to the chemistry component during the model's run phase 1, i.e.
-!  before chemistry is run.
-! </DESCRIPTION>
+!> @brief Perform data exchange with coupled components in run phase 1
+!>
+!> @details This subroutine currently exports atmospheric fields and tracers
+!>   to the chemistry component during the model's run phase 1, i.e.
+!>   before chemistry is run.
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+!> @param[out] rc Return code
 
 subroutine atmos_model_exchange_phase_1 (Atmos, rc)
 
@@ -923,21 +899,15 @@ subroutine atmos_model_exchange_phase_1 (Atmos, rc)
     endif
 
  end subroutine atmos_model_exchange_phase_1
-! </SUBROUTINE>
-
 
 !#######################################################################
-! <SUBROUTINE NAME="atmos_model_exchange_phase_2"
-!
-! <OVERVIEW>
-!   Perform data exchange with coupled components in run phase 2
-! </OVERVIEW>
-!
-! <DESCRIPTION>
-!  This subroutine currently imports fields updated by the coupled
-!  chemistry component back into the atmospheric model during run
-!  phase 2.
-! </DESCRIPTION>
+!> @brief Perform data exchange with coupled components in run phase 2
+!>
+!> @details This subroutine currently imports fields updated by the coupled
+!>  chemistry component back into the atmospheric model during run phase 2.
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+!> @param[out] rc Return code
 
 subroutine atmos_model_exchange_phase_2 (Atmos, rc)
 
@@ -959,13 +929,13 @@ subroutine atmos_model_exchange_phase_2 (Atmos, rc)
     endif
 
  end subroutine atmos_model_exchange_phase_2
-! </SUBROUTINE>
-
 
 !#######################################################################
-! <SUBROUTINE NAME="update_atmos_model_state"
-!
-! <OVERVIEW>
+!> @brief Update the model state after all concurrency is completed
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+!> @param[out] rc Return code
+
 subroutine update_atmos_model_state (Atmos, rc)
 ! to update the model state after all concurrency is completed
   use ESMF
@@ -1074,30 +1044,14 @@ subroutine update_atmos_model_state (Atmos, rc)
     endif
 
  end subroutine update_atmos_model_state
-! </SUBROUTINE>
-
-
 
 !#######################################################################
-! <SUBROUTINE NAME="atmos_model_end">
-!
-! <OVERVIEW>
-!  termination routine for atmospheric model
-! </OVERVIEW>
-
-! <DESCRIPTION>
-!  Call once to terminate this module and any other modules used.
-!  This routine writes a restart file and deallocates storage
-!  used by the derived-type variable atmos_boundary_data_type.
-! </DESCRIPTION>
-
-! <TEMPLATE>
-!   call atmos_model_end (Atmos)
-! </TEMPLATE>
-
-! <INOUT NAME="Atmos" TYPE="type(atmos_data_type)">
-!   Derived-type variable that contains fields needed by the flux exchange module.
-! </INOUT>
+!> @brief Terminate routine for atmospheric model
+!> @details Call once to terminate this module and any other modules used.
+!>   This routine writes a restart file and deallocates storage
+!>   used by the derived-type variable atmos_boundary_data_type.
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
 
 subroutine atmos_model_end (Atmos)
   use get_stochy_pattern_mod, only: write_stoch_restart_atm
@@ -1139,12 +1093,11 @@ subroutine atmos_model_end (Atmos)
 
 end subroutine atmos_model_end
 
-! </SUBROUTINE>
 !#######################################################################
-! <SUBROUTINE NAME="atmos_model_restart">
-! <DESCRIPTION>
-!  Write out restart files registered through register_restart_file
-! </DESCRIPTION>
+!> @brief Write out restart files registered through register_restart_file
+!>
+!> @param[inout] Atmos Derived-type variable describing atmospheric grid
+!> @param[in] timestamp ???
 subroutine atmos_model_restart(Atmos, timestamp)
   use update_ca, only: write_ca_restart
   type (atmos_data_type),   intent(inout) :: Atmos
@@ -1163,14 +1116,13 @@ subroutine atmos_model_restart(Atmos, timestamp)
        call write_ca_restart(timestamp)
     endif
 end subroutine atmos_model_restart
-! </SUBROUTINE>
 
 !#######################################################################
-! <SUBROUTINE NAME="get_atmos_model_ungridded_dim">
-!
-! <DESCRIPTION>
-!  Retrieve ungridded dimensions of atmospheric model arrays
-! </DESCRIPTION>
+!> @brief Retrieve ungridded dimensions of atmospheric model arrays
+!>
+!> @param[out] nlev Number of atmospheric levels
+!> @param[out] nsoillev Number of soil levels
+!> @param[out] ntracers Number of atmospheric tracers
 
 subroutine get_atmos_model_ungridded_dim(nlev, nsoillev, ntracers)
 
@@ -1189,41 +1141,38 @@ subroutine get_atmos_model_ungridded_dim(nlev, nsoillev, ntracers)
   if (present(ntracers)) call get_number_tracers(MODEL_ATMOS, num_tracers=ntracers)
 
 end subroutine get_atmos_model_ungridded_dim
-! </SUBROUTINE>
 
 !#######################################################################
-! <SUBROUTINE NAME="get_atmos_tracer_types">
-! <DESCRIPTION>
-!  Identify and return usage and type id of atmospheric tracers.
-!  Ids are defined as:
-!    0 = generic tracer
-!    1 = chemistry - prognostic
-!    2 = chemistry - diagnostic
-!
-!  Tracers are identified via the additional 'tracer_usage' keyword and
-!  their optional 'type' qualifier. A tracer is assumed prognostic if
-!  'type' is not provided. See examples from the field_table file below:
-!
-!  Prognostic tracer:
-!  ------------------
-!  "TRACER", "atmos_mod",    "so2"
-!            "longname",     "so2 mixing ratio"
-!            "units",        "ppm"
-!            "tracer_usage", "chemistry"
-!            "profile_type", "fixed", "surface_value=5.e-6" /
-!
-!  Diagnostic tracer:
-!  ------------------
-!  "TRACER", "atmos_mod",    "pm25"
-!            "longname",     "PM2.5"
-!            "units",        "ug/m3"
-!            "tracer_usage", "chemistry", "type=diagnostic"
-!            "profile_type", "fixed", "surface_value=5.e-6" /
-!
-!  For atmospheric chemistry, the order of both prognostic and diagnostic
-!  tracers is validated against the model's internal assumptions.
-!
-! </DESCRIPTION>
+!> @brief Identify and return usage and type id of atmospheric tracers
+!> @details Ids are defined as:
+!>   0 = generic tracer
+!>   1 = chemistry - prognostic
+!>   2 = chemistry - diagnostic
+!>  Tracers are identified via the additional 'tracer_usage' keyword and
+!>  their optional 'type' qualifier. A tracer is assumed prognostic if
+!>  'type' is not provided. See examples from the field_table file below:
+!>
+!>  Prognostic tracer:
+!>  ------------------
+!>  "TRACER", "atmos_mod",    "so2"
+!>            "longname",     "so2 mixing ratio"
+!>            "units",        "ppm"
+!>            "tracer_usage", "chemistry"
+!>            "profile_type", "fixed", "surface_value=5.e-6" /
+!>
+!> Diagnostic tracer:
+!>  ------------------
+!>  "TRACER", "atmos_mod",    "pm25"
+!>            "longname",     "PM2.5"
+!>            "units",        "ug/m3"
+!>            "tracer_usage", "chemistry", "type=diagnostic"
+!>            "profile_type", "fixed", "surface_value=5.e-6" /
+!>
+!>  For atmospheric chemistry, the order of both prognostic and diagnostic
+!>  tracers is validated against the model's internal assumptions.
+!>
+!> @param[out] tracer_types Array of tracer types
+ 
 subroutine get_atmos_tracer_types(tracer_types)
 
   use field_manager_mod,  only: parse
@@ -1295,25 +1244,19 @@ subroutine get_atmos_tracer_types(tracer_types)
     call mpp_error(FATAL, 'diagnostic chemistry tracers must follow prognostic ones')
 
 end subroutine get_atmos_tracer_types
-! </SUBROUTINE>
 
 !#######################################################################
-! <SUBROUTINE NAME="update_atmos_chemistry">
-! <DESCRIPTION>
-!  Populate exported chemistry fields with current atmospheric state
-!  data (state='export'). Update tracer concentrations for atmospheric
-!  chemistry with values from chemistry component (state='import').
-!  Fields should be exported/imported from/to the atmospheric state
-!  after physics calculations.
-!
-!  NOTE: It is assumed that all the chemical tracers follow the standard
-!  atmospheric tracers, which end with ozone. The order of the chemical
-!  tracers must match their order in the chemistry component.
-!
-!  Requires:
-!         GFS data types
-!         Atm_block
-! </DESCRIPTION>
+!> @brief Populate exported chemistry fields with current atmospheric state
+!> @details Update tracer concentrations for atmospheric chemistry with values 
+!>   from chemistry component (state='import'). Fields should be exported/imported 
+!>   from/to the atmospheric state after physics calculations.
+!>   NOTE: It is assumed that all the chemical tracers follow the standard
+!>   atmospheric tracers, which end with ozone. The order of the chemical
+!>   tracers must match their order in the chemistry component.
+!>
+!> @param[in] state Defines wheter field should be imported or exported
+!> @param[out] rc Return code
+
 subroutine update_atmos_chemistry(state, rc)
 
   use ESMF
@@ -1830,7 +1773,11 @@ subroutine update_atmos_chemistry(state, rc)
   end select
 
 end subroutine update_atmos_chemistry
-! </SUBROUTINE>
+
+!> @brief Assigns imported data from coupled components to atmospheric model variables
+!>
+!> @param[in] jdat Date and time array
+!> @param[out] rc Return code
 
   subroutine assign_importdata(jdat, rc)
 
@@ -3252,7 +3199,10 @@ end subroutine update_atmos_chemistry
 !
   end subroutine assign_importdata
 
-!
+!> @brief  Sets up and populates data for export to coupled components
+!>
+!> @param[out] rc Return code
+
   subroutine setup_exportdata(rc)
 
     use ESMF
@@ -3656,6 +3606,11 @@ end subroutine update_atmos_chemistry
 
   end subroutine setup_exportdata
 
+!> @brief Adds land-sea mask information to the grid object
+!>
+!> @param[in] fcstGrid Grid object
+!> @param[out] rc Return code
+
   subroutine addLsmask2grid(fcstGrid, rc)
 
     use ESMF
@@ -3720,6 +3675,14 @@ end subroutine update_atmos_chemistry
 
   end subroutine addLsmask2grid
 !------------------------------------------------------------------------------
+!> @brief Retrieves domain information from grid
+!>
+!> @param[in] n Grid number
+!> @param[out] layout Processor grid layout
+!> @param[out] nx Grid points in x-direction
+!> @param[out] ny Grid points in y-direction
+!> @param[out] pelist List of processor IDs
+
   subroutine atmos_model_get_nth_domain_info(n, layout, nx, ny, pelist)
    integer, intent(in)  :: n
    integer, intent(out) :: layout(2)
