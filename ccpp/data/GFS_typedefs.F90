@@ -170,6 +170,11 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: vvl  (:,:)   => null()  !< layer mean vertical velocity in pa/sec
     real (kind=kind_phys), pointer :: tgrs (:,:)   => null()  !< model layer mean temperature in k
     real (kind=kind_phys), pointer :: qgrs (:,:,:) => null()  !< layer mean tracer concentration
+!3D-SA-TKE
+    real (kind=kind_phys), pointer :: def_1 (:,:)   => null()  !< deformation
+    real (kind=kind_phys), pointer :: def_2 (:,:)   => null()  !< deformation
+    real (kind=kind_phys), pointer :: def_3 (:,:)   => null()  !< deformation
+!3D-SA-TKE-end
 ! dissipation estimate
     real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< model layer mean temperature in k
     ! soil state variables - for soil SPPT - sfc-perts, mgehne
@@ -1182,6 +1187,7 @@ module GFS_typedefs
     logical              :: shinhong        !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu          !< flag for YSU turbulent mixing scheme
     logical              :: dspheat         !< flag for tke dissipative heating
+    logical              :: sa3dtke         !< flag for scale-aware 3D tke scheme
     logical              :: hurr_pbl        !< flag for hurricane-specific options in PBL scheme
     logical              :: lheatstrg       !< flag for canopy heat storage parameterization
     logical              :: lseaspray       !< flag for sea spray parameterization
@@ -1378,6 +1384,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: elmx            !< maximum allowed dissipation mixing length in boundary layer mass flux scheme
     integer              :: sfc_rlm         !< choice of near surface mixing length in boundary layer mass flux scheme
     integer              :: tc_pbl          !< control for TC applications in the PBL scheme
+    integer              :: use_lpt         !< control for using Liquid Potential Temp for TC applications in the GFSPBL scheme
 
 !--- parameters for canopy heat storage (CHS) parameterization
     real(kind=kind_phys) :: h0facu          !< CHS factor for sensible heat flux in unstable surface layer
@@ -1798,6 +1805,11 @@ module GFS_typedefs
 !--- Diagnostic that needs to be carried over to the next time step (removed from diag_type)
     real (kind=kind_phys), pointer :: hpbl     (:)     => null()  !< Planetary boundary layer height
     real (kind=kind_phys), pointer :: ud_mf  (:,:)     => null()  !< updraft mass flux
+
+!-- Diagnostic variable that passes to dyn_core (SA-3D-TKE)
+    real (kind=kind_phys), pointer :: dku3d_h  (:,:)     => null()  !< Horizontal eddy diffusitivity for momentum
+    real (kind=kind_phys), pointer :: dku3d_e  (:,:)     => null()  !< Eddy diffusitivity for momentum for tke
+
 
     !--- dynamical forcing variables for Grell-Freitas convection
     real (kind=kind_phys), pointer :: forcet (:,:)     => null()  !<
@@ -2274,11 +2286,21 @@ module GFS_typedefs
       allocate (Statein%wgrs   (IM,Model%levs))
     endif
     allocate (Statein%qgrs   (IM,Model%levs,Model%ntrac))
+!3D-SA-TKE
+    allocate (Statein%def_1   (IM,Model%levs))
+    allocate (Statein%def_2   (IM,Model%levs))
+    allocate (Statein%def_3   (IM,Model%levs))
+!3D-SA-TKE-end
 
     Statein%qgrs   = clear_val
     Statein%pgr    = clear_val
     Statein%ugrs   = clear_val
     Statein%vgrs   = clear_val
+!3D-SA-TKE
+    Statein%def_1   = clear_val
+    Statein%def_2   = clear_val
+    Statein%def_3   = clear_val
+!3D-SA-TKE-end
 
     if(Model%lightning_threat) then
       Statein%wgrs = clear_val
@@ -3737,6 +3759,7 @@ module GFS_typedefs
     logical              :: shinhong       = .false.                  !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu         = .false.                  !< flag for YSU vertical turbulent mixing scheme
     logical              :: dspheat        = .false.                  !< flag for tke dissipative heating
+    logical              :: sa3dtke        = .false.                   !< flag for scale-aware 3D tke scheme
     logical              :: hurr_pbl       = .false.                  !< flag for hurricane-specific options in PBL scheme
     logical              :: lheatstrg      = .false.                  !< flag for canopy heat storage parameterization
     logical              :: lseaspray      = .false.                  !< flag for sea spray parameterization
@@ -3919,6 +3942,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: elmx           = 300.            !< maximum allowed dissipation mixing length in boundary layer mass flux scheme
     integer              :: sfc_rlm        = 0               !< choice of near surface mixing length in boundary layer mass flux scheme
     integer              :: tc_pbl         = 0               !< control for TC applications in the PBL scheme
+    integer              :: use_lpt        = 0               !< control for using Liquid Potential Temp for TC applications in the GFSPBL scheme
 
 !--- parameters for canopy heat storage (CHS) parameterization
     real(kind=kind_phys) :: h0facu         = 0.25
@@ -4163,6 +4187,8 @@ module GFS_typedefs
                                do_spp, n_var_spp,                                           &
                                lndp_type,  n_var_lndp, lndp_each_step,                      &
                                pert_mp,pert_clds,pert_radtend,                              &
+                          !--- Scale-aware 3D TKE scheme
+                               sa3dtke,                                                     &
                           !--- Rayleigh friction
                                prslrd0, ral_ts,  ldiag_ugwp, do_ugwp, do_tofd,              &
                           ! --- Ferrier-Aligo
@@ -4185,7 +4211,7 @@ module GFS_typedefs
                                diag_flux, diag_log,                                         &
                           !    vertical diffusion
                                xkzm_m, xkzm_h, xkzm_s, xkzminv, moninq_fac, dspfac,         &
-                               bl_upfr, bl_dnfr, rlmx, elmx, sfc_rlm, tc_pbl,               &
+                               bl_upfr, bl_dnfr, rlmx, elmx, sfc_rlm, tc_pbl, use_lpt,      &
                           !--- canopy heat storage parameterization
                                h0facu, h0facs,                                              &
                           !--- cellular automata
@@ -5142,6 +5168,8 @@ module GFS_typedefs
     Model%diag_flux        = diag_flux
 !--- flux method in 2-m diagnostics (for stable conditions)
     Model%diag_log         = diag_log
+!--- SA-3D-TKE option
+    Model%sa3dtke          = sa3dtke
 
 !--- vertical diffusion
     Model%xkzm_m           = xkzm_m
@@ -5156,6 +5184,7 @@ module GFS_typedefs
     Model%elmx             = elmx
     Model%sfc_rlm          = sfc_rlm
     Model%tc_pbl           = tc_pbl
+    Model%use_lpt          = use_lpt
 
 !--- canopy heat storage parametrization
     Model%h0facu           = h0facu
@@ -6905,6 +6934,7 @@ module GFS_typedefs
       print *, ' shinhong          : ', Model%shinhong
       print *, ' do_ysu            : ', Model%do_ysu
       print *, ' dspheat           : ', Model%dspheat
+      print *, ' sa3dtke           : ', Model%sa3dtke
       print *, ' lheatstrg         : ', Model%lheatstrg
       print *, ' lseaspray         : ', Model%lseaspray
       print *, ' cnvcld            : ', Model%cnvcld
@@ -7001,6 +7031,7 @@ module GFS_typedefs
       print *, ' elmx              : ', Model%elmx
       print *, ' sfc_rlm           : ', Model%sfc_rlm
       print *, ' tc_pbl            : ', Model%tc_pbl
+      print *, ' use_lpt           : ', Model%use_lpt
       print *, ' '
       print *, 'parameters for canopy heat storage parametrization'
       print *, ' h0facu            : ', Model%h0facu
@@ -7352,6 +7383,12 @@ module GFS_typedefs
 
     allocate (Tbd%hpbl (IM))
     Tbd%hpbl     = clear_val
+
+! Allocate horizontal component of dku for dyn_core (SA-3D-TKE)
+    allocate (Tbd%dku3d_h (IM,Model%levs))
+    Tbd%dku3d_h    = clear_val
+    allocate (Tbd%dku3d_e (IM,Model%levs))
+    Tbd%dku3d_e    = clear_val
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_ntiedtke .or. Model%imfdeepcnv == Model%imfdeepcnv_samf .or. Model%imfshalcnv == Model%imfshalcnv_samf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3 .or. Model%imfshalcnv == Model%imfshalcnv_c3) then
        allocate (Tbd%prevsq(IM, Model%levs))
