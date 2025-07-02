@@ -3219,7 +3219,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
+  active = ((control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .or. control_for_microphysics_scheme == identifier_for_tempo_microphysics_scheme) .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [nifa2d]
   standard_name = tendency_of_nonhygroscopic_ice_nucleating_aerosols_at_surface_adjacent_layer
   long_name = instantaneous ice-friendly sfc aerosol source
@@ -3227,7 +3227,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
+  active = ((control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .or. control_for_microphysics_scheme == identifier_for_tempo_microphysics_scheme) .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [ebu_smoke]
   standard_name = ebu_smoke
   long_name = buffer of vertical fire emission
@@ -4401,6 +4401,12 @@
   units = flag
   dimensions = ()
   type = integer
+[imp_physics_tempo]
+  standard_name = identifier_for_tempo_microphysics_scheme
+  long_name = choice of TEMPO microphysics scheme
+  units = flag
+  dimensions = ()
+  type = integer
 [imp_physics_wsm6]
   standard_name = identifier_for_wsm6_microphysics_scheme
   long_name = choice of WSM6 microphysics scheme
@@ -4925,6 +4931,12 @@
   units = flag
   dimensions = ()
   type = logical
+[lthailaware]
+  standard_name = flag_for_hail_physics
+  long_name = flag for hail physics
+  units = flag
+  dimensions = ()
+  type = logical
 [mraerosol]
   standard_name = do_merra2_aerosol_awareness
   long_name = flag for merra2 aerosol-aware physics for example the thompson microphysics
@@ -4975,6 +4987,12 @@
   units = count
   dimensions = ()
   type = integer
+[tempo_cfg]
+  standard_name = configuration_for_TEMPO_microphysics
+  long_name = configuration information for TEMPO microphysics
+  units = mixed
+  dimensions = ()
+  type = ty_tempo_cfg
 [thompson_mp_is_init]
   standard_name = flag_for_thompson_mp_scheme_initialization
   long_name = flag carrying scheme initialization status
@@ -10248,6 +10266,7 @@
   relative_path = ../physics/physics/
   dependencies = hooks/machine.F,hooks/physcons.F90
   dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
+  dependencies = MP/TEMPO/TEMPO/module_mp_tempo_params.F90
   dependencies = photochem/module_ozphys.F90,photochem/module_h2ophys.F90
   dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90,MP/GFDL_parse_tracers.F90
 
