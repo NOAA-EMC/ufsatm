@@ -162,20 +162,6 @@ module post_fv3
           call read_xml()
         else if(ifhr > 0) then
           filenameflat = 'postxconfig-NT.txt'
-          if(associated(paramset)) then
-            if(size(paramset)>0) then
-              do i=1,size(paramset)
-                if (associated(paramset(i)%param)) then
-                  if (size(paramset(i)%param)>0) then
-                    deallocate(paramset(i)%param)
-                    nullify(paramset(i)%param)
-                  endif
-                endif
-              enddo
-            endif
-            deallocate(paramset)
-            nullify(paramset)
-          endif
           num_pset = 0
           call read_xml()
           read_postcntrl = .false.
@@ -4532,9 +4518,13 @@ module post_fv3
         do j=jsta,jend
           do i=ista,iend
             if( zint(i,j,l+1)/=spval .and. zint(i,j,l)/=spval .and. pmid(i,j,l) /= spval) then
-              zmid(i,j,l)=zint(i,j,l+1)+(zint(i,j,l)-zint(i,j,l+1))* &
+              if (abs(zint(i,j,l+1)-zint(i,j,l)) < small) then
+                zmid(i,j,l)=zint(i,j,l)
+              else
+                zmid(i,j,l)=zint(i,j,l+1)+(zint(i,j,l)-zint(i,j,l+1))* &
                     (log(pmid(i,j,l))-alpint(i,j,l+1))/ &
                     (alpint(i,j,l)-alpint(i,j,l+1))
+              endif
             else
               zmid(i,j,l) = spval
             endif

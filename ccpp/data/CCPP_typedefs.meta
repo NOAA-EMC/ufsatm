@@ -2836,6 +2836,13 @@
   units = count
   dimensions = ()
   type = integer
+[tkeh]
+   standard_name = vertical_turbulent_kinetic_energy_at_interface
+   long_name = vertical turbulent kinetic energy at model layer interfaces
+   units = m2 s-2
+   dimensions = (horizontal_loop_extent,vertical_interface_dimension)
+   type = real
+   kind = kind_phys
 
 ########################################################################
 [ccpp-table-properties]
@@ -3119,7 +3126,6 @@
   dimensions = (starting_x_direction_index_alloc1:ending_x_direction_index_alloc1,starting_y_direction_index_alloc1:ending_y_direction_index_alloc1,1:vertical_dimension_for_fast_physics,1:number_of_gases_for_multi_gases_physics)
   type = real
   kind = kind_dyn
-  active = (number_of_gases_for_multi_gases_physics > 0)
 [qv]
   standard_name = water_vapor_specific_humidity_at_Lagrangian_surface
   long_name = water vapor specific humidity updated by fast physics at Lagrangian surface
