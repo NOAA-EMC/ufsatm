@@ -51,6 +51,7 @@
 #ifdef INLINE_POST
       use post_fv3,            only : post_run_fv3
 #endif
+      use esmf_utils
 !
 !-----------------------------------------------------------------------
 !
@@ -91,6 +92,7 @@
       REAL(KIND=8), parameter  :: radi=180.0d0/pi
 !-----------------------------------------------------------------------
 !
+      integer, parameter, public :: dstOutsideMaskValue = 100
       public SetServices
 !
       interface splat
@@ -1009,6 +1011,10 @@
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             end if
 
+            call ESMF_GridAddItem(actualWrtGrid, itemflag=ESMF_GRIDITEM_MASK,   &
+                                  staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
             do j=1, fieldCount
 
               call ESMF_FieldGet(fcstField(j), typekind=typekind, dimCount=fieldDimCount, name=fieldName, rc=rc)
@@ -1037,6 +1043,9 @@
                                             gridToFieldMap=gridToFieldMap,     &
                                             ungriddedLBound=ungriddedLBound,   &
                                             ungriddedUBound=ungriddedUBound, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+              call init_field_to_missing_value(field_work, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
               call ESMF_AttributeCopy(fcstField(j), field_work, attcopy=ESMF_ATTCOPY_REFERENCE, rc=rc)
@@ -1687,7 +1696,7 @@
       integer                               :: out_phase
 !
       logical                               :: opened
-      logical                               :: lmask_fields
+      ! logical                               :: lmask_fields
 !
       character(esmf_maxstr)                :: filename,compname,wrtFBName,traceString
       character(40)                         :: cfhour, cform
@@ -1725,6 +1734,9 @@
       integer                               :: tileCount
       type(ESMF_Info)                       :: fcstInfo, wrtInfo
       character(len=ESMF_MAXSTR)            :: output_grid_name
+
+      type(ESMF_Grid)                       :: src_grid, dst_grid
+      type(ESMF_Field)                      :: dst_field_mask
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -1853,6 +1865,8 @@
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             deallocate(fieldList)
 
+            src_grid = grid
+
             call ESMF_GridGetCoord(grid, coordDim=1, array=coordArray(1), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             call ESMF_GridGetCoord(grid, coordDim=2, array=coordArray(2), rc=rc)
@@ -1933,6 +1947,7 @@
             ! update output grid coordinates based of fcstgrid center lat/lon
             call ESMF_FieldBundleGet(file_bundle, grid=grid, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            dst_grid = grid
             call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=lonPtr, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=latPtr, rc=rc)
@@ -1983,8 +1998,23 @@
               enddo
             endif
 
+            ! create file_bundle's grid (destination grid) mask with values = dstOutsideMaskValue for all 'outside' grid points, similar as in fv3_cap
+            call generate_dst_field_mask(src_grid, dst_grid, dst_field_mask, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+            call add_dst_mask(dst_grid, dst_field_mask, dstOutsideMaskValue, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+            call ESMF_FieldDestroy(dst_field_mask, noGarbage=.true., rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+            ! reset all fields in file_bundle to missing value
+            call reset_bundle_to_missing_value(file_bundle, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
             call ESMF_TraceRegionEnter("ESMF_FieldBundleRegridStore()"//trim(traceString), rc=rc)
             call ESMF_FieldBundleRegridStore(mirror_bundle, file_bundle,                &
+                                             dstMaskValues=(/dstOutsideMaskValue/), &
                                              regridMethod=regridmethod, routehandle=rh, &
                                              unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
                                              srcTermProcessing=srcTermProcessing, rc=rc)
@@ -1996,6 +2026,7 @@
           ! Regrid()
           call ESMF_TraceRegionEnter("ESMF_FieldBundleRegrid()"//trim(traceString), rc=rc)
           call ESMF_FieldBundleRegrid(mirror_bundle, file_bundle, &
+                                      zeroregion=ESMF_REGION_SELECT,       &
                                       routehandle=rh, termorderflag=(/ESMF_TERMORDER_SRCSEQ/), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           call ESMF_TraceRegionExit("ESMF_FieldBundleRegrid()"//trim(traceString), rc=rc)
@@ -2018,7 +2049,7 @@
 !-----------------------------------------------------------------------
 !*** do post
 !-----------------------------------------------------------------------
-      lmask_fields = .false.
+      ! lmask_fields = .false.
       if( wrt_int_state%write_dopost ) then
 #ifdef INLINE_POST
         wbeg = MPI_Wtime()
@@ -2026,25 +2057,25 @@
 
           if (trim(output_grid(n)) /= 'cubed_sphere_grid') then
 
-            if (trim(output_grid(n)) == 'regional_latlon' .or. &
-                trim(output_grid(n)) == 'regional_latlon_moving' .or. &
-                trim(output_grid(n)) == 'rotated_latlon' .or. &
-                trim(output_grid(n)) == 'rotated_latlon_moving' .or. &
-                trim(output_grid(n)) == 'lambert_conformal') then
+            !if (trim(output_grid(n)) == 'regional_latlon' .or. &
+            !    trim(output_grid(n)) == 'regional_latlon_moving' .or. &
+            !    trim(output_grid(n)) == 'rotated_latlon' .or. &
+            !    trim(output_grid(n)) == 'rotated_latlon_moving' .or. &
+            !    trim(output_grid(n)) == 'lambert_conformal') then
 
-                !mask fields according to sfc pressure, only history bundles
-                do nbdl=1, wrt_int_state%FBCount
-                  call ESMF_FieldBundleGet(wrt_int_state%wrtFB(nbdl), name=wrtFBName, rc=rc)
-                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__,file=__FILE__)) return
+            !    !mask fields according to sfc pressure, only history bundles
+            !    do nbdl=1, wrt_int_state%FBCount
+            !      call ESMF_FieldBundleGet(wrt_int_state%wrtFB(nbdl), name=wrtFBName, rc=rc)
+            !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__,file=__FILE__)) return
 
-                  if (wrtFBName(1:8) == 'restart_') cycle
-                  if (wrtFBName(1:18) == 'cubed_sphere_grid_') cycle
+            !      if (wrtFBName(1:8) == 'restart_') cycle
+            !      if (wrtFBName(1:18) == 'cubed_sphere_grid_') cycle
 
-                  call mask_fields(wrt_int_state%wrtFB(nbdl),rc)
-                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-                enddo
-                lmask_fields = .true.
-            endif
+            !      call mask_fields(wrt_int_state%wrtFB(nbdl),rc)
+            !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            !    enddo
+            !    lmask_fields = .true.
+            !endif
 
             call post_run_fv3(wrt_int_state, n, mype, wrt_mpi_comm, lead_write_task, &
                               itasks, jtasks, nf_hours, nf_minutes, nf_seconds)
@@ -2433,10 +2464,10 @@
                      trim(output_grid(grid_id)) == 'lambert_conformal') then
 
               !mask fields according to sfc pressure
-              if( .not. lmask_fields ) then
-                call mask_fields(file_bundle,rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-              endif
+              ! if( .not. lmask_fields ) then
+              !   call mask_fields(file_bundle,rc)
+              !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              ! endif
 
               call write_netcdf(wrt_int_state%wrtFB(nbdl), trim(filename), &
                                 use_parallel_netcdf, wrt_mpi_comm, wrt_int_state%mype, &
@@ -2725,6 +2756,7 @@
 !$omp             private(i,j,coslon,sinlon,sinlat)
                do j=jstart, jend
                  do i=istart, iend
+                  if (cart3dPtr3dr4(1,i,j,k) < 9.99e20) then
                   coslon = cos(lonloc(i,j))
                   sinlon = sin(lonloc(i,j))
                   sinlat = sin(latloc(i,j))
@@ -2733,6 +2765,7 @@
                   vwind3dr4(i,j,k) =-cart3dPtr3dr4(1,i,j,k) * sinlat*sinlon    &
                                    + cart3dPtr3dr4(2,i,j,k) * sinlat*coslon    &
                                    + cart3dPtr3dr4(3,i,j,k) * cos(latloc(i,j))
+                  endif
                  enddo
                enddo
              enddo
@@ -2756,6 +2789,7 @@
 !$omp             private(i,j,k,coslon,sinlon,sinlat)
              do j=jstart, jend
                do i=istart, iend
+                  if (cart3dPtr2dr4(1,i,j) < 9.99e20) then
                   coslon = cos(lonloc(i,j))
                   sinlon = sin(lonloc(i,j))
                   sinlat = sin(latloc(i,j))
@@ -2764,6 +2798,7 @@
                   vwind2dr4(i,j) =-cart3dPtr2dr4(1,i,j) * sinlat*sinlon  &
                                  + cart3dPtr2dr4(2,i,j) * sinlat*coslon  &
                                  + cart3dPtr2dr4(3,i,j) * cos(latloc(i,j))
+                  endif
                enddo
              enddo
            endif
@@ -2781,7 +2816,7 @@
 !$omp parallel do default(none) shared(pressfc,jstart,jend,istart,iend) private(i,j)
          do j=jstart, jend
            do i=istart, iend
-             pressfc(i,j) = pressfc(i,j)**(grav/(rdgas*stndrd_atmos_lapse))*stndrd_atmos_ps
+             if (pressfc(i,j) < 9.99e20) pressfc(i,j) = pressfc(i,j)**(grav/(rdgas*stndrd_atmos_lapse))*stndrd_atmos_ps
            enddo
          enddo
        endif
@@ -2796,6 +2831,7 @@
 !
 !-----------------------------------------------------------------------
 !
+#if 0
    subroutine mask_fields(file_bundle,rc)
 
      type(ESMF_FieldBundle), intent(in)              :: file_bundle
@@ -3050,6 +3086,7 @@
      rc = 0
 
    end subroutine mask_fields
+#endif
 !
 !-----------------------------------------------------------------------
 !
@@ -4759,6 +4796,37 @@
       end do ! end fieldCount
 
       end subroutine compute_fields_checksum
+
+      subroutine reset_bundle_to_missing_value(file_bundle,rc)
+
+        type(ESMF_FieldBundle), intent(in)              :: file_bundle
+        integer,                intent(out),   optional :: rc
+
+        integer ifld,fieldCount
+        type(ESMF_Field),   allocatable  :: fcstField(:)
+
+        ! get field count
+        call ESMF_FieldBundleGet(file_bundle, fieldCount=fieldCount, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+        if (fieldCount == 0) return
+
+        allocate(fcstField(fieldCount))
+        call ESMF_FieldBundleGet(file_bundle, fieldList=fcstField, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+        do ifld=1,fieldCount
+
+          call init_field_to_missing_value(fcstField(ifld), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+        enddo
+
+        deallocate(fcstField)
+
+        rc = 0
+
+      end subroutine reset_bundle_to_missing_value
 
     end module  module_wrt_grid_comp
 !
