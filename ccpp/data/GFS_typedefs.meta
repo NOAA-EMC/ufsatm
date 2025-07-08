@@ -119,6 +119,48 @@
   type = real
   kind = kind_phys
   active = (do_lightning_threat_index_calculations)
+[def_1]
+  standard_name = square_of_vertical_shear_due_to_dynamics
+  long_name = square of vertical shear calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_1(:,1)]
+  standard_name = square_of_vertical_shear_due_to_dynamics_at_surface_adjacent_layer
+  long_name = square of vertical shear calculated from dynamics at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[def_2]
+  standard_name = square_of_horizontal_shear_due_to_dynamics
+  long_name = square of horizontal shear calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_2(:,1)]
+  standard_name = square_of_horizontal_shear_due_to_dynamics_at_surface_adjacent_layer
+  long_name = square of horizontal shear calculated from dynamics at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[def_3]
+  standard_name = horizontal_transfer_rate_of_tke_due_to_dynamics
+  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics
+  units = m2 s-3
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_3(:,1)]
+  standard_name = horizontal_transfer_rate_tke_due_to_dynamics_at_surface_adjacent_layer
+  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics at lowest model layer
+  units = m2 s-3
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
 [vvl]
   standard_name = lagrangian_tendency_of_air_pressure
   long_name = layer mean vertical velocity
@@ -5525,6 +5567,12 @@
   units = flag
   dimensions = ()
   type = logical
+[sa3dtke]
+  standard_name = do_scale_aware_3d_tke
+  long_name = flag for scale-aware 3d tke scheme
+  units = flag
+  dimensions = ()
+  type = logical
 [hurr_pbl]
   standard_name = flag_hurricane_PBL
   long_name = flag for hurricane-specific options in PBL scheme
@@ -6109,6 +6157,12 @@
 [tc_pbl]
   standard_name = control_for_TC_applications_in_the_PBL_scheme
   long_name = control for TC applications in the PBL scheme
+  units = none
+  dimensions = ()
+  type = integer
+[use_lpt]
+  standard_name = control_for_using_LPT_for_TC_applications_in_the_PBL_scheme
+  long_name = control for using LPT in TC applications in the PBL scheme
   units = none
   dimensions = ()
   type = integer
@@ -8009,6 +8063,20 @@
   long_name = pbl height
   units = m
   dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[dku3d_h]
+  standard_name = horizontal_atmosphere_momentum_diffusivity_for_dynamics
+  long_name = horizontal atmospheric momentum diffusivity for dynamics
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[dku3d_e]
+  standard_name = horizontal_atmosphere_tke_diffusivity_for_dynamics
+  long_name = horizontal atmospheric tke diffusivity for dynamics
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [ud_mf]
