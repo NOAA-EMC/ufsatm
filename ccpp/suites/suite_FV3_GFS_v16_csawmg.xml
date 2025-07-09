@@ -24,7 +24,6 @@
   </group>
   <group name="phys_ps">
     <subcycle loop="1">
-      <scheme>GFS_suite_stateout_reset</scheme>
       <scheme>get_prs_fv3</scheme>
       <scheme>GFS_suite_interstitial_1</scheme>
       <scheme>GFS_surface_generic_pre</scheme>
@@ -57,25 +56,22 @@
       <scheme>cires_ugwp</scheme>
       <scheme>cires_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
-      <scheme>GFS_suite_stateout_update</scheme>
     </subcycle>
   </group>
   <group name="phys_ts">
     <subcycle loop="1">
       <scheme>GFS_photochemistry</scheme>
+      <scheme>GFS_photochemistry_post</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
-      <scheme>GFS_DCNV_generic_pre</scheme>
       <scheme>cs_conv_pre</scheme>
       <scheme>cs_conv</scheme>
       <scheme>cs_conv_post</scheme>
       <scheme>GFS_DCNV_generic_post</scheme>
-      <scheme>GFS_SCNV_generic_pre</scheme>
       <scheme>samfshalcnv</scheme>
       <scheme>GFS_SCNV_generic_post</scheme>
       <scheme>GFS_suite_interstitial_4</scheme>
       <scheme>cnvc90</scheme>
-      <scheme>GFS_MP_generic_pre</scheme>
       <scheme>m_micro_pre</scheme>
       <scheme>m_micro</scheme>
       <scheme>m_micro_post</scheme>
