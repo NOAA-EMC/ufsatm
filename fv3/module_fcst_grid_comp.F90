@@ -771,57 +771,10 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
     Time_step = set_time (dt_atmos,0)
     if (mype == 0) write(*,*)'time_init=', date_init,'time=',date,'time_end=',date_end,'dt_atmos=',dt_atmos
-
-! set up forecast time array that controls when to write out restart files
-    frestart = 0
-    call get_time(Time_end - Time_init, total_inttime)
-! set iau offset time
-    Atmos%iau_offset    = iau_offset
-    if(iau_offset > 0 ) then
-      iautime =  set_time(iau_offset * 3600, 0)
-    endif
-! if the second item is -1, the first number is frequency
-    freq_restart = .false.
-    if(num_restart_interval == 2) then
-      if(restart_interval(2)== -1) freq_restart = .true.
-    endif
-    if(freq_restart) then
-      if(restart_interval(1) >= 0) then
-        tmpvar = restart_interval(1) * 3600
-        Time_step_restart = set_time (tmpvar, 0)
-        if(iau_offset > 0 ) then
-          Time_restart = Time_init + iautime + Time_step_restart
-          frestart(1) = tmpvar + iau_offset *3600
-        else
-          Time_restart = Time_init + Time_step_restart
-          frestart(1) = tmpvar
-        endif
-        if(restart_interval(1) > 0) then
-          i = 2
-          do while ( Time_restart < Time_end )
-            frestart(i) = frestart(i-1) + tmpvar
-            Time_restart = Time_restart + Time_step_restart
-             i = i + 1
-          enddo
-        endif
-      endif
-! otherwise it is an array with forecast time at which the restart files will be written out
-    else if(num_restart_interval >= 1) then
-      if(num_restart_interval == 1 .and. restart_interval(1) == 0 ) then
-        frestart(1) = total_inttime
-      else
-        if(iau_offset > 0 ) then
-          restart_starttime = iau_offset *3600
-        else
-          restart_starttime = 0
-        endif
-        do i=1,num_restart_interval
-          frestart(i) = restart_interval(i) * 3600. + restart_starttime
-        enddo
-      endif
-    endif
-! if to write out restart at the end of forecast
-    if (mype == 0) print *,'frestart=',frestart(1:10)/3600, 'total_inttime=',total_inttime
+    
+    call fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
+                                   Time_restart, num_restart_interval, &
+                                   restart_interval)
 
 !------ initialize component models ------
 
@@ -1210,6 +1163,83 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
      end subroutine create_bundle_and_add_it_to_state
 
    end subroutine fcst_initialize
+
+  !> Create forecast hour time array. This will be used
+  !> to dictate when restart files are going to be written.
+  !>
+  !> @param[inout] Time_init model initialization time
+  !> @param[inout] Time_end model end time
+  !> @param[inout] Time_step_restart restart time based on restart_interval
+  !> @param[inout] Time_restart calculated restart time
+  !> @param[inout] num_restart_interval user defined restart interval
+  !> @param[inout] restart_interval restart interval, allocatable
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
+  subroutine fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
+                                   Time_restart, num_restart_interval, &
+                                   restart_interval)
+
+    type(time_type), intent(inout)                 :: Time_init, Time_end, &
+                                                      Time_step_restart, &
+                                                      Time_restart
+    type(time_type)                                :: iautime
+    integer,         intent(inout)                 :: num_restart_interval
+    integer                                        :: total_inttime, tmpvar, &
+                                                      i, restart_starttime
+    logical                                        :: freq_restart
+    real, dimension(:), allocatable, intent(inout) :: restart_interval
+                                
+    ! set up forecast time array that controls when to write out restart files
+    frestart = 0
+    call get_time(Time_end - Time_init, total_inttime)
+    ! set iau offset time
+    Atmos%iau_offset    = iau_offset
+    if(iau_offset > 0 ) then
+      iautime =  set_time(iau_offset * 3600, 0)
+    endif
+    ! if the second item is -1, the first number is frequency
+    freq_restart = .false.
+    if(num_restart_interval == 2) then
+      if(restart_interval(2)== -1) freq_restart = .true.
+    endif
+    if(freq_restart) then
+      if(restart_interval(1) >= 0) then
+        tmpvar = restart_interval(1) * 3600
+        Time_step_restart = set_time (tmpvar, 0)
+        if(iau_offset > 0 ) then
+          Time_restart = Time_init + iautime + Time_step_restart
+          frestart(1) = tmpvar + iau_offset *3600
+        else
+          Time_restart = Time_init + Time_step_restart
+          frestart(1) = tmpvar
+        endif
+        if(restart_interval(1) > 0) then
+          i = 2
+          do while ( Time_restart < Time_end )
+            frestart(i) = frestart(i-1) + tmpvar
+            Time_restart = Time_restart + Time_step_restart
+            i = i + 1
+          enddo
+        endif
+      endif
+    ! otherwise it is an array with forecast time at which the restart files will be written out
+    else if(num_restart_interval >= 1) then
+      if(num_restart_interval == 1 .and. restart_interval(1) == 0 ) then
+        frestart(1) = total_inttime
+      else
+        if(iau_offset > 0 ) then
+          restart_starttime = iau_offset *3600
+        else
+          restart_starttime = 0
+        endif
+        do i=1,num_restart_interval
+          frestart(i) = restart_interval(i) * 3600. + restart_starttime
+        enddo
+      endif
+    endif
+    ! if to write out restart at the end of forecast
+    if (mype == 0) print *,'frestart=',frestart(1:10)/3600, 'total_inttime=',total_inttime
+  end subroutine fcst_time_array_setup
 !
 !-----------------------------------------------------------------------
 !#######################################################################
