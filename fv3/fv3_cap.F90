@@ -9,7 +9,8 @@
 ! 18 Apr 2017: J. Wang          set up fcst grid component and write grid components
 ! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
 ! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
-!
+! 20 May 2025: D. Sarmiento     Handle output hour array in seperate subroutines
+! 
 
 module fv3atm_cap_mod
 
@@ -53,6 +54,7 @@ module fv3atm_cap_mod
   implicit none
   private
   public SetServices
+  public OutputHours_FrequencyInput, OutputHours_ArrayInput
 !
 !-----------------------------------------------------------------------
 !
@@ -75,6 +77,7 @@ module fv3atm_cap_mod
   logical                                     :: profile_memory = .true.
   logical                                     :: write_runtimelog = .false.
   logical                                     :: lprint = .false.
+  logical                                     :: sync_fcst_info_to_wgc = .false.
 
   integer                                     :: mype = -1
   integer                                     :: dbug = 0
@@ -220,6 +223,7 @@ module fv3atm_cap_mod
     integer                                :: sloc
     type(ESMF_StaggerLoc)                  :: staggerloc
     character(len=20)                      :: cvalue
+    character(ESMF_MAXSTR)                 :: output_grid
 !
 !------------------------------------------------------------------------
 !
@@ -288,7 +292,6 @@ module fv3atm_cap_mod
        call ESMF_LogWrite(trim(subname)//' flds_scalar_name = '//trim(flds_scalar_name), ESMF_LOGMSG_INFO)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
-
     call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldCount", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     if (isPresent .and. isSet) then
@@ -313,14 +316,23 @@ module fv3atm_cap_mod
        call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_ny = '//trim(msgString), ESMF_LOGMSG_INFO)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
-    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNTile", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if (isPresent .and. isSet) then
-       read(cvalue,*) flds_scalar_index_ntile
-       write(msgString,*) flds_scalar_index_ntile
-       call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_ntile = '//trim(msgString), ESMF_LOGMSG_INFO)
+    ! tile index must be present if indices for nx and ny are non-zero
+    if (flds_scalar_index_nx /= 0 .and. flds_scalar_index_ny /=0 ) then
+       call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNTile", isPresent=isPresent, isSet=isSet, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    endif
+       if (.not. isPresent .and. .not. isSet) then
+          if (mype == 0)write(*,*)'ERROR : ScalarFieldIdxGridNTile must be set'
+          call ESMF_LogWrite('ERROR : ScalarFieldIdxGridNTile must be set', ESMF_LOGMSG_ERROR)
+          rc = ESMF_FAILURE
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+       else
+          call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxGridNTile", value=cvalue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          read(cvalue,*) flds_scalar_index_ntile
+          write(msgString,*) flds_scalar_index_ntile
+          call ESMF_LogWrite(trim(subname)//' : flds_scalar_index_ntile = '//trim(msgString), ESMF_LOGMSG_INFO)
+       endif
+    end if
 
 !------------------------------------------------------------------------
 ! get config variables
@@ -385,6 +397,11 @@ module fv3atm_cap_mod
       enddo
 
       call ESMF_ConfigGetAttribute(config=CF, value=time_unlimited, label ='time_unlimited:', default=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      ! sync_fcst_info_to_wgc: flag to synchronize ESMF_Info from fcst grid comp to write grid comps. Needs ESMF update to allow this to be done with write grid component independently.
+      call ESMF_ConfigGetAttribute(config=CF, value=sync_fcst_info_to_wgc, label ='sync_fcst_info_to_wgc:', default=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     endif ! quilting
 !
@@ -749,10 +766,13 @@ module fv3atm_cap_mod
             if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+            call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
+                                   name="output_grid", value=output_grid, isPresent=isPresent, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
             fieldbundle_uses_redist = .false.
-            ! if (fcstItemNameList(j)(1:8) == "restart_" .or. fcstItemNameList(j)(1:18) == "cubed_sphere_grid_") then
-            if (fcstItemNameList(j)(1:8) == "restart_") then
-              ! restart output forecast bundles, no need to set regridmethod
+            if (trim(output_grid) == "restart_grid" .or. trim(output_grid) == "cubed_sphere_grid") then
+              ! restart output forecast bundles, or history cubed_sphere (native) grid; no need to set regridmethod
               ! Redist will be used instead of Regrid
               fieldbundle_uses_redist = .true.
             else
@@ -776,8 +796,7 @@ module fv3atm_cap_mod
               endif
             endif
 
-            call ESMF_LogWrite('bf FieldBundleRegridStore', ESMF_LOGMSG_INFO, rc=rc)
-            write(msgString,"(A,I2.2,',',I2.2,A)") "calling into wrtFB(",j,i, ") FieldBundleRegridStore()...."
+            write(msgString,"(A,I2.2,',',I2.2,A)") "RH creation for wrtFB(",j,i, ") ...."//trim(fcstItemNameList(j))
             call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 
             if (i==1) then
@@ -787,11 +806,25 @@ module fv3atm_cap_mod
 
               if (rh_file_exist .and. use_saved_routehandles) then
                 if(mype==0) print *,'in fv3cap init, routehandle file ',trim(rh_filename), ' exists'
+
+                write(msgString,*) "Calling into ESMF_RouteHandleCreate(from file)...", trim(rh_filename)
+                call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
+                call ESMF_TraceRegionEnter("ESMF_RouteHandleCreate(from file)", rc=rc)
                 routehandle(j,1) = ESMF_RouteHandleCreate(fileName=trim(rh_filename), rc=rc)
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+                call ESMF_TraceRegionExit("ESMF_RouteHandleCreate(from file)", rc=rc)
+
+                write(msgString,*) "... returned from ESMF_RouteHandleCreate(from file)."
+                call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
               else
                 ! this is a Store() for the first wrtComp -> must do the Store()
                 if (fieldbundle_uses_redist) then
+
+                  write(msgString,*) "Calling into FieldBundleRedistStore..."
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
                   call ESMF_TraceRegionEnter("ESMF_FieldBundleRedistStore()", rc=rc)
                   call ESMF_FieldBundleRedistStore(fcstFB(j), wrtFB(j,1), &
                                                    routehandle=routehandle(j,1), &
@@ -802,9 +835,15 @@ module fv3atm_cap_mod
                     ! call ESMF_Finalize(endflag=ESMF_END_ABORT)
                   endif
                   call ESMF_TraceRegionExit("ESMF_FieldBundleRedistStore()", rc=rc)
-                  call ESMF_LogWrite('af FieldBundleRedistStore', ESMF_LOGMSG_INFO, rc=rc)
-                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+                  write(msgString,*) "... returned from FieldBundleRedistStore."
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
                 else
+
+                  write(msgString,*) "Calling into FieldBundleRegridStore..."
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
                   call ESMF_TraceRegionEnter("ESMF_FieldBundleRegridStore()", rc=rc)
                   call ESMF_FieldBundleRegridStore(fcstFB(j), wrtFB(j,1), &
                                                    regridMethod=regridmethod, routehandle=routehandle(j,1), &
@@ -815,14 +854,26 @@ module fv3atm_cap_mod
                     call ESMF_Finalize(endflag=ESMF_END_ABORT)
                   endif
                   call ESMF_TraceRegionExit("ESMF_FieldBundleRegridStore()", rc=rc)
-                  call ESMF_LogWrite('af FieldBundleRegridStore', ESMF_LOGMSG_INFO, rc=rc)
-                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+                  write(msgString,*) "... returned from FieldBundleRegridStore."
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
                 endif
 
                 if (use_saved_routehandles) then
+
+                  write(msgString,*) "Calling into ESMF_RouteHandleWrite...", trim(rh_filename)
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
+                  call ESMF_TraceRegionEnter("ESMF_RouteHandleWrite()", rc=rc)
                   call ESMF_RouteHandleWrite(routehandle(j,1), fileName=trim(rh_filename), rc=rc)
                   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+                  call ESMF_TraceRegionExit("ESMF_RouteHandleWrite()", rc=rc)
                   if(mype==0) print *,'in fv3cap init, saved routehandle file ',trim(rh_filename)
+
+                  write(msgString,*) "... returned from ESMF_RouteHandleWrite."
+                  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
                 endif
 
               endif
@@ -833,15 +884,22 @@ module fv3atm_cap_mod
             else
               targetPetList(1:num_pes_fcst)  = fcstPetList(:)
               targetPetList(num_pes_fcst+1:) = petList(:)
-              call ESMF_TraceRegionEnter("ESMF_RouteHandleCreate() in lieu of ESMF_FieldBundleRegridStore()", rc=rc)
+
+              write(msgString,*) "Calling into ESMF_RouteHandleCreate(from RH)..."
+              call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
+              call ESMF_TraceRegionEnter("ESMF_RouteHandleCreate(from RH) in lieu of ESMF_FieldBundleRegridStore()", rc=rc)
               routehandle(j,i) = ESMF_RouteHandleCreate(routehandle(j,1), &
                                                         originPetList=originPetList, &
                                                         targetPetList=targetPetList, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-              call ESMF_TraceRegionExit("ESMF_RouteHandleCreate() in lieu of ESMF_FieldBundleRegridStore()", rc=rc)
+              call ESMF_TraceRegionExit("ESMF_RouteHandleCreate(from RH) in lieu of ESMF_FieldBundleRegridStore()", rc=rc)
+
+              write(msgString,*) "... returned from ESMF_RouteHandleCreate(from RH)."
+              call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 
             endif
-            write(msgString,"(A,I2.2,',',I2.2,A)") "... returned from wrtFB(",j,i, ") FieldBundleRegridStore()."
+            write(msgString,"(A,I2.2,',',I2.2,A)") "... returned from RH creation for wrtFB(",j,i, ")."
             call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
           endif
         enddo  ! j=1, FBcount
@@ -887,27 +945,9 @@ module fv3atm_cap_mod
           call ESMF_ConfigGetAttribute(CF,valueList=outputfh2,label='output_fh:', &
              count=noutput_fh, rc=rc)
           if(outputfh2(2) == -1) then
-            !--- output_hf is output frequency, the second item is -1
+            !--- output_fh is output frequency, the second item is -1
             lfreq = .true.
-            nfh = 0
-            if( nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/outputfh2(1)) + 1
-            if( nfh > 0) then
-              allocate(output_fh(nfh))
-              if( output_startfh == 0) then
-                output_fh(1) = dt_atmos/3600.
-              else
-                output_fh(1) = output_startfh
-              endif
-              do i=2,nfh
-                output_fh(i) = (i-1)*outputfh2(1) + output_startfh
-                ! Except fh000, which is the first time output, if any other of the
-                ! output time is not integer hour, set lflname_fulltime to be true, so the
-                ! history file names will contain the full time stamp (HHH-MM-SS).
-                if(.not.lflname_fulltime) then
-                  if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
-                endif
-              enddo
-            endif
+            call OutputHours_FrequencyInput(nfhmax, output_startfh, outputfh2)
           endif
         endif
         if( noutput_fh /= 2 .or. .not. lfreq ) then
@@ -916,32 +956,7 @@ module fv3atm_cap_mod
           call ESMF_ConfigGetAttribute(CF,valueList=output_fh,label='output_fh:', &
              count=noutput_fh, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          if( output_startfh == 0) then
-            ! If the output time in output_fh array contains first time stamp output,
-            ! check the rest of output time, otherwise, check all the output time.
-            ! If any of them is not integer hour, the history file names will
-            ! contain the full time stamp (HHH-MM-SS)
-            ist = 1
-            if(output_fh(1)==0) then
-              output_fh(1) = dt_atmos/3600.
-              ist= 2
-            endif
-            do i=ist,noutput_fh
-              if(.not.lflname_fulltime) then
-                if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
-              endif
-            enddo
-          else
-            do i=1,noutput_fh
-              output_fh(i) = output_startfh + output_fh(i)
-              ! When output_startfh >0, check all the output time, if any of
-              ! them is not integer hour, set lflname_fulltime to be true. The
-              ! history file names will contain the full time stamp (HHH-MM-SS).
-              if(.not.lflname_fulltime) then
-                if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
-              endif
-            enddo
-          endif
+          call OutputHours_ArrayInput(noutput_fh,output_startfh)
         endif
       endif ! end loutput_fh
     endif
@@ -965,12 +980,89 @@ module fv3atm_cap_mod
 
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
+    call ESMF_ConfigDestroy(cf, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, init time=',MPI_Wtime()-timeis,mype
 !-----------------------------------------------------------------------
 !
   end subroutine InitializeAdvertise
 
 !-----------------------------------------------------------------------------
+  !> This will calculate output hours if the user has stated a 
+  !> an fhzero frequency.
+  !>
+  !> @param[inout] nfhmax maximum number of forecast hours
+  !> @param[inout] output_startfh ouptut start time
+  !> @param[inout] outputfh2 user defined forecast hour configuration
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
+  subroutine OutputHours_FrequencyInput(nfhmax, output_startfh, outputfh2)
+    integer                   :: nfh, i
+    real, intent(inout)       :: nfhmax, output_startfh, outputfh2(2)
+
+    nfh = 0
+    if( nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/outputfh2(1)) + 1
+    if( nfh > 0) then
+      allocate(output_fh(nfh))
+      if( output_startfh == 0) then
+        output_fh(1) = dt_atmos/3600.
+      else
+        output_fh(1) = output_startfh
+      endif
+      do i=2,nfh
+        output_fh(i) = (i-1)*outputfh2(1) + output_startfh
+        ! Except fh000, which is the first time output, if any other of the
+        ! output time is not integer hour, set lflname_fulltime to be true, so the
+        ! history file names will contain the full time stamp (HHH-MM-SS).
+        if(.not.lflname_fulltime) then
+          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+        endif
+      enddo
+    endif
+  end subroutine OutputHours_FrequencyInput
+
+  !> This will calculate output hours if the user has stated a
+  !> an array of desired output hours.
+  !>
+  !> @param[inout] noutput_fh index of output hours array
+  !> @param[inout] output_startfh ouptut start time
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
+  subroutine OutputHours_ArrayInput(noutput_fh,output_startfh)
+
+    integer                   :: ist, i
+    integer, intent(inout)    :: noutput_fh
+    real, intent(inout)       :: output_startfh
+  
+    if( output_startfh == 0) then
+      ! If the output time in output_fh array contains first time stamp output,
+      ! check the rest of output time, otherwise, check all the output time.
+      ! If any of them is not integer hour, the history file names will
+      ! contain the full time stamp (HHH-MM-SS)
+      ist = 1
+      if(output_fh(1)==0) then
+        output_fh(1) = dt_atmos/3600.
+        ist= 2
+      endif
+      do i=ist,noutput_fh
+        if(.not.lflname_fulltime) then
+          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+        endif
+      enddo
+    else
+      do i=1,noutput_fh
+        output_fh(i) = output_startfh + output_fh(i)
+        ! When output_startfh >0, check all the output time, if any of
+        ! them is not integer hour, set lflname_fulltime to be true. The
+        ! history file names will contain the full time stamp (HHH-MM-SS).
+        if(.not.lflname_fulltime) then
+          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+        endif
+      enddo
+    endif
+
+  end subroutine OutputHours_ArrayInput
 
   subroutine InitializeRealize(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
@@ -1081,7 +1173,8 @@ module fv3atm_cap_mod
     if( dbug > 0 .or. cplprint_flag ) then
          fcstpe = .false.
          if( mype < num_pes_fcst ) fcstpe = .true.
-         call diagnose_cplFields(gcomp, clock, fcstpe, cplprint_flag, dbug, 'import')
+         call diagnose_cplFields(gcomp, clock, fcstpe, cplprint_flag, dbug, 'import', rc=rc)
+         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
 
     timep1re = MPI_Wtime()
@@ -1184,20 +1277,22 @@ module fv3atm_cap_mod
 
         call ESMF_TraceRegionExit("ESMF_VMEpoch:fcstFB->wrtFB", rc=rc)
 
-        do j=1, FBCount
+        if (sync_fcst_info_to_wgc) then
+          do j=1, FBCount
 
-          ! Update fcstFB attributes from fcst PEs to all PEs in this VM
-          ! This is needed in case some attributes are updated during run time
-          call ESMF_FieldBundleGet(fcstFB(j), name=fb_name, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          if (fb_name(1:8) /= "restart_") then
-            call ESMF_InfoGetFromHost(fcstFB(j), info=info, rc=rc)
+            ! Update fcstFB attributes from fcst PEs to all PEs in this VM
+            ! This is needed in case some attributes are updated during run time
+            call ESMF_FieldBundleGet(fcstFB(j), name=fb_name, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-            call ESMF_InfoBroadcast(info, rootPet=fcstPetList(1), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          endif
+            if (fb_name(1:8) /= "restart_") then
+              call ESMF_InfoGetFromHost(fcstFB(j), info=info, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              call ESMF_InfoBroadcast(info, rootPet=fcstPetList(1), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            endif
 
-        enddo
+          enddo
+        end if
 
         call ESMF_LogWrite('Model Advance: before wrtcomp run ', ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1235,8 +1330,12 @@ module fv3atm_cap_mod
     if( dbug > 0 .or. cplprint_flag ) then
       fcstpe = .false.
       if( mype < num_pes_fcst ) fcstpe = .true.
-      call diagnose_cplFields(gcomp, clock_out, fcstpe, cplprint_flag, dbug, 'export')
+      call diagnose_cplFields(gcomp, clock_out, fcstpe, cplprint_flag, dbug, 'export', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     end if
+
+    call ESMF_ClockDestroy(clock_out, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     timep2re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
@@ -1363,6 +1462,8 @@ module fv3atm_cap_mod
         write(msgString,'(A,2i4,l3)') "fv3_checkimport "//trim(fldname),n,nf,importFieldsValid(nf)
         call ESMF_LogWrite(msgString,ESMF_LOGMSG_INFO,rc=rc)
       enddo
+
+      deallocate(fieldList)
     endif
 
   end subroutine fv3_checkimport
