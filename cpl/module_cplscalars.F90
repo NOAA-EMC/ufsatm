@@ -1,13 +1,14 @@
 !> @file
 !> @brief Manage cpl_scalars
+!>
+!> @details Manage scalars in import and export states. Called by realizeConnectedCplFields
+!>   to set the required scalar data into a state. The scalar_value will be set into
+!>   a field with name flds_scalar_name. The scalar_id identifies which dimension in
+!>   the scalar field is given by the scalar_value. The number of scalars is used to
+!>   ensure that the scalar_id is within the bounds of the scalar field
+!>
 !> @author mvertens@ucar.edu
 !> @author modified for FV3atm by Denise.Worthen@noaa.gov @date 03-03-2024
-
-!> Manage scalars in import and export states. Called by realizeConnectedCplFields
-!> to set the required scalar data into a state. The scalar_value will be set into
-!> a field with name flds_scalar_name. The scalar_id identifies which dimension in
-!> the scalar field is given by the scalar_value. The number of scalars is used to
-!> ensure that the scalar_id is within the bounds of the scalar field
 
 module module_cplscalars
 
@@ -26,11 +27,11 @@ module module_cplscalars
   public State_GetScalar
 
   ! set from config
-  integer, public           :: flds_scalar_num !< ???
-  integer, public           :: flds_scalar_index_nx !< ???
-  integer, public           :: flds_scalar_index_ny !< ???
-  integer, public           :: flds_scalar_index_ntile !< ???
-  character(len=80), public :: flds_scalar_name !< ???
+  integer, public           :: flds_scalar_num !< Number of scalar fields
+  integer, public           :: flds_scalar_index_nx !< Index of x-dimension in scalar field array
+  integer, public           :: flds_scalar_index_ny !< Index of y-dimension in scalar field array
+  integer, public           :: flds_scalar_index_ntile !< Index of tile in scalar field array
+  character(len=80), public :: flds_scalar_name !< Name of the scalar field
 
 contains
 

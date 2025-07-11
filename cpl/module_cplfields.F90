@@ -11,8 +11,15 @@ module module_cplfields
   private
 
   type, public :: FieldInfo
-    character(len=41) :: name !< ???
-    character(len=1) :: type !< ???
+    character(len=41) :: name !< Standard name
+    !> Field type
+    !> Field types should be provided according to the table below:
+    !>    g : soil levels (3D)
+    !>    i : interface (3D)
+    !>    l : model levels (3D)
+    !>    s : surface (2D)
+    !>    t : tracers (4D)
+    character(len=1) :: type
   end type
 
 ! Export Fields ----------------------------------------
@@ -24,10 +31,10 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 121 !< ???
-  type(ESMF_Field), target, public    :: exportFields(NexportFields) !< ???
+  integer,          public, parameter :: NexportFields = 121 !< Total number of export fields
+  type(ESMF_Field), target, public    :: exportFields(NexportFields) !< ESMF array for export fields
 
-  !> ???
+  !> ESMF array for export fields
   type(FieldInfo), dimension(NexportFields), public, parameter :: exportFieldsInfo = [ &
     FieldInfo("inst_pres_interface                      ", "i"), &
     FieldInfo("inst_pres_levels                         ", "l"), &
@@ -159,11 +166,11 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67 !< ???
-  logical,          public            :: importFieldsValid(NimportFields) !< ???
-  type(ESMF_Field), target, public    :: importFields(NimportFields) !< ???
+  integer,          public, parameter :: NimportFields = 67 !< Number of import fields
+  logical,          public            :: importFieldsValid(NimportFields) !< Logicals to inidicate if field is valid
+  type(ESMF_Field), target, public    :: importFields(NimportFields) !< ESMF array for import fields
 
-  !> ???
+  !> ESMF array for export fields
   type(FieldInfo), dimension(NimportFields), public, parameter :: importFieldsInfo = [ &
     FieldInfo("inst_tracer_mass_frac                    ", "t"), &
     FieldInfo("land_mask                                ", "s"), &
@@ -289,11 +296,10 @@ module module_cplfields
 
   contains
 
-  !> ???
+  !> @brief Search field name in export list and return index
   !> 
-  !> @param[in] fieldname ???
-  !> @param[in] abortflag ???
-  !> @return ???
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
   !>
   !> @author
   integer function queryExportFields(fieldname, abortflag)
@@ -305,11 +311,10 @@ module module_cplfields
 
   end function queryExportFields
 
-  !> ???
+  !> @brief Search field name in import list and return index
   !> 
-  !> @param[in] fieldname ???
-  !> @param[in] abortflag ???
-  !> @return ???
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
   !>
   !> @author
   integer function queryImportFields(fieldname, abortflag)
@@ -321,12 +326,11 @@ module module_cplfields
 
   end function queryImportFields
 
-  !> ???
+  !> @brief Search field name in a list and return index
   !> 
-  !> @param[in] fieldsInfo ???
-  !> @param[in] fieldname ???
-  !> @param[in] abortflag ???
-  !> @return ???
+  !> @param[in] fieldsInfo List of fields
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
   !>
   !> @author
   integer function queryFieldList(fieldsInfo, fieldname, abortflag)
@@ -365,12 +369,12 @@ module module_cplfields
     endif
   end function queryFieldList
 
-  !> ???
+  !> @brief Get field list and count from import or export coupling state
   !> 
-  !> @param[in] state ???
-  !> @param[in] fieldList ???
-  !> @param[out] fieldCount ???
-  !> @param[out] rc ???
+  !> @param[in] state Set to either import (i) or export (o)
+  !> @param[in] fieldList List of fields
+  !> @param[out] fieldCount Field counter
+  !> @param[out] rc Return code
   !>
   !> @author
   subroutine cplStateGet(state, fieldList, fieldCount, rc)
@@ -399,15 +403,15 @@ module module_cplfields
 
   end subroutine cplStateGet
 
-  !> ???
+  !> @brief Get pointer to field data from import or export coupling state
   !> 
-  !> @param[in] state ???
-  !> @param[in] name ???
-  !> @param[in] localDe ???
-  !> @param[in] farrayPtr2d ???
-  !> @param[in] farrayPtr3d ???
-  !> @param[in] farrayPtr4d ???
-  !> @param[out] rc ???
+  !> @param[in] state Set to either import (i) or export (o)
+  !> @param[in] name Field name
+  !> @param[in] localDe Local decomp index
+  !> @param[in] farrayPtr2d Pointer for 2D field array
+  !> @param[in] farrayPtr3d Pointer for 3D field array
+  !> @param[in] farrayPtr4d Pointer for 4D field array
+  !> @param[out] rc Return code
   !>
   !> @author
   subroutine cplFieldGet(state, name, localDe, &
@@ -478,18 +482,18 @@ module module_cplfields
 
   end subroutine cplFieldGet
 
-  !> ???
+  !> @brief Realize ESMF fields for connected coupling fields
   !> 
-  !> @param[inout] state ???
-  !> @param[in] grid ???
-  !> @param[in] numLevels ???
-  !> @param[in] numSoilLayers ???
-  !> @param[in] numTracers ???
-  !> @param[in] fields_info ???
-  !> @param[in] state_tag ???
-  !> @param[out] fieldList ???
-  !> @param[in] fill_value ???
-  !> @param[out] rc ???
+  !> @param[inout] state Set to either import (i) or export (o)
+  !> @param[in] grid ESMF grid object
+  !> @param[in] numLevels Number of vertical levels
+  !> @param[in] numSoilLayers Number of soil layers
+  !> @param[in] numTracers Number of tracers
+  !> @param[in] fields_info List of fields
+  !> @param[in] state_tag Define import or export
+  !> @param[out] fieldList List of fields
+  !> @param[in] fill_value Value to initialize new fields
+  !> @param[out] rc Return code
   !>
   !> @author
   subroutine realizeConnectedCplFields(state, grid, &

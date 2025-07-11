@@ -1,6 +1,6 @@
 !> @file
 !> @brief This module contains the the debug subroutines for fv3 coupled run
-!> @author ???
+!> @author J. Wang
 !>
 !> ## Module History
 !>
@@ -17,15 +17,15 @@ module module_cap_cpl
   public diagnose_cplFields
   contains
 
-    !> ???
+    !> @brief Diagnose coupling fields
     !> 
-    !> @param[in] gcomp ???
-    !> @param[in] clock_fv3 ???
-    !> @param[in] fcstpe ???
-    !> @param[in] statewrite_flag ???
-    !> @param[in] stdiagnose_flag ???
-    !> @param[in] state_tag "import" or "export"
-    !> @param[out] rc ???
+    !> @param[in] gcomp ESMF GridComp object
+    !> @param[in] clock_fv3 ESMF Clock object of current time
+    !> @param[in] fcstpe  Logical flag if this is the forecast PE
+    !> @param[in] statewrite_flag  Logical to enable writing to files
+    !> @param[in] stdiagnose_flag Integer controlling output
+    !> @param[in] state_tag Set to import or export
+    !> @param[out] rc Return code
     !>
     !> @author
     subroutine diagnose_cplFields(gcomp, clock_fv3, fcstpe, &
@@ -91,13 +91,13 @@ module module_cap_cpl
 
     end subroutine diagnose_cplFields
 
-    !> ???
+    !> @brief Write fields out to NetCDF files
     !> 
     !> This subroutine requires ESMFv8 - for coupled FV3
     !>
-    !> @param[in] state ???
-    !> @param[in] filename ???
-    !> @param[out] rc ???
+    !> @param[in] state Fields to write
+    !> @param[in] filename Filename
+    !> @param[out] rc Return code
     !>
     !> @author
     subroutine State_RWFields_tiles(state,filename,rc)
@@ -311,11 +311,11 @@ module module_cap_cpl
 
     end subroutine State_RWFields_tiles
 
-  !> ???
+  !> @brief Get diagnostic statistics for fields
   !> 
-  !> @param[in] State ???
-  !> @param[in] string ???
-  !> @param[out] rc ???
+  !> @param[in] State Fields to diagnose
+  !> @param[in] string String to add for logging
+  !> @param[out] rc Return code
   !>
   !> @author
   subroutine state_diagnose(State,string, rc)
