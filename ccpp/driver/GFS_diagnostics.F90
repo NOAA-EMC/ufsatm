@@ -117,7 +117,6 @@ module GFS_diagnostics
 !     ExtDiag%data%var3(:,:)       [real*8  ]   pointer to 3D data [=> null() for a 2D field] !
 !---------------------------------------------------------------------------------------------!
 
-    use parse_tracers,    only: get_tracer_index
     implicit none
 !
 !  ---  interface variables
