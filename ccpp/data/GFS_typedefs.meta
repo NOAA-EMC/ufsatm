@@ -7735,6 +7735,12 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[do_ngw_ec]
+  standard_name = flag_for_ngw_ec
+  long_name = flag to activate ecmwf ngwd
+  units = flag
+  dimensions = ()
+  type = logical
 [do_ugwp_v1]
   standard_name = flag_for_ugwp_version_1
   long_name = flag to activate ver 1 CIRES UGWP
@@ -10268,7 +10274,7 @@
   dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
   dependencies = MP/TEMPO/TEMPO/module_mp_tempo_params.F90
   dependencies = photochem/module_ozphys.F90,photochem/module_h2ophys.F90
-  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90,MP/GFDL_parse_tracers.F90
+  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90
 
 [ccpp-arg-table]
   name = GFS_typedefs
