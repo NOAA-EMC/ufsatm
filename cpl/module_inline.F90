@@ -47,7 +47,7 @@ module module_inline
   type(shr_strdata_type), allocatable :: sdat(:) ! input data stream
   real(kind=kp), dimension(:,:), allocatable :: farray !dataptr2d
 
-  integer :: dbug = 1
+  integer :: dbug = 0
   integer :: logunit = 6
   real(kind=kp), parameter :: missing_value = 9.99e20_kp
 !
