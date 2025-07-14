@@ -80,8 +80,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   use atmos_model_mod,        only: setup_exportdata
   use CCPP_data,              only: GFS_control
 #ifdef CDEPS_INLINE
-  use module_inline,          only: stream_init
-  use module_inline,          only: stream_run
+  use module_cdeps_inline,    only: cdeps_stream_init
+  use module_cdeps_inline,    only: cdeps_stream_run
 #endif
 !
 !-----------------------------------------------------------------------
@@ -1312,8 +1312,10 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
 #ifdef CDEPS_INLINE
     ! --- call cdeps inline initialization -------------------
-    call stream_init(fcstGridComp(cpl_grid_id), clock, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (GFS_control%use_cdeps_inline) then
+       call cdeps_stream_init(fcstGridComp(cpl_grid_id), clock, rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
 #endif
 !
 !
@@ -1376,8 +1378,10 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 ! *** call cdeps inline
 
 #ifdef CDEPS_INLINE
-    call stream_run(clock, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (GFS_control%use_cdeps_inline) then
+       call cdeps_stream_run(clock, rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
 #endif
 !
 !-----------------------------------------------------------------------

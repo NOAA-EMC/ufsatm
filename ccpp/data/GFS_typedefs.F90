@@ -800,7 +800,7 @@ module GFS_typedefs
     logical              :: use_med_flux    !< default .false. - i.e. don't use atmosphere-ocean fluxes imported from mediator
 
 !--- cdeps inline parameters
-    logical              :: use_inline      !< default .false. - i.e. don't use data provided by CDEPS inline
+    logical              :: use_cdeps_inline !< default .false. - i.e. don't use data provided by CDEPS inline
 
 !--- integrated dynamics through earth's atmosphere
     logical              :: lsidea
@@ -3342,7 +3342,7 @@ module GFS_typedefs
       Coupling%qci_conv   = clear_val
     endif
 
-    if (Model%use_inline) then
+    if (Model%use_cdeps_inline) then
       allocate (Coupling%tsfco_dat(IM))
       Coupling%tsfco_dat = clear_val
       allocate (Coupling%mask_dat(IM))
@@ -3458,7 +3458,7 @@ module GFS_typedefs
     logical              :: use_med_flux   = .false.         !< default no atmosphere-ocean fluxes from mediator
 
     !--- cdeps inline parameters
-    logical              :: use_inline     = .false.         !< default no data from cdeps inline
+    logical              :: use_cdeps_inline = .false.       !< default no data from cdeps inline
 
 !--- integrated dynamics through earth's atmosphere
     logical              :: lsidea         = .false.
@@ -4131,7 +4131,7 @@ module GFS_typedefs
                                lsidea, use_med_flux,                                        &
 #endif
                           !--- cdeps inline parameters
-                               use_inline,                                                  &
+                               use_cdeps_inline,                                            &
                           !--- radiation parameters
                                fhswr, fhlwr, levr, nfxr, iaerclm, iflip, isol, ico2, ialb,  &
                                isot, iems, iaer, icliq_sw, iovr, ictm, isubc_sw,            &
@@ -4505,7 +4505,7 @@ module GFS_typedefs
     Model%use_med_flux     = use_med_flux
 
 !--- cdeps inline parameters
-    Model%use_inline       = use_inline
+    Model%use_cdeps_inline = use_cdeps_inline
 
 !--- RRFS-SD
     Model%rrfs_sd           = rrfs_sd
@@ -6667,7 +6667,7 @@ module GFS_typedefs
       print *, ' cpl_imp_mrg       : ', Model%cpl_imp_mrg
       print *, ' cpl_imp_dbg       : ', Model%cpl_imp_dbg
       print *, ' use_med_flux      : ', Model%use_med_flux
-      print *, ' use_inline        : ', Model%use_inline
+      print *, ' use_cdeps_inline  : ', Model%use_cdeps_inline
       if(Model%imfdeepcnv == Model%imfdeepcnv_gf .or.Model%imfdeepcnv == Model%imfdeepcnv_c3) then
         print*,'ichoice_s          : ', Model%ichoice_s
         print*,'ichoicem           : ', Model%ichoicem

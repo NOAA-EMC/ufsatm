@@ -135,7 +135,7 @@ if (FV3)
 
   # Inline
   if(CDEPS_INLINE)
-    list(APPEND cdeps_inline_srcs cpl/module_inline.F90)
+    list(APPEND cdeps_inline_srcs cpl/module_cdeps_inline.F90)
   else()
     list(APPEND cdeps_inline_srcs "")
   endif()
