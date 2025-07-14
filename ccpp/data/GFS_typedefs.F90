@@ -38,7 +38,8 @@ module GFS_typedefs
    integer, parameter :: dfi_radar_max_intervals = 4 !< Number of radar-derived temperature tendency and/or convection suppression intervals. Do not change.
 
    real(kind=kind_phys), parameter :: limit_unspecified = 1e12 !< special constant for "namelist value was not provided" in radar-derived temperature tendency limit range
-
+   
+   integer, parameter :: physics_no_tracer = -99
 
 !> \section arg_table_GFS_typedefs
 !! \htmlinclude GFS_typedefs.html
@@ -1161,6 +1162,7 @@ module GFS_typedefs
     logical              :: do_ugwp_v1           !< flag for version 1 ugwp GWD
     logical              :: do_ugwp_v1_orog_only !< flag for version 1 ugwp GWD (orographic drag only)
     logical              :: do_ugwp_v1_w_gsldrag !< flag for version 1 ugwp with OGWD of GSL
+    logical              :: do_ngw_ec            !< flag for ecmwf ngw
     logical              :: mstrat          !< flag for moorthi approach for stratus
     logical              :: moist_adj       !< flag for moist convective adjustment
     logical              :: cscnv           !< flag for Chikira-Sugiyama convection
@@ -3350,7 +3352,6 @@ module GFS_typedefs
 !--- modules
     use physcons,         only: con_rerth, con_pi
     use mersenne_twister, only: random_setseed, random_number
-    use parse_tracers,    only: get_tracer_index
 !
     implicit none
 
@@ -3732,6 +3733,7 @@ module GFS_typedefs
     logical              :: do_ugwp_v1_orog_only = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
     logical              :: do_ugwp_v1_w_gsldrag = .false.      !< flag for version 1 ugwp GWD (orographic drag only)
 !--- vay-2018
+    logical              :: do_ngw_ec            = .false.      !< flag for ecmwf ngwd algorithm
     logical              :: ldiag_ugwp      = .false.                 !< flag for UGWP diag fields
     logical              :: ugwp_seq_update = .false.                 !< flag for updating winds between UGWP steps
     logical              :: do_ugwp         = .false.                 !< flag do UGWP+RF
@@ -4170,7 +4172,7 @@ module GFS_typedefs
                                gwd_opt, do_ugwp_v0, do_ugwp_v0_orog_only,                   &
                                do_ugwp_v0_nst_only,                                         &
                                do_gsl_drag_ls_bl, do_gsl_drag_ss, do_gsl_drag_tofd,         &
-                               do_gwd_opt_psl,                                              &
+                               do_gwd_opt_psl, do_ngw_ec,                                   &
                                do_ugwp_v1, do_ugwp_v1_orog_only,  do_ugwp_v1_w_gsldrag,     &
                                ugwp_seq_update, var_ric, coef_ric_l, coef_ric_s, hurr_pbl,  &
                                do_myjsfc, do_myjpbl,                                        &
@@ -5145,6 +5147,7 @@ module GFS_typedefs
     Model%do_gsl_drag_ss       = do_gsl_drag_ss
     Model%do_gsl_drag_tofd     = do_gsl_drag_tofd
     Model%do_gwd_opt_psl       = do_gwd_opt_psl
+    Model%do_ngw_ec            = do_ngw_ec
     Model%do_ugwp_v1           = do_ugwp_v1
     Model%do_ugwp_v1_orog_only = do_ugwp_v1_orog_only
     Model%do_ugwp_v1_w_gsldrag = do_ugwp_v1_w_gsldrag
@@ -5321,51 +5324,50 @@ module GFS_typedefs
     Model%tracer_names(:)  = tracer_names(:)
     Model%ntqv             = 1
 #ifdef MULTI_GASES
-    Model%nto              = get_tracer_index(Model%tracer_names, 'spo',        Model%me, Model%master, Model%debug)
-    Model%nto2             = get_tracer_index(Model%tracer_names, 'spo2',       Model%me, Model%master, Model%debug)
-    Model%ntoz             = get_tracer_index(Model%tracer_names, 'spo3',       Model%me, Model%master, Model%debug)
+    Model%nto              = get_physics_tracer_index('spo', Model)
+    Model%nto2             = get_physics_tracer_index('spo2', Model)
+    Model%ntoz             = get_physics_tracer_index('spo3', Model)
 #else
-    Model%ntoz             = get_tracer_index(Model%tracer_names, 'o3mr',       Model%me, Model%master, Model%debug)
+    Model%ntoz             = get_physics_tracer_index('o3mr', Model)
     if( Model%ntoz <= 0 )  &
-    Model%ntoz             =  get_tracer_index(Model%tracer_names, 'spo3',       Model%me, Model%master, Model%debug)
+    Model%ntoz             = get_physics_tracer_index('spo3', Model)
 #endif
-    Model%ntcw             = get_tracer_index(Model%tracer_names, 'liq_wat',    Model%me, Model%master, Model%debug)
-    Model%ntiw             = get_tracer_index(Model%tracer_names, 'ice_wat',    Model%me, Model%master, Model%debug)
-    Model%ntrw             = get_tracer_index(Model%tracer_names, 'rainwat',    Model%me, Model%master, Model%debug)
-    Model%ntsw             = get_tracer_index(Model%tracer_names, 'snowwat',    Model%me, Model%master, Model%debug)
-    Model%ntgl             = get_tracer_index(Model%tracer_names, 'graupel',    Model%me, Model%master, Model%debug)
-    Model%nthl             = get_tracer_index(Model%tracer_names, 'hailwat',    Model%me, Model%master, Model%debug)
-    Model%ntclamt          = get_tracer_index(Model%tracer_names, 'cld_amt',    Model%me, Model%master, Model%debug)
-    Model%ntlnc            = get_tracer_index(Model%tracer_names, 'water_nc',   Model%me, Model%master, Model%debug)
-    Model%ntinc            = get_tracer_index(Model%tracer_names, 'ice_nc',     Model%me, Model%master, Model%debug)
-    Model%ntrnc            = get_tracer_index(Model%tracer_names, 'rain_nc',    Model%me, Model%master, Model%debug)
-    Model%ntsnc            = get_tracer_index(Model%tracer_names, 'snow_nc',    Model%me, Model%master, Model%debug)
-    Model%ntgnc            = get_tracer_index(Model%tracer_names, 'graupel_nc', Model%me, Model%master, Model%debug)
-    Model%nthnc            = get_tracer_index(Model%tracer_names, 'hail_nc',    Model%me, Model%master, Model%debug)
-    Model%ntccn            = get_tracer_index(Model%tracer_names, 'ccn_nc',     Model%me, Model%master, Model%debug)
-    Model%ntccna           = get_tracer_index(Model%tracer_names, 'ccna_nc',    Model%me, Model%master, Model%debug)
-    Model%ntgv             = get_tracer_index(Model%tracer_names, 'graupel_vol',Model%me, Model%master, Model%debug)
-    Model%nthv             = get_tracer_index(Model%tracer_names, 'hail_vol',   Model%me, Model%master, Model%debug)
-    Model%ntrz             = get_tracer_index(Model%tracer_names, 'rain_ref',   Model%me, Model%master, Model%debug)
-    Model%ntgz             = get_tracer_index(Model%tracer_names, 'graupel_ref',Model%me, Model%master, Model%debug)
-    Model%nthz             = get_tracer_index(Model%tracer_names, 'hail_ref',   Model%me, Model%master, Model%debug)
-    Model%ntke             = get_tracer_index(Model%tracer_names, 'sgs_tke',    Model%me, Model%master, Model%debug)
-    Model%ntsigma          = get_tracer_index(Model%tracer_names, 'sigmab',     Model%me, Model%master, Model%debug)
-    Model%ntomega          = get_tracer_index(Model%tracer_names, 'omegab',     Model%me, Model%master, Model%debug)
-    Model%nqrimef          = get_tracer_index(Model%tracer_names, 'q_rimef',    Model%me, Model%master, Model%debug)
-    Model%ntwa             = get_tracer_index(Model%tracer_names, 'liq_aero',   Model%me, Model%master, Model%debug)
-    Model%ntia             = get_tracer_index(Model%tracer_names, 'ice_aero',   Model%me, Model%master, Model%debug)
+    Model%ntcw             = get_physics_tracer_index('liq_wat', Model)
+    Model%ntiw             = get_physics_tracer_index('ice_wat', Model)
+    Model%ntrw             = get_physics_tracer_index('rainwat', Model)
+    Model%ntsw             = get_physics_tracer_index('snowwat', Model)
+    Model%ntgl             = get_physics_tracer_index('graupel', Model)
+    Model%nthl             = get_physics_tracer_index('hailwat', Model)
+    Model%ntclamt          = get_physics_tracer_index('cld_amt', Model)
+    Model%ntlnc            = get_physics_tracer_index('water_nc', Model)
+    Model%ntinc            = get_physics_tracer_index('ice_nc', Model)
+    Model%ntrnc            = get_physics_tracer_index('rain_nc', Model)
+    Model%ntsnc            = get_physics_tracer_index('snow_nc', Model)
+    Model%ntgnc            = get_physics_tracer_index('graupel_nc', Model)
+    Model%nthnc            = get_physics_tracer_index('hail_nc', Model)
+    Model%ntccn            = get_physics_tracer_index('ccn_nc', Model)
+    Model%ntccna           = get_physics_tracer_index('ccna_nc', Model)
+    Model%ntgv             = get_physics_tracer_index('graupel_vol', Model)
+    Model%nthv             = get_physics_tracer_index('hail_vol', Model)
+    Model%ntrz             = get_physics_tracer_index('rain_ref', Model)
+    Model%ntgz             = get_physics_tracer_index('graupel_ref', Model)
+    Model%nthz             = get_physics_tracer_index('hail_ref', Model)
+    Model%ntke             = get_physics_tracer_index('sgs_tke', Model)
+    Model%ntsigma          = get_physics_tracer_index('sigmab', Model)
+    Model%ntomega          = get_physics_tracer_index('omegab', Model)
+    Model%nqrimef          = get_physics_tracer_index('q_rimef', Model)
+    Model%ntwa             = get_physics_tracer_index('liq_aero', Model)
+    Model%ntia             = get_physics_tracer_index('ice_aero', Model)
     if (Model%cpl_fire) then
-    Model%ntfsmoke         = get_tracer_index(Model%tracer_names, 'fsmoke',   Model%me, Model%master, Model%debug)
+    Model%ntfsmoke         = get_physics_tracer_index('fsmoke', Model)
     endif
     if (Model%rrfs_sd) then
-    Model%ntsmoke          = get_tracer_index(Model%tracer_names, 'smoke',      Model%me, Model%master, Model%debug)
-    Model%ntdust           = get_tracer_index(Model%tracer_names, 'dust',       Model%me, Model%master, Model%debug)
-    Model%ntcoarsepm       = get_tracer_index(Model%tracer_names, 'coarsepm',   Model%me, Model%master, Model%debug)
+    Model%ntsmoke          = get_physics_tracer_index('smoke', Model)
+    Model%ntdust           = get_physics_tracer_index('dust', Model)
+    Model%ntcoarsepm       = get_physics_tracer_index('coarsepm', Model)
     endif
 !--- initialize parameters for atmospheric chemistry tracers
     call Model%init_chemistry(tracer_types)
-
 !--- setup aerosol scavenging factors
     call Model%init_scavenging(fscav_aero)
 
@@ -5416,25 +5418,26 @@ module GFS_typedefs
     ! Last index of outermost dimension of dtend
     Model%ndtend = 0
     allocate (Model%dtidx(Model%ntracp100,Model%nprocess))
-    Model%dtidx = -99
+    Model%dtidx = physics_no_tracer
 
     if(Model%ntchm>0) then
-      Model%ntdu1 = get_tracer_index(Model%tracer_names, 'dust1', Model%me, Model%master, Model%debug)
-      Model%ntdu2 = get_tracer_index(Model%tracer_names, 'dust2', Model%me, Model%master, Model%debug)
-      Model%ntdu3 = get_tracer_index(Model%tracer_names, 'dust3', Model%me, Model%master, Model%debug)
-      Model%ntdu4 = get_tracer_index(Model%tracer_names, 'dust4', Model%me, Model%master, Model%debug)
-      Model%ntdu5 = get_tracer_index(Model%tracer_names, 'dust5', Model%me, Model%master, Model%debug)
-      Model%ntss1 = get_tracer_index(Model%tracer_names, 'seas1', Model%me, Model%master, Model%debug)
-      Model%ntss2 = get_tracer_index(Model%tracer_names, 'seas2', Model%me, Model%master, Model%debug)
-      Model%ntss3 = get_tracer_index(Model%tracer_names, 'seas3', Model%me, Model%master, Model%debug)
-      Model%ntss4 = get_tracer_index(Model%tracer_names, 'seas4', Model%me, Model%master, Model%debug)
-      Model%ntss5 = get_tracer_index(Model%tracer_names, 'seas5', Model%me, Model%master, Model%debug)
-      Model%ntsu  = get_tracer_index(Model%tracer_names, 'so4',   Model%me, Model%master, Model%debug)
-      Model%ntbcb = get_tracer_index(Model%tracer_names, 'bc1',   Model%me, Model%master, Model%debug)
-      Model%ntbcl = get_tracer_index(Model%tracer_names, 'bc2',   Model%me, Model%master, Model%debug)
-      Model%ntocb = get_tracer_index(Model%tracer_names, 'oc1',   Model%me, Model%master, Model%debug)
-      Model%ntocl = get_tracer_index(Model%tracer_names, 'oc2',   Model%me, Model%master, Model%debug)
+      Model%ntdu1 = get_physics_tracer_index('dust1', Model)
+      Model%ntdu2 = get_physics_tracer_index('dust2', Model)
+      Model%ntdu3 = get_physics_tracer_index('dust3', Model)
+      Model%ntdu4 = get_physics_tracer_index('dust4', Model)
+      Model%ntdu5 = get_physics_tracer_index('dust5', Model)
+      Model%ntss1 = get_physics_tracer_index('seas1', Model)
+      Model%ntss2 = get_physics_tracer_index('seas2', Model)
+      Model%ntss3 = get_physics_tracer_index('seas3', Model)
+      Model%ntss4 = get_physics_tracer_index('seas4', Model)
+      Model%ntss5 = get_physics_tracer_index('seas5', Model)
+      Model%ntsu  = get_physics_tracer_index('so4', Model)
+      Model%ntbcb = get_physics_tracer_index('bc1', Model)
+      Model%ntbcl = get_physics_tracer_index('bc2', Model)
+      Model%ntocb = get_physics_tracer_index('oc1', Model)
+      Model%ntocl = get_physics_tracer_index('oc2', Model)
     end if
+
 
     ! Lake & fractional grid safety checks
     if(Model%me==Model%master) then
@@ -5497,16 +5500,17 @@ module GFS_typedefs
               ! Need better descriptions of these.
               call label_dtend_tracer(Model,100+Model%ntchm+Model%ntchs-1,'pp10','pp10 concentration','kg kg-1 s-1')
 
-              itrac=get_tracer_index(Model%tracer_names, 'DMS', Model%me, Model%master, Model%debug)
+              itrac=get_physics_tracer_index('DMS', Model)
               if(itrac>0) then
                  call label_dtend_tracer(Model,100+itrac,'DMS','DMS concentration','kg kg-1 s-1')
               endif
-              itrac=get_tracer_index(Model%tracer_names, 'msa', Model%me, Model%master, Model%debug)
+              itrac=get_physics_tracer_index('msa', Model)
               if(itrac>0) then
                  call label_dtend_tracer(Model,100+itrac,'msa','msa concentration','kg kg-1 s-1')
               endif
            endif
         endif
+
 
         call label_dtend_tracer(Model,Model%index_of_temperature,'temp','temperature','K s-1')
         call label_dtend_tracer(Model,Model%index_of_x_wind,'u','x wind','m s-2')
@@ -5540,7 +5544,6 @@ module GFS_typedefs
         call label_dtend_tracer(Model,100+Model%ntia,'ice_aero','number concentration of ice-friendly aerosols','kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto,'o_ion','oxygen ion concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto2,'o2','oxygen concentration','kg kg-1 s-1')
-
         call label_dtend_cause(Model,Model%index_of_process_pbl,'pbl','tendency due to PBL')
         call label_dtend_cause(Model,Model%index_of_process_dcnv,'deepcnv','tendency due to deep convection')
         call label_dtend_cause(Model,Model%index_of_process_scnv,'shalcnv','tendency due to shallow convection')
@@ -5590,7 +5593,6 @@ module GFS_typedefs
        call fill_dtidx(Model,dtend_select,Model%index_of_y_wind,Model%index_of_process_physics)
        call fill_dtidx(Model,dtend_select,Model%index_of_x_wind,Model%index_of_process_non_physics)
        call fill_dtidx(Model,dtend_select,Model%index_of_y_wind,Model%index_of_process_non_physics)
-
        if(qdiag3d) then
           call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_scnv,have_scnv)
           call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_dcnv,have_dcnv)
@@ -5654,7 +5656,6 @@ module GFS_typedefs
           enddo
        endif
     end if
-
     IF ( Model%imp_physics == Model%imp_physics_nssl2mccn ) THEN ! recognize this option for compatibility
        Model%imp_physics = Model%imp_physics_nssl
        nssl_ccn_on = .true.
@@ -5674,8 +5675,8 @@ module GFS_typedefs
               ENDIF
               stop
             ENDIF
-          Model%ntccn = -99
-          Model%ntccna = -99
+          Model%ntccn = physics_no_tracer
+          Model%ntccna = physics_no_tracer
         ELSEIF ( Model%ntccn < 1 ) THEN
           if (Model%me == Model%master) then
             write(*,*) 'NSSL micro: error! CCN is ON but ntccn < 1. Must have ccn_nc in field_table if nssl_ccn_on=T'
@@ -5797,7 +5798,6 @@ module GFS_typedefs
        Model%levh2o    = 1
        Model%h2o_coeff = 1
     end if
-
 !--- quantities to be used to derive phy_f*d totals
     Model%nshoc_2d         = nshoc_2d
     Model%nshoc_3d         = nshoc_3d
@@ -6527,8 +6527,6 @@ module GFS_typedefs
     !--- prognostic and diagnostic chemistry tracers.
     !--- Each tracer set is assumed to be contiguous.
 
-    use parse_tracers, only: NO_TRACER
-
     !--- interface variables
     class(GFS_control_type) :: Model
     integer,     intent(in) :: tracer_types(:)
@@ -6540,11 +6538,11 @@ module GFS_typedefs
     Model%nchem = 0
     Model%ndvel = 0
     Model%ntchm = 0
-    Model%ntchs = NO_TRACER
-    Model%ntche = NO_TRACER
+    Model%ntchs = physics_no_tracer
+    Model%ntche = physics_no_tracer
     Model%ndchm = 0
-    Model%ndchs = NO_TRACER
-    Model%ndche = NO_TRACER
+    Model%ndchs = physics_no_tracer
+    Model%ndche = physics_no_tracer
 
     if (Model%rrfs_sd) then
       Model%nchem = 3
@@ -6576,8 +6574,6 @@ module GFS_typedefs
 ! GFS_control%init_scavenging
 !----------------------------
   subroutine control_scavenging_initialize(Model, fscav)
-
-    use parse_tracers, only: get_tracer_index
 
     !--- interface variables
     class(GFS_control_type)      :: Model
@@ -6612,13 +6608,11 @@ module GFS_typedefs
         if (j > 1) then
           read(fscav(i)(j+1:), *, iostat=ios) tem
           if (ios /= 0) cycle
-          n = get_tracer_index(Model%tracer_names, adjustl(fscav(i)(:j-1)), Model%me, Model%master, Model%debug) &
-              - Model%ntchs + 1
+          n = get_physics_tracer_index(adjustl(fscav(i)(:j-1)), Model) - Model%ntchs + 1
           if (n > 0) Model%fscav(n) = tem
         endif
       enddo
     endif
-
   end subroutine control_scavenging_initialize
 
 
@@ -7037,6 +7031,7 @@ module GFS_typedefs
       print *, ' do_gsl_drag_tofd     : ', Model%do_gsl_drag_tofd
       print *, ' do_gwd_opt_psl       : ', Model%do_gwd_opt_psl
       print *, ' do_ugwp_v1           : ', Model%do_ugwp_v1
+      print *, ' do_ngw_ec            : ', Model%do_ngw_ec
       print *, ' do_ugwp_v1_orog_only : ', Model%do_ugwp_v1_orog_only
       print *, ' do_ugwp_v1_w_gsldrag : ', Model%do_ugwp_v1_w_gsldrag
       print *, ' hurr_pbl          : ', Model%hurr_pbl
@@ -7847,7 +7842,6 @@ module GFS_typedefs
 ! GFS_diag%create
 !----------------
   subroutine diag_create (Diag, Model)
-    use parse_tracers,    only: get_tracer_index
     class(GFS_diag_type)               :: Diag
     type(GFS_control_type), intent(in) :: Model
     integer :: IM
@@ -8448,5 +8442,22 @@ module GFS_typedefs
     endif
 
   end subroutine diag_phys_zero
+  
+  function get_physics_tracer_index (name, Model)
+    !This function uses the FMS version of get_tracer_index, but changes the missing tracer index to the value used throughout the physics code, rather than the one used in FMS
+    use tracer_manager_mod, only: get_tracer_index, NO_TRACER
+    use field_manager_mod, only: MODEL_ATMOS
+    
+    character(len=*),  intent(in) :: name
+    type(GFS_control_type), intent(in) :: Model
+    
+    !--- local variables
+    integer :: get_physics_tracer_index
+    
+    get_physics_tracer_index = get_tracer_index(MODEL_ATMOS, name, verbose = (Model%me == Model%master) .and. Model%debug)
+    
+    if (get_physics_tracer_index == NO_TRACER) get_physics_tracer_index = physics_no_tracer
+    
+  end function get_physics_tracer_index
 
 end module GFS_typedefs
