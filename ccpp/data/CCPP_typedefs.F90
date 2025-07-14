@@ -830,7 +830,7 @@ contains
 !
     ! Allocate arrays that are conditional on physics choices
     if (Model%imp_physics == Model%imp_physics_gfdl .or. Model%imp_physics == Model%imp_physics_thompson &
-        .or. Model%imp_physics == Model%imp_physics_nssl &
+         .or. Model%imp_physics == Model%imp_physics_tempo .or. Model%imp_physics == Model%imp_physics_nssl &
         ) then
        allocate (Interstitial%graupelmp  (IM))
        allocate (Interstitial%icemp      (IM))
@@ -918,7 +918,8 @@ contains
     ! perform aerosol convective transport and PBL diffusion
     Interstitial%trans_aero = Model%cplchm .and. Model%trans_trac
 
-    if (Model%imp_physics == Model%imp_physics_thompson) then
+    if (Model%imp_physics == Model%imp_physics_thompson .or. &
+         Model%imp_physics == Model%imp_physics_tempo) then
       if (Model%ltaerosol) then
         Interstitial%nvdiff = 12
      else if (Model%mraerosol) then
@@ -971,7 +972,8 @@ contains
       if (Model%imp_physics == Model%imp_physics_wsm6) then
         Interstitial%ntcwx = 2
         Interstitial%ntiwx = 3
-      elseif (Model%imp_physics == Model%imp_physics_thompson) then
+     elseif (Model%imp_physics == Model%imp_physics_thompson .or. &
+          Model%imp_physics == Model%imp_physics_tempo) then
         Interstitial%ntcwx = 2
         Interstitial%ntiwx = 3
         Interstitial%ntrwx = 4
@@ -1009,7 +1011,8 @@ contains
         endif
       elseif (Model%imp_physics == Model%imp_physics_gfdl) then
         Interstitial%nvdiff = 7
-      elseif (Model%imp_physics == Model%imp_physics_thompson) then
+     elseif (Model%imp_physics == Model%imp_physics_thompson .or. &
+          Model%imp_physics == Model%imp_physics_tempo) then
         if (Model%ltaerosol) then
           Interstitial%nvdiff = 12
         else if (Model%mraerosol) then
@@ -1436,7 +1439,7 @@ contains
 !
     ! Reset fields that are conditional on physics choices
     if (Model%imp_physics == Model%imp_physics_gfdl .or. Model%imp_physics == Model%imp_physics_thompson  &
-        .or. Model%imp_physics == Model%imp_physics_nssl &
+        .or. Model%imp_physics == Model%imp_physics_tempo .or. Model%imp_physics == Model%imp_physics_nssl &
              ) then
        Interstitial%graupelmp = clear_val
        Interstitial%icemp     = clear_val

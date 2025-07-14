@@ -140,7 +140,8 @@ module GFS_restart
        num2d = num2d + 2
     endif
     ! Thompson aerosol-aware
-    if (Model%imp_physics == Model%imp_physics_thompson .and. Model%ltaerosol) then
+    if ((Model%imp_physics == Model%imp_physics_thompson .or. &
+         Model%imp_physics == Model%imp_physics_tempo) .and. (Model%ltaerosol)) then
        num2d = num2d + 2
     endif
     if (Model%do_cap_suppress .and. Model%num_dfi_radar>0) then
@@ -421,7 +422,8 @@ module GFS_restart
       Restart(idx)%data%var2 => Sfcprop%rainncprv(:)
     endif
     ! Thompson aerosol-aware
-    if (Model%imp_physics == Model%imp_physics_thompson .and. Model%ltaerosol) then
+    if ((Model%imp_physics == Model%imp_physics_thompson .or. &
+         Model%imp_physics == Model%imp_physics_tempo) .and. Model%ltaerosol) then
       idx = idx + 1
       Restart(idx)%name = 'thompson_2d_nwfa2d'
       Restart(idx)%axes = 2
