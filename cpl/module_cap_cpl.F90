@@ -272,11 +272,11 @@ module module_cap_cpl
 
     contains
 
-      !> ???
+      !> @brief Find axis ID for given axis number and dimension
       !>
-      !> @param[in] axis ???
-      !> @param[in] count ???
-      !> @result id ???
+      !> @param[in] axis Axis number
+      !> @param[in] count Dimension length
+      !> @result id Axis ID
       !>
       !> @author
       function find_axis_id_for_axis_count(axis, count) result(id)

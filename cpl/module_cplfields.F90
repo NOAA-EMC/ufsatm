@@ -619,26 +619,23 @@ module module_cplfields
 
   end subroutine realizeConnectedCplFields
 
-  !> ???
-  !> 
-  !> @param[in] field ???
-  !> @param[in] key ???
-  !> @param[in] numLevels ???
-  !> @param[in] values ???
-  !> @param[out] rc ???
+  !> @brief Add metadata to field
+  !> @details This subroutine implements a preliminary method to provide 
+  !>   metadata to a coupled model that is accessing the field via reference
+  !>   sharing (NUOPC SharedStatusField=.true.). The method sets a
+  !>   (key, values) pairin the field's array ESMF_Info object to retrieve 
+  !>   an array of strings encoding metadata.
+  !>   Such a capability should be implemented in the standard NUOPC connector
+  !>   for more general applications, possibly providing access to the field's
+  !>   ESMF_Info object.
+  !>
+  !> @param[in] field Attach metadata to this field
+  !> @param[in] key Metadata key name
+  !> @param[in] values Metadata values
+  !> @param[out] rc Return code
   !>
   !> @author
   subroutine addFieldMetadata(field, key, values, rc)
-
-    ! This subroutine implements a preliminary method to provide metadata to
-    ! a coupled model that is accessing the field via reference sharing
-    ! (NUOPC SharedStatusField=.true.). The method sets a (key, values) pair
-    ! in the field's array ESMF_Info object to retrieve an array of strings
-    ! encoding metadata.
-    !
-    ! Such a capability should be implemented in the standard NUOPC connector
-    ! for more general applications, possibly providing access to the field's
-    ! ESMF_Info object.
 
     type(ESMF_Field)               :: field
     character(len=*),  intent(in)  :: key
