@@ -1,3 +1,8 @@
+!> @file
+!> @brief Write restart files in NetCDF format
+!>
+!> @author
+
 #define ESMF_ERR_RETURN(rc) \
     if (ESMF_LogFoundError(rc, msg="Breaking out of subroutine", line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
@@ -16,11 +21,22 @@ module module_write_restart_netcdf
   private
   public write_restart_netcdf
 
-  logical :: par
+  logical :: par !< Logical to indicate if parallel NetCDF write is on
 
   contains
 
 !----------------------------------------------------------------------------------------
+!> @brief Write restart field data to NetCDF
+!>
+!> @param[in] wrtfb ESMF_FieldBundle type containing the restart fields
+!> @param[in] filename Filename
+!> @param[in] use_parallel_netcdf Logical to indicate if parallel write should be used
+!> @param[in] comm MPI communicator
+!> @param[in] mype MPI process ID 
+!> @param[out] rc Return code
+!>
+!> @author
+
   subroutine write_restart_netcdf(wrtfb, filename, &
                                   use_parallel_netcdf, comm, mype, &
                                   rc)

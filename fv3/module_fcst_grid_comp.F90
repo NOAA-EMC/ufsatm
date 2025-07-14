@@ -88,24 +88,25 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
 !---- model defined-types ----
 
-  type(atmos_data_type), save :: Atmos
+  type(atmos_data_type), save :: Atmos !< Atmospheric data structure
 
-  type(ESMF_GridComp),dimension(:),allocatable    :: fcstGridComp
-  integer                                         :: ngrids, mygrid
+  type(ESMF_GridComp),dimension(:),allocatable    :: fcstGridComp !< Array of grid components
+  integer                                         :: ngrids !< Total number of grids
+  integer                                         :: mygrid !< Current grid
 
-  integer                     :: n_atmsteps
+  integer                     :: n_atmsteps !< Number of atmospheric time steps
 
 !----- coupled model data -----
 
-  integer :: calendar_type = -99
-  integer :: date_init(6)
-  integer :: numLevels     = 0
-  integer :: numSoilLayers = 0
-  integer :: numTracers    = 0
+  integer :: calendar_type = -99 !< Calendar type used in the model
+  integer :: date_init(6)        !< Model initialization date and time
+  integer :: numLevels     = 0   !< Number of vertical levels
+  integer :: numSoilLayers = 0   !< Number of soil layers
+  integer :: numTracers    = 0   !< Number of tracers
 
-  integer :: frestart(999)
+  integer :: frestart(999)       !< Array of forecast times
 
-  integer :: mype
+  integer :: mype                !<  MPI process ID
 !
 !-----------------------------------------------------------------------
 !
@@ -117,6 +118,13 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief  Register entry points for forecast grid component initialization
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[out] rc Return code
+!>
+!> @author
+
   subroutine SetServices(fcst_comp, rc)
 !
     type(ESMF_GridComp)  :: fcst_comp
@@ -152,6 +160,13 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Create grid for nested domain components
+!>
+!> @param[in] nest Array of grid components for the nested domain
+!> @param[out] rc Return code
+!>
+!> @author
+
   subroutine SetServicesNest(nest, rc)
 !
     type(ESMF_GridComp)   :: nest
@@ -312,6 +327,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Initialize dynamics for modeled output
+!>
+!> @param[in] nest Array of grid components for the nested domain
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine init_dyn_fb(nest, importState, exportState, clock, rc)
 !
     type(ESMF_GridComp)                    :: nest
@@ -377,6 +401,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Initialize physics for modeled output
+!>
+!> @param[in] nest Array of grid components for the nested domain
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine init_phys_fb(nest, importState, exportState, clock, rc)
 !
     type(ESMF_GridComp)                    :: nest
@@ -437,6 +470,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Advertize importable and exportable fields for coupling
+!>
+!> @param[in] nest Array of grid components for the nested domain
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
+
   subroutine init_advertise(nest, importState, exportState, clock, rc)
 !
     type(ESMF_GridComp)                    :: nest
@@ -475,6 +518,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Allocate or initialize connected coupling fields 
+!>
+!> @param[in] nest Array of grid components for the nested domain
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine init_realize(nest, importState, exportState, clock, rc)
 !
 
@@ -540,6 +592,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Initialize the forecast grid component
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine fcst_initialize(fcst_comp, importState, exportState, clock, rc)
 !
 !-----------------------------------------------------------------------
@@ -1149,8 +1210,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
    end subroutine fcst_initialize
 
-  !> Create forecast hour time array. This will be used
-  !> to dictate when restart files are going to be written.
+  !> @brief Create forecast hour time array. 
+  !> @details This will be used to dictate when restart files are going to be written.
   !>
   !> @param[inout] Time_init model initialization time
   !> @param[inout] Time_end model end time
@@ -1230,6 +1291,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Advertise coupling fields of forecast grid
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine fcst_advertise(fcst_comp, importState, exportState, clock, rc)
 !
 !-----------------------------------------------------------------------
@@ -1271,6 +1341,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Realize coupling fields of forecast grid
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine fcst_realize(fcst_comp, importState, exportState, clock, rc)
 !
 !-----------------------------------------------------------------------
@@ -1313,6 +1392,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Execute first phase of forecast timestep
+!> @details Executes dynamics, radiation, and physics
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
    subroutine fcst_run_phase_1(fcst_comp, importState, exportState,clock,rc)
 !
 !-----------------------------------------------------------------------
@@ -1381,6 +1470,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Execute second phase of forecast timestep
+!> @details Completes integrations and handle restart if needed
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
    subroutine fcst_run_phase_2(fcst_comp, importState, exportState,clock,rc)
 !
 !-----------------------------------------------------------------------
@@ -1490,6 +1589,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !#######################################################################
 !-----------------------------------------------------------------------
 !
+!> @brief Clean up variables and finish forecast grid steps
+!>
+!> @param[in] fcst_comp Array of grid components
+!> @param[in] importState Contains input field data
+!> @param[in] exportState Contains output field data
+!> @param[in] clock ESMF clock for timing information
+!> @param[out] rc Return code
+!>
+!> @author
    subroutine fcst_finalize(fcst_comp, importState, exportState,clock,rc)
 !
 !-----------------------------------------------------------------------
@@ -1527,8 +1635,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   end subroutine fcst_finalize
 !
 !#######################################################################
-!-- write forecast grid to NetCDF file for diagnostics
 !
+!> @brief Write forecast grid to NetCDF file for diagnostics
+!>
+!> @param[in] grid  ESMF grid object type
+!> @param[in] fileName Filename
+!> @param[in] relaxedflag Logical to allow relaxed error handling
+!> @param[in] regridArea Logical to include regrid area calculations
+!> @param[out] rc Return code
+!>
+!> @author
   subroutine wrt_fcst_grid(grid, fileName, relaxedflag, regridArea, rc)
     type(ESMF_Grid), intent(in)                      :: grid
     character(len=*), intent(in), optional           :: fileName

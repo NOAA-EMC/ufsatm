@@ -33,9 +33,9 @@ module fv3atm_common_io
   public :: get_nx_ny_from_atm
 
 #ifdef CCPP_32BIT
-  character(len=5), parameter, public :: axis_type = 'float' !< ???
+  character(len=5), parameter, public :: axis_type = 'float'  !< Axis data type 32-bit precision
 #else
-  character(len=6), parameter, public :: axis_type = 'double' !< ???
+  character(len=6), parameter, public :: axis_type = 'double' !< Axis data type 64-bit precision
 #endif
 
   !> @brief These subroutines copy data from x-y-z arrays to nb-ix-z grid arrays.
@@ -401,13 +401,13 @@ contains
 
   !> @brief copies from x-y-z integer var3d array to the ix-k-indexed var_block array
   !>
-  !> @param[in] ii1 ???
-  !> @param[in] jj1 ???
-  !> @param[in] isc ???
-  !> @param[in] jsc ???
-  !> @param[inout] nt ???
-  !> @param[inout] var3d ???
-  !> @param[inout] var_block ???
+  !> @param[in] ii1 x-dimension locations correspondeing to ix indices.
+  !> @param[in] jj1 y-dimension locations correspondeing to ix indices.
+  !> @param[in] isc Unused. Remove?
+  !> @param[in] jsc Unused. Remove?
+  !> @param[inout] nt Number of tracers.
+  !> @param[inout] var3d 3D x-y-z array
+  !> @param[inout] var_block ix-k indexed block array
   !>
   !> @author Samuel Trahan @date Jun 20, 2023
   pure subroutine copy_to_GFS_Data_3d_int2phys(ii1,jj1,isc,jsc,nt,var3d,var_block)
