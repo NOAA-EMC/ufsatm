@@ -151,7 +151,6 @@ if (FV3)
     fv3/io/module_fv3_io_def.F90
     fv3/io/module_write_internal_state.F90
     fv3/io/module_wrt_grid_comp.F90
-    fv3/io/esmf_utils.F90
     ${moving_nest_srcs}
     ${POST_SRC}
     )

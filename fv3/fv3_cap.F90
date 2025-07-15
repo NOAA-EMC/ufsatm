@@ -10,7 +10,7 @@
 ! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
 ! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
 ! 20 May 2025: D. Sarmiento     Handle output hour array in seperate subroutines
-! 
+!
 
 module fv3atm_cap_mod
 
@@ -42,7 +42,9 @@ module fv3atm_cap_mod
 !
   use module_fcst_grid_comp,  only: fcstSS => SetServices
 
-  use module_wrt_grid_comp,   only: wrtSS => SetServices, dstOutsideMaskValue
+  use module_wrt_grid_comp,   only: wrtSS => SetServices,                    &
+                                    dstOutsideMaskValue,                     &
+                                    generate_dst_field_mask, add_dst_mask
 !
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
@@ -50,7 +52,6 @@ module fv3atm_cap_mod
   use module_cplscalars,      only: flds_scalar_name, flds_scalar_num,          &
                                     flds_scalar_index_nx, flds_scalar_index_ny, &
                                     flds_scalar_index_ntile
-  use esmf_utils
 
   implicit none
   private
@@ -1078,7 +1079,7 @@ module fv3atm_cap_mod
   end subroutine InitializeAdvertise
 
 !-----------------------------------------------------------------------------
-  !> This will calculate output hours if the user has stated a 
+  !> This will calculate output hours if the user has stated a
   !> an fhzero frequency.
   !>
   !> @param[inout] nfhmax maximum number of forecast hours
@@ -1123,7 +1124,7 @@ module fv3atm_cap_mod
     integer                   :: ist, i
     integer, intent(inout)    :: noutput_fh
     real, intent(inout)       :: output_startfh
-  
+
     if( output_startfh == 0) then
       ! If the output time in output_fh array contains first time stamp output,
       ! check the rest of output time, otherwise, check all the output time.
