@@ -117,7 +117,6 @@ module GFS_diagnostics
 !     ExtDiag%data%var3(:,:)       [real*8  ]   pointer to 3D data [=> null() for a 2D field] !
 !---------------------------------------------------------------------------------------------!
 
-    use parse_tracers,    only: get_tracer_index
     implicit none
 !
 !  ---  interface variables
@@ -3852,7 +3851,7 @@ module GFS_diagnostics
 
     ! Cloud effective radii from Microphysics
     if (Model%imp_physics == Model%imp_physics_thompson .or. Model%imp_physics == Model%imp_physics_fer_hires .or. &
-        Model%imp_physics == Model%imp_physics_nssl  ) then
+        Model%imp_physics == Model%imp_physics_nssl .or. Model%imp_physics == Model%imp_physics_tempo  ) then
       idx = idx + 1
       ExtDiag(idx)%axes = 3
       ExtDiag(idx)%name = 'cleffr'
