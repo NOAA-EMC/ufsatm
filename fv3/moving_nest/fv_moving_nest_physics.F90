@@ -115,13 +115,13 @@ contains
 
   !>@brief The subroutine 'mn_phys_reset_sfc_props' sets the static surface parameters from the high-resolution input file data
   !>@details This subroutine relies on earlier code reading the data from files into the mn_static data structure
-  !!  This subroutine does not yet handle ice points or frac_grid - fractional landfrac/oceanfrac values
+  !>  This subroutine does not yet handle ice points or frac_grid - fractional landfrac/oceanfrac values
   !>
   !> @param[inout] Atm Array of atmospheric data
   !> @param[in] n Current grid number
   !> @param[in] mn_static Static surface data
   !> @param[in] Atm_block Physics block layout
-  !> @param[inout] GFS_Sfcprop Physics variable data
+  !> @param[inout] GFS_Sfcprop Surface physics variable data
   !> @param[in] ioffset Current nest offset in i direction
   !> @param[in] joffset Current nest offset in j direction
   !> @param[in] refine Nest refinement ratio
@@ -234,7 +234,7 @@ contains
   !> @param[in] fp_super_tile_geo Bounds of high-resolution parent grid
   !> @param[in] Atm_block Physics block layout
   !> @param[in] GFS_control Physics metadata
-  !> @param[inout] GFS_grid Physics variable data
+  !> @param[inout] GFS_grid Physics variable data for the grid
   !>
   !> @author
   subroutine mn_reset_phys_latlon(Atm, n, tile_geo, fp_super_tile_geo, Atm_block, GFS_control, GFS_grid)
@@ -1018,7 +1018,7 @@ contains
   !> @param[inout] moving_nest Single instance of moving nest data
   !> @param[in] GFS_control Physics metadata
   !> @param[in] domain_fine Domain structure for this nest
-  !> @param[in] is_fine_pe Is nest PE - should be True.  Argument is redundant.
+  !> @param[in] is_fine_pe Logical for active nest PE. Should be set to True
   !>
   !> @author
   subroutine mn_phys_fill_intern_nest_halos(moving_nest, GFS_control, domain_fine, is_fine_pe)

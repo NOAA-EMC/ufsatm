@@ -1122,7 +1122,7 @@ end subroutine atmos_model_end
 !> @brief Write out restart files registered through register_restart_file
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
-!> @param[in] timestamp ???
+!> @param[in] timestamp Model timestamp
 subroutine atmos_model_restart(Atmos, timestamp)
   use update_ca, only: write_ca_restart
   type (atmos_data_type),   intent(inout) :: Atmos

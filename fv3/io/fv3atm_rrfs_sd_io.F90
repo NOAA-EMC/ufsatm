@@ -251,7 +251,7 @@ contains
   end subroutine rrfs_sd_state_register_fields
 
   !> @brief Creates ESMF bundles for writing RRFS-SD restarts via the write component (quilt)
-  !> @detils Registers all restart fields needed by the RRFS-SD
+  !> @details Registers all restart fields needed by the RRFS-SD
   !>  Terrible things will happen if you don't call data%allocate_data
   !>  and data%register_axes first.
   !>

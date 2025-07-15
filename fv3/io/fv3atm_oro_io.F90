@@ -327,7 +327,7 @@ contains
   end subroutine Oro_scale_io_register
 
   !> @brief Copies scaled orography data from temporary arrays back to Sfcprop grid arrays.
-  !> @detalis After reading the restart, data is on temporary arrays with x-y data storage.
+  !> @details After reading the restart, data is on temporary arrays with x-y data storage.
   !>  This subroutine copies the x-y fields to Sfcprop's blocked grid storage arrays.
   !>
   !> @param[in] oro Storage of working arrays for reading orography data.
