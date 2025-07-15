@@ -1110,6 +1110,7 @@ module ufsatm_cap_mod
     endif
 !
 !-- set up output forecast time if output_fh is specified
+#ifdef ATMFV3
     if (noutput_fh > 0 ) then
 !--- use output_fh to sepcify output forecast time
       loutput_fh = .true.
@@ -1141,7 +1142,7 @@ module ufsatm_cap_mod
       endif ! end loutput_fh
     endif
     if(mype==0) print *,'output_fh=',output_fh(1:size(output_fh)),'lflname_fulltime=',lflname_fulltime
-
+#endif
     if ( quilting ) then
       do i=1, write_groups
         call ESMF_InfoGetFromHost(wrtState(i), info=info, rc=rc)

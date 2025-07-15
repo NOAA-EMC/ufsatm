@@ -89,7 +89,7 @@ SCHEME_FILES = [
     # current restrictions are that each scheme can only belong to one physics set, and all schemes within one group in the
     # suite definition file have to belong to the same physics set
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_phys_time_vary.fv3.F90',
-    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rad_time_vary.fv3.F90',
+    'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rad_time_vary.mpas.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_time_vary_pre.fv3.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_radiation_surface.F90',
     'physics/physics/Interstitials/UFS_SCM_NEPTUNE/GFS_rrtmg_post.F90',

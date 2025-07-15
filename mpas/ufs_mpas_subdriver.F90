@@ -26,7 +26,7 @@
 !> ###########################################################################################
 module ufs_mpas_subdriver
   use mpi_f08
-  use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type, mpas_TimeInterval_type
+  use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type
   use mpas_kind_types,    only : StrKIND, rkind
   use module_mpas_config, only : pio_subsystem, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config, only : ic_filename, lbc_filename
@@ -250,7 +250,6 @@ module ufs_mpas_subdriver
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
-  type (mpas_TimeInterval_type)  :: integrationLength
   
   character(StrKIND), allocatable :: constituent_name(:)
   integer, allocatable :: index_constituent_to_mpas_scalar(:)
@@ -455,19 +454,18 @@ contains
     ndate1 = time_start(1)*10000 + time_start(2)*100 + time_start(3)
     tod    = time_start(4)*3600  + time_start(5)*60  + time_start(6)
     call mpas_pool_add_config(domain_ptr % configs, 'config_start_time', date2yyyymmdd(ndate1)//'_'//sec2hms(tod))
-    !print*,'SWALES config_start_time = ',date2yyyymmdd(ndate1)//'_'//sec2hms(tod)
+    call mpas_log_write('config_start_time = '//date2yyyymmdd(ndate1)//'_'//sec2hms(tod))
 
     ! Set forecast end time (config_stop_time)
     ndate2 = time_end(1)*10000   + time_end(2)*100   + time_end(3)
     tod	   = time_end(4)*3600    + time_end(5)*60    + time_end(6)
     call mpas_pool_add_config(domain_ptr % configs, 'config_stop_time', date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
-    !print*,'SWALES config_stop_time  = ',date2yyyymmdd(ndate2)//'_'//sec2hms(tod)
+    call mpas_log_write('config_stop_time  = '//date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
 
     ! Set forecaste run time (config_run_duration) #DJS2025 this is not correct. need to fix, but works for current test.
-    tod = ndate2 - ndate1
+    tod = max(ndate2 - ndate1 - 1,0)
     call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
-    !call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', '0_01:00:00')
-    !print*,'SWALES config_run_duration = ',trim(int2str(tod))//'_'//sec2hms(total_time)
+    call mpas_log_write('config_run_duration = '//trim(int2str(tod))//'_'//sec2hms(total_time))
     
     ! Set other MPAS required configuration information.
     call mpas_pool_add_config(domain_ptr % configs, 'config_restart_timestamp_name', 'restart_timestamp')
@@ -572,7 +570,7 @@ contains
     use mpas_atm_threading,         only : mpas_atm_threading_init
     use mpp_mod,                    only : FATAL, mpp_error
     use mpas_atm_halos,             only : atm_build_halo_groups, exchange_halo_group
-    use atm_core,                   only : atm_mpas_init_block
+    use atm_core,                   only : atm_mpas_init_block, core_clock => clock
     use atm_time_integration,       only : mpas_atm_dynamics_init
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, mpas_START_TIME
     use mpas_log,                   only : mpas_log_write
@@ -581,7 +579,6 @@ contains
     use mpas_field_routines,        only : mpas_allocate_scratch_field
     ! Arguments
     type(mpas_control_type), intent(inout) :: Cfg
-    !type(mpas_statein_type), intent(inout) :: Statein
     type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_init_phase2'
@@ -596,16 +593,6 @@ contains
     character (len=StrKIND), pointer :: initial_time1, initial_time2
     type(field0dreal), pointer :: field_0d_real
     type(field2dreal), pointer :: field_2d_real
-
-    nullify(state)
-    nullify(mesh)
-    !nullify(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
-    nullify(dt)
-    nullify(config_do_restart)
-    nullify(xtime)
-    nullify(initial_time1, initial_time2)
-    nullify(field_0d_real)
-    nullify(field_2d_real)
 
     !
     ! Setup threading
@@ -628,6 +615,12 @@ contains
     
     call mpas_atm_set_dims(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
     Cfg % levs = nVertLevels1
+
+    !
+    ! Set "local" clock to point to the clock contained in the domain type
+    !
+    clock => domain_ptr % clock
+    core_clock => domain_ptr % clock
 
     !
     ! Build halo exchange groups and set method for exchanging halos in a group
@@ -671,13 +664,13 @@ contains
     !
     ! Set startTimeStamp based on the start time of the simulation clock
     !
-    startTime = mpas_get_clock_time(domain_ptr % clock, mpas_START_TIME, ierr)
+    startTime = mpas_get_clock_time(clock, mpas_START_TIME, ierr)
     if ( ierr /= 0 ) then
-       call mpp_error(FATAL,subname//": failed to get mpas_START_TIME")
+       call mpp_error(FATAL,subname//': Failed to get clock_time "mpas_START_TIME"')
     end if
     call mpas_get_time(startTime, dateTimeString=startTimeStamp, ierr=ierr)
     if ( ierr /= 0 ) then
-       call mpp_error(FATAL,subname//": failed to get mpas_START_TIME")
+       call mpp_error(FATAL,subname//': Failed to get time mpas_START_TIME"')
     end if
 
     
@@ -686,13 +679,9 @@ contains
 
     call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, domain_ptr % blocklist, mesh, dt)
 
-    nullify(mesh)
-    nullify(dt)
-
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_array(state, 'xtime', xtime, timelevel=1)
     xtime = startTimeStamp
-    nullify(xtime)
 
     ! Initialize initial_time in second time level. We need to do this because initial state
     ! is read into time level 1, and if we write output from the set of state arrays that
@@ -718,10 +707,6 @@ contains
        call mpp_error(FATAL,subname//'Failed to set time units')
     end if
 
-    nullify(initial_time1, initial_time2)
-    nullify(state)
-    nullify(field_0d_real)
-    
     call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw',ierr=ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//'Failed to exchange halo layers for group "initialization:ru,rw"')
@@ -758,29 +743,32 @@ contains
     ! MPAS
     use atm_core,             only : atm_do_timestep, atm_compute_output_diagnostics
     use mpas_domain_routines, only : mpas_pool_get_dimension
-    use mpas_derived_types,   only : mpas_Time_type, mpas_pool_type
+    use mpas_derived_types,   only : mpas_Time_type, mpas_pool_type, MPAS_TimeInterval_type
     use mpas_kind_types,      only : StrKIND, RKIND, R8KIND
     use mpas_constants,       only : rvord
     use mpas_pool_routines,   only : mpas_pool_get_config, mpas_pool_get_subpool
     use mpas_pool_routines,   only : mpas_pool_shift_time_levels, mpas_pool_get_array
-    use mpas_timekeeping,     only : mpas_set_timeInterval
-    use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
-    use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
     use mpas_log,             only : mpas_log_write
     use mpas_timer,           only : mpas_timer_start, mpas_timer_stop
+    use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
+    use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
+    use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(<)
+    ! FMS
+    use mpp_mod,              only : FATAL, mpp_error
     ! Locals
+    character(len=*), parameter :: subname = 'ufs_mpas_run::ufs_mpas_run'
     real (kind=RKIND), pointer :: config_dt
     type (mpas_pool_type), pointer :: state, diag, mesh
     type (mpas_Time_type) :: timeNow, timeStop
     character(len=StrKIND) :: timeStamp
-    integer :: ierr, itime
+    integer :: ierr, itime, itimestep
     integer, pointer :: index_qv
     integer, pointer :: nCellsSolve
     real(kind=RKIND), dimension(:,:), pointer :: theta_m, rho_zz, zz, theta, rho
     real(kind=RKIND), dimension(:,:,:), pointer :: scalars
-    integer :: itimestep
     real (kind=R8KIND) :: integ_start_time, integ_stop_time 
     logical, pointer :: config_apply_lbcs
+    type(mpas_timeinterval_type) :: mpas_time_interval
 
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
@@ -788,8 +776,11 @@ contains
     
     ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
-    call mpas_set_timeInterval(integrationLength, S=nint(config_dt))
-    
+    call MPAS_set_timeInterval(mpas_time_interval, S=dt_atmos, ierr=ierr)
+    if (ierr /= 0) then
+       call mpp_error(FATAL,subname//'Failed to set dynamics time step')
+    endif
+
     !
     ! Read initial boundary state
     ! NOT YET IMPLEMENTED (Follow src/core_atmosphere/mpas_atm_core.F:atm_core_run())
@@ -801,12 +792,20 @@ contains
     
     ! During integration, time level 1 stores the model state at the beginning of the
     !   time step, and time level 2 stores the state advanced config_dt in time by timestep(...)
-    itimestep=1
-    !do while (.not. mpas_is_clock_stop_time(domain_ptr % clock))
-    do itime = 1, n_atmos
-       ! Get current time.
-       timeNow  = mpas_get_clock_time(domain_ptr % clock, mpas_NOW, ierr)
+    timeNow  = mpas_get_clock_time(clock, mpas_NOW, ierr)
+    if (ierr /= 0) then
+        call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
+    endif
+
+    timeStop = timeNow + mpas_time_interval
+    itimestep =	0
+    do while (timeNow < timeStop)
+       itimestep = itimestep + 1
+       !
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
+       if ( ierr /= 0 ) then
+          call mpp_error(FATAL,subname//': Failed to get time mpas_NOW"')
+       end if
        call mpas_log_write('') 
        call mpas_log_write(' MPAS dynamics start timestep '//trim(timeStamp))
 
@@ -817,14 +816,18 @@ contains
        call mpas_dmpar_get_time(integ_stop_time)
        call mpas_timer_stop('time integration')
        call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
-       
+
        ! Move time level 2 fields back into time level 1 for next time step
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
        call mpas_pool_shift_time_levels(state)
 
        ! Advance clock.
-       itimestep = itimestep + 1
-       call mpas_advance_clock(domain_ptr % clock)
-       timeNow = mpas_get_clock_time(domain_ptr % clock, mpas_NOW, ierr)
+       call mpas_advance_clock(clock)
+       timeNow = mpas_get_clock_time(clock, mpas_NOW, ierr)
+       if (ierr /= 0) then
+          call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
+       endif
+
     end do
 
     !

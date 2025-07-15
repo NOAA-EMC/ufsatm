@@ -206,6 +206,7 @@ if (MPAS)
   add_definitions(-DMPAS_PIO_SUPPORT)
   add_definitions(-DMPAS_CAM_DYCORE)
   add_definitions(-DMPAS_UFS_DYCORE)
+  add_definitions(-DSINGLE_PRECISION)
 
   # Source files for MPAS dynamical core drivers.
   set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas.F)
