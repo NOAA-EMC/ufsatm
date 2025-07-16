@@ -254,7 +254,8 @@ module ufs_mpas_subdriver
   character(StrKIND), allocatable :: constituent_name(:)
   integer, allocatable :: index_constituent_to_mpas_scalar(:)
   integer, allocatable :: index_mpas_scalar_to_constituent(:)
-  logical, allocatable :: is_water_species(:)  
+  logical, allocatable :: is_water_species(:)
+
 contains
   !> #########################################################################################
   !> Convert one or more values of any intrinsic data types to a character string for pretty
@@ -799,7 +800,7 @@ contains
 
     timeStop = timeNow + mpas_time_interval
     itimestep =	0
-    do while (timeNow < timeStop)
+    do while (itimestep < 1)!(timeNow < timeStop) !DJS2025: Only one dycore inte
        itimestep = itimestep + 1
        !
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
@@ -815,7 +816,7 @@ contains
        call atm_do_timestep(domain_ptr, config_dt, itimestep)
        call mpas_dmpar_get_time(integ_stop_time)
        call mpas_timer_stop('time integration')
-       call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
+       !call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
 
        ! Move time level 2 fields back into time level 1 for next time step
        call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
@@ -986,7 +987,6 @@ contains
 
     ! Read in namelists...
     if (me == master) then
-       !print*,'Reading MPAS-A dynamical core namelist'
        call mpas_log_write('Reading MPAS-A dynamical core namelist')
        ! nhyd_model
        read(input_nml_file, nml=mpas_nhyd_model, iostat=io)
@@ -1146,58 +1146,58 @@ contains
 
     ! Display namelist information (master processor only)
     if (me == master) then
-      write(*,*) 'MPAS-A dycore configuration:'
-      write(*,*) '   mpas_time_integration               = ', trim(mpas_time_integration)
-      write(*,*) '   mpas_time_integration_order         = ', mpas_time_integration_order
-      write(*,*) '   mpas_dt                             = ', mpas_dt
-      write(*,*) '   mpas_split_dynamics_transport       = ', mpas_split_dynamics_transport
-      write(*,*) '   mpas_number_of_sub_steps            = ', mpas_number_of_sub_steps
-      write(*,*) '   mpas_dynamics_split_steps           = ', mpas_dynamics_split_steps
-      write(*,*) '   mpas_h_mom_eddy_visc2               = ', mpas_h_mom_eddy_visc2
-      write(*,*) '   mpas_h_mom_eddy_visc4               = ', mpas_h_mom_eddy_visc4
-      write(*,*) '   mpas_v_mom_eddy_visc2               = ', mpas_v_mom_eddy_visc2
-      write(*,*) '   mpas_h_theta_eddy_visc2             = ', mpas_h_theta_eddy_visc2
-      write(*,*) '   mpas_h_theta_eddy_visc4             = ', mpas_h_theta_eddy_visc4
-      write(*,*) '   mpas_v_theta_eddy_visc2             = ', mpas_v_theta_eddy_visc2
-      write(*,*) '   mpas_horiz_mixing                   = ', trim(mpas_horiz_mixing)
-      write(*,*) '   mpas_len_disp                       = ', mpas_len_disp
-      write(*,*) '   mpas_visc4_2dsmag                   = ', mpas_visc4_2dsmag
-      write(*,*) '   mpas_del4u_div_factor               = ', mpas_del4u_div_factor
-      write(*,*) '   mpas_w_adv_order                    = ', mpas_w_adv_order
-      write(*,*) '   mpas_theta_adv_order                = ', mpas_theta_adv_order
-      write(*,*) '   mpas_scalar_adv_order               = ', mpas_scalar_adv_order
-      write(*,*) '   mpas_u_vadv_order                   = ', mpas_u_vadv_order
-      write(*,*) '   mpas_w_vadv_order                   = ', mpas_w_vadv_order
-      write(*,*) '   mpas_theta_vadv_order               = ', mpas_theta_vadv_order
-      write(*,*) '   mpas_scalar_vadv_order              = ', mpas_scalar_vadv_order
-      write(*,*) '   mpas_scalar_advection               = ', mpas_scalar_advection
-      write(*,*) '   mpas_positive_definite              = ', mpas_positive_definite
-      write(*,*) '   mpas_monotonic                      = ', mpas_monotonic
-      write(*,*) '   mpas_coef_3rd_order                 = ', mpas_coef_3rd_order
-      write(*,*) '   mpas_smagorinsky_coef               = ', mpas_smagorinsky_coef
-      write(*,*) '   mpas_mix_full                       = ', mpas_mix_full
-      write(*,*) '   mpas_epssm                          = ', mpas_epssm
-      write(*,*) '   mpas_smdiv                          = ', mpas_smdiv
-      write(*,*) '   mpas_apvm_upwinding                 = ', mpas_apvm_upwinding
-      write(*,*) '   mpas_h_ScaleWithMesh                = ', mpas_h_ScaleWithMesh
-      write(*,*) '   mpas_zd                             = ', mpas_zd
-      write(*,*) '   mpas_xnutr                          = ', mpas_xnutr
-      write(*,*) '   mpas_cam_coef                       = ', mpas_cam_coef
-      write(*,*) '   mpas_cam_damping_levels             = ', mpas_cam_damping_levels
-      write(*,*) '   mpas_rayleigh_damp_u                = ', mpas_rayleigh_damp_u
-      write(*,*) '   mpas_rayleigh_damp_u_timescale_days = ', mpas_rayleigh_damp_u_timescale_days
-      write(*,*) '   mpas_number_rayleigh_damp_u_levels  = ', mpas_number_rayleigh_damp_u_levels
-      write(*,*) '   mpas_apply_lbcs                     = ', mpas_apply_lbcs
-      write(*,*) '   mpas_pio_num_iotasks                = ', mpas_pio_num_iotasks
-      write(*,*) '   mpas_pio_stride                     = ', mpas_pio_stride
-      write(*,*) '   mpas_jedi_da                        = ', mpas_jedi_da
-      write(*,*) '   mpas_block_decomp_file_prefix       = ', trim(mpas_block_decomp_file_prefix)
-      write(*,*) '   mpas_do_restart                     = ', mpas_do_restart
-      write(*,*) '   mpas_print_global_minmax_vel        = ', mpas_print_global_minmax_vel
-      write(*,*) '   mpas_print_detailed_minmax_vel      = ', mpas_print_detailed_minmax_vel
-      write(*,*) '   mpas_print_global_minmax_sca        = ', mpas_print_global_minmax_sca
-   end if
-
+       call mpas_log_write('-------------------------------- MPAS-A dycore namelist ---------------------------------')
+       call mpas_log_write('')
+       call mpas_log_write('   mpas_time_integration               = '//trim(mpas_time_integration))
+       call mpas_log_write('   mpas_time_integration_order         = '//int2str(mpas_time_integration_order))
+       call mpas_log_write('   mpas_dt                             = '//int2str(int(mpas_dt)))
+       call mpas_log_write('   mpas_split_dynamics_transport       = '//log2str(mpas_split_dynamics_transport))
+       call mpas_log_write('   mpas_number_of_sub_steps            = '//int2str(mpas_number_of_sub_steps))
+       call mpas_log_write('   mpas_dynamics_split_steps           = '//int2str(mpas_dynamics_split_steps))
+       call mpas_log_write('   mpas_h_mom_eddy_visc2               = '//int2str(int(mpas_h_mom_eddy_visc2)))
+       call mpas_log_write('   mpas_h_mom_eddy_visc4               = '//int2str(int(mpas_h_mom_eddy_visc4)))
+       call mpas_log_write('   mpas_v_mom_eddy_visc2               = '//int2str(int(mpas_v_mom_eddy_visc2)))
+       call mpas_log_write('   mpas_h_theta_eddy_visc2             = '//int2str(int(mpas_h_theta_eddy_visc2)))
+       call mpas_log_write('   mpas_h_theta_eddy_visc4             = '//int2str(int(mpas_h_theta_eddy_visc4)))
+       call mpas_log_write('   mpas_v_theta_eddy_visc2             = '//int2str(int(mpas_v_theta_eddy_visc2)))
+       call mpas_log_write('   mpas_horiz_mixing                   = '//trim(mpas_horiz_mixing))
+       call mpas_log_write('   mpas_len_disp                       = '//int2str(int(mpas_len_disp)))
+       call mpas_log_write('   mpas_visc4_2dsmag                   = '//int2str(int(mpas_visc4_2dsmag)))
+       call mpas_log_write('   mpas_del4u_div_factor               = '//int2str(int(mpas_del4u_div_factor)))
+       call mpas_log_write('   mpas_w_adv_order                    = '//int2str(mpas_w_adv_order))
+       call mpas_log_write('   mpas_theta_adv_order                = '//int2str(mpas_theta_adv_order))
+       call mpas_log_write('   mpas_scalar_adv_order               = '//int2str(mpas_scalar_adv_order))
+       call mpas_log_write('   mpas_u_vadv_order                   = '//int2str(mpas_u_vadv_order))
+       call mpas_log_write('   mpas_w_vadv_order                   = '//int2str(mpas_w_vadv_order))
+       call mpas_log_write('   mpas_theta_vadv_order               = '//int2str(mpas_theta_vadv_order))
+       call mpas_log_write('   mpas_scalar_vadv_order              = '//int2str(mpas_scalar_vadv_order))
+       call mpas_log_write('   mpas_scalar_advection               = '//log2str(mpas_scalar_advection))
+       call mpas_log_write('   mpas_positive_definite              = '//log2str(mpas_positive_definite))
+       call mpas_log_write('   mpas_monotonic                      = '//log2str(mpas_monotonic))
+       call mpas_log_write('   mpas_coef_3rd_order                 = '//int2str(int(mpas_coef_3rd_order)))
+       call mpas_log_write('   mpas_smagorinsky_coef               = '//int2str(int(mpas_smagorinsky_coef)))
+       call mpas_log_write('   mpas_mix_full                       = '//log2str(mpas_mix_full))
+       call mpas_log_write('   mpas_epssm                          = '//int2str(int(mpas_epssm)))
+       call mpas_log_write('   mpas_smdiv                          = '//int2str(int(mpas_smdiv)))
+       call mpas_log_write('   mpas_apvm_upwinding                 = '//int2str(int(mpas_apvm_upwinding)))
+       call mpas_log_write('   mpas_h_ScaleWithMesh                = '//log2str(mpas_h_ScaleWithMesh))
+       call mpas_log_write('   mpas_zd                             = '//int2str(int(mpas_zd)))
+       call mpas_log_write('   mpas_xnutr                          = '//int2str(int(mpas_xnutr)))
+       call mpas_log_write('   mpas_cam_coef                       = '//int2str(int(mpas_cam_coef)))
+       call mpas_log_write('   mpas_cam_damping_levels             = '//int2str(mpas_cam_damping_levels))
+       call mpas_log_write('   mpas_rayleigh_damp_u                = '//log2str(mpas_rayleigh_damp_u))
+       call mpas_log_write('   mpas_rayleigh_damp_u_timescale_days = '//int2str(int(mpas_rayleigh_damp_u_timescale_days)))
+       call mpas_log_write('   mpas_number_rayleigh_damp_u_levels  = '//int2str(mpas_number_rayleigh_damp_u_levels))
+       call mpas_log_write('   mpas_apply_lbcs                     = '//log2str(mpas_apply_lbcs))
+       call mpas_log_write('   mpas_pio_num_iotasks                = '//int2str(mpas_pio_num_iotasks))
+       call mpas_log_write('   mpas_pio_stride                     = '//int2str(mpas_pio_stride))
+       call mpas_log_write('   mpas_jedi_da                        = '//log2str(mpas_jedi_da))
+       call mpas_log_write('   mpas_block_decomp_file_prefix       = '//trim(mpas_block_decomp_file_prefix))
+       call mpas_log_write('   mpas_do_restart                     = '//log2str(mpas_do_restart))
+       call mpas_log_write('   mpas_print_global_minmax_vel        = '//log2str(mpas_print_global_minmax_vel))
+       call mpas_log_write('   mpas_print_detailed_minmax_vel      = '//log2str(mpas_print_detailed_minmax_vel))
+       call mpas_log_write('   mpas_print_global_minmax_sca        = '//log2str(mpas_print_global_minmax_sca))
+    end if
  end subroutine read_mpas_namelist
 
  !> ######################################################################################## 
@@ -3043,5 +3043,18 @@ contains
    write(int2str,'(i0)') n
      
  end function int2str
+
+  character(len=10) function log2str(n)
+   ! return default integer as a left justified string
+   ! arguments
+   logical, intent(in) :: n
+
+   if (n) then
+      write(log2str,'(a4)') 'TRUE'
+   else
+      write(log2str,'(a4)') 'FALSE'
+   endif
+
+ end function log2str
  
 end module ufs_mpas_subdriver

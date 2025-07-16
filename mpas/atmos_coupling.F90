@@ -222,8 +222,6 @@ contains
        physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCell)
        physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCell)
     enddo
-    print*,'SWALES PRSI = ',physics_state % prsl(1,:)
-    print*,'SWALES   SI = ',physics_state % prsl(1,:)/physics_state % pgr(1)
   end subroutine ufs_mpas_to_physics
 
   !> #########################################################################################

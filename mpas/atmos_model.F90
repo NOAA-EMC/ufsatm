@@ -80,6 +80,9 @@ module atmos_model_mod
   ! Component Timers
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
 
+  ! DJS2025: For UFS WM RTs unitl output is setup for MPAS.
+  integer, parameter :: mpas_logfile_handle = 42323
+  
 contains
   !> #########################################################################################
   !> Procedure to initialize UWM ATMosphere with MPAS dynamical core.
@@ -179,6 +182,14 @@ contains
     ! - Setup physical constants used by MPAS dycore
     logUnits(1) = stdout()
     logUnits(2) = stdlog()
+
+    ! DJS2025: This is for UWM RT logging only. Can be removed when MPAS output is added.
+    if (Cfg % master == Cfg % me) then
+       open(unit=mpas_logfile_handle, file='mpas_log.txt', action='write', status='unknown')
+       logunits(1) = mpas_logfile_handle
+       logunits(2) = mpas_logfile_handle
+    endif
+
     call ufs_mpas_init_phase1(Cfg, times, timee, ttime, calendar, logUnits)
 
     call ufs_mpas_define_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
@@ -290,6 +301,8 @@ contains
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
+
+    close(unit=mpas_logfile_handle)
 
     ! Finalize the CCPP physics.
     call CCPP_step (step="finalize", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
