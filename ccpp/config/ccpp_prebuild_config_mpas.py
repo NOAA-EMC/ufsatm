@@ -20,6 +20,7 @@ VARIABLE_DEFINITION_FILES = [
     'physics/physics/Radiation/RRTMG/radsw_param.f',
     'physics/physics/Radiation/RRTMG/radlw_param.f',
     'physics/physics/photochem/module_ozphys.F90',
+    'physics/physics/MP/TEMPO/TEMPO/module_mp_tempo_params.F90',
     'physics/physics/photochem/module_h2ophys.F90',
     'physics/physics/SFC_Models/Land/Noahmp/lnd_iau_mod.F90',
     '../ccpp/data/CCPP_typedefs.F90',
@@ -46,6 +47,10 @@ TYPEDEFS_NEW_METADATA = {
     'module_ozphys' : {
         'module_ozphys' : '',
         'ty_ozphys'     : '',
+        },
+    'module_mp_tempo_params' : {
+        'module_mp_tempo_params' : '',
+        'ty_tempo_cfg'     : '',
         },
     'module_h2ophys' : {
         'module_h2ophys' : '',
