@@ -10,8 +10,8 @@
   path = ccpp/physics
   #url = https://github.com/ufs-community/ccpp-physics
   #branch = ufs/dev
-  url = https://github.com/lisa-bengtsson/ccpp-physics
-  branch = conv_dx
+  url = https://github.com/grantfirl/ccpp-physics
+  branch = combo_265_291
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
