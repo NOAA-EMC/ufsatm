@@ -134,6 +134,8 @@ public get_atmos_model_ungridded_dim
 public atmos_model_get_nth_domain_info
 public addLsmask2grid
 public setup_exportdata
+public set_fhzero_loop, InitTimeFromIAUOffset
+public get_atmos_tracer_types
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
@@ -270,7 +272,8 @@ subroutine update_atmos_radiation_physics (Atmos)
     call set_atmosphere_pelist()
     call mpp_clock_begin(getClock)
     if (GFS_control%do_skeb) call atmosphere_diss_est (GFS_control%skeb_npass) !  do smoothing for SKEB
-    call atmos_phys_driver_statein (GFS_Control, GFS_Statein, Atm_block, flip_vc)
+    ! SA-3D-TKE added GFS_Tbd (kyf)
+    call atmos_phys_driver_statein (GFS_Control, GFS_Statein, GFS_Tbd, Atm_block, flip_vc)
     call mpp_clock_end(getClock)
 
 !--- if dycore only run, set up the dummy physics output state as the input state
@@ -752,7 +755,8 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    endif
    ! Populate the GFS_Statein container with the prognostic state
    ! in Atm_block, which contains the initial conditions/restart data.
-   call atmos_phys_driver_statein (GFS_control, GFS_statein, Atm_block, flip_vc)
+   ! SA-3D-TKE added GFS_Tbd (kyf)
+   call atmos_phys_driver_statein (GFS_control, GFS_statein, GFS_Tbd, Atm_block, flip_vc)
 
    ! When asked to calculate 3-dim. tendencies, set Stateout variables to
    ! Statein variables here in order to capture the first call to dycore
@@ -782,33 +786,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    !--- set the initial diagnostic timestamp
    diag_time = Time
    call get_time (Atmos%Time - Atmos%Time_init, sec)
-   !--- Model should restart at the forecast hours that are multiples of fhzero.
-   !--- WARNING: For special cases that model needs to restart at non-multiple of fhzero
-   !--- the fields in first output files are not accumulated from the beginning of
-   !--- the bucket, but the restart time.
-   if( GFS_Control%fhzero_array(1) > 0. ) then
-     fhzero_loop: do i=1,size(GFS_Control%fhzero_array)
-       tmpflag_fhzero= .false.
-       if( GFS_Control%fhzero_array(i) > 0.) then
-         if( i == 1 ) then
-           if( sec <= GFS_Control%fhzero_fhour(i)*3600. ) tmpflag_fhzero = .true.
-         else if( i > 1 ) then
-           if( sec > GFS_Control%fhzero_fhour(i-1)*3600. .and. sec <=GFS_Control%fhzero_fhour(i)*3600. ) &
-             tmpflag_fhzero = .true.
-         endif
-         if( tmpflag_fhzero ) then
-           GFS_Control%fhzero = GFS_Control%fhzero_array(i)
-           if( GFS_Control%fhzero > 0) then
-             sec_lastfhzerofh = (int(sec/3600.)/int(GFS_Control%fhzero))*int(GFS_Control%fhzero)*3600
-           else
-             sec_lastfhzerofh = 0
-           endif
-         endif
-       endif
-     enddo fhzero_loop
-   else
-     sec_lastfhzerofh = 0
-   endif
+   call set_fhzero_loop(sec, sec_lastfhzerofh)
    if (mpp_pe() == mpp_root_pe()) print *,'in atmos_model, fhzero=',GFS_Control%fhzero, 'fhour=',sec/3600.,sec_lastfhzerofh/3600
 
    if (mod((sec-sec_lastfhzerofh),int(GFS_Control%fhzero*3600.)) /= 0) then
@@ -856,6 +834,50 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 end subroutine atmos_model_init
 ! </SUBROUTINE>
 
+  !> This will set the forecast hour based on the fhzero_array 
+  !> input. This should handle both an input of a full fhzero 
+  !> array and one that uses increments.
+  !>
+  !> @param tmpflag_fhzero logical if current timestep is in between output hours
+  !> @param[inout] sec time since model initialization, in sec
+  !> @param[inout] sec_lastfhzerofh time since last fhzero time, in sec
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
+subroutine set_fhzero_loop(sec, sec_lastfhzerofh)
+
+   logical                      :: tmpflag_fhzero
+   integer                      :: i
+   integer, intent(inout)       :: sec, sec_lastfhzerofh
+
+   !--- Model should restart at the forecast hours that are multiples of fhzero.
+   !--- WARNING: For special cases that model needs to restart at non-multiple of fhzero
+   !--- the fields in first output files are not accumulated from the beginning of
+   !--- the bucket, but the restart time.
+   if( GFS_Control%fhzero_array(1) > 0. ) then
+     fhzero_loop: do i=1,size(GFS_Control%fhzero_array)
+       tmpflag_fhzero= .false.
+       if( GFS_Control%fhzero_array(i) > 0.) then
+         if( i == 1 ) then
+           if( sec <= GFS_Control%fhzero_fhour(i)*3600. ) tmpflag_fhzero = .true.
+         else if( i > 1 ) then
+           if( sec > GFS_Control%fhzero_fhour(i-1)*3600. .and. sec <=GFS_Control%fhzero_fhour(i)*3600. ) &
+             tmpflag_fhzero = .true.
+         endif
+         if( tmpflag_fhzero ) then
+           GFS_Control%fhzero = GFS_Control%fhzero_array(i)
+           if( GFS_Control%fhzero > 0) then
+             sec_lastfhzerofh = (int(sec/3600.)/int(GFS_Control%fhzero))*int(GFS_Control%fhzero)*3600
+           else
+             sec_lastfhzerofh = 0
+           endif
+         endif
+       endif
+     enddo fhzero_loop
+   else
+     sec_lastfhzerofh = 0
+   endif
+
+end subroutine set_fhzero_loop
 
 !#######################################################################
 ! <SUBROUTINE NAME="update_atmos_model_dynamics"
@@ -1003,21 +1025,7 @@ subroutine update_atmos_model_state (Atmos, rc)
     if (ANY(nint(output_fh(:)*3600.0) == seconds) .or. (GFS_control%kdt == first_kdt)) then
       if (mpp_pe() == mpp_root_pe()) write(6,*) "---isec,seconds",isec,seconds
       time_int = real(isec)
-      if(Atmos%iau_offset > zero) then
-        if( time_int - Atmos%iau_offset*3600. > zero ) then
-          time_int = time_int - Atmos%iau_offset*3600.
-        else if(seconds == Atmos%iau_offset*3600) then
-          call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
-          time_int = real(isec_fhzero)
-          if (mpp_pe() == mpp_root_pe()) write(6,*) "---iseczero",isec_fhzero
-        endif
-      endif
-      time_intfull = real(seconds)
-      if(Atmos%iau_offset > zero) then
-        if( time_intfull - Atmos%iau_offset*3600. > zero) then
-          time_intfull = time_intfull - Atmos%iau_offset*3600.
-        endif
-      endif
+      call InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds)
       if (mpp_pe() == mpp_root_pe()) write(6,*) ' gfs diags time since last bucket empty: ',time_int/3600.,'hrs'
       call atmosphere_nggps_diag(Atmos%Time)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
@@ -1026,29 +1034,7 @@ subroutine update_atmos_model_state (Atmos, rc)
     endif
 
     !---  find current fhzero
-    if( GFS_Control%fhzero_array(1) > 0. ) then
-      fhzero_loop: do i=1,size(GFS_Control%fhzero_array)
-        tmpflag_fhzero = .false.
-        if( GFS_Control%fhzero_array(i) > 0.) then
-          if( i == 1 ) then
-            if( seconds <= GFS_Control%fhzero_fhour(i)*3600. ) tmpflag_fhzero = .true.
-          else if( i > 1 ) then
-            if( seconds > GFS_Control%fhzero_fhour(i-1)*3600. .and. seconds <= GFS_Control%fhzero_fhour(i)*3600. ) &
-              tmpflag_fhzero = .true.
-          endif
-          if( tmpflag_fhzero) then
-            GFS_Control%fhzero = GFS_Control%fhzero_array(i)
-            if( GFS_Control%fhzero > 0) then
-              sec_lastfhzerofh = (int(seconds/3600.)/int(GFS_Control%fhzero))*int(GFS_Control%fhzero)*3600
-            else
-              sec_lastfhzerofh = 0
-            endif
-          endif
-        endif
-      enddo fhzero_loop
-    else
-      sec_lastfhzerofh = 0
-    endif
+    call set_fhzero_loop(seconds,sec_lastfhzerofh)
     if (mpp_pe() == mpp_root_pe()) print *,'in atmos_model update, fhzero=',GFS_Control%fhzero, 'fhour=',seconds/3600.,sec_lastfhzerofh/3600.
 
     if (nint(GFS_Control%fhzero) > 0) then
@@ -1076,7 +1062,39 @@ subroutine update_atmos_model_state (Atmos, rc)
  end subroutine update_atmos_model_state
 ! </SUBROUTINE>
 
+  !> This will calculate time if an IAU offest has been defined
+  !> in the model configuration.
+  !>
+  !> @param[inout] atmos the main atmos model configurations 
+  !> @param[inout] time_init model initialization time
+  !> @param[inout] time_intfull model time remaining
+  !> @param seconds time since model initialization
+  !>
+  !> @author Daniel Sarmiento @date May 16, 2025
+ subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds)
 
+   type (atmos_data_type),   intent(inout)  :: Atmos
+   real(kind=GFS_kind_phys), intent(inout)  :: time_int, time_intfull
+   integer,                  intent(inout)  :: seconds
+   integer                                  :: isec_fhzero
+
+   if(Atmos%iau_offset > zero) then
+     if( time_int - Atmos%iau_offset*3600. > zero ) then
+       time_int = time_int - Atmos%iau_offset*3600.
+     else if(seconds == Atmos%iau_offset*3600) then
+       call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
+       time_int = real(isec_fhzero)
+       if (mpp_pe() == mpp_root_pe()) write(6,*) "---iseczero",isec_fhzero
+     endif
+   endif
+   time_intfull = real(seconds)
+   if(Atmos%iau_offset > zero) then
+     if( time_intfull - Atmos%iau_offset*3600. > zero) then
+       time_intfull = time_intfull - Atmos%iau_offset*3600.
+     endif
+   endif
+
+ end subroutine InitTimeFromIAUOffset
 
 !#######################################################################
 ! <SUBROUTINE NAME="atmos_model_end">
@@ -1338,8 +1356,12 @@ subroutine update_atmos_chemistry(state, rc)
 
   real(ESMF_KIND_R8), dimension(:,:,:,:), pointer :: q
 
+!IVAI: add coszens, jo3o1d, jno2, claie, cfch, cfrt, cclu, cpopu
   real(ESMF_KIND_R8), dimension(:,:), pointer :: aod, area, canopy, cmm,  &
-    dqsfc, dtsfc, fice, flake, focn, fsnow, hpbl, nswsfc, oro, psfc, &
+    claie, cfch, cfrt, cclu, cpopu, & !IVAI
+    dqsfc, dtsfc, fice, flake, focn, fsnow, hpbl, &
+    coszens, jo3o1d, jno2, &  !IVAI
+    nswsfc, oro, psfc, &
     q2m, rain, rainc, rca, shfsfc, slmsk, stype, swet, t2m, tsfc,    &
     u10m, uustar, v10m, vfrac, xlai, zorl, vtype
 
@@ -1366,6 +1388,44 @@ subroutine update_atmos_chemistry(state, rc)
         call cplFieldGet(state,'inst_tracer_diag_aod', farrayPtr2d=aod, rc=localrc)
         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+!IVAI: case ('import') canopy arrays read in via 'aqm_emis_read'
+
+        if (GFS_control%do_canopy) then
+          call cplFieldGet(state,'inst_tracer_diag_claie', farrayPtr2d=claie, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+          call cplFieldGet(state,'inst_tracer_diag_cfch', farrayPtr2d=cfch, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+          call cplFieldGet(state,'inst_tracer_diag_cfrt', farrayPtr2d=cfrt, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+          call cplFieldGet(state,'inst_tracer_diag_cclu', farrayPtr2d=cclu, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+          call cplFieldGet(state,'inst_tracer_diag_cpopu', farrayPtr2d=cpopu, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+        end if
+
+!IVAI: case ('import') photdiag arrays
+        call cplFieldGet(state,'inst_tracer_diag_coszens', farrayPtr2d=coszens, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+        call cplFieldGet(state,'inst_tracer_diag_jo3o1d', farrayPtr2d=jo3o1d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+        call cplFieldGet(state,'inst_tracer_diag_jno2', farrayPtr2d=jno2, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+!IVAI
       end if
 
       !--- do not import tracer concentrations by default
@@ -1440,6 +1500,123 @@ subroutine update_atmos_chemistry(state, rc)
             GFS_IntDiag%aod(im) = aod(i,j)
           enddo
         enddo
+        
+        if (GFS_control%do_canopy) then
+!IVAI: case ('import') canopy arrays read in via aqm_emis_read
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, claie) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%claie(im) = claie(i,j)
+            enddo
+          enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfch) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cfch(im) = cfch(i,j)
+            enddo
+          enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cfrt) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cfrt(im) = cfrt(i,j)
+            enddo
+          enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cclu) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cclu(im) = cclu(i,j)
+            enddo
+          enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, cpopu) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+          do j = 1, nj
+            jb = j + Atm_block%jsc - 1
+            do i = 1, ni
+              ib = i + Atm_block%isc - 1
+              nb = Atm_block%blkno(ib,jb)
+              ix = Atm_block%ixp(ib,jb)
+              im = GFS_Control%chunk_begin(nb)+ix-1
+              GFS_IntDiag%cpopu(im) = cpopu(i,j)
+            enddo
+          enddo
+        endif ! GFS_control%do_canopy
+
+!IVAI: case ('import') photdiag arrays
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, coszens) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+        do j = 1, nj
+          jb = j + Atm_block%jsc - 1
+          do i = 1, ni
+            ib = i + Atm_block%isc - 1
+            nb = Atm_block%blkno(ib,jb)
+            ix = Atm_block%ixp(ib,jb)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%coszens(im) = coszens(i,j)
+          enddo
+        enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, jo3o1d) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+        do j = 1, nj
+          jb = j + Atm_block%jsc - 1
+          do i = 1, ni
+            ib = i + Atm_block%isc - 1
+            nb = Atm_block%blkno(ib,jb)
+            ix = Atm_block%ixp(ib,jb)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%jo3o1d(im) = jo3o1d(i,j)
+          enddo
+        enddo
+
+!$OMP   parallel do default (none) &
+!$OMP               shared  (nj, ni, Atm_block, GFS_Control, GFS_Intdiag, jno2) &
+!$OMP               private (j, jb, i, ib, nb, ix, im)
+        do j = 1, nj
+          jb = j + Atm_block%jsc - 1
+          do i = 1, ni
+            ib = i + Atm_block%isc - 1
+            nb = Atm_block%blkno(ib,jb)
+            ix = Atm_block%ixp(ib,jb)
+            im = GFS_Control%chunk_begin(nb)+ix-1
+            GFS_IntDiag%jno2(im) = jno2(i,j)
+          enddo
+        enddo
+!IVAI
       end if
 
       if (GFS_control%debug) then
@@ -1448,6 +1625,33 @@ subroutine update_atmos_chemistry(state, rc)
         if (GFS_control%cplaqm) &
           write(6,'("update_atmos: ",a,": aod  - min/max    ",3g16.6)') &
             trim(state), minval(aod), maxval(aod)
+!IVAI: case ('import') canopy arrays read via aqm_emis_read
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
+          write(6,'("update_atmos: ",a,": claie - min/max    ",3g16.6)') &
+            trim(state), minval(claie), maxval(claie)
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
+          write(6,'("update_atmos: ",a,": cfch  - min/max    ",3g16.6)') &
+            trim(state), minval(cfch), maxval(cfch)
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
+          write(6,'("update_atmos: ",a,": cfrt  - min/max    ",3g16.6)') &
+            trim(state), minval(cfrt), maxval(cfrt)
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
+          write(6,'("update_atmos: ",a,": cclu  - min/max    ",3g16.6)') &
+            trim(state), minval(cclu), maxval(cclu)
+        if (GFS_control%cplaqm .and. GFS_control%do_canopy) &
+          write(6,'("update_atmos: ",a,": cpopu - min/max    ",3g16.6)') &
+            trim(state), minval(cpopu), maxval(cpopu)
+!IVAI: case ('import') photdiag arrays
+        if (GFS_control%cplaqm) &
+          write(6,'("update_atmos: ",a,": coszens - min/max    ",3g16.6)') &
+            trim(state), minval(coszens), maxval(coszens)
+        if (GFS_control%cplaqm) &
+          write(6,'("update_atmos: ",a,": jo3o1d  - min/max    ",3g16.6)') &
+            trim(state), minval(jo3o1d), maxval(jo3o1d)
+        if (GFS_control%cplaqm) &
+          write(6,'("update_atmos: ",a,": jno2    - min/max    ",3g16.6)') &
+            trim(state), minval(jno2), maxval(jno2)
+!IVAI
       end if
 
     case ('export')

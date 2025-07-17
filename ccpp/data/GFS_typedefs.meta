@@ -119,6 +119,48 @@
   type = real
   kind = kind_phys
   active = (do_lightning_threat_index_calculations)
+[def_1]
+  standard_name = square_of_vertical_shear_due_to_dynamics
+  long_name = square of vertical shear calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_1(:,1)]
+  standard_name = square_of_vertical_shear_due_to_dynamics_at_surface_adjacent_layer
+  long_name = square of vertical shear calculated from dynamics at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[def_2]
+  standard_name = square_of_horizontal_shear_due_to_dynamics
+  long_name = square of horizontal shear calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_2(:,1)]
+  standard_name = square_of_horizontal_shear_due_to_dynamics_at_surface_adjacent_layer
+  long_name = square of horizontal shear calculated from dynamics at lowest model layer
+  units = m2 s-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[def_3]
+  standard_name = horizontal_transfer_rate_of_tke_due_to_dynamics
+  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics
+  units = m2 s-3
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[def_3(:,1)]
+  standard_name = horizontal_transfer_rate_tke_due_to_dynamics_at_surface_adjacent_layer
+  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics at lowest model layer
+  units = m2 s-3
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
 [vvl]
   standard_name = lagrangian_tendency_of_air_pressure
   long_name = layer mean vertical velocity
@@ -3177,7 +3219,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
+  active = ((control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .or. control_for_microphysics_scheme == identifier_for_tempo_microphysics_scheme) .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [nifa2d]
   standard_name = tendency_of_nonhygroscopic_ice_nucleating_aerosols_at_surface_adjacent_layer
   long_name = instantaneous ice-friendly sfc aerosol source
@@ -3185,7 +3227,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
+  active = ((control_for_microphysics_scheme == identifier_for_thompson_microphysics_scheme .or. control_for_microphysics_scheme == identifier_for_tempo_microphysics_scheme) .and. (flag_for_aerosol_physics .or. do_merra2_aerosol_awareness))
 [ebu_smoke]
   standard_name = ebu_smoke
   long_name = buffer of vertical fire emission
@@ -4359,6 +4401,12 @@
   units = flag
   dimensions = ()
   type = integer
+[imp_physics_tempo]
+  standard_name = identifier_for_tempo_microphysics_scheme
+  long_name = choice of TEMPO microphysics scheme
+  units = flag
+  dimensions = ()
+  type = integer
 [imp_physics_wsm6]
   standard_name = identifier_for_wsm6_microphysics_scheme
   long_name = choice of WSM6 microphysics scheme
@@ -4883,6 +4931,12 @@
   units = flag
   dimensions = ()
   type = logical
+[lthailaware]
+  standard_name = flag_for_hail_physics
+  long_name = flag for hail physics
+  units = flag
+  dimensions = ()
+  type = logical
 [mraerosol]
   standard_name = do_merra2_aerosol_awareness
   long_name = flag for merra2 aerosol-aware physics for example the thompson microphysics
@@ -4933,6 +4987,12 @@
   units = count
   dimensions = ()
   type = integer
+[tempo_cfg]
+  standard_name = configuration_for_TEMPO_microphysics
+  long_name = configuration information for TEMPO microphysics
+  units = mixed
+  dimensions = ()
+  type = ty_tempo_cfg
 [thompson_mp_is_init]
   standard_name = flag_for_thompson_mp_scheme_initialization
   long_name = flag carrying scheme initialization status
@@ -5525,6 +5585,12 @@
   units = flag
   dimensions = ()
   type = logical
+[sa3dtke]
+  standard_name = do_scale_aware_3d_tke
+  long_name = flag for scale-aware 3d tke scheme
+  units = flag
+  dimensions = ()
+  type = logical
 [hurr_pbl]
   standard_name = flag_hurricane_PBL
   long_name = flag for hurricane-specific options in PBL scheme
@@ -6109,6 +6175,12 @@
 [tc_pbl]
   standard_name = control_for_TC_applications_in_the_PBL_scheme
   long_name = control for TC applications in the PBL scheme
+  units = none
+  dimensions = ()
+  type = integer
+[use_lpt]
+  standard_name = control_for_using_LPT_for_TC_applications_in_the_PBL_scheme
+  long_name = control for using LPT in TC applications in the PBL scheme
   units = none
   dimensions = ()
   type = integer
@@ -7663,6 +7735,12 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[do_ngw_ec]
+  standard_name = flag_for_ngw_ec
+  long_name = flag to activate ecmwf ngwd
+  units = flag
+  dimensions = ()
+  type = logical
 [do_ugwp_v1]
   standard_name = flag_for_ugwp_version_1
   long_name = flag to activate ver 1 CIRES UGWP
@@ -7684,6 +7762,12 @@
 [lmfdeep2]
   standard_name = flag_for_scale_aware_mass_flux_deep_convection_for_radiation
   long_name = flag for some scale-aware mass-flux convection scheme active
+  units = flag
+  dimensions = ()
+  type = logical
+[do_canopy]
+  standard_name = flag_for_canopy_option
+  long_name = flag for in-canopy eddy diffusivity adjustment option
   units = flag
   dimensions = ()
   type = logical
@@ -7718,7 +7802,6 @@
   units = count
   dimensions = ()
   type = integer
-
 ########################################################################
 [ccpp-table-properties]
   name = GFS_grid_type
@@ -8003,6 +8086,20 @@
   long_name = pbl height
   units = m
   dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[dku3d_h]
+  standard_name = horizontal_atmosphere_momentum_diffusivity_for_dynamics
+  long_name = horizontal atmospheric momentum diffusivity for dynamics
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[dku3d_e]
+  standard_name = horizontal_atmosphere_tke_diffusivity_for_dynamics
+  long_name = horizontal atmospheric tke diffusivity for dynamics
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [ud_mf]
@@ -8643,6 +8740,46 @@
   dimensions = (horizontal_dimension,number_of_diagnostics_variables_for_radiation)
   type = real
   kind = kind_phys
+[claie]
+  standard_name = canopy_leaf_area_index
+  long_name = canopy leaf area index
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cfch]
+  standard_name = canopy_forest_height
+  long_name = canopy forest height
+  units = m
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cfrt]
+  standard_name = canopy_forest_fraction
+  long_name = canopy forest fraction
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cclu]
+  standard_name = canopy_clumping_index
+  long_name = canopy clumping index
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cpopu]
+  standard_name = canopy_population_density
+  long_name = population density used for canopy correction
+  units = km-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [topfsw]
   standard_name = sw_fluxes_top_atmosphere
   long_name = sw radiation fluxes at toa
@@ -10180,8 +10317,9 @@
   relative_path = ../physics/physics/
   dependencies = hooks/machine.F,hooks/physcons.F90
   dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
+  dependencies = MP/TEMPO/TEMPO/module_mp_tempo_params.F90
   dependencies = photochem/module_ozphys.F90,photochem/module_h2ophys.F90
-  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90,MP/GFDL/GFDL_parse_tracers.F90
+  dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90
 
 [ccpp-arg-table]
   name = GFS_typedefs
@@ -10557,6 +10695,27 @@
   standard_name = molecular_weight_of_water_vapor
   long_name = molecular weight of water vapor
   units = g mol-1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[con_one]
+  standard_name = constant_one
+  long_name = mathematical constant of one
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[con_p001]
+  standard_name = constant_one_hundredth
+  long_name = mathematical constant for one hundredth
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[con_secinday]
+  standard_name = seconds_in_a_day
+  long_name = number of seconds in a day
+  units = s
   dimensions = ()
   type = real
   kind = kind_phys
