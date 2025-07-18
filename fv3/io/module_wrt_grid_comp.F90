@@ -1696,7 +1696,6 @@
       integer                               :: out_phase
 !
       logical                               :: opened
-      ! logical                               :: lmask_fields
 !
       character(esmf_maxstr)                :: filename,compname,wrtFBName,traceString
       character(40)                         :: cfhour, cform
@@ -2049,7 +2048,6 @@
 !-----------------------------------------------------------------------
 !*** do post
 !-----------------------------------------------------------------------
-      ! lmask_fields = .false.
       if( wrt_int_state%write_dopost ) then
 #ifdef INLINE_POST
         wbeg = MPI_Wtime()
