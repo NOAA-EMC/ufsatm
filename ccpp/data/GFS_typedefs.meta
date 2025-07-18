@@ -7765,6 +7765,12 @@
   units = flag
   dimensions = ()
   type = logical
+[do_canopy]
+  standard_name = flag_for_canopy_option
+  long_name = flag for in-canopy eddy diffusivity adjustment option
+  units = flag
+  dimensions = ()
+  type = logical
 [clm_lake_depth_default]
   standard_name = default_lake_depth_in_clm_lake_model
   long_name = default lake depth in clm lake model
@@ -7796,7 +7802,6 @@
   units = count
   dimensions = ()
   type = integer
-
 ########################################################################
 [ccpp-table-properties]
   name = GFS_grid_type
@@ -8735,6 +8740,46 @@
   dimensions = (horizontal_dimension,number_of_diagnostics_variables_for_radiation)
   type = real
   kind = kind_phys
+[claie]
+  standard_name = canopy_leaf_area_index
+  long_name = canopy leaf area index
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cfch]
+  standard_name = canopy_forest_height
+  long_name = canopy forest height
+  units = m
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cfrt]
+  standard_name = canopy_forest_fraction
+  long_name = canopy forest fraction
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cclu]
+  standard_name = canopy_clumping_index
+  long_name = canopy clumping index
+  units = none
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[cpopu]
+  standard_name = canopy_population_density
+  long_name = population density used for canopy correction
+  units = km-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [topfsw]
   standard_name = sw_fluxes_top_atmosphere
   long_name = sw radiation fluxes at toa

@@ -160,7 +160,7 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67
+  integer,          public, parameter :: NimportFields = 67 + 3 + 5 !IVAI: add 3 inst_tracer_diag
   logical,          public            :: importFieldsValid(NimportFields)
   type(ESMF_Field), target, public    :: importFields(NimportFields)
 
@@ -183,6 +183,17 @@ module module_cplfields
     FieldInfo("inst_ice_vis_dir_albedo                  ", "s"), &
     FieldInfo("wave_z0_roughness_length                 ", "s"), &
     FieldInfo("inst_tracer_diag_aod                     ", "s"), &
+!IVAI: import canopy fields from AQM component
+    FieldInfo("inst_tracer_diag_claie                   ", "s"), &
+    FieldInfo("inst_tracer_diag_cfch                    ", "s"), &
+    FieldInfo("inst_tracer_diag_cfrt                    ", "s"), &
+    FieldInfo("inst_tracer_diag_cclu                    ", "s"), &
+    FieldInfo("inst_tracer_diag_cpopu                   ", "s"), &
+!IVAI: import photolysis diagnostics from AQM component
+    FieldInfo("inst_tracer_diag_coszens                 ", "s"), &
+    FieldInfo("inst_tracer_diag_jo3o1d                  ", "s"), &
+    FieldInfo("inst_tracer_diag_jno2                    ", "s"), &
+!IVAI
     FieldInfo("ocn_current_zonal                        ", "s"), &
     FieldInfo("ocn_current_merid                        ", "s"), &
 
