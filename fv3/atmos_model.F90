@@ -293,7 +293,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !--- execute the atmospheric setup step
       call mpp_clock_begin(setupClock)
-      call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
 
       if (GFS_Control%do_sppt .or. GFS_Control%do_shum .or. GFS_Control%do_skeb .or. &
@@ -368,7 +368,7 @@ subroutine update_atmos_radiation_physics (Atmos)
       call mpp_clock_begin(radClock)
       ! Performance improvement. Only enter if it is time to call the radiation physics.
       if (GFS_control%lsswr .or. GFS_control%lslwr) then
-        call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr)
+        call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
         if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
       endif
       call mpp_clock_end(radClock)
@@ -383,7 +383,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 !--- execute the atmospheric physics step1 subcomponent (main physics driver)
 
       call mpp_clock_begin(physClock)
-      call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
       call mpp_clock_end(physClock)
 
@@ -400,7 +400,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 !--- execute the atmospheric physics step2 subcomponent (stochastic physics driver)
 
         call mpp_clock_begin(physClock)
-        call CCPP_step (step="stochastics", nblks=Atm_block%nblks, ierr=ierr)
+        call CCPP_step (step="stochastics", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
         if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP stochastics step failed')
         call mpp_clock_end(physClock)
 
@@ -415,7 +415,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !--- execute the atmospheric timestep finalize step
       call mpp_clock_begin(setupClock)
-      call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
       call mpp_clock_end(setupClock)
 
@@ -768,10 +768,10 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
     endif
 
    ! Initialize the CCPP framework
-   call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
+   call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
    ! Initialize the CCPP physics
-   call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr)
+   call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
    if (GFS_Control%do_sppt .or. GFS_Control%do_shum .or. GFS_Control%do_skeb .or. &
@@ -1144,11 +1144,11 @@ subroutine atmos_model_end (Atmos)
 
 !   Fast physics (from dynamics) are finalized in atmosphere_end above;
 !   standard/slow physics (from CCPP) are finalized in CCPP_step 'physics_finalize'.
-    call CCPP_step (step="physics_finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="physics_finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_finalize step failed')
 
 !   The CCPP framework for all cdata structures is finalized in CCPP_step 'finalize'.
-    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP finalize step failed')
 
     deallocate (Atmos%lon, Atmos%lat)

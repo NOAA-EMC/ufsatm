@@ -276,11 +276,11 @@ contains
     call ufs_mpas_to_physics(UFSATM_statein)
     
     ! Initialize the CCPP framework
-    call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
 
     ! Initialize the CCPP physics
-    call CCPP_step (step="physics_init", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="physics_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
     ! Initialize stochastic physics pattern generation / cellular automata
@@ -305,7 +305,7 @@ contains
     close(unit=mpas_logfile_handle)
 
     ! Finalize the CCPP physics.
-    call CCPP_step (step="finalize", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="finalize", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP finalize step failed')
 
   end subroutine atmos_model_end
@@ -321,21 +321,21 @@ contains
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
     
     ! Call CCPP Radiation Group
     call mpp_clock_begin(radClock)
     if (UFSATM_control%lsswr .or. UFSATM_control%lslwr) then
-       !call CCPP_step (step="radiation", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+       !call CCPP_step (step="radiation", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
     call mpp_clock_end(radClock)
 
     ! Call CCPP Physics Group
     call mpp_clock_begin(physClock)
-    call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
     
@@ -376,13 +376,13 @@ contains
     
     ! Call CCPP Microphysics Group
     call mpp_clock_begin(mpClock)
-    call CCPP_step (step="microphysics", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="microphysics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP microphysics step failed')
     call mpp_clock_end(mpClock)
 
     ! Call CCPP Timestep_finalize Group
     call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_finalize", nblks=Atmos % nblks, ierr=ierr, dynamics='mpas')
+    call CCPP_step (step="timestep_finalize", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
     call mpp_clock_end(setupClock)
 

@@ -45,7 +45,7 @@ module CCPP_driver
 !-------------------------------
 !  CCPP step
 !-------------------------------
-  subroutine CCPP_step (step, nblks, ierr, dynamics)
+  subroutine CCPP_step (step, nblks, ierr, dycore)
 
 #ifdef _OPENMP
     use omp_lib
@@ -56,24 +56,15 @@ module CCPP_driver
     character(len=*),         intent(in)  :: step
     integer,                  intent(in)  :: nblks
     integer,                  intent(out) :: ierr
-    character(len=*),         intent(in),optional  :: dynamics
+    character(len=*),         intent(in)  :: dycore
     ! Local variables
     integer :: nb, nt, ntX
     integer :: ierr2
-    character(len=64) :: dycore
-    character(len=*), parameter :: default_dynamics = 'fv3'
 
     ! DH* 20210104 - remove kdt_rad when code to clear diagnostic buckets is removed
     integer :: kdt_rad
 
     ierr = 0
-
-    ! Which dynamical core are we using? (default is FV3)
-    if (present(dynamics)) then
-       dycore = dynamics
-    else
-       dycore = default_dynamics
-    endif
 
     ! CCPP Framework init (same for all dynamical cores)
     if (trim(step)=="init") then
@@ -278,6 +269,9 @@ module CCPP_driver
                  write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
                  ierr = ierr + ierr2
               endif
+           else
+              write(0,'(a)') "An error occurred in ccpp_physics_run for group microphysics. Group microphysics only valid with MPAS dycore."
+              return
            endif
         endif
         if (trim(step)=="radiation") then
