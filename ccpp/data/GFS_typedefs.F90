@@ -2241,6 +2241,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: do3_dt_temp(:,:) => null()
     real (kind=kind_phys), pointer :: do3_dt_ohoz(:,:) => null()
 
+    !--- NRL WV photochemistry diagnostics
+    real (kind=kind_phys), pointer :: dqv_dt_prd(:, :)  => null()
+    real (kind=kind_phys), pointer :: dqv_dt_qvmx(:, :) => null()
+
     contains
       procedure :: create    => diag_create
       procedure :: rad_zero  => diag_rad_zero
@@ -3482,7 +3486,7 @@ module GFS_typedefs
     integer              :: iems           =  0              !< 1.0 => Noah lsm
                                                              !< 2.0 => Noah MP and RUC lsms
     integer              :: iaer           =  1              !< default aerosol effect in sw only
-    integer              :: iaermdl        =  0              !< default tropospheric aerosol model scheme flag
+    integer              :: iaermdl        =  1              !< default tropospheric aerosol model scheme flag
                                                              !< 0: seasonal global distributed OPAC aerosol climatology
                                                              !< 1: monthly global distributed GOCART aerosol climatology
                                                              !< 2: GOCART prognostic aerosol model
@@ -4631,8 +4635,9 @@ module GFS_typedefs
     Model%ialb             = ialb
     Model%iems             = iems
     Model%iaer             = iaer
+    Model%iaermdl          = iaer/1000
     Model%iaerclm          = iaerclm
-    if (iaer/1000 == 1 .or. Model%iccn == 2) then
+    if (iaer/1000 == 1 .or. Model%iccn == 2 .or. Model%iaermdl ==6 ) then
       Model%iaerclm = .true.
       ntrcaer = ntrcaerm
     else if (iaer/1000 == 2) then
@@ -4642,7 +4647,6 @@ module GFS_typedefs
     endif
     Model%lalw1bd          = lalw1bd
     Model%iaerflg          = iaerflg
-    Model%iaermdl          = iaermdl
     Model%aeros_file       = aeros_file
     Model%solar_file       = solar_file
     Model%semis_file       = semis_file
@@ -5628,6 +5632,10 @@ module GFS_typedefs
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_photochem,have_oz_phys)
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_physics,.true.)
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_non_physics,.true.)
+
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_prod_loss, h2o_phys)
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_ozmix, h2o_phys)
+          call fill_dtidx(Model, dtend_select, 100+Model%ntqv,Model%index_of_process_photochem, h2o_phys)
 
           if(.not.Model%do_mynnedmf .and. .not. Model%satmedmf) then
             call fill_dtidx(Model,dtend_select,100+Model%ntqv,Model%index_of_process_pbl,have_pbl)
@@ -7985,6 +7993,10 @@ module GFS_typedefs
          allocate (Diag%do3_dt_temp(IM, Model%levs))
          allocate (Diag%do3_dt_ohoz(IM, Model%levs))
       endif
+      if (Model%h2o_phys) then
+         allocate (Diag%dqv_dt_prd( IM, Model%levs))
+         allocate (Diag%dqv_dt_qvmx(IM, Model%levs))
+      end if
     endif
 
 ! UGWP
@@ -8359,6 +8371,10 @@ module GFS_typedefs
          Diag%do3_dt_temp = zero
          Diag%do3_dt_ohoz = zero
       endif
+      if (Model%h2o_phys) then
+         Diag%dqv_dt_prd  = zero
+         Diag%dqv_dt_qvmx = zero
+      end if
     endif
 
 !
