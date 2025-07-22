@@ -60,7 +60,6 @@ module CCPP_driver
     ! Local variables
     integer :: nb, nt, ntX
     integer :: ierr2
-
     ! DH* 20210104 - remove kdt_rad when code to clear diagnostic buckets is removed
     integer :: kdt_rad
 
@@ -271,7 +270,7 @@ module CCPP_driver
               endif
            else
               write(0,'(a)') "An error occurred in ccpp_physics_run for group microphysics. Group microphysics only valid with MPAS dycore."
-              return
+              ierr = ierr + 1
            endif
         endif
         if (trim(step)=="radiation") then

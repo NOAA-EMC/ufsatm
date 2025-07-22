@@ -10,7 +10,7 @@ The subcomponents include:
 - The Finite-Volume Cubed-Sphere (FV3) dynamical core, originally
    from the [Geophysical Fluid Dynamics Laboratory](https://www.gfdl.noaa.gov/).
 
-- The Model for Prediction Across Scales - Atmosphere (MPAS-A)	dynamical
+- The Model for Prediction Across Scales - Atmosphere (MPAS-A) dynamical
    core developed by [NSF-NCAR Mesoscale and Micrometeorology Laboratory (MMM)](https://www.mmm.ucar.edu).
    - [MPAS Model](https://github.com/ufs-community/MPAS-Model)
    - [MPAS documentation](https://www.mmm.ucar.edu/models/mpas)

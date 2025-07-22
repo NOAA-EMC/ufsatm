@@ -25,7 +25,7 @@ VARIABLE_DEFINITION_FILES = [
     'physics/physics/SFC_Models/Land/Noahmp/lnd_iau_mod.F90',
     '../ccpp/data/CCPP_typedefs.F90',
     '../ccpp/data/GFS_typedefs.F90',
-    '../ccpp/data/CCPP_data.F90'
+    '../ccpp/data/CCPP_data.F90',
     ]
 
 TYPEDEFS_NEW_METADATA = {
