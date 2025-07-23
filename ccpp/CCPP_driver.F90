@@ -257,35 +257,36 @@ module CCPP_driver
                  ierr = ierr + ierr2
               endif
            endif
-        endif
-        if (trim(step)=="microphysics") then
-           if (trim(dycore)=="mpas") then
-              ! Microphysics
-              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr2)
-              if (ierr2/=0) then
-                 write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "microphysics", &
-                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-                 ierr = ierr + ierr2
+        else
+           if (trim(step)=="radiation") then
+              ! Reset GFS_Interstitial DDT radiation fields for this thread
+              call GFS_Interstitial(ntX)%rad_reset(GFS_control)
+           endif
+           ! Radiation
+           call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
+           if (ierr2/=0) then
+              write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
+                   ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+              write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+              ierr = ierr + ierr2
+           endif
+           ! Microphysics (MPAS only)
+           if (trim(step)=="microphysics") then
+              if (trim(dycore)=="mpas") then
+                 call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr2)
+                 if (ierr2/=0) then
+                    write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "microphysics", &
+                                              ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
+                    write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                    ierr = ierr + ierr2
+                 endif
+              else
+                 write(0,'(a)') "An error occurred in ccpp_physics_run for group microphysics. Group microphysics only valid with MPAS dycore."
+                 ierr = ierr + 1
               endif
-           else
-              write(0,'(a)') "An error occurred in ccpp_physics_run for group microphysics. Group microphysics only valid with MPAS dycore."
-              ierr = ierr + 1
            endif
         endif
-        if (trim(step)=="radiation") then
-            ! Reset GFS_Interstitial DDT radiation fields for this thread
-            call GFS_Interstitial(ntX)%rad_reset(GFS_control)
-            ! Radiation
-            call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
-            if (ierr2/=0) then
-               write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                                         ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-               write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
-               ierr = ierr + ierr2
-            endif
-         end if
-      end do
+     end do
 !$OMP end do
 
 !$OMP end parallel
