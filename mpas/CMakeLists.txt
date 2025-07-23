@@ -45,7 +45,6 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/${MPAS_MODULE_DIR}/ DESTINATION ${CMAKE_IN
 
 # MPAS Utilities (Externals)
 add_subdirectory(MPAS-Model/src/external/ezxml)
-add_subdirectory(MPAS-Model/src/external/SMIOL)
 
 # ESMF libraries.
 if(NOT ESMF_FOUND)
