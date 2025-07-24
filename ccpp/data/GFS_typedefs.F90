@@ -778,6 +778,11 @@ module GFS_typedefs
     !
     integer              :: fire_aux_data_levels !< vertical levels of fire auxiliary data
 
+!--- dycore control parameters
+    integer              :: dycore_active   !< Choice of dynamical core
+    integer              :: dycore_fv3  = 1 !< Choice of FV3 dynamical core
+    integer              :: dycore_mpas = 2 !< Choice of MPAS dynamical core
+    
 !--- coupling parameters
     logical              :: cplflx          !< default no cplflx collection
     logical              :: cplice          !< default no cplice collection (used together with cplflx)
@@ -3365,7 +3370,7 @@ module GFS_typedefs
 !----------------------
 ! GFS_control_type%init
 !----------------------
-  subroutine control_initialize (Model, dycore, nlunit, fn_nml, me, &
+  subroutine control_initialize (Model, nlunit, fn_nml, me,         &
                                  master, logunit, levs, dt_dycore,  &
                                  dt_phys, iau_offset, idat, jdat,   &
                                  nwat, tracer_names, tracer_types,  &
@@ -3382,7 +3387,6 @@ module GFS_typedefs
 
 !--- interface variables
     class(GFS_control_type)            :: Model
-    character(len=*),       intent(in) :: dycore
     integer,                intent(in) :: nlunit
     character(len=64),      intent(in) :: fn_nml
     integer,                intent(in) :: me
@@ -4309,42 +4313,54 @@ module GFS_typedefs
     character(len=128) :: err_message
 
     !--- If initializing model with FV3 dynamical core.
-    if (trim(dycore) == 'FV3') then
+    if (Model%dycore_active == Model%dycore_fv3) then
        if (.not. present(tile_num)) then
           write(6,*) 'ERROR: <tile_num> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(isc)) then
           write(6,*) 'ERROR: <isc> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(jsc)) then
           write(6,*) 'ERROR: <jsc> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(nx)) then
           write(6,*) 'ERROR: <nx> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(ny)) then
           write(6,*) 'ERROR: <ny> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(cnx)) then
           write(6,*) 'ERROR: <cnx> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(cny)) then
           write(6,*) 'ERROR: <cny> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(gnx)) then
           write(6,*) 'ERROR: <gnx> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(gny)) then
           write(6,*) 'ERROR: <gny> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(hydrostatic)) then
           write(6,*) 'ERROR: <hydrostatic> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(ak)) then
           write(6,*) 'ERROR: <ak> is required when using FV3 dynamical core'
+          stop
        endif
        if (.not. present(bk)) then
           write(6,*) 'ERROR: <bk> is required when using FV3 dynamical core'
+          stop
        endif
     endif
     
@@ -4497,7 +4513,7 @@ module GFS_typedefs
     Model%gen_coord_hybrid = gen_coord_hybrid
 
     !--- set some grid extent parameters (dycore specific)
-    if (trim(dycore) == 'FV3') then
+    if (Model%dycore_active == Model%dycore_fv3) then
        Model%tile_num         = tile_num
        Model%isc              = isc
        Model%jsc              = jsc
@@ -4512,7 +4528,7 @@ module GFS_typedefs
        Model%lonr             = gnx         ! number longitudinal points
        Model%latr             = gny         ! number of latitudinal points from pole to pole
     endif
-    if (trim(dycore) == 'MPAS') then
+    if (Model%dycore_active == Model%dycore_mpas) then
 
     end if
     Model%levs             = levs
@@ -5877,7 +5893,7 @@ module GFS_typedefs
       print *,'in atm phys init, phour=',Model%phour,'fhour=',Model%fhour,'zhour=',Model%zhour,'kdt=',Model%kdt
     endif
 
-    if (trim(dycore) == 'FV3') then
+    if (Model%dycore_active == Model%dycore_fv3) then
        Model%hydrostatic      = hydrostatic
        if(Model%hydrostatic .and. Model%lightning_threat) then
           write(0,*) 'Turning off lightning threat index for hydrostatic run.'
@@ -5891,11 +5907,11 @@ module GFS_typedefs
     !--- ps is replaced with p0. The value of p0 uses that in http://www.emc.ncep.noaa.gov/officenotes/newernotes/on461.pdf
     !--- ak/bk have been flipped from their original FV3 orientation and are defined sfc -> toa
     allocate (Model%si(Model%levs+1))
-    if (trim(dycore) == 'FV3') then
+    if (Model%dycore_active == Model%dycore_fv3) then
        Model%si(1:Model%levs+1) = (ak(1:Model%levs+1) + bk(1:Model%levs+1) * con_p0 - ak(Model%levs+1)) / (con_p0 - ak(Model%levs+1))
     end if
     ! DJS2025: NOT YET IMPLEMENTED
-    if (trim(dycore) == 'MPAS') then
+    if (Model%dycore_active == Model%dycore_mpas) then
        Model%si(1:Model%levs+1) = 1._kind_phys
     endif
 
@@ -6503,7 +6519,7 @@ module GFS_typedefs
 !     Model%do_stcsmc_adjustment = land_iau_do_stcsmc_adjustment
 !     Model%min_T_increment = land_iau_min_T_increment
 
-    call Model%print (dycore)
+    call Model%print ()
 
   end subroutine control_initialize
 
@@ -6671,13 +6687,12 @@ module GFS_typedefs
 !------------------
 ! GFS_control%print
 !------------------
-  subroutine control_print(Model, dycore)
+  subroutine control_print(Model)
 
     implicit none
 
 !--- interface variables
     class(GFS_control_type) :: Model
-    character(len=*), intent(in) :: dycore
 
 !--- local variables
     integer :: i
@@ -6708,12 +6723,12 @@ module GFS_typedefs
       print *, ' thermodyn_id      : ', Model%thermodyn_id
       print *, ' sfcpress_id       : ', Model%sfcpress_id
       print *, ' gen_coord_hybrid  : ', Model%gen_coord_hybrid
-      if (trim(dycore) == 'FV3') then
+      if (Model%dycore_active == Model%dycore_fv3) then
          print *, ' hydrostatic       : ', Model%hydrostatic
       endif
       print *, ' '
       print *, 'grid extent parameters'
-      if (trim(dycore) == 'FV3') then
+      if (Model%dycore_active == Model%dycore_fv3) then
          print *, ' isc               : ', Model%isc
          print *, ' jsc               : ', Model%jsc
          print *, ' nx                : ', Model%nx

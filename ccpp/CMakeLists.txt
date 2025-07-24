@@ -21,8 +21,6 @@ if (FV3)
         driver/GFS_init.F90
         CCPP_driver.F90
         )
-  # Add dycore-specific preprocessor flag (needed for some physics schemes)
-  add_definitions(-DFV3)
 endif()
 
 #------------------------------------------------------------------------------
@@ -35,7 +33,6 @@ if (MPAS)
   set(DYCORE_CCPP_SRCS
 	CCPP_driver.F90
         )
-  add_definitions(-DFV3)
 endif()
 
 #------------------------------------------------------------------------------

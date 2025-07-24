@@ -29,13 +29,13 @@ module ufsatm_cap_mod
                                     label_Finalize,                          &
                                     NUOPC_ModelGet
 !
-#ifdef ATMFV3
+#ifdef FV3
   use module_fv3_config,      only: quilting, quilting_restart, output_fh,   &
                                     dt_atmos,                                &
                                     calendar, cpl_grid_id,                   &
                                     cplprint_flag, first_kdt
 #endif
-#ifdef ATMMPAS
+#ifdef MPAS
   use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
                                     pio_subsystem, pio_stride,               &
@@ -127,7 +127,7 @@ module ufsatm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! checking the import fields is a bit more complex because of coldstart option
-#ifdef ATMFV3
+#ifdef FV3
     call ESMF_MethodRemove(gcomp, label_CheckImport, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -143,7 +143,7 @@ module ufsatm_cap_mod
     call NUOPC_CompSpecialize(gcomp, specLabel=label_Advance, &
                               specPhaseLabel="phase1", specRoutine=ModelAdvance_phase1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef ATMFV3
+#ifdef FV3
     ! setup Run/Advance phase: phase2
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
                                  phaseLabelList=(/"phase2"/), userRoutine=routine_Run, rc=rc)
@@ -184,7 +184,7 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine InitializeAdvertise(gcomp, rc)
-#ifdef ATMMPAS
+#ifdef MPAS
     use pio, only: pio_init, pio_setdebuglevel
     use pio, only: PIO_REARR_BOX, PIO_REARR_SUBSET
     use pio, only: PIO_64BIT_OFFSET, PIO_64BIT_DATA
@@ -253,11 +253,11 @@ module ufsatm_cap_mod
 
     call ESMF_GridCompGet(gcomp, name=gc_name, vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef ATMFV3
+#ifdef FV3
     call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
-#ifdef ATMMPAS
+#ifdef MPAS
     call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
                     petCount=petcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -272,7 +272,7 @@ module ufsatm_cap_mod
     ! query for importState and exportState
     call NUOPC_ModelGet(gcomp, driverClock=clock, importState=importState, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef ATMFV3
+#ifdef FV3
     call ESMF_AttributeGet(gcomp, name="cpl_grid_id", value=value, defaultValue="1", &
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -306,7 +306,7 @@ module ufsatm_cap_mod
     write(msgString,'(A,i6)') trim(subname)//' dbug = ',dbug
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
-#ifdef ATMMPAS
+#ifdef MPAS
     ! #######################################################################################
     !
     ! PIO
@@ -656,7 +656,7 @@ module ufsatm_cap_mod
     output_startfh = 0.
 !
 ! query the is_moving array from the fcstState (was set by fcstComp.Initialize() above)
-#ifdef ATMFV3
+#ifdef FV3
     call ESMF_InfoGetFromHost(fcstState, info=info, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     call ESMF_InfoGetAlloc(info, key="is_moving", values=is_moving, rc=rc)
@@ -1110,7 +1110,7 @@ module ufsatm_cap_mod
     endif
 !
 !-- set up output forecast time if output_fh is specified
-#ifdef ATMFV3
+#ifdef FV3
     if (noutput_fh > 0 ) then
 !--- use output_fh to sepcify output forecast time
       loutput_fh = .true.
@@ -1298,7 +1298,7 @@ module ufsatm_cap_mod
 
     call ModelAdvance_phase1(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef ATMFV3
+#ifdef FV3
     call ModelAdvance_phase2(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif

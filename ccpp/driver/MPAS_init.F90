@@ -21,7 +21,7 @@ contains
   !>
   !> #########################################################################################
   subroutine MPAS_initialize (Model, Diag, Grid, Tbd, SfcProp, Statein, CldProp, RadTend,    &
-                              Coupling, MPAS, Interstitial)
+                              Coupling, Init_parm, Interstitial)
 #ifdef _OPENMP
     use omp_lib
 #endif
@@ -36,7 +36,7 @@ contains
     type(GFS_cldprop_type),      intent(inout) :: Cldprop
     type(GFS_radtend_type),      intent(inout) :: Radtend
     type(GFS_coupling_type),     intent(inout) :: Coupling
-    type(MPAS_control_type),     intent(inout) :: MPAS
+    type(MPAS_control_type),     intent(inout) :: Init_parm
     type(GFS_interstitial_type), intent(inout) :: Interstitial(:)
     
     ! Locals
@@ -47,7 +47,7 @@ contains
     logical :: non_uniform_blocks
     integer :: ix
 
-    nblks = size(MPAS%blksz)
+    nblks = size(Init_parm%blksz)
 
 #ifdef _OPENMP
     nthrds = omp_get_max_threads()
@@ -56,11 +56,13 @@ contains
 #endif
 
     ! Set control properties (including physics namelist read)
-    call Model%init('MPAS', MPAS%nlunit, MPAS%fn_nml, MPAS%me, MPAS%master, MPAS%logunit,    &
-         MPAS%levs, real(MPAS%dt_dycore, kind_phys), real(MPAS%dt_phys, kind_phys),          &
-         MPAS%iau_offset, MPAS%bdat, MPAS%cdat, MPAS%nwat, MPAS%tracer_names,                &
-         MPAS%tracer_types, MPAS%input_nml_file, MPAS%blksz, MPAS%restart, MPAS%mpi_comm,    &
-         MPAS%fcst_ntasks, nthrds)
+    Model%dycore_active = Model%dycore_mpas
+    call Model%init(Init_parm%nlunit, Init_parm%fn_nml, Init_parm%me, Init_parm%master,      &
+         Init_parm%logunit, Init_parm%levs, real(Init_parm%dt_dycore, kind_phys),            &
+         real(Init_parm%dt_phys, kind_phys), Init_parm%iau_offset, Init_parm%bdat,           &
+         Init_parm%cdat, Init_parm%nwat, Init_parm%tracer_names, Init_parm%tracer_types,     &
+         Init_parm%input_nml_file, Init_parm%blksz, Init_parm%restart, Init_parm%mpi_comm,   &
+         Init_parm%fcst_ntasks, nthrds)
 
     ! Allocate data containers for physics.
     call Grid%create(Model)
@@ -77,13 +79,13 @@ contains
     ! all other blocks. This is the standard in FV3. If this is the case, set non_uniform_blocks
     ! to .true. and initialize nthreads+1 elements of the interstitial array. The extra element
     ! will be used by the thread that runs over the last, smaller block.
-    if (minval(MPAS%blksz)==maxval(MPAS%blksz)) then
+    if (minval(Init_parm%blksz)==maxval(Init_parm%blksz)) then
        non_uniform_blocks = .false.
-    elseif (all(minloc(MPAS%blksz)==(/size(MPAS%blksz)/))) then
+    elseif (all(minloc(Init_parm%blksz)==(/size(Init_parm%blksz)/))) then
        non_uniform_blocks = .true.
     else
        write(0,'(2a)') 'For non-uniform blocksizes, only the last element ', &
-                       'in MPAS%blksz can be different from the others'
+                       'in Init_parm%blksz can be different from the others'
        stop
     endif
 
@@ -93,12 +95,12 @@ contains
     !$OMP            schedule (static,1) &
     !$OMP            private  (nt)
     do nt=1,nthrds
-       call Interstitial(nt)%create(maxval(MPAS%blksz), Model)
+       call Interstitial(nt)%create(maxval(Init_parm%blksz), Model)
     enddo
     !$OMP end parallel do
 
     if (non_uniform_blocks) then
-       call Interstitial(nthrds+1)%create(MPAS%blksz(nblks), Model)
+       call Interstitial(nthrds+1)%create(Init_parm%blksz(nblks), Model)
     end if
     
   end subroutine MPAS_initialize

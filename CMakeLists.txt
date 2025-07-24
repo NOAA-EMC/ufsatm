@@ -88,10 +88,10 @@ list(APPEND fv3_io_srcs
 ### UFSATM with FV3 dynamical core
 ###############################################################################
 if (FV3)
+  add_definitions(-DFV3)
   set(DYCORE_TARGET ${DYCORE_TARGET_FV3}
     CACHE INTERNAL "DYCORE_TARGET Options: fv3atm")
   set(DYCORE_TARGET_CAP_MOD ufsatm_cap_mod PARENT_SCOPE)
-
 
   # These ifdefs need to be turned ON in the dycore.
   set(use_WRTCOMP ON)
@@ -101,9 +101,6 @@ if (FV3)
   if(MOVING_NEST)
     set(MOVING_NEST ON)
   endif()
-
-  # Macro used by NUOPC Cap for FV3 dycore.
-  add_definitions(-DATMFV3)
 
   if(HYDRO)
     set(HYDRO ON)
@@ -178,16 +175,16 @@ if (FV3)
   list(APPEND _ufsatm_defs_private GFS_PHYS
                                    INTERNAL_FILE_NML
                                    use_WRTCOMP)
+else()
+  remove_definitions(-DFV3)
 endif()
 
 ###############################################################################
 ### UFSATM with MPAS dynamical core.
 ###############################################################################
 if (MPAS)
+  add_definitions(-DMPAS)
   set(DYCORE_TARGET ${DYCORE_TARGET_MPAS})
-
-  # Macro used by NUOPC Cap for MPAS dycore.
-  add_definitions(-DATMMPAS)
 
   # Include MPAS Cmake tools.
   include(${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/cmake/Functions/MPAS_Functions.cmake)
@@ -244,6 +241,8 @@ if (MPAS)
     set(MPAS_GIT_VERSION ${_mpas_git_version} CACHE STRING "MPAS-Model git version")
     message(STATUS "Setting MPAS_GIT_VERSION ${_mpas_git_version}")
   endif()
+else()
+  remove_definitions(-DMPAS)
 endif()
 
 ###############################################################################

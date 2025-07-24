@@ -64,7 +64,8 @@ module GFS_init
 #endif
 
     !--- set control properties (including namelist read)
-    call Model%init ('FV3', Init_parm%nlunit, Init_parm%fn_nml,    &
+    Model%dycore_active = Model%dycore_fv3
+    call Model%init (Init_parm%nlunit, Init_parm%fn_nml,           &
                      Init_parm%me, Init_parm%master,               &
                      Init_parm%logunit, Init_parm%levs,            &
                      Init_parm%dt_dycore, Init_parm%dt_phys,       &
