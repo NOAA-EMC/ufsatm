@@ -153,7 +153,7 @@ STATIC_API_SOURCEFILE = '{build_dir}/physics/CCPP_STATIC_API.sh'
 METADATA_HTML_OUTPUT_DIR = '{build_dir}/physics/physics/docs'
 
 # HTML document containing the model-defined CCPP variables
-HTML_VARTABLE_FILE = '{build_dir}/physics/CCPP_VARIABLES_FV3.html'
+HTML_VARTABLE_FILE = '{build_dir}/physics/CCPP_VARIABLES_MPAS.html'
 
 # LaTeX document containing the provided vs requested CCPP variables
-LATEX_VARTABLE_FILE = '{build_dir}/framework/doc/DevelopersGuide/CCPP_VARIABLES_FV3.tex'
+LATEX_VARTABLE_FILE = '{build_dir}/framework/doc/DevelopersGuide/CCPP_VARIABLES_MPAS.tex'
