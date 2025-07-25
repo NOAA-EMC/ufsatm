@@ -4613,7 +4613,6 @@
         integer, intent(out)           :: rc
 
         type(ESMF_Field)               :: src_field
-        type(ESMF_Field)               :: dst_status_field
         real(ESMF_KIND_R4), pointer    :: ptr(:,:)
         integer(ESMF_KIND_I4), pointer :: maskPtr(:,:)
         integer(ESMF_KIND_I4), pointer :: ptr_dst_status(:,:)
@@ -4655,9 +4654,6 @@
           ptr = 0.0
         end if
 
-        dst_status_field = ESMF_FieldCreate(dst_grid, ESMF_TYPEKIND_I4, name='dst_status_field', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
         srcTermProcessing = 0
 
         call ESMF_FieldRegridStore(srcField=src_field, &
@@ -4666,7 +4662,6 @@
                                    routehandle=routehandle_mask, &
                                    unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
                                    srcTermProcessing=srcTermProcessing, &
-                                   dstStatusField=dst_status_field, &
                                    rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -4676,38 +4671,10 @@
                               zeroregion=ESMF_REGION_SELECT, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call ESMF_FieldGet(dst_field, localDeCount=localDeCount, rc=rc);
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        if (localDeCount > 0) then
-          call ESMF_FieldGet(dst_field, farrayPtr=ptr, rc=rc);
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          call ESMF_FieldGet(dst_status_field, farrayPtr=ptr_dst_status, rc=rc);
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          istart = lbound(ptr,1)
-          iend   = ubound(ptr,1)
-          jstart = lbound(ptr,2)
-          jend   = ubound(ptr,2)
-          do jg=jstart, jend
-            do ig=istart, iend
-              if (ptr(ig,jg) == 0.0 .and. ptr_dst_status(ig,jg) /= ESMF_REGRIDSTATUS_OUTSIDE) then
-                write(0,*)'remap warning: ', ig,jg,ptr(ig,jg), ptr_dst_status(ig,jg)
-              else if (ptr(ig,jg) /= 0.0 .and. ptr_dst_status(ig,jg) /= ESMF_REGRIDSTATUS_MAPPED) then
-                write(0,*)'remap warning: ', ig,jg,ptr(ig,jg), ptr_dst_status(ig,jg)
-              endif
-            enddo
-          enddo
-        end if
-
         call ESMF_RouteHandleDestroy(routehandle_mask, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         call ESMF_FieldDestroy(src_field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call ESMF_FieldDestroy(dst_status_field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         rc = 0
