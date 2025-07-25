@@ -1356,7 +1356,7 @@ module fv3atm_cap_mod
           if (fieldCount > 0) then
             call ESMF_FieldBundleSMM(fcstFB(j), wrtFB(j,n_group),         &
                                      routehandle=routehandle(j, n_group), &
-                                     zeroregion=ESMF_REGION_SELECT,       &
+                                     zeroregionflag=(/ESMF_REGION_SELECT/), &
                                      termorderflag=(/ESMF_TERMORDER_SRCSEQ/), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           end if
