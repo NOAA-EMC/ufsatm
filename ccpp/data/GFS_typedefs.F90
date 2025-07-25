@@ -896,8 +896,8 @@ module GFS_typedefs
     integer              :: rad_hr_units    !< flag to control units of lw/sw heating rate
                                             !< 1: K day-1 - 2: K s-1
     logical              :: inc_minor_gas   !< Include minor trace gases in RRTMG radiation calculation?
-    integer              :: ipsd0           !< initial permutaion seed for mcica radiation
-    integer              :: ipsdlim         !< limit initial permutaion seed for mcica radiation
+    integer              :: ipsd0           !< initial permutation seed for mcica radiation
+    integer              :: ipsdlim         !< limit initial permutation seed for mcica radiation
     logical              :: lrseeds         !< flag to use host-provided random seeds
     integer              :: nrstreams       !< number of random number streams in host-provided random seed array
     logical              :: lextop          !< flag for using an extra top layer for radiation
@@ -3542,8 +3542,8 @@ module GFS_typedefs
     logical              :: swhtr             = .true.       !< flag to output sw heating rate (Radtend%swhc)
     integer              :: rad_hr_units      = 2            !< heating rate units are K s-1
     logical              :: inc_minor_gas     = .true.       !< Include minor trace gases in RRTMG radiation calculation
-    integer              :: ipsd0             = 0            !< initial permutaion seed for mcica radiation
-    integer              :: ipsdlim           = 1e8          !< limit initial permutaion seed for mcica radiation
+    integer              :: ipsd0             = 0            !< initial permutation seed for mcica radiation
+    integer              :: ipsdlim           = 1e8          !< limit initial permutation seed for mcica radiation
     logical              :: lrseeds           = .false.      !< flag to use host-provided random seeds
     integer              :: nrstreams         = 2            !< number of random number streams in host-provided random seed array
     logical              :: lextop            = .false.      !< flag for using an extra top layer for radiation
