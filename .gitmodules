@@ -9,7 +9,7 @@
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/hafs-community/ccpp-physics
-  branch = feature/EMC_mn_noahmp
+  branch = feature/hafs.v2.1.1
 [submodule "upp"]
   path = upp
   url = https://github.com/hafs-community/UPP
