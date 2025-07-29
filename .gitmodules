@@ -4,8 +4,10 @@
   branch = dev/emc
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  url = https://github.com/NCAR/ccpp-framework
-  branch = main
+  #url = https://github.com/NCAR/ccpp-framework
+  #branch = main
+  url = https://github.com/climbfuji/ccpp-framework
+  branch = bugfix/prebuild_case_insensitive_capgen_parser
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/ufs-community/ccpp-physics

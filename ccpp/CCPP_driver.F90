@@ -57,7 +57,7 @@ module CCPP_driver
     integer,                  intent(in)  :: nblks
     integer,                  intent(out) :: ierr
     ! Local variables
-    integer :: nb, nt, ntX
+    integer :: nb, nt
     integer :: ierr2
     ! DH* 20210104 - remove kdt_rad when code to clear diagnostic buckets is removed
     integer :: kdt_rad
@@ -184,10 +184,9 @@ module CCPP_driver
 
 !$OMP parallel num_threads (nthrds)                        &
 !$OMP          default (none)                              &
-!$OMP          shared (nblks, nthrdsX, non_uniform_blocks, &
-!$OMP                  cdata_block, ccpp_suite, step,      &
-!$OMP                  GFS_Control, GFS_Interstitial)      &
-!$OMP          private (nb, nt, ntX, ierr2)                &
+!$OMP          shared (nblks, cdata_block, ccpp_suite,     &
+!$OMP                  step, GFS_Control, GFS_Interstitial)&
+!$OMP          private (nb, nt, ierr2)                     &
 !$OMP          reduction (+:ierr)
 #ifdef _OPENMP
       nt = omp_get_thread_num()+1
@@ -196,47 +195,44 @@ module CCPP_driver
 #endif
 !$OMP do schedule (dynamic,1)
       do nb = 1,nblks
-        ! For non-uniform blocks/chunks, the last block/chunk has a different (shorter)
-        ! length than the other blocks/chunks; use special CCPP_Interstitial(nthrdsX)
-        if (non_uniform_blocks .and. nb==nblks) then
-            ntX = nthrdsX
-        else
-            ntX = nt
-        end if
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
+          ! Allocate physics interstitals for current thread
+          call GFS_Interstitial(nt)%create(ixs=GFS_control%chunk_begin(nb), ixe=GFS_control%chunk_end(nb), model=GFS_control)
           ! Reset GFS_Interstitial DDT physics fields for this thread
-          call GFS_Interstitial(ntX)%phys_reset(GFS_control)
+          call GFS_Interstitial(nt)%phys_reset(GFS_control)
           ! Process-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
           if (ierr2/=0) then
             write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ps", &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                      ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+            write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
             ierr = ierr + ierr2
           endif
           ! Time-split physics
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
           if (ierr2/=0) then
             write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ts", &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                      ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+            write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
             ierr = ierr + ierr2
           endif
         else
           if (trim(step)=="radiation") then
             ! Reset GFS_Interstitial DDT radiation fields for this thread
-            call GFS_Interstitial(ntX)%rad_reset(GFS_control)
+            call GFS_Interstitial(nt)%rad_reset(GFS_control)
           end if
           ! Radiation
-          call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
+          call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
           if (ierr2/=0) then
             write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                                      ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-            write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                      ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+            write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
             ierr = ierr + ierr2
           endif
-        end if
+       end if
+       ! Cleanup physics interstitials
+       call GFS_Interstitial(nt)%destroy(model=GFS_control)
       end do
 !$OMP end do
 

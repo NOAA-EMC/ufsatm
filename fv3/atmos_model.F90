@@ -90,7 +90,7 @@ use CCPP_data,          only: ccpp_suite, GFS_control, &
                               GFS_coupling, GFS_intdiag, &
                               GFS_interstitial
 use GFS_init,           only: GFS_initialize
-use CCPP_driver,        only: CCPP_step, non_uniform_blocks
+use CCPP_driver,        only: CCPP_step
 
 use stochastic_physics_wrapper_mod, only: stochastic_physics_wrapper,stochastic_physics_wrapper_end
 
@@ -552,7 +552,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
   integer              :: ntracers
   character(len=32), allocatable, target :: tracer_names(:)
   integer,           allocatable, target :: tracer_types(:)
-  integer :: nthrds, nb
+  integer :: nb
 
 !-----------------------------------------------------------------------
 
@@ -634,32 +634,6 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
                               blocksize, block_message)
 
    allocate(DYCORE_Data(Atm_block%nblks))
-
-#ifdef _OPENMP
-   nthrds = omp_get_max_threads()
-#else
-   nthrds = 1
-#endif
-
-   ! This logic deals with non-uniform block sizes for CCPP.
-   ! When non-uniform block sizes are used, it is required
-   ! that only the last block has a different (smaller)
-   ! size than all other blocks. This is the standard in
-   ! FV3. If this is the case, set non_uniform_blocks (a
-   ! variable imported from CCPP_driver) to .true. and
-   ! allocate nthreads+1 elements of the interstitial array.
-   ! The extra element will be used by the thread that
-   ! runs over the last, smaller block.
-   if (minval(Atm_block%blksz)==maxval(Atm_block%blksz)) then
-      non_uniform_blocks = .false.
-      allocate(GFS_interstitial(nthrds))
-   else if (all(minloc(Atm_block%blksz)==(/size(Atm_block%blksz)/))) then
-      non_uniform_blocks = .true.
-      allocate(GFS_interstitial(nthrds+1))
-   else
-      call mpp_error(FATAL, 'For non-uniform blocksizes, only the last element ' // &
-                            'in Atm_block%blksz can be different from the others')
-   end if
 
 !--- update GFS_control%jdat(8)
    bdat(:) = 0

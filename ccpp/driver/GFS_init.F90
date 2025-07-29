@@ -45,7 +45,7 @@ module GFS_init
     type(GFS_cldprop_type),      intent(inout) :: Cldprop
     type(GFS_radtend_type),      intent(inout) :: Radtend
     type(GFS_diag_type),         intent(inout) :: Diag
-    type(GFS_interstitial_type), intent(inout) :: Interstitial(:)
+    type(GFS_interstitial_type), intent(inout), allocatable :: Interstitial(:)
     type(GFS_init_type),         intent(in)    :: Init_parm
 
     !--- local variables
@@ -91,34 +91,8 @@ module GFS_init
     call Coupling%create(Model)
     call Diag%create(Model)
 
-! This logic deals with non-uniform block sizes for CCPP. When non-uniform block sizes
-! are used, it is required that only the last block has a different (smaller) size than
-! all other blocks. This is the standard in FV3. If this is the case, set non_uniform_blocks
-! to .true. and initialize nthreads+1 elements of the interstitial array. The extra element
-! will be used by the thread that runs over the last, smaller block.
-    if (minval(Init_parm%blksz)==maxval(Init_parm%blksz)) then
-       non_uniform_blocks = .false.
-    elseif (all(minloc(Init_parm%blksz)==(/size(Init_parm%blksz)/))) then
-       non_uniform_blocks = .true.
-    else
-       write(0,'(2a)') 'For non-uniform blocksizes, only the last element ', &
-                       'in Init_parm%blksz can be different from the others'
-       stop
-    endif
-
-! Initialize the Interstitial data type in parallel so that
-! each thread creates (touches) its Interstitial(nt) first.
-!$OMP parallel do default (shared) &
-!$OMP            schedule (static,1) &
-!$OMP            private  (nt)
-    do nt=1,nthrds
-      call Interstitial (nt)%create (maxval(Init_parm%blksz), Model)
-    enddo
-!$OMP end parallel do
-
-    if (non_uniform_blocks) then
-      call Interstitial (nthrds+1)%create (Init_parm%blksz(nblks), Model)
-    end if
+    ! We need (nthrds+1) of the interstitial type
+    allocate(Interstitial(nthrds+1))
 
     !--- populate the grid components
     call GFS_grid_populate (Grid, Init_parm%xlon, Init_parm%xlat, Init_parm%area)

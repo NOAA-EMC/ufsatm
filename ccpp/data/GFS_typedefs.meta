@@ -1643,7 +1643,7 @@
   standard_name = temperature_in_surface_snow
   long_name = temperature_in_surface_snow
   units = K
-  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:0)
+  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:constant_zero)
   type = real
   kind = kind_phys
   active = (control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme)
@@ -1659,7 +1659,7 @@
   standard_name = lwe_thickness_of_ice_in_surface_snow
   long_name = snow layer ice
   units = mm
-  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:0)
+  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:constant_zero)
   type = real
   kind = kind_phys
   active = (control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme)
@@ -1667,7 +1667,7 @@
   standard_name = lwe_thickness_of_liquid_water_in_surface_snow
   long_name = snow layer liquid water
   units = mm
-  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:0)
+  dimensions = (horizontal_dimension, lower_bound_of_vertical_dimension_of_surface_snow:constant_zero)
   type = real
   kind = kind_phys
   active = (control_for_land_surface_scheme == identifier_for_noahmp_land_surface_scheme)
@@ -2541,7 +2541,7 @@
   standard_name = surface_downwelling_shortwave_flux_on_radiation_timestep_assuming_clear_sky
   long_name = total sky sfc downward sw flux assuming clear sky conditions
   units = W m-2
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [sfcnsw]
@@ -4095,13 +4095,13 @@
   type = logical
 [ipsd0]
   standard_name = initial_seed_for_mcica
-  long_name = initial permutaion seed for mcica radiation
+  long_name = initial permutation seed for mcica radiation
   units = 1
   dimensions =  ()
   type = integer
 [ipsdlim]
   standard_name = limit_for_initial_seed_for_mcica
-  long_name = limit for initial permutaion seed for mcica radiation
+  long_name = limit for initial permutation seed for mcica radiation
   units = 1
   dimensions =  ()
   type = integer
@@ -4215,24 +4215,6 @@
   units = count
   dimensions =  ()
   type = integer
-[doG_cldoptics]
-  standard_name = flag_to_calc_lw_cld_optics_using_RRTMG
-  long_name = logical flag to control cloud optics scheme.
-  units = flag
-  dimensions = ()
-  type = logical
-[doGP_cldoptics_PADE]
-  standard_name = flag_to_calc_lw_cld_optics_using_RRTMGP_PADE
-  long_name = logical flag to control cloud optics scheme.
-  units = flag
-  dimensions = ()
-  type = logical
-[doGP_cldoptics_LUT]
-  standard_name = flag_to_calc_lw_cld_optics_using_RRTMGP_LUT
-  long_name = logical flag to control cloud optics scheme.
-  units = flag
-  dimensions = ()
-  type = logical
 [use_LW_jacobian]
   standard_name = flag_to_calc_RRTMGP_LW_jacobian
   long_name = logical flag to control RRTMGP LW calculation
@@ -8211,6 +8193,13 @@
   type = real
   kind = kind_phys
   active = (number_of_cloud_types_CS > 0 .and. flag_for_Chikira_Sugiyama_deep_convection)
+[phy_f2d]
+  standard_name = xy_dimensioned_restart_array
+  long_name = xy dimensioned restart array
+  units = mixed
+  dimensions = (horizontal_dimension,number_of_variables_in_xy_dimensioned_restart_array)
+  type = real
+  kind = kind_phys
 [phy_f2d(:,index_of_surface_air_pressure_two_timesteps_back_in_xyz_dimensioned_tracer_array)]
   standard_name = surface_air_pressure_two_timesteps_back
   long_name = surface air pressure two timesteps back
@@ -8235,6 +8224,13 @@
   type = real
   kind = kind_phys
   active = (index_of_enhancement_to_wind_speed_at_surface_adjacent_layer_due_to_convection_in_xy_dimensioned_restart_array > 0)
+[phy_f3d]
+  standard_name = xyz_dimensioned_restart_array
+  long_name = xyz dimensioned restart array
+  units = mixed
+  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_variables_in_xyz_dimensioned_restart_array)
+  type = real
+  kind = kind_phys
 [phy_f3d(:,:,index_of_air_temperature_two_timesteps_back_in_xyz_dimensioned_restart_array)]
   standard_name = air_temperature_two_timesteps_back
   long_name = air temperature two timesteps back
@@ -9366,7 +9362,7 @@
   standard_name = surface_downwelling_shortwave_flux_assuming_clear_sky
   long_name = surface downwelling shortwave flux at current time assuming clear sky
   units = W m-2
-  dimensions = (horizontal_loop_extent)
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [nswsfci]
@@ -10735,3 +10731,9 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[con_zero]
+  standard_name = constant_zero
+  long_name = definition of constant zero
+  units = 1
+  dimensions = ()
+  type = integer
