@@ -195,12 +195,10 @@ module CCPP_driver
 #endif
 !$OMP do schedule (dynamic,1)
       do nb = 1,nblks
-         ! Allocate physics interstitals for current thread
-         if (nb == 1 .or. nb == nblks) then
-            call GFS_Interstitial(nt)%create(ixs=GFS_control%chunk_begin(nb), ixe=GFS_control%chunk_end(nb), model=GFS_control)
-         endif
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
+          ! Allocate physics interstitals for current thread
+          call GFS_Interstitial(nt)%create(ixs=GFS_control%chunk_begin(nb), ixe=GFS_control%chunk_end(nb), model=GFS_control)
           ! Reset GFS_Interstitial DDT physics fields for this thread
           call GFS_Interstitial(nt)%phys_reset(GFS_control)
           ! Process-split physics
@@ -234,9 +232,7 @@ module CCPP_driver
           endif
        end if
        ! Cleanup physics interstitials
-       if (nb == 1 .or. nb == nblks) then
-          call GFS_Interstitial(nt)%destroy(model=GFS_control)
-       endif
+       call GFS_Interstitial(nt)%destroy(model=GFS_control)
       end do
 !$OMP end do
 
