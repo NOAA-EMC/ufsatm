@@ -10,8 +10,10 @@
   branch = bugfix/prebuild_case_insensitive_capgen_parser
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  #url = https://github.com/ufs-community/ccpp-physics
+  #branch = ufs/dev
+  url = https://github.com/dustinswales/ccpp-physics
+  branch = feature/ccpp_framework_update
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
