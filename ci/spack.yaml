@@ -13,11 +13,11 @@ spack:
   specs:
   - bacio@2.4.1
   - crtm@2.4.0
-  - esmf@8.6.0
-  - fms@2023.04 +gfs_phys +openmp +pic +quad_precision +deprecated_io constants=GFS precision=32,64
+  - esmf@8.8.0
+  - fms@2024.02 +gfs_phys +openmp +pic +quad_precision +deprecated_io constants=GFS precision=32,64
   - g2@3.5.1
   - g2tmpl@1.13.0
-  - ip@4.3.0 precision=4,d,8
+  - ip@5.1.0 precision=4,d,8
   - netcdf-c@4.9.2 ~blosc
   - netcdf-fortran@4.6.1
   - sp@2.5.0 precision=4,d,8
