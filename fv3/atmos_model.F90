@@ -144,6 +144,7 @@ public get_atmos_tracer_types
                                                          ! (they correspond to the x, y, pfull, phalf axes)
      integer, pointer              :: pelist(:) =>null() ! pelist where atmosphere is running.
      integer                       :: layout(2)          ! computer task laytout
+     integer                       :: grid_type
      logical                       :: regional           ! true if domain is regional
      logical                       :: nested             ! true if there is a nest
      logical                       :: moving_nest_parent ! true if this grid has a moving nest child
@@ -580,7 +581,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    call atmosphere_resolution (mlon, mlat, global=.true.)
    call atmosphere_domain (Atmos%domain, Atmos%domain_for_read, Atmos%layout, &
                            Atmos%regional, Atmos%nested, &
-                           Atmos%ngrids, Atmos%mygrid, Atmos%pelist)
+                           Atmos%ngrids, Atmos%mygrid, Atmos%pelist, Atmos%grid_type)
    Atmos%moving_nest_parent = .false.
    Atmos%is_moving_nest = .false.
 #ifdef MOVING_NEST
