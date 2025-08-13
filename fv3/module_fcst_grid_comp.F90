@@ -214,7 +214,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       grid_typekind = ESMF_TYPEKIND_R8
     endif
 
-    if (trim(name)=="global") then
+    if (trim(name) == "global" .and. Atmos%grid_type /= 4) then
       ! global domain
       call ESMF_InfoGet(info, key="tilesize", value=tilesize, rc=rc); ESMF_ERR_ABORT(rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -232,7 +232,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                         name="fcst_grid", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     else
-      ! nest domain
+      ! nest and doubly periodic domain
       call ESMF_InfoGet(info, key="nx", value=nx, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call ESMF_InfoGet(info, key="ny", value=ny, rc=rc)
@@ -251,6 +251,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     endif
 
     ! - Create coordinate arrays around allocations held within Atmos data structure and set in Grid
+
 
     call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, distgrid=distgrid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -900,7 +901,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
           call ESMF_InfoGetFromHost(fcstGridComp(n), info=info, rc=rc); ESMF_ERR_ABORT(rc)
           call ESMF_InfoSet(info, key="layout", values=layout, rc=rc); ESMF_ERR_ABORT(rc)
           call ESMF_InfoSet(info, key="tilesize", value=Atmos%mlon, rc=rc); ESMF_ERR_ABORT(rc)
-
+          call ESMF_InfoSet(info, key="nx", value=nx, rc=rc); ESMF_ERR_ABORT(rc)
+          call ESMF_InfoSet(info, key="ny", value=ny, rc=rc); ESMF_ERR_ABORT(rc)
           call ESMF_GridCompSetServices(fcstGridComp(n), SetServicesNest, userrc=urc, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
