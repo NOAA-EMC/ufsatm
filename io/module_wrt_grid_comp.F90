@@ -1723,6 +1723,7 @@
       logical                               :: use_parallel_netcdf
       real, allocatable                     :: output_fh(:)
       logical                               :: is_restart_bundle, restart_written
+      logical                               :: lupp_history, lrestart
       integer                               :: tileCount
       type(ESMF_Info)                       :: fcstInfo, wrtInfo
       character(len=ESMF_MAXSTR)            :: output_grid_name
@@ -1783,7 +1784,30 @@
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       if (nf_hours < 0) return
-
+      !
+      !*** set up output time on write grid comp:
+      !
+      call ESMF_TimeIntervalGet(timeinterval=io_currtimediff, s=fcst_seconds, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      
+      ! fcst_seconds is number of seconds in io_currtimediff, which is time interval between currenttime and io_basetime.
+      ! io_basetime has been adjusted by iau_offset in initialize phase.
+      ! Since output_fh and frestart and NOT adjusted by iau_offset, in order to compare
+      ! them with fcst_seconds, we must also adjust fcst_seconds by iau_offset
+      if (iau_offset > 0) then
+        fcst_seconds = fcst_seconds + iau_offset*3600
+      endif
+      !
+      !--- set up logic variable to run upp/history and restart
+      !
+      lupp_history = .false.
+      lrestart = .false.
+      if ( ANY(nint(output_fh(:)*3600) == fcst_seconds) ) lupp_history = .true.
+      if ( ANY(frestart(:) == fcst_seconds) ) lrestart = .true.
+      if ( .not. (lupp_history .or. lrestart ) ) return
+      !
+      !--- set up current forecast hours
+      !
       if (lflname_fulltime) then
         ndig = max(log10(nf_hours+0.5)+1., 3.)
         write(cform, '("(I",I1,".",I1,",A1,I2.2,A1,I2.2)")') ndig, ndig
@@ -1794,7 +1818,9 @@
         write(cfhour, cform) nf_hours
       endif
 !
-       if(lprnt) print *,'in wrt run, nfhour=',nfhour,' cfhour=',trim(cfhour)
+      if(lprnt) print *,'in wrt run, cdate=',cdate(1:4),'fcst_seconds=',fcst_seconds/3600.,'nfhour=',nfhour,&
+      'lupp_history=', lupp_history, 'lrestart=',lrestart,'write grid comp not return,cfhour=',trim(cfhour)
+!
 !
 !-----------------------------------------------------------------------
 !*** loop on the "output_" FieldBundles, i.e. files that need to write out
@@ -2020,7 +2046,7 @@
 !*** do post
 !-----------------------------------------------------------------------
       lmask_fields = .false.
-      if( wrt_int_state%write_dopost ) then
+      if( wrt_int_state%write_dopost .and. lupp_history ) then
 #ifdef INLINE_POST
         wbeg = MPI_Wtime()
         do n=1,ngrids
@@ -2081,20 +2107,7 @@
 ! ** now loop through output field bundle
 !-----------------------------------------------------------------------
 
-      call ESMF_TimeIntervalGet(timeinterval=io_currtimediff, s=fcst_seconds, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-      ! fcst_seconds is number of seconds in io_currtimediff, which is time interval between currenttime and io_basetime.
-      ! io_basetime has been adjusted by iau_offset in initialize phase.
-      ! Since output_fh and frestart and NOT adjusted by iau_offset, in order to compare
-      ! them with fcst_seconds, we must also adjust fcst_seconds by iau_offset
-      if (iau_offset > 0) then
-        fcst_seconds = fcst_seconds + iau_offset*3600
-      endif
-
-      if ( (wrt_int_state%output_history .and. ANY(nint(output_fh(:)*3600.0) == fcst_seconds)) .or. ANY(frestart(:) == fcst_seconds) ) then
-
-        ! if (lprnt) write(0,*)'wrt_run: loop over wrt_int_state%FBCount ',wrt_int_state%FBCount, ' nfhour ',  nfhour, ' cdate ', cdate(1:6)
+      if ( (wrt_int_state%output_history .and. lupp_history) .or. lrestart ) then
         two_phase_loop: do out_phase = 1, 2
 
           restart_written = .false.
@@ -2106,9 +2119,9 @@
             is_restart_bundle = .false.
             if (wrtFBName(1:8) == 'restart_') then
               is_restart_bundle = .true.
-              if (.not.(ANY(frestart(:) == fcst_seconds))) cycle
+              if (.not.lrestart) cycle
             else
-              if (.not.(wrt_int_state%output_history .and. ANY(nint(output_fh(:)*3600.0) == fcst_seconds))) cycle
+              if (.not.(wrt_int_state%output_history .and. lupp_history)) cycle
             endif
 
             if (out_phase == 1 .and. is_restart_bundle) cycle

@@ -60,6 +60,8 @@ module CCPP_driver
     ! Local variables
     integer :: nb, nt, ntX
     integer :: ierr2
+    integer :: kdt_iau
+    logical :: iauwindow_center
     ! DH* 20210104 - remove kdt_rad when code to clear diagnostic buckets is removed
     integer :: kdt_rad
 
@@ -188,8 +190,17 @@ module CCPP_driver
       endif
 
       !--- determine if physics diagnostics buckets need to be cleared
+      iauwindow_center = .false.
+      if (GFS_control%iau_offset > 0) then
+        kdt_iau = nint(GFS_control%iau_offset*3600./GFS_control%dtp)
+        if (GFS_control%kdt-1 == kdt_iau) then
+          iauwindow_center = .true.
+          if( GFS_control%me == 0)print *,'in ccpp step vary, iauwindow_center=',iauwindow_center,&
+            'kdt=',GFS_control%kdt,'dtp=',GFS_control%dtp,'iau_offset=',GFS_control%iau_offset
+        endif
+      endif
       if ((mod(GFS_control%kdt-1,GFS_control%nszero)) == 0) then
-        call GFS_Intdiag%phys_zero(GFS_control)
+        call GFS_Intdiag%phys_zero(GFS_control, iauwindow_center=iauwindow_center)
       endif
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
