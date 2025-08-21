@@ -3,6 +3,11 @@ program test_output_hours
   use module_fv3_config, only: dt_atmos, output_fh
   use module_fv3_io_def, only: lflname_fulltime
 
+  ! Test changelog:
+  ! 2025/07/29 - D. Sarmiento: output_fh changed. When first hour is not 0 
+  !              (i.e. IAU), then output will now be created at the first
+  !              timestep. This is now aligns with the coldstart functionality.
+
   implicit none
   
   ! Test variables
@@ -73,8 +78,8 @@ contains
       stop 4
     end if
     
-    ! First value (should be 6.0)
-    if (abs(output_fh(1) - 6.0) > 1e-6) then
+    ! First value (should be 6.5)
+    if (abs(output_fh(1) - (output_startfh + dt_atmos/3600.)) > 1e-6) then
       print *, "First output time is incorrect"
       stop 5
     end if
