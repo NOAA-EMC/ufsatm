@@ -5810,6 +5810,13 @@
   units = count
   dimensions = ()
   type = integer
+[cscale]
+  standard_name = scaling_conv_cloud_water_in_sas
+  long_name = scaling parameter for conv cloud water
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [cs_parm(1)]
   standard_name = updraft_velocity_tunable_parameter_1_CS
   long_name = tunable parameter 1 for Chikira-Sugiyama convection
