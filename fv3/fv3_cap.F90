@@ -10,7 +10,7 @@
 ! 24 Jul 2017: J. Wang          initialization and time stepping changes for coupling
 ! 02 Nov 2017: J. Wang          Use Gerhard's transferable RouteHandle
 ! 20 May 2025: D. Sarmiento     Handle output hour array in seperate subroutines
-! 
+!
 
 module fv3atm_cap_mod
 
@@ -42,7 +42,9 @@ module fv3atm_cap_mod
 !
   use module_fcst_grid_comp,  only: fcstSS => SetServices
 
-  use module_wrt_grid_comp,   only: wrtSS => SetServices
+  use module_wrt_grid_comp,   only: wrtSS => SetServices,                    &
+                                    dstOutsideMaskValue,                     &
+                                    generate_dst_field_mask, add_dst_mask
 !
   use module_cplfields,       only: importFieldsValid, queryImportFields
 
@@ -213,7 +215,7 @@ module fv3atm_cap_mod
     type(ESMF_Field), allocatable          :: fieldList(:)
 
     character(len=*),parameter             :: subname='(fv3_cap:InitializeAdvertise)'
-    real(kind=8)                           :: MPI_Wtime, timeis, timerhs
+    real(kind=8)                           :: MPI_Wtime, timeis, timerhs, time_rh_fb_start, time_rh_start
 
     integer                                :: wrttasks_per_group_from_parent, wrtLocalPet, num_threads
     character(len=64)                      :: rh_filename
@@ -224,6 +226,12 @@ module fv3atm_cap_mod
     type(ESMF_StaggerLoc)                  :: staggerloc
     character(len=20)                      :: cvalue
     character(ESMF_MAXSTR)                 :: output_grid
+
+    logical                                :: needs_dst_mask
+    logical                                :: top_parent_is_global
+    integer                                :: ngrids
+    type(ESMF_Grid)                        :: src_grid, dst_grid
+    type(ESMF_Field), allocatable          :: dst_field_mask(:)
 !
 !------------------------------------------------------------------------
 !
@@ -729,8 +737,75 @@ module fv3atm_cap_mod
 
         endif
 
+        call ESMF_AttributeGet(wrtState(i), convention="NetCDF", purpose="FV3", &
+                               name="ngrids", value=ngrids, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+        call ESMF_AttributeGet(wrtState(i), convention="NetCDF", purpose="FV3", &
+                               name="top_parent_is_global", value=top_parent_is_global, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+        allocate(dst_field_mask(ngrids))
+
 ! loop over all FieldBundle in the states and precompute Regrid operation
+        if (mype == 0) print*, 'computing regrid/redist routehandles'
+        time_rh_start = MPI_Wtime()
         do j=1, FBcount
+          time_rh_fb_start = MPI_Wtime()
+
+          ! Destination grid mask needs to be created only for:
+          !   1) regional (non global) forecast (source) grid
+          !   2) non-moving forecast grids, moving forecast grid will be remapped in the write grid component
+          !   3) non-native grid (non cubed_sphere_grid) history bundles
+          call ESMF_AttributeGet(fcstFB(j), convention="NetCDF", purpose="FV3", name="grid_id", value=grid_id, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          call ESMF_StateGet(wrtState(i), itemName="output_"//trim(fcstItemNameList(j)), fieldbundle=wrtFB(j,i), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+
+          call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
+                                 name="output_grid", value=output_grid, isPresent=isPresent, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          needs_dst_mask = .TRUE.
+          needs_dst_mask = needs_dst_mask .AND. .not. (grid_id == 1 .and. top_parent_is_global)      ! 1) regional (non global) forecast (source) grid
+          needs_dst_mask = needs_dst_mask .AND. .not. is_moving_fb(j)    ! 2) non-moving forecast grids
+          needs_dst_mask = needs_dst_mask .AND. .not. (trim(output_grid) == "restart_grid" .or. trim(output_grid) == "cubed_sphere_grid") ! 3) non-native grid (non cubed_sphere_grid) history bundles
+
+          if (mype == 0) then
+            write(*,'(A,I2,1X,A32, A,I2, A,A24, A,L2, A,L2 )') ' FB: ',j, fcstItemNameList(j), &
+                           ' grid_id ', grid_id, &
+                           ' output_grid: ', output_grid, &
+                           ' is_moving: ', is_moving_fb(j), &
+                           ' needs_dst_mask: ', needs_dst_mask
+          endif
+
+          ! only on write group 1, RH's on groups > 1 are computed from RH on group 1
+          if (needs_dst_mask .and. i==1) then
+
+            call ESMF_StateGet(wrtState(i), itemName="output_"//trim(fcstItemNameList(j)), fieldbundle=wrtFB(j,i), rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+            call ESMF_FieldBundleGet(wrtFB(j,i), grid=dst_grid, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+            if (.not. ESMF_FieldIsCreated(dst_field_mask(grid_id))) then
+              if (mype == 0) print *, '       generate destination mask for grid ', grid_id
+              call ESMF_FieldBundleGet(fcstFB(j), grid=src_grid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+              call generate_dst_field_mask(src_grid, dst_grid, dst_field_mask(grid_id), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            else
+              if (mype == 0) print *, '       use already generated destination mask for grid ', grid_id
+            endif
+
+            call add_dst_mask(dst_grid, dst_field_mask(grid_id), dstOutsideMaskValue, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          end if ! .not. is_moving_fb(j)
+
           ! decide between Redist() and Regrid()
           if (is_moving_fb(j)) then
             ! this is a moving domain -> use a static Redist() to move data to wrtComp(:)
@@ -763,7 +838,7 @@ module fv3atm_cap_mod
             call ESMF_StateGet(wrtState(i), &
                                itemName="output_"//trim(fcstItemNameList(j)), &
                                fieldbundle=wrtFB(j,i), rc=rc)
-            if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
+            ! if(mype == 0) print *,'af get wrtfb=',"output_"//trim(fcstItemNameList(j)),' rc=',rc
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
             call ESMF_AttributeGet(wrtFB(j,i), convention="NetCDF", purpose="FV3-nooutput", &
@@ -805,7 +880,7 @@ module fv3atm_cap_mod
               inquire(FILE=trim(rh_filename), EXIST=rh_file_exist)
 
               if (rh_file_exist .and. use_saved_routehandles) then
-                if(mype==0) print *,'in fv3cap init, routehandle file ',trim(rh_filename), ' exists'
+                if(mype==0) print *,'       routehandle file ',trim(rh_filename), ' exists'
 
                 write(msgString,*) "Calling into ESMF_RouteHandleCreate(from file)...", trim(rh_filename)
                 call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
@@ -846,6 +921,7 @@ module fv3atm_cap_mod
 
                   call ESMF_TraceRegionEnter("ESMF_FieldBundleRegridStore()", rc=rc)
                   call ESMF_FieldBundleRegridStore(fcstFB(j), wrtFB(j,1), &
+                                                   dstMaskValues=(/dstOutsideMaskValue/), &
                                                    regridMethod=regridmethod, routehandle=routehandle(j,1), &
                                                    unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
                                                    srcTermProcessing=isrcTermProcessing, rc=rc)
@@ -869,7 +945,7 @@ module fv3atm_cap_mod
                   call ESMF_RouteHandleWrite(routehandle(j,1), fileName=trim(rh_filename), rc=rc)
                   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                   call ESMF_TraceRegionExit("ESMF_RouteHandleWrite()", rc=rc)
-                  if(mype==0) print *,'in fv3cap init, saved routehandle file ',trim(rh_filename)
+                  if(mype==0) print *,'       saved routehandle file ',trim(rh_filename)
 
                   write(msgString,*) "... returned from ESMF_RouteHandleWrite."
                   call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
@@ -902,11 +978,25 @@ module fv3atm_cap_mod
             write(msgString,"(A,I2.2,',',I2.2,A)") "... returned from RH creation for wrtFB(",j,i, ")."
             call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
           endif
+
+          if (mype == 0) write(*,'(A,I2,F12.6)') '        done computing routehandle for field bundle: ',j,MPI_Wtime()-time_rh_fb_start
         enddo  ! j=1, FBcount
+        if (mype == 0) write(*,'(A,F12.6)') ' done computing all routehandles: ',MPI_Wtime()-time_rh_start
+
+        if (allocated(dst_field_mask)) then
+          do ii=1,ngrids
+            if (ESMF_FieldIsCreated(dst_field_mask(ii))) then
+              call ESMF_FieldDestroy(dst_field_mask(ii), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            endif
+          end do
+          deallocate(dst_field_mask)
+        endif
 
 ! end write_groups
       enddo   ! i=1, write_groups
       if(mype==0) print *,'in fv3cap init, time wrtcrt/regrdst',MPI_Wtime()-timerhs
+
       deallocate(petList)
       deallocate(originPetList)
       deallocate(targetPetList)
@@ -989,7 +1079,7 @@ module fv3atm_cap_mod
   end subroutine InitializeAdvertise
 
 !-----------------------------------------------------------------------------
-  !> This will calculate output hours if the user has stated a 
+  !> This will calculate output hours if the user has stated a
   !> an fhzero frequency.
   !>
   !> @param[inout] nfhmax maximum number of forecast hours
@@ -1030,7 +1120,7 @@ module fv3atm_cap_mod
     integer                   :: ist, i
     integer, intent(inout)    :: noutput_fh
     real, intent(inout)       :: output_startfh
-  
+
     if( output_startfh == 0) then
       ! If the output time in output_fh array contains first time stamp output,
       ! check the rest of output time, otherwise, check all the output time.
@@ -1262,6 +1352,7 @@ module fv3atm_cap_mod
           if (fieldCount > 0) then
             call ESMF_FieldBundleSMM(fcstFB(j), wrtFB(j,n_group),         &
                                      routehandle=routehandle(j, n_group), &
+                                     zeroregionflag=(/ESMF_REGION_SELECT/), &
                                      termorderflag=(/ESMF_TERMORDER_SRCSEQ/), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           end if
