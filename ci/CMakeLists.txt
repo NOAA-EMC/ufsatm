@@ -7,6 +7,15 @@
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMakeModules/Modules)
 
+# Switch to ESMF's cmake files. They have been removed from EMC's modules repo
+if(DEFINED ENV{ESMFMKFILE})
+  get_filename_component(TEMP_DIR $ENV{ESMFMKFILE} DIRECTORY)
+  get_filename_component(ESMF_ROOT ${TEMP_DIR} DIRECTORY)
+  list(APPEND CMAKE_MODULE_PATH ${ESMF_ROOT}/cmake)
+  include_directories(${ESMF_ROOT}/include)
+  link_directories(${TEMP_DIR})
+endif()
+
 if(${CMAKE_Fortran_COMPILER_ID} MATCHES "GNU")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 9.0.0)
     message(FATAL_ERROR "GNU Compiler >= 9 is required")

@@ -120,7 +120,7 @@ jobs:
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_CI_TESTING=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
+        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_CI_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
         make -j2
 
     - name: run-tests
