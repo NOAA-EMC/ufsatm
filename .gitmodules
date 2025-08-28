@@ -1,7 +1,9 @@
 [submodule "atmos_cubed_sphere"]
   path = atmos_cubed_sphere
-  url = https://github.com/NOAA-EMC/GFDL_atmos_cubed_sphere
-  branch = production/RRFS.v1
+#  url = https://github.com/NOAA-EMC/GFDL_atmos_cubed_sphere
+#  branch = production/RRFS.v1
+  url = https://github.com/DusanJovic-NOAA/GFDL_atmos_cubed_sphere
+  branch = rrfs_v1_conus13km_tests
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
