@@ -356,4 +356,15 @@
       call de_allocate
 !
     end subroutine post_finalize
+!
+!---------------------------------------------------------------------
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!---------------------------------------------------------------------
+!
+    subroutine my_new_procedure(my_input)
 
+      character(20), intent(inout) :: my_input
+
+      my_input = trim(my_input) // "_suffix"
+
+    end subroutine my_new_procedure

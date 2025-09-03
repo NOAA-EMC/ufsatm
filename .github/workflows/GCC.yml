@@ -13,6 +13,9 @@ on:
   pull_request:
     branches:
     - develop
+  workflow_dispatch:
+    branches:
+    - uifcw_demo
 
 jobs:
   build_spack:

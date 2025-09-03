@@ -29,6 +29,6 @@ foreach(testname test_atmos_model test_fv3_cap test_module_wrt_grid_comp)
   add_fv3atm_mpi_test(${testname})
 endforeach()
 
-foreach(testname test_post_nems_routines)
+foreach(testname test_post_nems_routines test_my_new_procedure)
   add_fv3atm_serial_test(${testname})
 endforeach()
