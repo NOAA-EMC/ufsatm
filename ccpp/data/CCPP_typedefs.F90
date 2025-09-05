@@ -1089,9 +1089,9 @@ contains
     class(GFS_interstitial_type) :: Interstitial
     type(GFS_control_type), intent(in) :: Model
     !
-    Interstitial%adjsfculw_land  = Model%huge ! was clear_val before
-    Interstitial%adjsfculw_ice   = Model%huge ! was clear_val before
-    Interstitial%adjsfculw_water = Model%huge ! was clear_val before
+    Interstitial%adjsfculw_land  = clear_val
+    Interstitial%adjsfculw_ice   = clear_val
+    Interstitial%adjsfculw_water = clear_val
     Interstitial%adjnirbmd       = clear_val
     Interstitial%adjnirbmu       = clear_val
     Interstitial%adjnirdfd       = clear_val
@@ -1193,22 +1193,22 @@ contains
     Interstitial%fscav           = clear_val
     Interstitial%fswtr           = clear_val
     Interstitial%gabsbdlw        = clear_val
-    Interstitial%gabsbdlw_ice    = Model%huge ! was clear_val before
-    Interstitial%gabsbdlw_land   = Model%huge ! was clear_val before
-    Interstitial%gabsbdlw_water  = Model%huge ! was clear_val before
+    Interstitial%gabsbdlw_ice    = clear_val
+    Interstitial%gabsbdlw_land   = clear_val
+    Interstitial%gabsbdlw_water  = clear_val
     Interstitial%gamma           = clear_val
     Interstitial%gamq            = clear_val
     Interstitial%gamt            = clear_val
     Interstitial%gasvmr          = clear_val
     Interstitial%gflx            = clear_val
-    Interstitial%gflx_ice        = Model%huge ! was clear_val before
-    Interstitial%gflx_land       = Model%huge ! was clear_val before
-    Interstitial%gflx_water      = Model%huge ! was clear_val before
+    Interstitial%gflx_ice        = clear_val
+    Interstitial%gflx_land       = clear_val
+    Interstitial%gflx_water      = clear_val
     Interstitial%gwdcu           = clear_val
     Interstitial%gwdcv           = clear_val
-    Interstitial%zvfun          = clear_val
-    Interstitial%hffac          = clear_val
-    Interstitial%hflxq          = clear_val
+    Interstitial%zvfun           = clear_val
+    Interstitial%hffac           = clear_val
+    Interstitial%hflxq           = clear_val
     Interstitial%hflx_ice        = Model%huge
     Interstitial%hflx_land       = Model%huge
     Interstitial%hflx_water      = Model%huge
@@ -1304,7 +1304,7 @@ contains
     Interstitial%vdftra          = clear_val
     Interstitial%vegf1d          = clear_val
     Interstitial%wcbmax          = clear_val
-    Interstitial%wind            = clear_val ! was Model%huge before
+    Interstitial%wind            = Model%huge
     Interstitial%work1           = clear_val
     Interstitial%work2           = clear_val
     Interstitial%work3           = clear_val
@@ -1313,9 +1313,9 @@ contains
     Interstitial%xmu             = clear_val
     Interstitial%z01d            = clear_val
     Interstitial%zt1d            = clear_val
-    Interstitial%ztmax_ice       = Model%huge ! was clear_val before
-    Interstitial%ztmax_land      = Model%huge ! was clear_val before
-    Interstitial%ztmax_water     = Model%huge ! was clear_val before
+    Interstitial%ztmax_ice       = clear_val
+    Interstitial%ztmax_land      = clear_val
+    Interstitial%ztmax_water     = clear_val
 
     ! RRTMGP
     if (Model%do_RRTMGP) then
