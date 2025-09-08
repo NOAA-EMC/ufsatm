@@ -291,6 +291,7 @@ module CCPP_driver
               endif
            endif
         endif
+        call GFS_Interstitial(nt)%destroy(GFS_control)
      end do
 !$OMP end do
 
