@@ -172,11 +172,11 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: vvl  (:,:)   => null()  !< layer mean vertical velocity in pa/sec
     real (kind=kind_phys), pointer :: tgrs (:,:)   => null()  !< model layer mean temperature in k
     real (kind=kind_phys), pointer :: qgrs (:,:,:) => null()  !< layer mean tracer concentration
-!3D-SA-TKE
+!SA-3D-TKE
     real (kind=kind_phys), pointer :: def_1 (:,:)   => null()  !< deformation
     real (kind=kind_phys), pointer :: def_2 (:,:)   => null()  !< deformation
     real (kind=kind_phys), pointer :: def_3 (:,:)   => null()  !< deformation
-!3D-SA-TKE-end
+!SA-3D-TKE-end
 ! dissipation estimate
     real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< model layer mean temperature in k
     ! soil state variables - for soil SPPT - sfc-perts, mgehne
@@ -1195,6 +1195,8 @@ module GFS_typedefs
     logical              :: hybedmf         !< flag for hybrid edmf pbl scheme
     logical              :: satmedmf        !< flag for scale-aware TKE-based moist edmf
                                             !< vertical turbulent mixing scheme
+    logical              :: tte_edmf        !< flag for scale-aware TTE-based moist edmf
+                                            !< vertical turbulent mixing scheme
     logical              :: shinhong        !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu          !< flag for YSU turbulent mixing scheme
     logical              :: dspheat         !< flag for tke dissipative heating
@@ -1823,7 +1825,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dku3d_h  (:,:)     => null()  !< Horizontal eddy diffusitivity for momentum
     real (kind=kind_phys), pointer :: dku3d_e  (:,:)     => null()  !< Eddy diffusitivity for momentum for tke
 
-
     !--- dynamical forcing variables for Grell-Freitas convection
     real (kind=kind_phys), pointer :: forcet (:,:)     => null()  !<
     real (kind=kind_phys), pointer :: forceq (:,:)     => null()  !<
@@ -2315,21 +2316,21 @@ module GFS_typedefs
       allocate (Statein%wgrs   (IM,Model%levs))
     endif
     allocate (Statein%qgrs   (IM,Model%levs,Model%ntrac))
-!3D-SA-TKE
+!SA-3D-TKE
     allocate (Statein%def_1   (IM,Model%levs))
     allocate (Statein%def_2   (IM,Model%levs))
     allocate (Statein%def_3   (IM,Model%levs))
-!3D-SA-TKE-end
+!SA-3D-TKE-end
 
     Statein%qgrs   = clear_val
     Statein%pgr    = clear_val
     Statein%ugrs   = clear_val
     Statein%vgrs   = clear_val
-!3D-SA-TKE
+!SA-3D-TKE
     Statein%def_1   = clear_val
     Statein%def_2   = clear_val
     Statein%def_3   = clear_val
-!3D-SA-TKE-end
+!SA-3D-TKE-end
 
     if(Model%lightning_threat) then
       Statein%wgrs = clear_val
@@ -3789,6 +3790,8 @@ module GFS_typedefs
     logical              :: hybedmf        = .false.                  !< flag for hybrid edmf pbl scheme
     logical              :: satmedmf       = .false.                  !< flag for scale-aware TKE-based moist edmf
                                                                       !< vertical turbulent mixing scheme
+    logical              :: tte_edmf       = .false.                  !< flag for scale-aware TTE-based moist edmf
+                                                                      !< vertical turbulent mixing scheme
     logical              :: shinhong       = .false.                  !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu         = .false.                  !< flag for YSU vertical turbulent mixing scheme
     logical              :: dspheat        = .false.                  !< flag for tke dissipative heating
@@ -4211,7 +4214,7 @@ module GFS_typedefs
                                do_myjsfc, do_myjpbl,                                        &
                                hwrf_samfdeep, hwrf_samfshal,progsigma,progomega,betascu,    &
                                betamcu, betadcu,h2o_phys, pdfcld, shcnvcw, redrag,          &
-                               hybedmf, satmedmf, sigmab_coldstart,                         &
+                               hybedmf, satmedmf, tte_edmf, sigmab_coldstart,               &
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
                                xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
                                isatmedmf, conv_cf_opt, do_deep, jcap,                       &
@@ -5134,6 +5137,7 @@ module GFS_typedefs
     Model%redrag            = redrag
     Model%hybedmf           = hybedmf
     Model%satmedmf          = satmedmf
+    Model%tte_edmf          = tte_edmf
     Model%shinhong          = shinhong
     Model%do_ysu            = do_ysu
     Model%dspheat           = dspheat
@@ -7055,6 +7059,7 @@ module GFS_typedefs
       print *, ' redrag            : ', Model%redrag
       print *, ' hybedmf           : ', Model%hybedmf
       print *, ' satmedmf          : ', Model%satmedmf
+      print *, ' tte_edmf          : ', Model%tte_edmf
       print *, ' isatmedmf         : ', Model%isatmedmf
       print *, ' shinhong          : ', Model%shinhong
       print *, ' do_ysu            : ', Model%do_ysu
