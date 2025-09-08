@@ -217,7 +217,7 @@ module CCPP_driver
 !$OMP parallel num_threads (nthrds)                        &
 !$OMP          default (none)                              &
 !$OMP          shared (nblks, cdata_block, ccpp_suite,     &
-!$OMP                  step, GFS_Control, GFS_Interstitial)&
+!$OMP                  step, GFS_Control, GFS_Interstitial,&
 !$OMP                  dycore)                             &
 !$OMP          private (nb, nt, ierr2)                     &
 !$OMP          reduction (+:ierr)
@@ -234,55 +234,55 @@ module CCPP_driver
         if (trim(step)=="physics") then
            if (trim(dycore)=="fv3") then
               ! Reset GFS_Interstitial DDT physics fields for this thread
-              call GFS_Interstitial(ntX)%phys_reset(GFS_control)
+              call GFS_Interstitial(nt)%phys_reset(GFS_control)
               ! Process-split physics
-              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
+              call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
               if (ierr2/=0) then
                  write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ps", &
-                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                           ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+                 write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
                  ierr = ierr + ierr2
               endif
               ! Time-split physics
-              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
+              call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="phys_ts", ierr=ierr2)
               if (ierr2/=0) then
                  write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "phys_ts", &
-                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                           ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+                 write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
                  ierr = ierr + ierr2
               endif
            endif
            if (trim(dycore)=="mpas") then
               ! Physics
-              call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr2)
+              call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="physics", ierr=ierr2)
               if (ierr2/=0) then
                  write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "physics", &
-                                           ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-                 write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                           ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+                 write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
                  ierr = ierr + ierr2
               endif
            endif
         else
            if (trim(step)=="radiation") then
               ! Reset GFS_Interstitial DDT radiation fields for this thread
-              call GFS_Interstitial(ntX)%rad_reset(GFS_control)
+              call GFS_Interstitial(nt)%rad_reset(GFS_control)
            endif
            ! Radiation
-           call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
+           call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
            if (ierr2/=0) then
               write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", trim(step), &
-                   ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-              write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                   ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+              write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
               ierr = ierr + ierr2
            endif
            ! Microphysics (MPAS only)
            if (trim(step)=="microphysics") then
               if (trim(dycore)=="mpas") then
-                 call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr2)
+                 call ccpp_physics_run(cdata_block(nb,nt), suite_name=trim(ccpp_suite), group_name="microphysics", ierr=ierr2)
                  if (ierr2/=0) then
                     write(0,'(2a,3(a,i4),a)') "An error occurred in ccpp_physics_run for group ", "microphysics", &
-                                              ", block/chunk ", nb, " and thread ", nt, " (ntX=", ntX, "):"
-                    write(0,'(a)') trim(cdata_block(nb,ntX)%errmsg)
+                                              ", block/chunk ", nb, " and thread ", nt, " (nt=", nt, "):"
+                    write(0,'(a)') trim(cdata_block(nb,nt)%errmsg)
                     ierr = ierr + ierr2
                  endif
               else

@@ -8656,6 +8656,13 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+[cnvw]
+  standard_name = convective_cloud_water_mixing_ratio
+  long_name = moist convective cloud water mixing ratio
+  units = kg kg-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
 
 ########################################################################
 [ccpp-table-properties]

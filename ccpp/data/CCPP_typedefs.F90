@@ -89,7 +89,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: cnv_ndrop(:,:)     => null()  !<
     real (kind=kind_phys), pointer      :: cnv_nice(:,:)      => null()  !<
     real (kind=kind_phys), pointer      :: cnvc(:,:)          => null()  !<
-    real (kind=kind_phys), pointer      :: cnvw(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: ctei_r(:)          => null()  !<
     real (kind=kind_phys), pointer      :: ctei_rml(:)        => null()  !<
     real (kind=kind_phys), pointer      :: cumabs(:)          => null()  !<
@@ -556,7 +555,6 @@ contains
     allocate (Interstitial%cmm_land        (ixs:ixe))
     allocate (Interstitial%cmm_water       (ixs:ixe))
     allocate (Interstitial%cnvc            (ixs:ixe,Model%levs))
-    allocate (Interstitial%cnvw            (ixs:ixe,Model%levs))
     allocate (Interstitial%ctei_r          (ixs:ixe))
     allocate (Interstitial%ctei_rml        (ixs:ixe))
     allocate (Interstitial%cumabs          (ixs:ixe))
@@ -931,7 +929,6 @@ contains
     deallocate (Interstitial%cmm_land)
     deallocate (Interstitial%cmm_water)
     deallocate (Interstitial%cnvc)
-    deallocate (Interstitial%cnvw)
     deallocate (Interstitial%ctei_r)
     deallocate (Interstitial%ctei_rml)
     deallocate (Interstitial%cumabs)
@@ -1583,7 +1580,6 @@ contains
     Interstitial%cmm_land        = Model%huge
     Interstitial%cmm_water       = Model%huge
     Interstitial%cnvc            = clear_val
-    Interstitial%cnvw            = clear_val
     Interstitial%ctei_r          = clear_val
     Interstitial%ctei_rml        = clear_val
     Interstitial%cumabs          = clear_val
