@@ -5483,6 +5483,12 @@
   units = flag
   dimensions = ()
   type = logical
+[tte_edmf]
+  standard_name = flag_for_scale_aware_TTE_moist_EDMF_PBL
+  long_name = flag for scale-aware TTE moist EDMF PBL scheme
+  units = flag
+  dimensions = ()
+  type = logical
 [shinhong]
   standard_name = flag_for_scale_aware_Shinhong_PBL
   long_name = flag for scale-aware Shinhong PBL scheme
@@ -5828,6 +5834,13 @@
   units = count
   dimensions = ()
   type = integer
+[cscale]
+  standard_name = multiplicative_tuning_parameter_for_convective_cloud_water
+  long_name = multiplicative tuning parameter for convective cloud water
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [cs_parm(1)]
   standard_name = updraft_velocity_tunable_parameter_1_CS
   long_name = tunable parameter 1 for Chikira-Sugiyama convection
