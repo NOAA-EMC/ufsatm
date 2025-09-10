@@ -53,7 +53,9 @@ module fv3atm_cap_mod
                                     flds_scalar_index_nx, flds_scalar_index_ny, &
                                     flds_scalar_index_ntile
 
+#ifdef UFS_TRACING
   use ufs_trace_mod
+#endif
 
   implicit none
   private
@@ -111,8 +113,10 @@ module fv3atm_cap_mod
     call ESMF_VMGet(vm, localpet=mype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace_init()
     if (mype == 0) call ufs_trace("fv3", "SetServices", "B")
+#endif
 
     ! the NUOPC model component will register the generic methods
     call NUOPC_CompDerive(gcomp, model_routine_SS, rc=rc)
@@ -182,7 +186,9 @@ module fv3atm_cap_mod
                               specRoutine=ModelFinalize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "SetServices", "E")
+#endif
   end subroutine SetServices
 
 !-----------------------------------------------------------------------------
@@ -257,7 +263,9 @@ module fv3atm_cap_mod
     call ESMF_VMGet(vm, petCount=petcount, localpet=mype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "InitializeAdvertise", "B")
+#endif
 
     ! num_threads is needed to compute actual wrttasks_per_group_from_parent
     call ESMF_InfoGetFromHost(gcomp, info=info, rc=rc)
@@ -1089,7 +1097,9 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, init time=',MPI_Wtime()-timeis,mype
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "InitializeAdvertise", "E")
+#endif
 !-----------------------------------------------------------------------
 !
   end subroutine InitializeAdvertise
@@ -1180,7 +1190,9 @@ module fv3atm_cap_mod
 
     rc = ESMF_SUCCESS
     timeirs = MPI_Wtime()
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "InitializeRealize", "B")
+#endif
 
     ! query for importState and exportState
     call NUOPC_ModelGet(gcomp, driverClock=clock, importState=importState, exportState=exportState, rc=rc)
@@ -1199,7 +1211,9 @@ module fv3atm_cap_mod
     timep2re = 0.
 
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, initirealz time=',MPI_Wtime()-timeirs,mype
+#ifdef UFS_TRACING
     if (mype == 0)  call ufs_trace("fv3", "InitializeRealize", "E")
+#endif
 
   end subroutine InitializeRealize
 
@@ -1215,7 +1229,9 @@ module fv3atm_cap_mod
 
     rc = ESMF_SUCCESS
     timers = MPI_Wtime()
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance", "B")
+#endif
     if(write_runtimelog .and. timere>0. .and. lprint) print *,'in fv3_cap, time between fv3 run step=', timers-timere,mype
 
     if (profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance: ")
@@ -1230,7 +1246,9 @@ module fv3atm_cap_mod
 
     timere = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, time in fv3 run step=', timere-timers, mype
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance", "E")
+#endif
 
   end subroutine ModelAdvance
 
@@ -1251,7 +1269,9 @@ module fv3atm_cap_mod
 !-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance_phase1", "B")
+#endif
 
     timep1rs = MPI_Wtime()
     if(write_runtimelog .and. timep2re>0. .and. lprint) print *,'in fv3_cap, time between fv3 run phase2 and phase1 ', timep1rs-timep2re,mype
@@ -1288,7 +1308,9 @@ module fv3atm_cap_mod
     timep1re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase1 time ', timep1re-timep1rs,mype
     if (profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase1: ")
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance_phase1", "E")
+#endif
 
   end subroutine ModelAdvance_phase1
 
@@ -1321,7 +1343,9 @@ module fv3atm_cap_mod
 !-----------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance_phase2", "B")
+#endif
     timep2rs = MPI_Wtime()
 
     if(profile_memory) call ESMF_VMLogMemInfo("Entering FV3 ModelAdvance_phase2: ")
@@ -1451,7 +1475,9 @@ module fv3atm_cap_mod
     timep2re = MPI_Wtime()
     if(write_runtimelog .and. lprint) print *,'in fv3_cap,modeladvance phase2 time ', timep2re-timep2rs, mype
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving FV3 ModelAdvance_phase2: ")
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelAdvance_phase2", "E")
+#endif
 
   end subroutine ModelAdvance_phase2
 
@@ -1628,7 +1654,9 @@ module fv3atm_cap_mod
 !*** finialize forecast
 
     rc = ESMF_SUCCESS
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelFinalize", "B")
+#endif
     timeffs = MPI_Wtime()
 !
     call ESMF_GridCompGet(gcomp,vm=vm,rc=rc)
@@ -1663,7 +1691,9 @@ module fv3atm_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !
     if(write_runtimelog .and. lprint) print *,'in fv3_cap, finalize time=',MPI_Wtime()-timeffs, mype
+#ifdef UFS_TRACING
     if (mype == 0) call ufs_trace("fv3", "ModelFinalize", "E")
+#endif
 
   end subroutine ModelFinalize
 !
