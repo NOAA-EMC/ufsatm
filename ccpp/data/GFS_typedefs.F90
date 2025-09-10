@@ -1255,6 +1255,7 @@ module GFS_typedefs
                                             !< used in the GWD parameterization - 10 more added if
                                             !< GSL orographic drag scheme is used
     integer              :: jcap            !< number of spectral wave trancation used only by sascnv shalcnv
+    real(kind=kind_phys) :: cscale          !< tunable parameter for saSAS convective cloud liquid
     real(kind=kind_phys) :: cs_parm(10)     !< tunable parameters for Chikira-Sugiyama convection
     real(kind=kind_phys) :: flgmin(2)       !< [in] ice fraction bounds
     real(kind=kind_phys) :: cgwf(2)         !< multiplication factor for convective GWD
@@ -1273,7 +1274,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: psauras(2)      !< [in] auto conversion coeff from ice to snow in ras
     real(kind=kind_phys) :: prauras(2)      !< [in] auto conversion coeff from cloud to rain in ras
     real(kind=kind_phys) :: wminras(2)      !< [in] water and ice minimum threshold for ras
-
+  
     integer              :: seed0           !< random seed for radiation
 
     real(kind=kind_phys) :: rbcr            !< Critical Richardson Number in the PBL scheme
@@ -3863,7 +3864,8 @@ module GFS_typedefs
     integer              :: nmtvr          = 14                       !< number of topographic variables such as variance etc
                                                                       !< used in the GWD parameterization
     integer              :: jcap           =  1              !< number of spectral wave trancation used only by sascnv shalcnv
-!   real(kind=kind_phys) :: cs_parm(10) = (/5.0,2.5,1.0e3,3.0e3,20.0,-999.,-999.,0.,0.,0./)
+    real                 :: cscale         =  1                       !< tunable parameter for convective cloud liquid (0-1)
+    !   real(kind=kind_phys) :: cs_parm(10) = (/5.0,2.5,1.0e3,3.0e3,20.0,-999.,-999.,0.,0.,0./)
     real(kind=kind_phys) :: cs_parm(10) = (/8.0,4.0,1.0e3,3.5e3,20.0,1.0,-999.,1.,0.6,0./)
     real(kind=kind_phys) :: flgmin(2)      = (/0.180,0.220/)          !< [in] ice fraction bounds
     real(kind=kind_phys) :: cgwf(2)        = (/0.5d0,0.05d0/)         !< multiplication factor for convective GWD
@@ -4217,7 +4219,7 @@ module GFS_typedefs
                                hybedmf, satmedmf, tte_edmf, sigmab_coldstart,               &
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
                                xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
-                               isatmedmf, conv_cf_opt, do_deep, jcap,                       &
+                               isatmedmf, conv_cf_opt, do_deep, jcap, cscale,               &
                                cs_parm, flgmin, cgwf, ccwf, cdmbgwd, alpha_fd,              &
                                psl_gwd_dx_factor,                                           &
                                sup, ctei_rm, crtrh,                                         &
@@ -5155,6 +5157,7 @@ module GFS_typedefs
     Model%conv_cf_opt       = conv_cf_opt
     Model%nmtvr             = nmtvr
     Model%jcap              = jcap
+    Model%cscale            = cscale
     Model%flgmin            = flgmin
     Model%cgwf              = cgwf
     Model%ccwf              = ccwf
@@ -7076,6 +7079,7 @@ module GFS_typedefs
       print *, ' conv_cf_opt        : ', Model%conv_cf_opt
       print *, ' nmtvr             : ', Model%nmtvr
       print *, ' jcap              : ', Model%jcap
+      print *, ' cscale            : ', Model%cscale
       print *, ' cs_parm           : ', Model%cs_parm
       print *, ' flgmin            : ', Model%flgmin
       print *, ' cgwf              : ', Model%cgwf
