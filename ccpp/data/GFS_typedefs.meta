@@ -3685,6 +3685,24 @@
   units = index
   dimensions = ()
   type = integer
+[dycore_active]
+  standard_name = control_for_dynamical_core
+  long_name = choice of dynamical core
+  units = flag
+  dimensions = ()
+  type = integer
+[dycore_fv3]
+  standard_name = identifier_for_fv3_dynamical_core
+  long_name = identifier for FV3 dynamical core
+  units = flag
+  dimensions = ()
+  type = integer
+[dycore_mpas]
+  standard_name = identifier_for_mpas_dynamical_core
+  long_name = identifier for MPAS dynamical core
+  units = flag
+  dimensions = ()
+  type = integer
 [tile_num]
   standard_name = index_of_cubed_sphere_tile
   long_name = tile number
@@ -5462,6 +5480,12 @@
 [satmedmf]
   standard_name = flag_for_scale_aware_TKE_moist_EDMF_PBL
   long_name = flag for scale-aware TKE moist EDMF PBL scheme
+  units = flag
+  dimensions = ()
+  type = logical
+[tte_edmf]
+  standard_name = flag_for_scale_aware_TTE_moist_EDMF_PBL
+  long_name = flag for scale-aware TTE moist EDMF PBL scheme
   units = flag
   dimensions = ()
   type = logical

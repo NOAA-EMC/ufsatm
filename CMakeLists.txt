@@ -18,10 +18,14 @@ if(BUILD_CI_TESTING)
   if (FV3)
     project(ufsatm_fv3 VERSION 1.0 LANGUAGES C CXX Fortran)
   endif()
+  if (MPAS)
+    project(ufsatm_mpas VERSION 1.0 LANGUAGES C CXX Fortran)
+  endif()
   include(ci/CMakeLists.txt)
 endif()
 
 # Set variables for all dycore build options in UFSATM.
+set(DYCORE_TARGET_MPAS ufsatm_mpas)
 set(DYCORE_TARGET_FV3  ufsatm_fv3)
 
 ###############################################################################
@@ -56,14 +60,38 @@ if(BUILD_CI_TESTING)
   add_subdirectory(tests)
 endif()
 
+# Not used yet by MPAS in UFSATM, but needed by ufsatm_cap.F90 to work.
+list(APPEND coupling_srcs
+  cpl/module_block_data.F90
+  cpl/module_cplfields.F90
+  cpl/module_cap_cpl.F90
+  cpl/module_cplscalars.F90)
+
+list(APPEND io_srcs
+  io/module_write_netcdf.F90
+  io/module_write_restart_netcdf.F90
+  io/module_fv3_io_def.F90
+  io/module_write_internal_state.F90
+  io/module_wrt_grid_comp.F90)
+
+# Eventually these could be shared by MPAS, and merged with {io_srcs} list.
+list(APPEND fv3_io_srcs
+  io/fv3atm_common_io.F90
+  io/fv3atm_clm_lake_io.F90
+  io/fv3atm_rrfs_sd_io.F90
+  io/fv3atm_sfc_io.F90
+  io/fv3atm_oro_io.F90
+  io/fv3atm_history_io.F90
+  io/fv3atm_restart_io.F90)
+
 ###############################################################################
 ### UFSATM with FV3 dynamical core
 ###############################################################################
 if (FV3)
+  add_definitions(-DFV3)
   set(DYCORE_TARGET ${DYCORE_TARGET_FV3}
     CACHE INTERNAL "DYCORE_TARGET Options: fv3atm")
-  set(DYCORE_TARGET_CAP_MOD fv3atm_cap_mod PARENT_SCOPE)
-
+  set(DYCORE_TARGET_CAP_MOD ufsatm_cap_mod PARENT_SCOPE)
 
   # These ifdefs need to be turned ON in the dycore.
   set(use_WRTCOMP ON)
@@ -83,7 +111,7 @@ if (FV3)
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
     add_subdirectory(upp)
-    set(POST_SRC fv3/io/post_nems_routines.F90 fv3/io/post_fv3.F90)
+    set(POST_SRC io/post_nems_routines.F90 io/post_fv3.F90)
     list(APPEND _ufsatm_defs_private INLINE_POST)
   endif()
 
@@ -130,27 +158,15 @@ if (FV3)
 
   # FV3 drivers and dependencies
   add_library(${DYCORE_TARGET}
+    ufsatm_cap.F90
+    ufsatm_util.F90
     fv3/atmos_model.F90
-    fv3/fv3_cap.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
     fv3/stochastic_physics/stochastic_physics_wrapper.F90
-    cpl/module_block_data.F90
-    cpl/module_cplfields.F90
-    cpl/module_cap_cpl.F90
-    cpl/module_cplscalars.F90
-    fv3/io/fv3atm_common_io.F90
-    fv3/io/fv3atm_clm_lake_io.F90
-    fv3/io/fv3atm_rrfs_sd_io.F90
-    fv3/io/fv3atm_sfc_io.F90
-    fv3/io/fv3atm_oro_io.F90
-    fv3/io/fv3atm_history_io.F90
-    fv3/io/fv3atm_restart_io.F90
-    fv3/io/module_write_netcdf.F90
-    fv3/io/module_write_restart_netcdf.F90
-    fv3/io/module_fv3_io_def.F90
-    fv3/io/module_write_internal_state.F90
-    fv3/io/module_wrt_grid_comp.F90
+    ${coupling_srcs}
+    ${fv3_io_srcs}
+    ${io_srcs}
     ${moving_nest_srcs}
     ${POST_SRC}
     )
@@ -159,8 +175,75 @@ if (FV3)
   list(APPEND _ufsatm_defs_private GFS_PHYS
                                    INTERNAL_FILE_NML
                                    use_WRTCOMP)
+else()
+  remove_definitions(-DFV3)
 endif()
 
+###############################################################################
+### UFSATM with MPAS dynamical core.
+###############################################################################
+if (MPAS)
+  add_definitions(-DMPAS)
+  set(DYCORE_TARGET ${DYCORE_TARGET_MPAS})
+
+  # Include MPAS Cmake tools.
+  include(${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/cmake/Functions/MPAS_Functions.cmake)
+
+  # Set any pre-processor directive needed in MPAS dycore.
+  get_mpas_version(MPAS_VERSION)
+  set(MPAS_ALL_CORES atmosphere)
+  set(MPAS_CORES atmosphere CACHE STRING "MPAS cores to build. Options: ${MPAS_ALL_CORES}")
+  if(MPAS_CORES MATCHES " ") #Convert strings separated with spaces to CMake list separated with ';'
+    string(REPLACE " " ";" MPAS_CORES ${MPAS_CORES})
+    set(MPAS_CORES ${MPAS_CORES} CACHE STRING "MPAS cores to build. Options: ${MPAS_ALL_CORES}" FORCE)
+  endif()
+  set(MPAS_CAM_DYCORE TRUE)
+  set(MPAS_USE_PIO TRUE)
+  add_definitions(-DMPAS_USE_MPI_F08)
+  add_definitions(-DMPAS_PIO_SUPPORT)
+  add_definitions(-DMPAS_CAM_DYCORE)
+  add_definitions(-DMPAS_UFS_DYCORE)
+  add_definitions(-DSINGLE_PRECISION)
+
+  # Source files for MPAS dynamical core drivers.
+  set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas.F)
+  set(MPAS_SUBDRIVER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas_subdriver.F)
+
+  # MPAS dynamical core
+  add_subdirectory(mpas)
+
+  # MPAS drivers and dependencies
+  add_library(${DYCORE_TARGET}
+    ufsatm_cap.F90
+    ufsatm_util.F90
+    mpas/atmos_model.F90
+    mpas/module_mpas_config.F90
+    mpas/module_fcst_grid_comp.F90
+    mpas/atmos_coupling.F90
+    mpas/ufs_mpas_subdriver.F90
+    ${coupling_srcs}
+    ${io_srcs}
+    ccpp/data/MPAS_typedefs.F90
+    ccpp/driver/MPAS_init.F90
+    )
+  add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
+
+  if(NOT MPAS_GIT_VERSION)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+      execute_process(COMMAND ${GIT_EXECUTABLE} describe --dirty
+                      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model"
+		      OUTPUT_VARIABLE _mpas_git_version
+		      ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+    else()
+      set(_mpas_git_version "Unknown")
+    endif()
+    set(MPAS_GIT_VERSION ${_mpas_git_version} CACHE STRING "MPAS-Model git version")
+    message(STATUS "Setting MPAS_GIT_VERSION ${_mpas_git_version}")
+  endif()
+else()
+  remove_definitions(-DMPAS)
+endif()
 
 ###############################################################################
 ### Link libraries
@@ -184,7 +267,11 @@ if (FV3)
   endif()
 endif()
 
-
+if (MPAS)
+  target_link_libraries(${DYCORE_TARGET} PUBLIC mpas
+                                         mpasccpp
+					 fms)
+endif()
 
 # Always include EMC libraries in dycore install
 target_link_libraries(${DYCORE_TARGET} PUBLIC w3emc::w3emc_d
