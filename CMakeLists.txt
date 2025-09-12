@@ -260,8 +260,10 @@ if (FV3)
   target_link_libraries(${DYCORE_TARGET} PUBLIC fv3
                                          fv3ccpp
                                          stochastic_physics
-                                         fms
-                                         ufs_utils)
+                                         fms)
+  if(UFS_TRACING)
+    target_link_libraries(${DYCORE_TARGET} PUBLIC ufs_tracing)
+  endif()
   if(INLINE_POST)
     target_link_libraries(${DYCORE_TARGET} PUBLIC upp::upp)
   endif()
