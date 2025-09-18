@@ -14,3 +14,7 @@
   path = upp
   url = https://github.com/NOAA-EMC/UPP
   branch = develop
+[submodule "mpas/MPAS-Model"]
+  path = mpas/MPAS-Model
+  url = https://github.com/ufs-community/MPAS-Model.git
+  branch = feature/mpas-in-ufs
