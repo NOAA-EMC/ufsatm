@@ -1374,9 +1374,7 @@ module GFS_typedefs
                                             !< 6=areodynamical roughness over water with input 10-m wind
                                             !< 7=slightly decrease Cd for higher wind speed compare to 6
 !--- air_sea_flux scheme
-    integer              :: icplocn2atm     !< air_sea flux options over ocean:
-                                            !< 0=no change
-                                            !< l=including ocean current in the computation of air_sea fluxes
+    logical              :: use_oceanuv     !< flag for including ocean current in the computation of air_sea fluxes
 
 !--- potential temperature definition in surface layer physics
     logical              :: thsfc_loc       !< flag for local vs. standard potential temperature
@@ -3952,9 +3950,7 @@ module GFS_typedefs
                                                              !< 6=areodynamical roughness over water with input 10-m wind
                                                              !< 7=slightly decrease Cd for higher wind speed compare to 6
                                                              !< negative when cplwav2atm=.true. - i.e. two way wave coupling
-    integer              :: icplocn2atm    = 0               !< air_sea_flux options over ocean
-                                                             !< 0=ocean current is not used in the computation of air_sea fluxes
-                                                             !< 1=including ocean current in the computation of air_sea fluxes
+    logical              :: use_oceanuv    = .false.         !< flag for air_sea_flux options over ocean
 
 !--- potential temperature definition in surface layer physics
     logical              :: thsfc_loc      = .true.          !< flag for local vs. standard potential temperature
@@ -4245,7 +4241,7 @@ module GFS_typedefs
                                frac_grid, min_lakeice, min_seaice, min_lake_height,         &
                                ignore_lake, frac_ice,                                       &
                           !--- surface layer
-                               sfc_z0_type, icplocn2atm,                                    &
+                               sfc_z0_type, use_oceanuv,                                    &
                           !--- switch beteeen local and standard potential temperature
                                thsfc_loc,                                                   &
                           !--- switches in 2-m diagnostics
@@ -5274,7 +5270,7 @@ module GFS_typedefs
 !--- surface layer
     Model%sfc_z0_type      = sfc_z0_type
     if (Model%cplwav2atm) Model%sfc_z0_type = -1
-    Model%icplocn2atm      = icplocn2atm
+    Model%use_oceanuv      = use_oceanuv
 
 !--- potential temperature reference in sfc layer
     Model%thsfc_loc        = thsfc_loc
@@ -7151,7 +7147,7 @@ module GFS_typedefs
       print *, ' '
       print *, 'surface layer options'
       print *, ' sfc_z0_type       : ', Model%sfc_z0_type
-      print *, ' icplocn2atm       : ', Model%icplocn2atm
+      print *, ' use_oceanuv       : ', Model%use_oceanuv
       print *, ' '
       print *, 'vertical diffusion coefficients'
       print *, ' xkzm_m            : ', Model%xkzm_m
