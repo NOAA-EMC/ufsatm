@@ -2975,7 +2975,7 @@
   active = ((flag_for_surface_flux_coupling .or. do_fire_coupling) .and. do_mediator_atmosphere_ocean_fluxes)
 [sncovr1_lnd]
   standard_name = surface_snow_area_fraction_over_land_from_land
-  long_name = surface snow area fraction over land for coupling 
+  long_name = surface snow area fraction over land for coupling
   units = frac
   dimensions = (horizontal_dimension)
   type = real
@@ -5483,6 +5483,12 @@
   units = flag
   dimensions = ()
   type = logical
+[tte_edmf]
+  standard_name = flag_for_scale_aware_TTE_moist_EDMF_PBL
+  long_name = flag for scale-aware TTE moist EDMF PBL scheme
+  units = flag
+  dimensions = ()
+  type = logical
 [shinhong]
   standard_name = flag_for_scale_aware_Shinhong_PBL
   long_name = flag for scale-aware Shinhong PBL scheme
@@ -5828,6 +5834,13 @@
   units = count
   dimensions = ()
   type = integer
+[cscale]
+  standard_name = multiplicative_tuning_parameter_for_convective_cloud_water
+  long_name = multiplicative tuning parameter for convective cloud water
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [cs_parm(1)]
   standard_name = updraft_velocity_tunable_parameter_1_CS
   long_name = tunable parameter 1 for Chikira-Sugiyama convection
@@ -6129,12 +6142,12 @@
   units = flag
   dimensions = ()
   type = integer
-[icplocn2atm]
-  standard_name = control_for_air_sea_flux_computation_over_water
+[use_oceanuv]
+  standard_name = do_air_sea_flux_computation_over_water
   long_name = air-sea flux option
-  units = 1
+  units = flag
   dimensions = ()
-  type = integer
+  type = logical
 [xkzminv]
   standard_name = max_atmosphere_heat_diffusivity_due_to_background
   long_name = maximum background value of heat diffusivity
