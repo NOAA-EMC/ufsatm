@@ -54,13 +54,15 @@ module module_mpas_config
   character(len=256) :: lbc_filename
 
   !> PIO
-  type(iosystem_desc_t), pointer :: pio_subsystem
+  type(iosystem_desc_t), pointer :: pio_subsystem_ic
+  type(iosystem_desc_t), pointer :: pio_subsystem_lbc
+  type(file_desc_t), target :: pioid_ic
+  type(file_desc_t), target :: pioid_lbc
+  type(io_desc_t) :: pio_iodesc
   integer :: pio_iotype
   integer :: pio_ioformat
   integer :: pio_stride
   integer :: pio_numiotasks
-  type(file_desc_t), target :: pioid
-  type(io_desc_t) :: pio_iodesc
   
   !> MPAS Grid information
   real(r8), target, allocatable :: zref(:)

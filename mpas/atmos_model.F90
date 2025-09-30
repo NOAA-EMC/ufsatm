@@ -9,6 +9,7 @@ module atmos_model_mod
   use mpi_f08,               only : MPI_Comm, MPI_CHARACTER, MPI_INTEGER, MPI_REAL8, MPI_LOGICAL
   ! MPAS
   use MPAS_typedefs,         only : MPAS_kind_phys => kind_phys
+  use atmos_coupling_mod,    only : MPAS_statein_type, MPAS_stateout_type
   ! CCPP
   use CCPP_data,             only : UFSATM_control      => GFS_control
   use CCPP_data,             only : UFSATM_intdiag      => GFS_intdiag
@@ -36,7 +37,7 @@ module atmos_model_mod
   use fms_mod,               only : stdlog
   use mpp_mod,               only : stdout
   ! UFSATM
-  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename, lbc_filename
+  use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename
   use module_mpas_config,    only : lonCellGlobal, latCellGlobal, areaCellGlobal
   use module_mpas_config,    only : pi
   use mod_ufsatm_util,       only : get_atmos_tracer_types
@@ -53,6 +54,7 @@ module atmos_model_mod
   public :: atmos_model_radiation_physics
   public :: atmos_model_microphysics
   public :: atmos_model_dynamics
+  public :: update_atmos_model_state
 
   !> #########################################################################################
   !> Type containing information on MPAS enabled UFSATM forecast.
@@ -62,6 +64,7 @@ module atmos_model_mod
      type(time_type)  :: Time       ! current time
      type(time_type)  :: Time_step  ! atmospheric time step.
      type(time_type)  :: Time_init  ! reference time.
+     logical          :: isAtCapTime ! true if currTime is at the cap driverClock's currTime 
      integer          :: nblks      ! Number of physics blocks.
   end type atmos_control_type
   
@@ -74,15 +77,19 @@ module atmos_model_mod
   integer :: blocksize    = 1
   logical :: dycore_only  = .false.
   logical :: debug        = .false.
+  logical :: regional     = .false.
 
-  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename
+  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename, &
+       regional
 
   ! Component Timers
   integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
 
   ! DJS2025: For UFS WM RTs unitl output is setup for MPAS.
   integer, parameter :: mpas_logfile_handle = 42323
-  
+
+  type(MPAS_statein_type)  :: MPAS_statein
+  type(MPAS_stateout_type) :: MPAS_stateout
 contains
   !> #########################################################################################
   !> Procedure to initialize UWM ATMosphere with MPAS dynamical core.
@@ -99,10 +106,10 @@ contains
   !> #########################################################################################
   subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
     use ufs_mpas_subdriver, only : MPAS_control_type
-    use ufs_mpas_subdriver, only : ufs_mpas_init_phase1, ufs_mpas_init_phase2
-    use ufs_mpas_subdriver, only : ufs_mpas_open_init
-    use ufs_mpas_subdriver, only : dyn_mpas_read_write_stream, ufs_mpas_define_scalars
-    use ufs_mpas_subdriver, only : constituent_name, is_water_species
+    use ufs_mpas_subdriver, only : ufs_mpas_init
+    use ufs_mpas_subdriver, only : ufs_mpas_open_init, ufs_mpas_open_lbc
+    use ufs_mpas_module,    only : ufs_mpas_define_scalars
+    use ufs_mpas_module,    only : constituent_name, is_water_species
     use atmos_coupling_mod, only : ufs_mpas_to_physics, get_mpas_pio_decomp
     use MPAS_init,          only : MPAS_initialize
 
@@ -128,10 +135,12 @@ contains
     ! Start timer for this procedure (init).
     call mpp_clock_begin(atmiClock)
 
-    ! Set model time
+    ! Set atmospheric model time.
+    Atmos % isAtCapTime = .false.
     Atmos % Time_init = Time_init
     Atmos % Time      = Time
     Atmos % Time_step = Time_step
+    
     call get_time (Atmos % Time_step, sec)
     Cfg%dt_phys   = real(sec)
     
@@ -171,10 +180,15 @@ contains
     is_water_species(:) = .false.
     is_water_species(1:Cfg % nwat) = .true.
 
-    ! Open (PIO) MPAS IC data file.
+    ! Open (PIO) MPAS Initial Condition (IC) file.
     call ufs_mpas_open_init()
-    
-    ! Call MPAS initialization phase 1.
+
+    ! Open (PIO) MPAS Lateral Boundary Condition (LBC) file.
+    if (regional) then
+       call ufs_mpas_open_lbc()
+    endif
+
+    ! Call MPAS initialization.
     ! - Set up MPAS framework
     ! - Read in MPAS namelists
     ! - Set up MPAS logging
@@ -190,21 +204,13 @@ contains
        logunits(2) = mpas_logfile_handle
     endif
 
-    call ufs_mpas_init_phase1(Cfg, times, timee, ttime, calendar, logUnits)
+    call ufs_mpas_init(Cfg, times, timee, ttime, calendar, logUnits)
 
     call ufs_mpas_define_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
     if (ierr /= 0) then
        call mpp_error(FATAL,'ERROR: Set-up of constituents for MPAS-A dycore failed.')
     end if
 
-    ! Read in MPAS IC data. Populate MPAS data containers and MPAS "input" stream.
-    call dyn_mpas_read_write_stream( 'r', 'input-scalars')
-
-    ! Complete the MPAS dycore initialization.
-    ! - Set up threading.
-    ! - Call MPAS core_atmosphere init.
-    call ufs_mpas_init_phase2(Cfg)
-    
     !> #########################################################################################
     !> #########################################################################################
     !> END MPAS DYCORE INITIALIZATION
@@ -274,7 +280,7 @@ contains
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
     ! we are calling the physics before the dynamical core.
     call ufs_mpas_to_physics(UFSATM_statein)
-    
+
     ! Initialize the CCPP framework
     call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
@@ -321,10 +327,10 @@ contains
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
-    call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    !call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
-    
+
     ! Call CCPP Radiation Group
     call mpp_clock_begin(radClock)
     if (UFSATM_control%lsswr .or. UFSATM_control%lslwr) then
@@ -335,10 +341,10 @@ contains
 
     ! Call CCPP Physics Group
     call mpp_clock_begin(physClock)
-    call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    !call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
-    
+
   end subroutine atmos_model_radiation_physics
 
   !> #########################################################################################
@@ -353,7 +359,7 @@ contains
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
-    call ufs_physics_to_mpas(UFSATM_stateout)
+    !call ufs_physics_to_mpas(UFSATM_stateout)
     
     ! Call MPAS dycore
     call mpp_clock_begin(mpasClock)
@@ -361,7 +367,7 @@ contains
     call mpp_clock_end(mpasClock)
 
     ! Prepare CCPP physics inputs with MPAS dycore outputs.
-    call ufs_mpas_to_physics(UFSATM_statein)
+    !call ufs_mpas_to_physics(UFSATM_statein)
     
   end subroutine atmos_model_dynamics
 
@@ -387,5 +393,14 @@ contains
     call mpp_clock_end(setupClock)
 
   end subroutine atmos_model_microphysics
+  !> #########################################################################################
+  !> 
+  !> #########################################################################################
+  subroutine update_atmos_model_state(Atmos)
+    type (atmos_control_type), intent(inout) :: Atmos
+
+    ! Advance time
+    Atmos % Time = Atmos % Time + Atmos % Time_step
+  end subroutine update_atmos_model_state
   
 end module atmos_model_mod

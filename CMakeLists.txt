@@ -221,6 +221,7 @@ if (MPAS)
     mpas/module_fcst_grid_comp.F90
     mpas/atmos_coupling.F90
     mpas/ufs_mpas_subdriver.F90
+    mpas/ufs_mpas_module.F90
     ${coupling_srcs}
     ${io_srcs}
     ccpp/data/MPAS_typedefs.F90

@@ -38,7 +38,7 @@ module ufsatm_cap_mod
 #ifdef MPAS
   use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
-                                    pio_subsystem, pio_stride,               &
+                                    pio_subsystem_ic, pio_stride, pio_subsystem_lbc, &
                                     pio_numiotasks, pio_iodesc, cpl_grid_id, &
                                     cplprint_flag, first_kdt, quilting,      &
                                     quilting_restart
@@ -145,7 +145,7 @@ module ufsatm_cap_mod
     call NUOPC_CompSpecialize(gcomp, specLabel=label_Advance, &
                               specPhaseLabel="phase1", specRoutine=ModelAdvance_phase1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef FV3
+
     ! setup Run/Advance phase: phase2
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
                                  phaseLabelList=(/"phase2"/), userRoutine=routine_Run, rc=rc)
@@ -162,7 +162,7 @@ module ufsatm_cap_mod
     call NUOPC_CompSpecialize(gcomp, specLabel=label_SetRunClock, &
                                      specRoutine=ModelSetRunClock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
+#ifdef FV3
     ! specializations required to support 'inline' run sequences
     call NUOPC_CompSpecialize(gcomp, specLabel=label_CheckImport, &
                               specPhaseLabel="phase1", specRoutine=ufsatm_checkimport, rc=rc)
@@ -442,8 +442,10 @@ module ufsatm_cap_mod
     end if
 
     ! Initialize PIO
-    allocate(pio_subsystem)
-    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
+    allocate(pio_subsystem_ic)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_ic, base=pio_root)
+    allocate(pio_subsystem_lbc)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_lbc, base=pio_root)
     
     ! PIO debug related options
     ! pio_debug_level
@@ -1382,10 +1384,10 @@ module ufsatm_cap_mod
 
     call ModelAdvance_phase1(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#ifdef FV3
+
     call ModelAdvance_phase2(gcomp, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#endif
+
     if (profile_memory) call ESMF_VMLogMemInfo("Leaving UFSATM ModelAdvance: ")
 
     timere = MPI_Wtime()

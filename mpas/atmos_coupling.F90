@@ -5,7 +5,7 @@
 ! ###########################################################################################
 module atmos_coupling_mod
   use mpas_kind_types,    only : mpas_kind => RKIND
-  use ufs_mpas_subdriver, only : domain_ptr
+  use ufs_mpas_module,    only : domain_ptr
   
   implicit none
   public :: MPAS_statein_type
@@ -83,7 +83,8 @@ module atmos_coupling_mod
                                                   ! from physics [kg K/m^3/s]        (nlev,ncol)
      real(mpas_kind), pointer :: rho_tend(:,:)    ! Dry air density tendency
                                                   ! from physics [kg/m^3/s]          (nlev,ncol)
-
+   contains
+     procedure :: populate  => populate_MPAS_statein
   end type MPAS_statein_type
 
   !> #######################################################################################
@@ -137,6 +138,8 @@ module atmos_coupling_mod
                                                   !                                  (nlev,nvtx)
      real(mpas_kind), pointer :: divergence(:,:)  ! Horizontal velocity divergence [s^-1]
                                                   !                                  (nlev,ncol)
+   contains
+     procedure :: populate  => populate_MPAS_stateout
   end type MPAS_stateout_type
   
 contains
@@ -357,7 +360,7 @@ contains
     ! Arguments
     character(len=*), intent(in)  :: varname
     ! Locals
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::get_mpas_pio_decomp'
+    character(len=*), parameter :: subname = 'atmos_coupling::get_mpas_pio_decomp'
     integer, dimension(:), pointer :: indexArray, indices
     integer, pointer :: indexDimension
     type (field2DReal), pointer :: field2d
@@ -459,5 +462,105 @@ contains
     deallocate(array1)
     array1 => newArray
   end subroutine mergeArrays
-  
+
+  !> #######################################################################################
+  !> 
+  !> #######################################################################################
+  subroutine populate_MPAS_statein(state)
+    use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
+    implicit none
+    class(MPAS_statein_type) :: state
+    type(mpas_pool_type), pointer :: state_pool, diag_pool, mesh_pool
+    integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, nVerticesSolve, index_qv
+
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+
+    ! Let dynamics import state point to memory managed by MPAS-Atmosphere
+    call mpas_pool_get_dimension(mesh_pool,  'nCells',         nCells)
+    call mpas_pool_get_dimension(mesh_pool,  'nEdges',         nEdges)
+    call mpas_pool_get_dimension(mesh_pool,  'nVertices',      nVertices)
+    call mpas_pool_get_dimension(mesh_pool,  'nVertLevels',    nVertLevels)
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve',    nCellsSolve)
+    call mpas_pool_get_dimension(mesh_pool,  'nEdgesSolve',    nEdgesSolve)
+    call mpas_pool_get_dimension(mesh_pool,  'nVerticesSolve', nVerticesSolve)
+    call mpas_pool_get_dimension(state_pool, 'index_qv',       index_qv)
+    state % nCells         = nCells
+    state % nEdges         = nEdges
+    state % nVertices      = nVertices
+    state % nVertLevels    = nVertLevels
+    state % nCellsSolve    = nCellsSolve
+    state % nEdgesSolve    = nEdgesSolve
+    state % nVerticesSolve = nVerticesSolve
+    state % index_qv       = index_qv
+
+    ! In MPAS timeLevel=1 is the current state.  So the fields input to the dycore should
+    ! be in timeLevel=1.
+    call mpas_pool_get_array(state_pool, 'u',                      state % uperp,   timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'w',                      state % w,       timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'theta_m',                state % theta_m, timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'rho_zz',                 state % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(state_pool, 'scalars',                state % tracers, timeLevel=1)
+    call mpas_pool_get_array(diag_pool,  'rho_base',               state % rho_base)
+    call mpas_pool_get_array(diag_pool,  'theta_base',             state % theta_base)
+    call mpas_pool_get_array(mesh_pool,  'zgrid',                  state % zint)
+    call mpas_pool_get_array(mesh_pool,  'zz',                     state % zz)
+    call mpas_pool_get_array(mesh_pool,  'fzm',                    state % fzm)
+    call mpas_pool_get_array(mesh_pool,  'fzp',                    state % fzp)
+    call mpas_pool_get_array(mesh_pool,  'areaCell',               state % areaCell)
+    call mpas_pool_get_array(mesh_pool,  'east',                   state % east)
+    call mpas_pool_get_array(mesh_pool,  'north',                  state % north)
+    call mpas_pool_get_array(mesh_pool,  'edgeNormalVectors',      state % normal)
+    call mpas_pool_get_array(mesh_pool,  'cellsOnEdge',            state % cellsOnEdge)
+    call mpas_pool_get_array(diag_pool,  'theta',                  state % theta)
+    call mpas_pool_get_array(diag_pool,  'exner',                  state % exner)
+    call mpas_pool_get_array(diag_pool,  'rho',                    state % rho)
+    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      state % ux)
+    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', state % uy)
+
+  end subroutine populate_MPAS_statein
+
+  !> #######################################################################################
+  !> 
+  !> #######################################################################################
+  subroutine populate_MPAS_stateout(stateout, statein)
+    implicit none
+    class(MPAS_stateout_type) :: stateout
+    type(MPAS_statein_type), intent(in) :: statein
+
+    ! Let dynamics export state point to memory managed by MPAS-Atmosphere
+    ! Exception: pmiddry and pintdry are not managed by the MPAS infrastructure
+    stateout % nCells         = statein % nCells
+    stateout % nEdges         = statein % nEdges
+    stateout % nVertices      = statein % nVertices
+    stateout % nVertLevels    = statein % nVertLevels
+    stateout % nCellsSolve    = statein % nCellsSolve
+    stateout % nEdgesSolve    = statein % nEdgesSolve
+    stateout % nVerticesSolve = statein % nVerticesSolve
+    stateout % index_qv       = statein % index_qv
+
+    ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
+    ! in timeLevel=1.  Thus we want stateout to also point to timeLevel=1.  Can just copy
+    ! the pointers from statein.
+    stateout % uperp   => statein % uperp
+    stateout % w       => statein % w
+    stateout % theta_m => statein % theta_m
+    stateout % rho_zz  => statein % rho_zz
+    stateout % tracers => statein % tracers
+
+    ! These components don't have a time level index.
+    stateout % zint  => statein % zint
+    stateout % zz    => statein % zz
+    stateout % fzm   => statein % fzm
+    stateout % fzp   => statein % fzp
+
+    stateout % theta => statein % theta
+    stateout % exner => statein % exner
+    stateout % rho   => statein % rho
+    stateout % ux    => statein % ux
+    stateout % uy    => statein % uy
+
+  end subroutine populate_MPAS_stateout
 end module atmos_coupling_mod
