@@ -783,6 +783,9 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                    Time_restart, num_restart_fh, &
                                    restart_fh)
 
+    ! Set IAU offset time
+    Atmos%iau_offset = iau_offset
+
 !------ initialize component models ------
 
      call  atmos_model_init (Atmos, Time_init, Time, Time_step)
