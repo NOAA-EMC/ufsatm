@@ -46,6 +46,7 @@ module post_fv3
                                lonstart,lonlast
       use grib2_module, only : gribit2,num_pset,nrecout,first_grbtbl
       use xml_perl_data,only : paramset
+      use post_nems_routines
 !
 !-----------------------------------------------------------------------
 !

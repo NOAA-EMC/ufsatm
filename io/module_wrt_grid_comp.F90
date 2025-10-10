@@ -1724,7 +1724,6 @@
      real(ESMF_KIND_R8)                    :: geo_lon, geo_lat
      real(ESMF_KIND_R8), parameter         :: rtod=180.0/pi
 
-     real(kind=8)  :: MPI_Wtime
      real(kind=8)  :: tbeg
      real(kind=8)  :: wbeg,wend
 
