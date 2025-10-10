@@ -4443,7 +4443,7 @@ module post_fv3
 
 ! calculate cos(SZA)
       call w3fs13(idat(3),idat(1),idat(2),jdn)
-!$omp parallel do default(none) private(i,j,sun_zenith,sun_azimuth) shared(jsta,jend,ista,iend,czen,czmean,gdlat,gdlon,jdn)
+!$omp parallel do default(none) private(i,j,sun_zenith,sun_azimuth) shared(jsta,jend,ista,iend,czen,czmean,gdlat,gdlon,jdn,idat)
       do j=jsta,jend
         do i=ista,iend
           call zensun(jdn,float(idat(4)),gdlat(i,j),gdlon(i,j),pi,sun_zenith,sun_azimuth)
