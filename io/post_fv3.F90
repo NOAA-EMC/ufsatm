@@ -1120,24 +1120,22 @@ module post_fv3
  
             ! surface specific humidity
             if(trim(fieldname)=='qs') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,arrayr42d,qs,spval)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,arrayr42d,qs,fillValue,spval)
               do j=jsta,jend
                 do i=ista, iend
-                  if(arrayr42d(i,j) /= spval) then
-                    qs(i,j) = arrayr42d(i,j)
-                  endif
+                  qs(i,j) = arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) qs(i,j)=spval
                 enddo
               enddo
             endif
 
             ! foundation temperature
             if(trim(fieldname)=='tref') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst,fillValue)
               do j=jsta,jend
                 do i=ista, iend
-                  if (arrayr42d(i,j) /= spval) then
-                    fdnsst(i,j) = arrayr42d(i,j)
-                  endif
+                  fdnsst(i,j) = arrayr42d(i,j)
+                  if (abs(arrayr42d(i,j)-fillValue) < small) fdnsst(i,j)=spval
                 enddo
               enddo
             endif
@@ -4457,7 +4455,7 @@ module post_fv3
       do j=jsta,jend
         do i=ista,iend
           if(u10(i,j) == spval .and. v10(i,j) == spval .and. &
-             f10m(i,j) /=spval .and. uh(i,j,lm)/=spval) then
+             f10m(i,j) /=spval .and. uh(i,j,lm)/=spval .and. vh(i,j,lm)/=spval) then
             u10(i,j) = f10m(i,j) * uh(i,j,lm)
             v10(i,j) = f10m(i,j) * vh(i,j,lm)
           endif
