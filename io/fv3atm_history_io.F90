@@ -115,13 +115,13 @@ CONTAINS
   !! This routine transfers diagnostic data to the FMS diagnostic
   !!  manager for eventual output to the history files.
   subroutine fv3atm_diag_output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-       dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+       dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
     !--- subroutine interface variable definitions
     type(time_type),           intent(in) :: time
     type(GFS_externaldiag_type),       intent(in) :: diag(:)
     type (block_control_type), intent(in) :: atm_block
     type(GFS_control_type),    intent(in) :: Model
-    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz
+    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz, dt_atmos
     real(kind=kind_phys),      intent(in) :: dt
     real(kind=kind_phys),      intent(in) :: time_int
     real(kind=kind_phys),      intent(in) :: time_intfull
@@ -129,7 +129,7 @@ CONTAINS
     real(kind=kind_phys),      intent(in) :: time_radlw
 
     call shared_history_data%output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-         dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+         dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
 
   end subroutine fv3atm_diag_output
 
@@ -282,14 +282,14 @@ CONTAINS
   !! implementation of the public fv3atm_diag_output routine. Never
   !! call this directly.
   subroutine history_type_output(hist, time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-       dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+       dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
     !--- subroutine interface variable definitions
     class(history_type)                   :: hist
     type(time_type),           intent(in) :: time
     type(GFS_externaldiag_type),       intent(in) :: diag(:)
     type (block_control_type), intent(in) :: atm_block
     type(GFS_control_type),    intent(in) :: Model
-    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz
+    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz, dt_atmos
     real(kind=kind_phys),      intent(in) :: dt
     real(kind=kind_phys),      intent(in) :: time_int
     real(kind=kind_phys),      intent(in) :: time_intfull
@@ -322,13 +322,13 @@ CONTAINS
             lcnvfac = lcnvfac*rtime_intfull
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. full time avg, field=',trim(Diag(idx)%name),' time=',time_intfull
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_lw' ) then
-            lcnvfac = lcnvfac*min(rtime_radlw,rtime_int)
+            lcnvfac = lcnvfac*rtime_radlw/int(time_int/dt_atmos)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad longwave avg, field=',trim(Diag(idx)%name),' time=',time_radlw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_sw' ) then
-            lcnvfac = lcnvfac*min(rtime_radsw,rtime_int)
+            lcnvfac = lcnvfac*rtime_radsw/int(time_int/dt_atmos)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad shortwave avg, field=',trim(Diag(idx)%name),' time=',time_radsw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_swlw_min' ) then
-            lcnvfac = lcnvfac*min(max(rtime_radsw,rtime_radlw),rtime_int)
+            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)/int(time_int/dt_atmos)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad swlw min avg, field=',trim(Diag(idx)%name),' time=',time_radlw,time_radsw,time_int
           else
             lcnvfac = lcnvfac*rtime_int
