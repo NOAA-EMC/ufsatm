@@ -113,6 +113,22 @@ else(CCPP_32BIT)
 endif(CCPP_32BIT)
 
 #------------------------------------------------------------------------------
+# Set flags for rte-rrtmgp radiation
+if(RRTMGP_32BIT)
+  message(STATUS "Compile CCPP RTE-RRTMGP with 32-bit precision")
+  add_definitions(-DRTE_USE_SP)
+  if(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    set(CMAKE_Fortran_FLAGS_RTERRTMGP  "-real-size 32")
+  elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+    set(CMAKE_Fortran_FLAGS_RTERRTMGP  "-fno-default-real-8 -fdefault-double-8")
+  endif()
+else()
+  message(STATUS "Compile CCPP RTE-RRTMGP with 64-bit precision")
+  remove_definitions(-DRTE_USE_SP)
+  set(CMAKE_Fortran_FLAGS_RTERRTMGP  ${CMAKE_Fortran_FLAGS_PHYSICS})
+endif()
+
+#------------------------------------------------------------------------------
 # Add model-specific flags for C/C++/Fortran preprocessor
 if(NOT HYDRO)
   add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
