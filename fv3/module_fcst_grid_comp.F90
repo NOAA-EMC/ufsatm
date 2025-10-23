@@ -105,7 +105,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   integer :: numSoilLayers = 0
   integer :: numTracers    = 0
 
-  integer :: frestart(999)
+  integer, allocatable :: frestart(:)
 
   integer :: mype
 !
@@ -595,7 +595,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     logical               :: top_parent_is_global
     logical               :: history_file_on_native_grid
 
-    integer                       :: num_restart_fh, restart_starttime
+    integer                       :: num_restart_fh
     real,dimension(:),allocatable :: restart_fh
 
     integer           :: urc
@@ -604,7 +604,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
     type(time_type)               :: Time_init, Time, Time_step, Time_end, &
                                      Time_restart, Time_step_restart
-    type(time_type)               :: iautime
     integer                       :: io_unit, calendar_type_res, date_res(6), date_init_res(6)
 
     integer,allocatable           :: grid_number_on_all_pets(:)
@@ -760,7 +759,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
     Time_step = set_time (dt_atmos,0)
     if (mype == 0) write(*,*)'time_init=', date_init,'time=',date,'time_end=',date_end,'dt_atmos=',dt_atmos
-    
+
     call fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
                                    Time_restart, num_restart_fh, &
                                    restart_fh)
@@ -1174,15 +1173,15 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     type(time_type), intent(inout)                 :: Time_init, Time_end, &
                                                       Time_step_restart, &
                                                       Time_restart
-    type(time_type)                                :: iautime
     integer,         intent(inout)                 :: num_restart_fh
     integer                                        :: total_inttime, tmpvar, &
-                                                      i, restart_starttime
+                                                      i
     logical                                        :: freq_restart
     real, dimension(:), allocatable, intent(inout) :: restart_fh
-                                
+    integer                                        :: n_restart
+
     ! set up forecast time array that controls when to write out restart files
-    frestart = 0
+
     call get_time(Time_end - Time_init, total_inttime)
     ! if the second item is -1, the first number is frequency
     freq_restart = .false.
@@ -1194,29 +1193,36 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         tmpvar = restart_fh(1) * 3600
         Time_step_restart = set_time (tmpvar, 0)
         Time_restart = Time_init + Time_step_restart
-        frestart(1) = tmpvar
         if(restart_fh(1) > 0) then
-          i = 2
+          n_restart = ( Time_end - Time_init ) / Time_step_restart
+          allocate(frestart(n_restart))
+          frestart(1) = tmpvar
+          i = 1
           do while ( Time_restart < Time_end )
+            i = i + 1
             frestart(i) = frestart(i-1) + tmpvar
             Time_restart = Time_restart + Time_step_restart
-            i = i + 1
           enddo
+          if (i /= n_restart) then
+          end if
+        else
+         allocate(frestart(1))
+         frestart(1) = tmpvar
         endif
       endif
     ! otherwise it is an array with forecast time at which the restart files will be written out
     else if(num_restart_fh >= 1) then
+      allocate(frestart(num_restart_fh))
       if(num_restart_fh == 1 .and. restart_fh(1) == 0 ) then
         frestart(1) = total_inttime
       else
-        restart_starttime = 0
         do i=1,num_restart_fh
-          frestart(i) = restart_fh(i) * 3600. + restart_starttime
+          frestart(i) = restart_fh(i) * 3600.
         enddo
       endif
     endif
     ! if to write out restart at the end of forecast
-    if (mype == 0) print *,'frestart=',frestart(1:10)/3600, 'total_inttime=',total_inttime
+    if (mype == 0) print *,'frestart=',frestart(1:min(10,size(frestart)))/3600, 'total_inttime=',total_inttime
   end subroutine fcst_time_array_setup
 !
 !-----------------------------------------------------------------------
