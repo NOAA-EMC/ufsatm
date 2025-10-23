@@ -46,6 +46,12 @@ module post_fv3
                                lonstart,lonlast
       use grib2_module, only : gribit2,num_pset,nrecout,first_grbtbl
       use xml_perl_data,only : paramset
+      use read_xml_upp_mod, only : read_xml
+      use set_outflds_upp_mod, only : set_outflds
+      use get_postfilename_mod, only : get_postfilename
+      use process_upp_mod, only : process
+      use post_nems_routines_mod, only : read_postnmlt, post_alctvars, &
+                                         post_finalize
 !
 !-----------------------------------------------------------------------
 !
@@ -565,6 +571,9 @@ module post_fv3
       use physcons,    only: grav => con_g, fv => con_fvirt, rgas => con_rd,    &
                              eps => con_eps, epsm1 => con_epsm1
       use rqstfld_mod
+      use exch_upp_mod, only : exch
+      use table_upp_mod,  only : table
+      use tableq_upp_mod, only : tableq
 !
 !      use write_internal_state, only: wrt_internal_state
 !
