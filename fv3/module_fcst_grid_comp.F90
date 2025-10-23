@@ -22,8 +22,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   use time_manager_mod,   only: time_type, set_calendar_type, set_time,    &
                                 set_date, month_name,                      &
                                 operator(+), operator(-), operator (<),    &
-                                operator (>), operator (/=), operator (/), &
-                                operator (==), operator (*),               &
+                                operator(>), operator(/=), operator(/),    &
+                                operator(==), operator(*), operator(<=),   &
                                 THIRTY_DAY_MONTHS, JULIAN, GREGORIAN,      &
                                 NOLEAP, NO_CALENDAR,                       &
                                 date_to_string, get_date, get_time
@@ -602,8 +602,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     type(ESMF_State)  :: tempState
     type(ESMF_Info)   :: info
 
-    type(time_type)               :: Time_init, Time, Time_step, Time_end, &
-                                     Time_restart, Time_step_restart
+    type(time_type)               :: Time_init, Time, Time_step, Time_end
     integer                       :: io_unit, calendar_type_res, date_res(6), date_init_res(6)
 
     integer,allocatable           :: grid_number_on_all_pets(:)
@@ -760,9 +759,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     Time_step = set_time (dt_atmos,0)
     if (mype == 0) write(*,*)'time_init=', date_init,'time=',date,'time_end=',date_end,'dt_atmos=',dt_atmos
 
-    call fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
-                                   Time_restart, num_restart_fh, &
-                                   restart_fh)
+    call fcst_time_array_setup(Time_init, Time_end, num_restart_fh, restart_fh)
 
     ! Set IAU offset time
     Atmos%iau_offset = iau_offset
@@ -1158,31 +1155,26 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   !> Create forecast hour time array. This will be used
   !> to dictate when restart files are going to be written.
   !>
-  !> @param[inout] Time_init model initialization time
-  !> @param[inout] Time_end model end time
-  !> @param[inout] Time_step_restart restart time based on restart_fh
-  !> @param[inout] Time_restart calculated restart time
-  !> @param[inout] num_restart_fh user defined restart interval
-  !> @param[inout] restart_fh restart interval, allocatable
+  !> @param[in]    Time_init model initialization time
+  !> @param[in]    Time_end model end time
+  !> @param[in]    num_restart_fh user defined restart interval
+  !> @param[in]    restart_fh restart interval, allocatable
   !>
   !> @author Daniel Sarmiento @date May 16, 2025
-  subroutine fcst_time_array_setup(Time_init, Time_end, Time_step_restart, &
-                                   Time_restart, num_restart_fh, &
-                                   restart_fh)
+  subroutine fcst_time_array_setup(Time_init, Time_end, num_restart_fh, restart_fh)
 
-    type(time_type), intent(inout)                 :: Time_init, Time_end, &
-                                                      Time_step_restart, &
-                                                      Time_restart
-    integer,         intent(inout)                 :: num_restart_fh
-    integer                                        :: total_inttime, tmpvar, &
-                                                      i
-    logical                                        :: freq_restart
-    real, dimension(:), allocatable, intent(inout) :: restart_fh
-    integer                                        :: n_restart
+    type(time_type), intent(in)                 :: Time_init, Time_end
+    integer,         intent(in)                 :: num_restart_fh
+    real, dimension(:), allocatable, intent(in) :: restart_fh
+
+    ! local variables
+    integer         :: total_inttime, tmpvar, i
+    logical         :: freq_restart
+    type(time_type) :: Time_step_restart, Time_restart
+    integer         :: n_restart
 
     ! set up forecast time array that controls when to write out restart files
 
-    call get_time(Time_end - Time_init, total_inttime)
     ! if the second item is -1, the first number is frequency
     freq_restart = .false.
     if(num_restart_fh == 2) then
@@ -1198,13 +1190,11 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
           allocate(frestart(n_restart))
           frestart(1) = tmpvar
           i = 1
-          do while ( Time_restart < Time_end )
+          do while ( Time_restart + Time_step_restart <= Time_end )
             i = i + 1
             frestart(i) = frestart(i-1) + tmpvar
             Time_restart = Time_restart + Time_step_restart
           enddo
-          if (i /= n_restart) then
-          end if
         else
          allocate(frestart(1))
          frestart(1) = tmpvar
@@ -1214,6 +1204,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     else if(num_restart_fh >= 1) then
       allocate(frestart(num_restart_fh))
       if(num_restart_fh == 1 .and. restart_fh(1) == 0 ) then
+        call get_time(Time_end - Time_init, total_inttime)
         frestart(1) = total_inttime
       else
         do i=1,num_restart_fh
@@ -1221,8 +1212,8 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         enddo
       endif
     endif
-    ! if to write out restart at the end of forecast
-    if (mype == 0) print *,'frestart=',frestart(1:min(10,size(frestart)))/3600, 'total_inttime=',total_inttime
+
+    if (mype == 0) print *,'frestart=',frestart(1:min(10,size(frestart)))/3600
   end subroutine fcst_time_array_setup
 !
 !-----------------------------------------------------------------------
