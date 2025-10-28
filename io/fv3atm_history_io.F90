@@ -121,7 +121,7 @@ CONTAINS
     type(GFS_externaldiag_type),       intent(in) :: diag(:)
     type (block_control_type), intent(in) :: atm_block
     type(GFS_control_type),    intent(in) :: Model
-    integer,                   intent(in) :: nx, ny, levs, ntcw, nto
+    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz
     real(kind=kind_phys),      intent(in) :: dt
     real(kind=kind_phys),      intent(in) :: time_int
     real(kind=kind_phys),      intent(in) :: time_intfull
