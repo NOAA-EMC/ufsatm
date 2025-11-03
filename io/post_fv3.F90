@@ -543,7 +543,7 @@ module post_fv3
                              no3cb, nh4cb, dusmass, ducmass, dusmass25,ducmass25, &
                              snownc, graupelnc, qrmax, hail_maxhailcast,       &
                              smoke_ave,dust_ave,coarsepm_ave,swddif,swddni,    &
-                             xlaixy,wspd10umax,wspd10vmax
+                             xlaixy,wspd10umax,wspd10vmax,f10m
       use soil,        only: sldpth, sh2o, smc, stc, sllevel
       use masks,       only: lmv, lmh, htm, vtm, gdlat, gdlon, dx, dy, hbm2, sm, sice
       use ctlblk_mod,  only: im, jm, lm, lp1, jsta, jend, jsta_2l, jend_2u, jsta_m,jend_m, &
@@ -555,7 +555,7 @@ module post_fv3
                              alsl, spl, ihrst, modelname, nsoil, rdaod, gocart_on,  &
                              gccpp_on, nasa_on, d2d_chem, nbin_ss, nbin_bc, nbin_oc,&
                              nbin_du,nbin_su, nbin_no3, nbin_nh4
-      use params_mod,  only: erad, dtr, capa, p1000, small,h1, d608, pi, rd
+      use params_mod,  only: erad, dtr, capa, p1000, small,h1, d608, pi, rd, rtd
       use gridspec_mod,only: latstart, latlast, lonstart, lonlast, cenlon, cenlat, &
                              dxval, dyval, truelat2, truelat1, psmapf, cenlat,     &
                              lonstartv, lonlastv, cenlonv, latstartv, latlastv,    &
@@ -585,12 +585,13 @@ module post_fv3
       integer i, ip1, j, l, k, n, iret, ibdl, rc, kstart, kend
       integer i1,i2,j1,j2,k1,k2
       integer fieldDimCount,gridDimCount,ncount_field,bundle_grid_id
-      integer jdate(8)
+      integer jdate(8), jdn
       logical foundland, foundice, found, mvispresent
       integer totalLBound3d(3), totalUBound3d(3)
       real(4) rinc(5), fillvalue
       real(8) fillvalue8
       real    tlmh,RADI,TMP,ES,TV,RHOAIR,tem,tstart,dtp
+      real    sun_zenith, sun_azimuth
       real, dimension(:),allocatable    :: ak5, bk5
       real(ESMF_KIND_R4),dimension(:,:),pointer    :: arrayr42d
       real(ESMF_KIND_R8),dimension(:,:),pointer    :: arrayr82d
@@ -598,6 +599,7 @@ module post_fv3
       real(ESMF_KIND_R8),dimension(:,:,:),pointer  :: arrayr83d
       real,dimension(:),    allocatable :: slat,qstl
       real,external::FPVSNEW
+      real,external::iw3jdn
       real,dimension(:,:),allocatable :: dummy, p2d, t2d, q2d,  qs2d,  &
                              cw2d, cfr2d, snacc_land, snacc_ice,       &
                              acsnom_land, acsnom_ice
@@ -1116,15 +1118,25 @@ module post_fv3
                 enddo
               enddo
             endif
+ 
+            ! surface specific humidity
+            if(trim(fieldname)=='qs') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,arrayr42d,qs,fillValue,spval)
+              do j=jsta,jend
+                do i=ista, iend
+                  qs(i,j) = arrayr42d(i,j)
+                  if(abs(arrayr42d(i,j)-fillValue) < small) qs(i,j)=spval
+                enddo
+              enddo
+            endif
 
             ! foundation temperature
             if(trim(fieldname)=='tref') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst,fillValue)
               do j=jsta,jend
                 do i=ista, iend
-                  if (arrayr42d(i,j) /= spval) then
-                    fdnsst(i,j) = arrayr42d(i,j)
-                  endif
+                  fdnsst(i,j) = arrayr42d(i,j)
+                  if (abs(arrayr42d(i,j)-fillValue) < small) fdnsst(i,j)=spval
                 enddo
               enddo
             endif
@@ -2380,6 +2392,17 @@ module post_fv3
                   v10(i,j) = arrayr42d(i,j)
                   if( abs(arrayr42d(i,j)-fillValue) < small) v10(i,j) = spval
                   v10h(i,j) = v10(i,j)
+                enddo
+              enddo
+            endif
+
+            ! f10m
+            if(trim(fieldname)=='f10m') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,f10m,arrayr42d,v10h,spval,fillValue)
+              do j=jsta,jend
+                do i=ista, iend
+                  f10m(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) f10m(i,j) = spval
                 enddo
               enddo
             endif
@@ -4416,6 +4439,29 @@ module post_fv3
 
 ! end file_loop_all
       enddo file_loop_all
+
+! calculate cos(SZA)
+      call w3fs13(idat(3),idat(1),idat(2),jdn)
+!$omp parallel do default(none) private(i,j,sun_zenith,sun_azimuth) shared(jsta,jend,ista,iend,czen,czmean,gdlat,gdlon,jdn,idat)
+      do j=jsta,jend
+        do i=ista,iend
+          call zensun(jdn,float(idat(4)),gdlat(i,j),gdlon(i,j),pi,sun_zenith,sun_azimuth)
+          czen(i,j) = cos(sun_zenith/rtd)
+          czmean(i,j) = czen(i,j)
+        enddo
+      enddo
+
+! if u10/v10 are missing, derive them from f10m and surface wind
+!$omp parallel do default(none) private(i,j) shared(jsta,jend,lm,spval,ista,iend,u10,v10,f10m,uh,vh)
+      do j=jsta,jend
+        do i=ista,iend
+          if(u10(i,j) == spval .and. v10(i,j) == spval .and. &
+             f10m(i,j) /=spval .and. uh(i,j,lm)/=spval .and. vh(i,j,lm)/=spval) then
+            u10(i,j) = f10m(i,j) * uh(i,j,lm)
+            v10(i,j) = f10m(i,j) * vh(i,j,lm)
+          endif
+        enddo
+      enddo
 
 ! recompute full layer of zint
 !$omp parallel do default(none) private(i,j) shared(jsta,jend,lp1,spval,zint,fis,ista,iend)
