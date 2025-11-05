@@ -1,8 +1,6 @@
-      MODULE post_nems_routines_mod
-      
-      implicit none
-
-      contains
+module post_nems_routines
+   implicit none
+   contains
 
 !-----------------------------------------------------------------------
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -364,6 +362,6 @@
       call de_allocate
 !
     end subroutine post_finalize
-    
-    END MODULE post_nems_routines_mod
+
+end module post_nems_routines
 

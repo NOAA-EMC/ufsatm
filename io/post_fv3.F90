@@ -50,8 +50,8 @@ module post_fv3
       use set_outflds_upp_mod, only : set_outflds
       use get_postfilename_mod, only : get_postfilename
       use process_upp_mod, only : process
-      use post_nems_routines_mod, only : read_postnmlt, post_alctvars, &
-                                         post_finalize
+      use post_nems_routines, only : read_postnmlt, post_alctvars, &
+                                     post_finalize
 !
 !-----------------------------------------------------------------------
 !
