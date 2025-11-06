@@ -575,7 +575,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
     character(8) :: bundle_grid
 
-    real(kind=8) :: mpi_wtime, timeis
+    real(kind=8) :: timeis
 
     type(ESMF_DELayout) :: delayout
     type(ESMF_DistGrid) :: distgrid
@@ -1323,7 +1323,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       integer,save               :: dt_cap=0
       type(ESMF_Time)            :: currTime,stopTime
       integer                    :: seconds
-      real(kind=8)               :: mpi_wtime, tbeg1
+      real(kind=8)               :: tbeg1
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -1390,7 +1390,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       integer                    :: date(6), seconds
       character(len=64)          :: timestamp
       integer                    :: unit
-      real(kind=8)               :: mpi_wtime, tbeg1
+      real(kind=8)               :: tbeg1
 !
       integer                                :: FBCount, i
       logical                                :: isPresent
@@ -1498,7 +1498,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !
       integer                    :: unit
       integer,dimension(6)       :: date
-      real(kind=8)               :: mpi_wtime, tbeg1
+      real(kind=8)               :: tbeg1
 !
 !-----------------------------------------------------------------------
 !***********************************************************************

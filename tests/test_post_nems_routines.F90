@@ -5,6 +5,7 @@ program test_post_nems_routines
 
   use ctlblk_mod, only : komax,hyb_sigp,d3d_on,gocart_on, &
    rdaod,nasa_on,gccpp_on,d2d_chem,modelname,submodelname, lsm
+  use post_nems_routines
 
   implicit none
 
