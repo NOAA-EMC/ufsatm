@@ -239,8 +239,8 @@ module CCPP_driver
         !--- Call CCPP radiation/physics/stochastics group
         if (trim(step)=="physics") then
            if (trim(dycore)=="fv3") then
-              ! Reset GFS_Interstitial DDT physics fields for this thread
-              call GFS_Interstitial(ntX)%phys_reset(GFS_control)
+              ! Reset GFS_Interstitial DDT fields for this thread
+              call GFS_Interstitial(ntX)%reset(GFS_control)
               ! Process-split physics
               call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name="phys_ps", ierr=ierr2)
               if (ierr2/=0) then
@@ -270,8 +270,8 @@ module CCPP_driver
            endif
         else
            if (trim(step)=="radiation") then
-              ! Reset GFS_Interstitial DDT radiation fields for this thread
-              call GFS_Interstitial(ntX)%rad_reset(GFS_control)
+              ! Reset GFS_Interstitial DDT fields for this thread
+              call GFS_Interstitial(ntX)%reset(GFS_control)
            endif
            ! Radiation
            call ccpp_physics_run(cdata_block(nb,ntX), suite_name=trim(ccpp_suite), group_name=trim(step), ierr=ierr2)
