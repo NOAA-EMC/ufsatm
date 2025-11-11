@@ -40,7 +40,7 @@ module GFS_typedefs
    integer, parameter :: dfi_radar_max_intervals = 4 !< Number of radar-derived temperature tendency and/or convection suppression intervals. Do not change.
 
    real(kind=kind_phys), parameter :: limit_unspecified = 1e12 !< special constant for "namelist value was not provided" in radar-derived temperature tendency limit range
-   
+
    integer, parameter :: physics_no_tracer = -99
 
 !> \section arg_table_GFS_typedefs
@@ -320,6 +320,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hice   (:)   => null()  !< sea ice thickness
     real (kind=kind_phys), pointer :: weasd  (:)   => null()  !< water equiv of accumulated snow depth (kg/m**2)
                                                               !< over land and sea ice
+! IVAI: GFS_sfcprop%
+    real (kind=kind_phys), pointer :: canmsk (:)   => null()  !< canopy/no-canopy mask array (no-canopy:0,canopy:1)
+! IVAI
     real (kind=kind_phys), pointer :: canopy (:)   => null()  !< canopy water
     real (kind=kind_phys), pointer :: ffmm   (:)   => null()  !< fm parameter from PBL scheme
     real (kind=kind_phys), pointer :: ffhh   (:)   => null()  !< fh parameter from PBL scheme
@@ -782,7 +785,7 @@ module GFS_typedefs
     integer              :: dycore_active   !< Choice of dynamical core
     integer              :: dycore_fv3  = 1 !< Choice of FV3 dynamical core
     integer              :: dycore_mpas = 2 !< Choice of MPAS dynamical core
-    
+
 !--- coupling parameters
     logical              :: cplflx          !< default no cplflx collection
     logical              :: cplice          !< default no cplice collection (used together with cplflx)
@@ -1057,8 +1060,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min       !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max        !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min          !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-    
-    
+
+
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
 
@@ -1279,7 +1282,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: psauras(2)      !< [in] auto conversion coeff from ice to snow in ras
     real(kind=kind_phys) :: prauras(2)      !< [in] auto conversion coeff from cloud to rain in ras
     real(kind=kind_phys) :: wminras(2)      !< [in] water and ice minimum threshold for ras
-  
+
     integer              :: seed0           !< random seed for radiation
 
     real(kind=kind_phys) :: rbcr            !< Critical Richardson Number in the PBL scheme
@@ -2119,6 +2122,12 @@ module GFS_typedefs
     !--- Extra PBL diagnostics
     real (kind=kind_phys), pointer :: dkt(:,:)       => null()  !< Eddy diffusitivity for heat
     real (kind=kind_phys), pointer :: dku(:,:)       => null()  !< Eddy diffusitivity for momentum
+!IVAI
+!3-LAYER CANOPY
+    !--- Extra PBL diagnostics in canopy
+    real (kind=kind_phys), pointer :: dkt_can(:,:)   => null()  !< Eddy diffusitivity for heat
+    real (kind=kind_phys), pointer :: dku_can(:,:)   => null()  !< Eddy diffusitivity for momentum
+!IVAI
 
 !
 !---vay-2018 UGWP-diagnostics instantaneous
@@ -2583,6 +2592,11 @@ module GFS_typedefs
       allocate (Sfcprop%sfalb_ice (IM))
       allocate (Sfcprop%sfalb_lnd_bck (IM))
     endif
+!IVAI
+    if (Model%do_canopy) then
+      allocate (Sfcprop%canmsk (IM))
+    endif
+!IVAI
     allocate (Sfcprop%canopy (IM))
     allocate (Sfcprop%ffmm   (IM))
     allocate (Sfcprop%ffhh   (IM))
@@ -2608,6 +2622,11 @@ module GFS_typedefs
       Sfcprop%sfalb_ice     = clear_val
       Sfcprop%sfalb_lnd_bck = clear_val
     endif
+!IVAI
+    if (Model%do_canopy) then
+      Sfcprop%canmsk     = clear_val
+    endif
+!IVAI
     Sfcprop%canopy = clear_val
     Sfcprop%ffmm   = clear_val
     Sfcprop%ffhh   = clear_val
@@ -3383,7 +3402,7 @@ module GFS_typedefs
                                  communicator, ntasks, nthreads,    &
                                  tile_num, isc, jsc, nx, ny,  cnx,  &
                                  cny, gnx, gny, ak, bk, hydrostatic)
-    
+
 !--- modules
     use physcons,         only: con_rerth, con_pi
     use mersenne_twister, only: random_setseed, random_number
@@ -3666,7 +3685,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min      = 0.15               !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max       = 4999.e3            !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min         = 1000.0             !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-    
+
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
 
@@ -4373,7 +4392,7 @@ module GFS_typedefs
           stop
        endif
     endif
-    
+
     ! dtend selection: default is to match all variables:
     dtend_select(1)='*'
     do ipat=2,pat_count
@@ -8572,22 +8591,22 @@ module GFS_typedefs
     endif
 
   end subroutine diag_phys_zero
-  
+
   function get_physics_tracer_index (name, Model)
     !This function uses the FMS version of get_tracer_index, but changes the missing tracer index to the value used throughout the physics code, rather than the one used in FMS
     use tracer_manager_mod, only: get_tracer_index, NO_TRACER
     use field_manager_mod, only: MODEL_ATMOS
-    
+
     character(len=*),  intent(in) :: name
     type(GFS_control_type), intent(in) :: Model
-    
+
     !--- local variables
     integer :: get_physics_tracer_index
-    
+
     get_physics_tracer_index = get_tracer_index(MODEL_ATMOS, name, verbose = (Model%me == Model%master) .and. Model%debug)
-    
+
     if (get_physics_tracer_index == NO_TRACER) get_physics_tracer_index = physics_no_tracer
-    
+
   end function get_physics_tracer_index
 
 end module GFS_typedefs

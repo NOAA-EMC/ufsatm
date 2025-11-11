@@ -1267,6 +1267,16 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
+### IVAI GFS_sfcprop%
+[canmsk]
+  standard_name = forest_canopy_mask
+  long_name = contiguous forest canopy mask for 3-layer canopy model
+  units = none
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+###IVAI
 [canopy]
   standard_name = canopy_water_amount
   long_name = canopy water amount
@@ -9716,6 +9726,22 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+###IVAI
+[dkt_can]
+  standard_name = atmosphere_heat_diffusivity_in_canopy
+  long_name = atmospheric heat diffusivity in canopy
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[dku_can]
+  standard_name = atmosphere_momentum_diffusivity_in_canopy
+  long_name = atmospheric momentum diffusivity in canopy
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+###IVAI
 [cldfra]
   standard_name = instantaneous_3d_cloud_fraction
   long_name = instantaneous 3D cloud fraction for all MPs
