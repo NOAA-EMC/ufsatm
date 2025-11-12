@@ -193,6 +193,7 @@ module ufsatm_cap_mod
     use pio, only: PIO_IOTYPE_NETCDF, PIO_IOTYPE_PNETCDF
     use pio, only: PIO_IOTYPE_NETCDF4C, PIO_IOTYPE_NETCDF4P
 #endif
+    use mpi_f08, only: MPI_Wtime
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
 
@@ -232,7 +233,7 @@ module ufsatm_cap_mod
     type(ESMF_Field), allocatable          :: fieldList(:)
 
     character(len=*),parameter             :: subname='(ufsatm_cap:InitializeAdvertise)'
-    real(kind=8)                           :: MPI_Wtime, timeis, timerhs, time_rh_fb_start, time_rh_start
+    real(kind=8)                           :: timeis, timerhs, time_rh_fb_start, time_rh_start
 
     integer                                :: wrttasks_per_group_from_parent, wrtLocalPet, num_threads
     character(len=64)                      :: rh_filename
@@ -1332,6 +1333,8 @@ module ufsatm_cap_mod
   end subroutine OutputHours_ArrayInput
 
   subroutine InitializeRealize(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
 
@@ -1341,7 +1344,7 @@ module ufsatm_cap_mod
     type(ESMF_State)           :: importState, exportState
     integer                    :: urc
 
-    real(8)                   :: MPI_Wtime, timeirs
+    real(8)                   :: timeirs
 
     rc = ESMF_SUCCESS
     timeirs = MPI_Wtime()
@@ -1369,10 +1372,12 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance(gcomp, rc)
+    
+    use mpi_f08, only : MPI_Wtime
 
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
-    real(kind=8)                :: MPI_Wtime, timers
+    real(kind=8)                :: timers
 
 !-----------------------------------------------------------------------------
 
@@ -1398,6 +1403,8 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance_phase1(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
 
@@ -1407,7 +1414,7 @@ module ufsatm_cap_mod
     logical                     :: fcstpe
     character(len=*),parameter  :: subname='(ufsatm_cap:ModelAdvance_phase1)'
     character(240)              :: msgString
-    real(kind=8)                :: MPI_Wtime, timep1rs, timep1re
+    real(kind=8)                :: timep1rs, timep1re
 
 !-----------------------------------------------------------------------------
 
@@ -1453,6 +1460,8 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance_phase2(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
 
@@ -1472,7 +1481,7 @@ module ufsatm_cap_mod
     type(ESMF_Clock)            :: clock, clock_out
     integer                     :: fieldCount
 
-    real(kind=8)                :: MPI_Wtime, timep2rs
+    real(kind=8)                :: timep2rs
 
     character(len=ESMF_MAXSTR)  :: fb_name
     type(ESMF_Info)             :: info
@@ -1769,6 +1778,7 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelFinalize(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
 
     ! input arguments
     type(ESMF_GridComp)        :: gcomp
@@ -1778,7 +1788,7 @@ module ufsatm_cap_mod
     character(len=*),parameter :: subname='(ufsatm_cap:ModelFinalize)'
     integer                    :: i, urc
     type(ESMF_VM)              :: vm
-    real(kind=8)               :: MPI_Wtime, timeffs
+    real(kind=8)               :: timeffs
 !
 !-----------------------------------------------------------------------------
 !*** finialize forecast

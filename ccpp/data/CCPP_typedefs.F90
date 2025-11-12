@@ -413,8 +413,7 @@ module CCPP_typedefs
     contains
 
       procedure :: create      => gfs_interstitial_create     !<   allocate array data
-      procedure :: rad_reset   => gfs_interstitial_rad_reset  !<   reset array data for radiation
-      procedure :: phys_reset  => gfs_interstitial_phys_reset !<   reset array data for physics
+      procedure :: reset       => gfs_interstitial_reset      !<   reset array data
 
   end type GFS_interstitial_type
 
@@ -875,8 +874,7 @@ contains
     Interstitial%phys_hydrostatic = .true.
     !
     ! Reset all other variables
-    call Interstitial%rad_reset (Model)
-    call Interstitial%phys_reset (Model)
+    call Interstitial%reset (Model)
     !
   end subroutine gfs_interstitial_create
 
@@ -1084,121 +1082,7 @@ contains
 
   end subroutine gfs_interstitial_setup_tracers
 
-  subroutine gfs_interstitial_rad_reset (Interstitial, Model)
-    !
-    implicit none
-    !
-    class(GFS_interstitial_type) :: Interstitial
-    type(GFS_control_type), intent(in) :: Model
-    integer :: iGas
-    !
-    Interstitial%aerodp       = clear_val
-    Interstitial%alb1d        = clear_val
-    if (.not. Model%do_RRTMGP) then
-      Interstitial%alpha      = clear_val
-    end if
-    Interstitial%cldsa        = clear_val
-    Interstitial%cldtaulw     = clear_val
-    Interstitial%cldtausw     = clear_val
-    Interstitial%clouds       = clear_val
-    Interstitial%de_lgth      = clear_val
-    Interstitial%delr         = clear_val
-    Interstitial%dzlyr        = clear_val
-    Interstitial%faerlw       = clear_val
-    Interstitial%faersw       = clear_val
-    Interstitial%gasvmr       = clear_val
-    Interstitial%htlwc        = clear_val
-    Interstitial%htlw0        = clear_val
-    Interstitial%htswc        = clear_val
-    Interstitial%htsw0        = clear_val
-    Interstitial%idxday       = 0
-    Interstitial%kb           = 0
-    Interstitial%kd           = 0
-    Interstitial%kt           = 0
-    Interstitial%mbota        = 0
-    Interstitial%mtopa        = 0
-    Interstitial%nday         = 0
-    Interstitial%olyr         = clear_val
-    Interstitial%plvl         = clear_val
-    Interstitial%plyr         = clear_val
-    Interstitial%qlyr         = clear_val
-    Interstitial%raddt        = clear_val
-    Interstitial%sfcalb       = clear_val
-    Interstitial%tlvl         = clear_val
-    Interstitial%tlyr         = clear_val
-    Interstitial%tsfa         = clear_val
-    Interstitial%tsfg         = clear_val
-
-    ! Interstitials used by both RRTMG and RRTMGP
-    Interstitial%scmpsw%uvbfc = clear_val
-    Interstitial%scmpsw%uvbf0 = clear_val
-    Interstitial%scmpsw%nirbm = clear_val
-    Interstitial%scmpsw%nirdf = clear_val
-    Interstitial%scmpsw%visbm = clear_val
-    Interstitial%scmpsw%visdf = clear_val
-    if (Model%do_RRTMGP) then
-      Interstitial%tracer               = clear_val
-      Interstitial%tv_lay               = clear_val
-      Interstitial%relhum               = clear_val
-      Interstitial%qs_lay               = clear_val
-      Interstitial%q_lay                = clear_val
-      Interstitial%deltaZ               = clear_val
-      Interstitial%deltaZc              = clear_val
-      Interstitial%deltaP               = clear_val
-      Interstitial%p_lev                = clear_val
-      Interstitial%p_lay                = clear_val
-      Interstitial%t_lev                = clear_val
-      Interstitial%t_lay                = clear_val
-      Interstitial%cloud_overlap_param  = clear_val
-      Interstitial%precip_overlap_param = clear_val
-      Interstitial%fluxlwUP_allsky      = clear_val
-      Interstitial%fluxlwDOWN_allsky    = clear_val
-      Interstitial%fluxlwUP_clrsky      = clear_val
-      Interstitial%fluxlwDOWN_clrsky    = clear_val
-      Interstitial%fluxswUP_allsky      = clear_val
-      Interstitial%fluxswDOWN_allsky    = clear_val
-      Interstitial%fluxswUP_clrsky      = clear_val
-      Interstitial%fluxswDOWN_clrsky    = clear_val
-      Interstitial%aerosolslw           = clear_val
-      Interstitial%aerosolssw           = clear_val
-      Interstitial%precip_frac          = clear_val
-      Interstitial%cld_cnv_frac         = clear_val
-      Interstitial%cnv_cloud_overlap_param  = clear_val
-      Interstitial%cld_cnv_lwp          = clear_val
-      Interstitial%cld_cnv_reliq        = clear_val
-      Interstitial%cld_cnv_iwp          = clear_val
-      Interstitial%cld_cnv_reice        = clear_val
-      Interstitial%cld_pbl_lwp          = clear_val
-      Interstitial%cld_pbl_reliq        = clear_val
-      Interstitial%cld_pbl_iwp          = clear_val
-      Interstitial%cld_pbl_reice        = clear_val
-      Interstitial%sfc_emiss_byband     = clear_val
-      Interstitial%sec_diff_byband      = clear_val
-      Interstitial%sfc_alb_nir_dir      = clear_val
-      Interstitial%sfc_alb_nir_dif      = clear_val
-      Interstitial%sfc_alb_uvvis_dir    = clear_val
-      Interstitial%sfc_alb_uvvis_dif    = clear_val
-      Interstitial%toa_src_sw           = clear_val
-      Interstitial%toa_src_lw           = clear_val
-      Interstitial%vmr_o2               = clear_val
-      Interstitial%vmr_h2o              = clear_val
-      Interstitial%vmr_o3               = clear_val
-      Interstitial%vmr_ch4              = clear_val
-      Interstitial%vmr_n2o              = clear_val
-      Interstitial%vmr_co2              = clear_val
-      Interstitial%flxprf_lw%upfxc      = clear_val
-      Interstitial%flxprf_lw%dnfxc      = clear_val
-      Interstitial%flxprf_lw%upfx0      = clear_val
-      Interstitial%flxprf_lw%dnfx0      = clear_val
-      Interstitial%flxprf_sw%upfxc      = clear_val
-      Interstitial%flxprf_sw%dnfxc      = clear_val
-      Interstitial%flxprf_sw%upfx0      = clear_val
-      Interstitial%flxprf_sw%dnfx0      = clear_val
-    end if
-    !
-  end subroutine gfs_interstitial_rad_reset
-
-  subroutine gfs_interstitial_phys_reset (Interstitial, Model)
+  subroutine gfs_interstitial_reset (Interstitial, Model)
     !
     implicit none
     !
@@ -1216,6 +1100,11 @@ contains
     Interstitial%adjvisbmu       = clear_val
     Interstitial%adjvisdfu       = clear_val
     Interstitial%adjvisdfd       = clear_val
+    Interstitial%aerodp          = clear_val
+    Interstitial%alb1d           = clear_val
+    if (.not. Model%do_RRTMGP) then
+      Interstitial%alpha         = clear_val
+    end if
     Interstitial%bexp1d          = clear_val
     Interstitial%cd              = clear_val
     Interstitial%cd_ice          = Model%huge
@@ -1228,8 +1117,12 @@ contains
     Interstitial%chh_ice         = Model%huge
     Interstitial%chh_land        = Model%huge
     Interstitial%chh_water       = Model%huge
-    Interstitial%cld1d           = clear_val
     Interstitial%cldf            = clear_val
+    Interstitial%cldsa           = clear_val
+    Interstitial%cldtaulw        = clear_val
+    Interstitial%cldtausw        = clear_val
+    Interstitial%cld1d           = clear_val
+    Interstitial%clouds          = clear_val
     Interstitial%clw             = clear_val
     Interstitial%clw(:,:,2)      = -999.9
     Interstitial%clx             = clear_val
@@ -1242,23 +1135,26 @@ contains
     Interstitial%ctei_rml        = clear_val
     Interstitial%cumabs          = clear_val
     Interstitial%dd_mf           = clear_val
+    Interstitial%de_lgth         = clear_val
     Interstitial%del             = clear_val
     Interstitial%del_gz          = clear_val
+    Interstitial%delr            = clear_val
     Interstitial%dlength         = clear_val
     Interstitial%dqdt            = clear_val
     Interstitial%dqsfc1          = clear_val
     Interstitial%drain           = clear_val
-    Interstitial%dt_mf           = clear_val
     Interstitial%dtdt            = clear_val
     Interstitial%dtsfc1          = clear_val
+    Interstitial%dt_mf           = clear_val
     Interstitial%dtzm            = clear_val
     Interstitial%dudt            = clear_val
     Interstitial%dusfcg          = clear_val
     Interstitial%dusfc1          = clear_val
-    Interstitial%dvdftra         = clear_val
     Interstitial%dvdt            = clear_val
     Interstitial%dvsfcg          = clear_val
     Interstitial%dvsfc1          = clear_val
+    Interstitial%dvdftra         = clear_val
+    Interstitial%dzlyr           = clear_val
     Interstitial%elvmax          = clear_val
     Interstitial%ep1d            = clear_val
     Interstitial%ep1d_ice        = Model%huge
@@ -1273,6 +1169,8 @@ contains
     Interstitial%ecan            = clear_val
     Interstitial%etran           = clear_val
     Interstitial%edir            = clear_val
+    Interstitial%faerlw          = clear_val
+    Interstitial%faersw          = clear_val
     Interstitial%ffhh_ice        = Model%huge
     Interstitial%ffhh_land       = Model%huge
     Interstitial%ffhh_water      = Model%huge
@@ -1301,6 +1199,7 @@ contains
     Interstitial%gamma           = clear_val
     Interstitial%gamq            = clear_val
     Interstitial%gamt            = clear_val
+    Interstitial%gasvmr          = clear_val
     Interstitial%gflx            = clear_val
     Interstitial%gflx_ice        = clear_val
     Interstitial%gflx_land       = clear_val
@@ -1313,25 +1212,42 @@ contains
     Interstitial%hflx_ice        = Model%huge
     Interstitial%hflx_land       = Model%huge
     Interstitial%hflx_water      = Model%huge
+    Interstitial%htlwc           = clear_val
+    Interstitial%htlw0           = clear_val
+    Interstitial%htswc           = clear_val
+    Interstitial%htsw0           = clear_val
     Interstitial%dry             = .false.
+    Interstitial%idxday          = 0
     Interstitial%icy             = .false.
     Interstitial%lake            = .false.
+    Interstitial%lndp_vgf        = clear_val
     Interstitial%ocean           = .false.
     Interstitial%islmsk          = 0
     Interstitial%islmsk_cice     = 0
     Interstitial%wet             = .false.
+    Interstitial%kb              = 0
     Interstitial%kbot            = Model%levs
     Interstitial%kcnv            = 0
+    Interstitial%kd              = 0
     Interstitial%kinver          = Model%levs
     Interstitial%kpbl            = 0
+    Interstitial%kt              = 0
     Interstitial%ktop            = 1
+    Interstitial%mbota           = 0
+    Interstitial%mtopa           = 0
+    Interstitial%nday            = 0
     Interstitial%oa4             = clear_val
     Interstitial%oc              = clear_val
-    Interstitial%prcpmp          = clear_val
+    Interstitial%olyr            = clear_val
+    Interstitial%plvl            = clear_val
+    Interstitial%plyr            = clear_val
     Interstitial%prnum           = clear_val
+    Interstitial%qlyr            = clear_val
+    Interstitial%prcpmp          = clear_val
     Interstitial%qss_ice         = Model%huge
     Interstitial%qss_land        = Model%huge
     Interstitial%qss_water       = Model%huge
+    Interstitial%raddt           = clear_val
     Interstitial%raincd          = clear_val
     Interstitial%raincs          = clear_val
     Interstitial%rainmcadj       = clear_val
@@ -1348,6 +1264,13 @@ contains
     Interstitial%save_u          = clear_val
     Interstitial%save_v          = clear_val
     Interstitial%sbsno           = clear_val
+    Interstitial%scmpsw%uvbfc    = clear_val
+    Interstitial%scmpsw%uvbf0    = clear_val
+    Interstitial%scmpsw%nirbm    = clear_val
+    Interstitial%scmpsw%nirdf    = clear_val
+    Interstitial%scmpsw%visbm    = clear_val
+    Interstitial%scmpsw%visdf    = clear_val
+    Interstitial%sfcalb          = clear_val
     Interstitial%sigma           = clear_val
     Interstitial%sigmaf          = clear_val
     Interstitial%sigmafrac       = clear_val
@@ -1361,12 +1284,16 @@ contains
     Interstitial%stress_water    = Model%huge
     Interstitial%theta           = clear_val
     Interstitial%tkeh            = 0
+    Interstitial%tlvl            = clear_val
+    Interstitial%tlyr            = clear_val
     Interstitial%tprcp_ice       = Model%huge
     Interstitial%tprcp_land      = Model%huge
     Interstitial%tprcp_water     = Model%huge
     Interstitial%trans           = clear_val
     Interstitial%tseal           = clear_val
+    Interstitial%tsfa            = clear_val
     Interstitial%tsfc_water      = Model%huge
+    Interstitial%tsfg            = clear_val
     Interstitial%tsurf_ice       = Model%huge
     Interstitial%tsurf_land      = Model%huge
     Interstitial%tsurf_water     = Model%huge
@@ -1376,7 +1303,6 @@ contains
     Interstitial%uustar_water    = Model%huge
     Interstitial%vdftra          = clear_val
     Interstitial%vegf1d          = clear_val
-    Interstitial%lndp_vgf        = clear_val
     Interstitial%wcbmax          = clear_val
     Interstitial%wind            = Model%huge
     Interstitial%work1           = clear_val
@@ -1391,7 +1317,68 @@ contains
     Interstitial%ztmax_land      = clear_val
     Interstitial%ztmax_water     = clear_val
 
-! UGWP common
+    ! RRTMGP
+    if (Model%do_RRTMGP) then
+       Interstitial%tracer                      = clear_val
+       Interstitial%tv_lay                      = clear_val
+       Interstitial%relhum                      = clear_val
+       Interstitial%qs_lay                      = clear_val
+       Interstitial%q_lay                       = clear_val
+       Interstitial%deltaZ                      = clear_val
+       Interstitial%deltaZc                     = clear_val
+       Interstitial%deltaP                      = clear_val
+       Interstitial%p_lev                       = clear_val
+       Interstitial%p_lay                       = clear_val
+       Interstitial%t_lev                       = clear_val
+       Interstitial%t_lay                       = clear_val
+       Interstitial%cloud_overlap_param         = clear_val
+       Interstitial%precip_overlap_param        = clear_val
+       Interstitial%fluxlwUP_allsky             = clear_val
+       Interstitial%fluxlwDOWN_allsky           = clear_val
+       Interstitial%fluxlwUP_clrsky             = clear_val
+       Interstitial%fluxlwDOWN_clrsky           = clear_val
+       Interstitial%fluxswUP_allsky             = clear_val
+       Interstitial%fluxswDOWN_allsky           = clear_val
+       Interstitial%fluxswUP_clrsky             = clear_val
+       Interstitial%fluxswDOWN_clrsky           = clear_val
+       Interstitial%aerosolslw                  = clear_val
+       Interstitial%aerosolssw                  = clear_val
+       Interstitial%precip_frac                 = clear_val
+       Interstitial%cld_cnv_frac                = clear_val
+       Interstitial%cnv_cloud_overlap_param     = clear_val
+       Interstitial%cld_cnv_lwp                 = clear_val
+       Interstitial%cld_cnv_reliq               = clear_val
+       Interstitial%cld_cnv_iwp                 = clear_val
+       Interstitial%cld_cnv_reice               = clear_val
+       Interstitial%cld_pbl_lwp                 = clear_val
+       Interstitial%cld_pbl_reliq               = clear_val
+       Interstitial%cld_pbl_iwp                 = clear_val
+       Interstitial%cld_pbl_reice               = clear_val
+       Interstitial%flxprf_lw%upfxc             = clear_val
+       Interstitial%flxprf_lw%dnfxc             = clear_val
+       Interstitial%flxprf_lw%upfx0             = clear_val
+       Interstitial%flxprf_lw%dnfx0             = clear_val
+       Interstitial%flxprf_sw%upfxc             = clear_val
+       Interstitial%flxprf_sw%dnfxc             = clear_val
+       Interstitial%flxprf_sw%upfx0             = clear_val
+       Interstitial%flxprf_sw%dnfx0             = clear_val
+       Interstitial%sfc_emiss_byband            = clear_val
+       Interstitial%sec_diff_byband             = clear_val
+       Interstitial%sfc_alb_nir_dir             = clear_val
+       Interstitial%sfc_alb_nir_dif             = clear_val
+       Interstitial%sfc_alb_uvvis_dir           = clear_val
+       Interstitial%sfc_alb_uvvis_dif           = clear_val
+       Interstitial%toa_src_sw                  = clear_val
+       Interstitial%toa_src_lw                  = clear_val
+       Interstitial%vmr_o2                      = clear_val
+       Interstitial%vmr_h2o                     = clear_val
+       Interstitial%vmr_o3                      = clear_val
+       Interstitial%vmr_ch4                     = clear_val
+       Interstitial%vmr_n2o                     = clear_val
+       Interstitial%vmr_co2                     = clear_val
+    end if
+
+    ! UGWP common
     Interstitial%tau_mtb         = clear_val
     Interstitial%tau_ogw         = clear_val
     Interstitial%tau_tofd        = clear_val
@@ -1407,65 +1394,64 @@ contains
 ! CIRES UGWP v1
     if (Model%ldiag_ugwp .or. Model%do_ugwp_v0 .or. Model%do_ugwp_v0_nst_only &
         .or. Model%do_ugwp_v1) then
-      Interstitial%dudt_ngw        = clear_val
-      Interstitial%dvdt_ngw        = clear_val
-      Interstitial%dtdt_ngw        = clear_val
-      Interstitial%kdis_ngw        = clear_val
+      Interstitial%dudt_ngw      = clear_val
+      Interstitial%dvdt_ngw      = clear_val
+      Interstitial%dtdt_ngw      = clear_val
+      Interstitial%kdis_ngw      = clear_val
     end if
 
 !-- GSL drag suite
     if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
-        Model%gwd_opt==2 .or. Model%gwd_opt==22) then
-       Interstitial%varss           = clear_val
-       Interstitial%ocss            = clear_val
-       Interstitial%oa4ss           = clear_val
-       Interstitial%clxss           = clear_val
+        Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
+       Interstitial%varss        = clear_val
+       Interstitial%ocss         = clear_val
+       Interstitial%oa4ss        = clear_val
+       Interstitial%clxss        = clear_val
     end if
 !
-    ! Reset fields that are conditional on physics choices
-    if (Model%imp_physics == Model%imp_physics_gfdl .or. Model%imp_physics == Model%imp_physics_thompson  &
-        .or. Model%imp_physics == Model%imp_physics_tempo .or. Model%imp_physics == Model%imp_physics_nssl &
-             ) then
-       Interstitial%graupelmp = clear_val
-       Interstitial%icemp     = clear_val
-       Interstitial%rainmp    = clear_val
-       Interstitial%snowmp    = clear_val
+    ! Allocate arrays that are conditional on physics choices
+    if (Model%imp_physics == Model%imp_physics_gfdl .or. Model%imp_physics == Model%imp_physics_thompson &
+         .or. Model%imp_physics == Model%imp_physics_tempo .or. Model%imp_physics == Model%imp_physics_nssl &
+        ) then
+       Interstitial%graupelmp    = clear_val
+       Interstitial%icemp        = clear_val
+       Interstitial%rainmp       = clear_val
+       Interstitial%snowmp       = clear_val
     else if (Model%imp_physics == Model%imp_physics_mg) then
-       Interstitial%ncgl      = clear_val
-       Interstitial%ncpr      = clear_val
-       Interstitial%ncps      = clear_val
-       Interstitial%qgl       = clear_val
-       Interstitial%qrn       = clear_val
-       Interstitial%qsnw      = clear_val
-       Interstitial%qlcn      = clear_val
-       Interstitial%qicn      = clear_val
-       Interstitial%w_upi     = clear_val
-       Interstitial%cf_upi    = clear_val
-       Interstitial%cnv_mfd   = clear_val
-       Interstitial%cnv_dqldt = clear_val
-       Interstitial%clcn      = clear_val
-       Interstitial%cnv_fice  = clear_val
-       Interstitial%cnv_ndrop = clear_val
-       Interstitial%cnv_nice  = clear_val
+       Interstitial%ncgl         = clear_val
+       Interstitial%ncpr         = clear_val
+       Interstitial%ncps         = clear_val
+       Interstitial%qgl          = clear_val
+       Interstitial%qrn          = clear_val
+       Interstitial%qsnw         = clear_val
+       Interstitial%qlcn         = clear_val
+       Interstitial%qicn         = clear_val
+       Interstitial%w_upi        = clear_val
+       Interstitial%cf_upi       = clear_val
+       Interstitial%cnv_mfd      = clear_val
+       Interstitial%cnv_dqldt    = clear_val
+       Interstitial%clcn         = clear_val
+       Interstitial%cnv_fice     = clear_val
+       Interstitial%cnv_ndrop    = clear_val
+       Interstitial%cnv_nice     = clear_val
     end if
     if (Model%lsm == Model%lsm_noahmp) then
-       Interstitial%t2mmp     = clear_val
-       Interstitial%q2mp      = clear_val
+       Interstitial%t2mmp        = clear_val
+       Interstitial%q2mp         = clear_val
     end if
-    !
+
     ! Set flag for resetting maximum hourly output fields
     Interstitial%max_hourly_reset = mod(Model%kdt-1, nint(Model%avg_max_length/Model%dtp)) == 0
     ! Use same logic in UFS to reset Thompson extended diagnostics
     Interstitial%ext_diag_thompson_reset = Interstitial%max_hourly_reset
-    !
+
     ! Frequency flag for computing the full radar reflectivity (water coated ice) 
     if (Model%nsfullradar_diag<0) then
       Interstitial%fullradar_diag = .true.
     else
       Interstitial%fullradar_diag = (Model%kdt == 1 .or. mod(Model%kdt, nint(Model%nsfullradar_diag/Model%dtp)) == 0) 
     end if
-    !
-  end subroutine gfs_interstitial_phys_reset
+  end subroutine gfs_interstitial_reset
 
 !-----------------------
 ! GFDL_interstitial_type

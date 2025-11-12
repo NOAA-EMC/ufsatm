@@ -997,7 +997,6 @@ subroutine update_atmos_model_state (Atmos, rc)
 !--- local variables
   integer :: i, localrc, sec_lastfhzerofh
   integer :: isec, seconds, isec_fhzero
-  integer :: dtatm_temp
   logical :: tmpflag_fhzero
   real(kind=GFS_kind_phys) :: time_int, time_intfull
 !
@@ -1032,10 +1031,9 @@ subroutine update_atmos_model_state (Atmos, rc)
       if (mpp_pe() == mpp_root_pe()) write(6,*) 'gfs diags time since last bucket empty: ',time_int,' time_intfull=', &
          time_intfull,' kdt=',GFS_control%kdt
       call atmosphere_nggps_diag(Atmos%Time)
-      call get_time ( Atmos%Time_step, dtatm_temp)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
                             GFS_control%levs, 1, 1, 1.0_GFS_kind_phys, time_int, time_intfull, &
-                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control, dtatm_temp)
+                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control)
     endif
 
     !---  find current fhzero
