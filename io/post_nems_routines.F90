@@ -32,6 +32,7 @@ module post_nems_routines
                             ileft,iright,ileftb,irightb, &
                             icnt2, idsp2,isxa,iexa,jsxa,jexa, &
                             num_procs
+      use allocate_all_upp_mod, only: allocate_all
 !
 !-----------------------------------------------------------------------
 !
@@ -350,6 +351,7 @@ module post_nems_routines
 !    Jul 2019 Jun Wang: finalize post step
 !
       use grib2_module, only : grib_info_finalize
+      use DE_ALLOCATE_UPP_MOD , only : de_allocate
 !
       character(*),intent(in) :: post_gribversion
 !

@@ -703,6 +703,7 @@ contains
 
     if (global_att_exists(Sfc_restart, "file_version")) then
       call get_global_attribute(Sfc_restart, "file_version", file_ver)
+      Model%sfc_file_version = file_ver
       if (file_ver == "V2") then
         sfc%is_v2_file=.true.
       endif
@@ -1207,6 +1208,14 @@ contains
     if(Model%rrfs_sd) then
       call rrfs_sd_quilt%bundle_fields(bundle, grid, Model, outputfile)
     endif
+
+    if (trim(Model%sfc_file_version) /= "V1") then
+       call ESMF_AttributeAdd(bundle, convention="NetCDF", purpose="FV3", attrList=(/"file_version"/), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+       call ESMF_AttributeSet(bundle, convention="NetCDF", purpose="FV3", name="file_version", value=trim(Model%sfc_file_version), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
 
   end subroutine fv_sfc_restart_bundle_setup
 

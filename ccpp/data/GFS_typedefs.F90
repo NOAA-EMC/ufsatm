@@ -1710,6 +1710,8 @@ module GFS_typedefs
 !     logical               :: land_iau_do_stcsmc_adjustment
 !     real(kind=kind_phys)  :: land_iau_min_T_increment
 
+    character(len=2)     :: sfc_file_version = 'V1' !< version number of input surface file
+
     contains
       procedure :: init            => control_initialize
       procedure :: init_chemistry  => control_chemistry_initialize
