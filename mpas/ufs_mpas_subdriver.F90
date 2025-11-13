@@ -506,7 +506,7 @@ contains
     use mpas_timer,           only : mpas_timer_start, mpas_timer_stop
     use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
     use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
-    use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(<)
+    use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(.LT.), operator(.GT.)
     use ufs_mpas_module,      only : ufs_mpas_atm_update_bdy_tend
     ! FMS
     use mpp_mod,              only : FATAL, mpp_error
@@ -572,7 +572,7 @@ contains
     timeStop = timeNow + mpas_time_interval
     itimestep =	0
     call mpas_log_write(' MPAS dynamics start')
-    do while (timeNow < timeStop)
+    do while (timeNow .LT. timeStop)
        itimestep = itimestep + 1
 
        call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
@@ -585,7 +585,7 @@ contains
 
        ! Compute lateral boundary conditions.
        if (config_apply_lbcs) then
-          if (timeNow > timeLBCnew) then
+          if (timeNow .GT. timeLBCnew) then
              call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .false., ierr)
              if (ierr /= 0) then
                 call mpas_log_write('Failed to process LBC data at next time after '//trim(timeStamp), messageType=MPAS_LOG_ERR)
