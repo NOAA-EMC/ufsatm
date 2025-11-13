@@ -7,7 +7,6 @@ module GFS_init
                                       GFS_control_type, GFS_grid_type,     &
                                       GFS_tbd_type,     GFS_cldprop_type,  &
                                       GFS_radtend_type, GFS_diag_type
-  use CCPP_typedefs,            only: GFS_interstitial_type
 
   implicit none
 
@@ -28,7 +27,7 @@ module GFS_init
 !--------------
   subroutine GFS_initialize (Model, Statein, Stateout, Sfcprop,     &
                              Coupling, Grid, Tbd, Cldprop, Radtend, & 
-                             Diag, Interstitial, Init_parm)
+                             Diag, Init_parm)
 
 #ifdef _OPENMP
     use omp_lib
@@ -45,7 +44,6 @@ module GFS_init
     type(GFS_cldprop_type),      intent(inout) :: Cldprop
     type(GFS_radtend_type),      intent(inout) :: Radtend
     type(GFS_diag_type),         intent(inout) :: Diag
-    type(GFS_interstitial_type), intent(inout) :: Interstitial(:)
     type(GFS_init_type),         intent(in)    :: Init_parm
 
     !--- local variables
@@ -94,35 +92,6 @@ module GFS_init
     call Radtend%create(Model)
     call Coupling%create(Model)
     call Diag%create(Model)
-
-! This logic deals with non-uniform block sizes for CCPP. When non-uniform block sizes
-! are used, it is required that only the last block has a different (smaller) size than
-! all other blocks. This is the standard in FV3. If this is the case, set non_uniform_blocks
-! to .true. and initialize nthreads+1 elements of the interstitial array. The extra element
-! will be used by the thread that runs over the last, smaller block.
-    if (minval(Init_parm%blksz)==maxval(Init_parm%blksz)) then
-       non_uniform_blocks = .false.
-    elseif (all(minloc(Init_parm%blksz)==(/size(Init_parm%blksz)/))) then
-       non_uniform_blocks = .true.
-    else
-       write(0,'(2a)') 'For non-uniform blocksizes, only the last element ', &
-                       'in Init_parm%blksz can be different from the others'
-       stop
-    endif
-
-! Initialize the Interstitial data type in parallel so that
-! each thread creates (touches) its Interstitial(nt) first.
-!$OMP parallel do default (shared) &
-!$OMP            schedule (static,1) &
-!$OMP            private  (nt)
-    do nt=1,nthrds
-      call Interstitial (nt)%create (maxval(Init_parm%blksz), Model)
-    enddo
-!$OMP end parallel do
-
-    if (non_uniform_blocks) then
-      call Interstitial (nthrds+1)%create (Init_parm%blksz(nblks), Model)
-    end if
 
     !--- populate the grid components
     call GFS_grid_populate (Grid, Init_parm%xlon, Init_parm%xlat, Init_parm%area)
