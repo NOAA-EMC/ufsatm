@@ -8181,6 +8181,11 @@ module GFS_typedefs
     !--- New PBL Diagnostics
     allocate (Diag%dkt(IM,Model%levs))
     allocate (Diag%dku(IM,Model%levs))
+!IVAI
+    !--- New PBL Diagnostics in 3-layer canopy
+    allocate (Diag%dkt_can(IM,Model%levs))
+    allocate (Diag%dku_can(IM,Model%levs))
+!IVAI
 
     !--  New max hourly diag.
     allocate (Diag%refdmax(IM))
@@ -8559,6 +8564,11 @@ module GFS_typedefs
 ! Extra PBL diagnostics
     Diag%dkt = zero
     Diag%dku = zero
+!IVAI
+! Extra PBL diagnostics in 3-layer canopy
+    Diag%dkt_can = zero
+    Diag%dku_can = zero
+!IVAI
 
 ! max hourly diagnostics
     Diag%refl_10cm   = -35.
