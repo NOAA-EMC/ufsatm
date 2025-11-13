@@ -145,6 +145,7 @@ endif()
 #------------------------------------------------------------------------------
 # Build CCPP framework and physics
 
+set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(framework)
 add_subdirectory(physics)
 
