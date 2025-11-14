@@ -146,9 +146,6 @@ contains
   !> #########################################################################################
   !> Procedure to populate inputs to the CCPP physics using outputs the MPAS dynamical core.
   !>
-  !> Use indicesGlobal to map from MPAS dycore deceomposition to CCPP Physics contiguous data
-  !> structures.
-  !>
   !> #########################################################################################
   subroutine ufs_mpas_to_physics(physics_state)
     use GFS_typedefs,         only : GFS_statein_type
@@ -163,7 +160,7 @@ contains
     type(mpas_pool_type), pointer :: state_pool
     type(mpas_pool_type), pointer :: diag_pool
     type(mpas_pool_type), pointer :: mesh_pool
-    integer :: iCell, iCol, iTracer
+    integer :: iCol, iTracer
     integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv, nVertLevels
     real(RKIND), pointer :: surface_p(:)
 
@@ -194,17 +191,16 @@ contains
     ! Copy fields from MPAS data containers to physics data containers.
     ! [k, i] -> [i, k]
     ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % tgrs(iCol,:)   = MPAS_state % theta(nVertLevels:1:-1,iCell)
-       physics_state % ugrs(iCol,:)   = MPAS_state % ux(nVertLevels:1:-1,iCell)
-       physics_state % vgrs(iCol,:)   = MPAS_state % uy(nVertLevels:1:-1,iCell)
-       physics_state % phil(iCol,:)   = MPAS_state % zz(nVertLevels:1:-1,iCell)
-       physics_state % phii(iCol,:)   = MPAS_state % zint(nVertLevels+1:1:-1,iCell)
-       physics_state % prslk(iCol,:)  = MPAS_state % exner(nVertLevels:1:-1,iCell)
-       physics_state % vvl(iCol,:)    = MPAS_state % w(nVertLevels:1:-1,iCell)
+    do iCol = 1, nCellsSolve
+       physics_state % tgrs(iCol,:)   = MPAS_state % theta(nVertLevels:1:-1,iCo)
+       physics_state % ugrs(iCol,:)   = MPAS_state % ux(nVertLevels:1:-1,iCol)
+       physics_state % vgrs(iCol,:)   = MPAS_state % uy(nVertLevels:1:-1,iCol)
+       physics_state % phil(iCol,:)   = MPAS_state % zz(nVertLevels:1:-1,iCol)
+       physics_state % phii(iCol,:)   = MPAS_state % zint(nVertLevels+1:1:-1,iCol)
+       physics_state % prslk(iCol,:)  = MPAS_state % exner(nVertLevels:1:-1,iCol)
+       physics_state % vvl(iCol,:)    = MPAS_state % w(nVertLevels:1:-1,iCol)
        do iTracer = 1,num_scalars
-          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCell)
+          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCol)
        enddo
     enddo
 
@@ -219,11 +215,10 @@ contains
     ! Copy MPAS pressures into physics data containers.
     ! [k, i] -> [i, k]
     ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % pgr(iCol)    = MPAS_state % pintdry(1,iCell)
-       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCell)
-       physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCell)
+    do iCol = 1, nCellsSolve
+       physics_state % pgr(iCol)    = MPAS_state % pintdry(1,iCol)
+       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCol)
+       physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCol)
     enddo
   end subroutine ufs_mpas_to_physics
 

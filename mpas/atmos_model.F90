@@ -37,8 +37,8 @@ module atmos_model_mod
   use fms_mod,               only : stdlog
   use mpp_mod,               only : stdout
   ! UFSATM
-  use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename
-  use module_mpas_config,    only : lonCellGlobal, latCellGlobal, areaCellGlobal
+  use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
+  use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
   use module_mpas_config,    only : pi
   use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
@@ -235,14 +235,14 @@ contains
     Cfg%nlunit = stdlog()
     
     ! Number of physics blocks
-    Atmos % nblks = nCellsGlobal / blocksize
-    if (mod(nCellsGlobal, blocksize) .gt. 0) Atmos % nblks = Atmos % nblks + 1
-    
+    Atmos % nblks = nCellsSolve / blocksize
+    if (mod(nCellsSolve, blocksize) .gt. 0) Atmos % nblks = Atmos % nblks + 1
+
     ! Physics block sizes.
     Cfg % nblks = Atmos % nblks
     allocate(Cfg % blksz(Atmos % nblks))
     Cfg % blksz(:) = blocksize
-    Cfg % blksz(Atmos % nblks) = nCellsGlobal - (Atmos % nblks - 1)*blocksize
+    Cfg % blksz(Atmos % nblks) = nCellsSolve - (Atmos % nblks - 1)*blocksize
 
     allocate(UFSATM_interstitial(nthrds+1))
     
@@ -262,11 +262,14 @@ contains
          UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
 
     ! Get longitude/latitude/area from MPAS to use in the physics.
-    UFSATM_grid % xlon   = lonCellGlobal
-    UFSATM_grid % xlat   = latCellGlobal
-    UFSATM_grid % xlon_d = lonCellGlobal*180./pi
-    UFSATM_grid % xlat_d = latCellGlobal*180./pi
-    UFSATM_grid % area   = areaCellGlobal
+    ! DJS2025: lonCell and latCell are defined by nCells, including halo points, whereas
+    !          xlon and xlat are allocated by nCellsSolve, excluding halo points.
+    !          Need to be able to grab lon and lat for nCellsSolve.
+    !UFSATM_grid % xlon   = lonCell
+    !UFSATM_grid % xlat   = latCell
+    !UFSATM_grid % xlon_d = lonCell*180./pi
+    !UFSATM_grid % xlat_d = latCell*180./pi
+    !UFSATM_grid % area   = areaCellGlobal
 
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
     ! we are calling the physics before the dynamical core.

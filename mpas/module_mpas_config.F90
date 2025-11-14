@@ -79,11 +79,14 @@ module module_mpas_config
   integer :: nVertLevels   ! number of vertical layers (midpoints)
 
   integer, pointer :: &
+       nCells,          & ! number of cells in task
        nCellsSolve,     & ! number of cells that a task solves
        nEdgesSolve,     & ! number of edges (velocity) that a task solves
        nVerticesSolve,  & ! number of vertices (vorticity) that a task solves
        nVertLevelsSolve
 
+  real(r4), pointer :: latCell(:), lonCell(:)
+  
   !> Global gridded data
   integer :: nCellsGlobal     ! global number of cells/columns
   integer :: nEdgesGlobal     ! global number of edges

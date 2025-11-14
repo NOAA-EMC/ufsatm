@@ -578,9 +578,9 @@ contains
    use mpas_derived_types,     only : mpas_pool_type
    use mpas_kind_types,        only : RKIND
    use mpas_vector_operations, only : mpas_initialize_vectors
-
+   use module_mpas_config, only : nCellsSolve, latCell, lonCell
+   
    type (mpas_pool_type), pointer :: meshPool
-   real(kind=RKIND), dimension(:), pointer :: latCell, lonCell
    real(kind=RKIND), dimension(:,:), pointer :: east, north
    integer, pointer :: nCells
    integer :: iCell
@@ -865,6 +865,7 @@ contains
    use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_dimension
    use mpas_derived_types, only : mpas_pool_type
    use mpas_dmpar,         only : mpas_dmpar_sum_int, mpas_dmpar_max_int
+   use module_mpas_config, only : nCellsSolve, nEdgesSolve, nVerticesSolve
 
    integer, intent(out) :: nCellsGlobal
    integer, intent(out) :: nEdgesGlobal
@@ -873,9 +874,6 @@ contains
    integer, intent(out) :: nVertLevels
    integer, intent(out) :: maxNCells
 
-   integer, pointer :: nCellsSolve
-   integer, pointer :: nEdgesSolve
-   integer, pointer :: nVerticesSolve
    integer, pointer :: maxEdgesLocal
    integer, pointer :: nVertLevelsLocal
 
@@ -921,20 +919,18 @@ contains
    use mpas_kind_types,    only : RKIND
    use mpas_dmpar,         only : mpas_dmpar_sum_int, mpas_dmpar_max_real_array
    use mpp_mod,            only : FATAL, mpp_error
+   use module_mpas_config, only : nCellsSolve, latCell, lonCell
    real (kind=RKIND), dimension(:), intent(out) :: latCellGlobal
    real (kind=RKIND), dimension(:), intent(out) :: lonCellGlobal
    real (kind=RKIND), dimension(:), intent(out) :: areaCellGlobal
 
    integer :: iCell
 
-   integer, pointer :: nCellsSolve
    integer, dimension(:), pointer :: indexToCellID
 
    type (mpas_pool_type), pointer :: meshPool
    integer :: nCellsGlobal,ierr
 
-   real (kind=RKIND), dimension(:), pointer :: latCell
-   real (kind=RKIND), dimension(:), pointer :: lonCell
    real (kind=RKIND), dimension(:), pointer :: areaCell
    real (kind=RKIND), dimension(:), pointer :: temp
 

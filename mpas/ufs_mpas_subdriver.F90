@@ -28,7 +28,7 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : zref, zref_edge, sphere_radius, pref, pref_edge
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
   use module_mpas_config, only : nCellsGlobal, nEdgesGlobal, nVerticesGlobal
-  use module_mpas_config, only : nCellsSolve, nEdgesSolve, nVerticesSolve, nVertLevelsSolve
+  use module_mpas_config, only : nEdgesSolve, nVerticesSolve, nVertLevelsSolve
   use module_mpas_config, only : dt_atmos, n_atmos
   use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
   use ufs_mpas_module
@@ -518,7 +518,6 @@ contains
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime, itimestep
     integer, pointer :: index_qv
-    integer, pointer :: nCellsSolve
     real(kind=RKIND), dimension(:,:), pointer :: theta_m, rho_zz, zz, theta, rho
     real(kind=RKIND), dimension(:,:,:), pointer :: scalars
     real (kind=R8KIND) :: integ_start_time, integ_stop_time 

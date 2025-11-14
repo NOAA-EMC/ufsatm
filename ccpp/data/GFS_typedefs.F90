@@ -6707,7 +6707,7 @@ module GFS_typedefs
     class(GFS_control_type) :: Model
 
 !--- local variables
-    integer :: i
+    integer :: i, mpierr
 
     if (Model%me == Model%master) then
       print *, ' '
@@ -6738,9 +6738,12 @@ module GFS_typedefs
       if (Model%dycore_active == Model%dycore_fv3) then
          print *, ' hydrostatic       : ', Model%hydrostatic
       endif
-      print *, ' '
-      print *, 'grid extent parameters'
-      if (Model%dycore_active == Model%dycore_fv3) then
+   endif
+
+   if (Model%dycore_active == Model%dycore_fv3) then
+      if (Model%me == Model%master) then
+         print *, ' '
+         print *, 'grid extent parameters (FV3)'
          print *, ' isc               : ', Model%isc
          print *, ' jsc               : ', Model%jsc
          print *, ' nx                : ', Model%nx
@@ -6751,10 +6754,18 @@ module GFS_typedefs
          print *, ' lonr              : ', Model%lonr
          print *, ' latr              : ', Model%latr
       end if
+   endif
+
+   if (Model%dycore_active == Model%dycore_mpas) then
+      print *, ' '
+      print *, 'grid extent parameters (MPAS) for processor ',Model%me
       print *, ' nblks             : ', Model%nblks
       print *, ' blksz(1)          : ', Model%blksz(1)
       print *, ' blksz(nblks)      : ', Model%blksz(Model%nblks)
       print *, ' Model%ncols       : ', Model%ncols
+   endif
+
+   if (Model%me == Model%master) then
       print *, ' '
       print *, 'coupling parameters'
       print *, ' cplflx            : ', Model%cplflx
