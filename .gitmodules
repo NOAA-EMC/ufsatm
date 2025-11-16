@@ -4,12 +4,16 @@
   branch = dev/emc
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  url = https://github.com/NCAR/ccpp-framework
-  branch = main
+  #url = https://github.com/NCAR/ccpp-framework
+  #branch = develop
+  url = https://github.com/climbfuji/ccpp-framework
+  branch = feature/rel_path_dep_path
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  #url = https://github.com/ufs-community/ccpp-physics
+  #branch = ufs/dev
+  url = https://github.com/climbfuji/ccpp-physics
+  branch = feature/rel_path_dep_path
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
