@@ -238,16 +238,7 @@ contains
     Cfg % blksz(:) = blocksize
     Cfg % blksz(Atmos % nblks) = nCellsGlobal - (Atmos % nblks - 1)*blocksize
 
-    ! Allocate physics interstitial data container (UFSATM_interstitial)
-    ! When Cfg % blksz(Atmos % nblks) is smaller than blocksize.
-    if (minval(Cfg % blksz)==maxval(Cfg % blksz)) then
-       allocate(UFSATM_interstitial(nthrds))
-    else if (all(minloc(Cfg % blksz)==(/size(Cfg % blksz)/))) then
-       allocate(UFSATM_interstitial(nthrds+1))
-    else
-       call mpp_error(FATAL, 'For non-uniform blocksizes, only the last element ' // &
-                             'in Cfg%blksz can be different from the others')
-    end if
+    allocate(UFSATM_interstitial(nthrds+1))
     
     ! Update time (UFS specific time formatting array)
     Cfg%bdat(:) = 0
@@ -262,7 +253,7 @@ contains
 
     ! Read in physics namelist and allocate data containers.
     call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
-         UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg, UFSATM_interstitial)
+         UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
 
     ! Get longitude/latitude/area from MPAS to use in the physics.
     UFSATM_grid % xlon   = lonCellGlobal
