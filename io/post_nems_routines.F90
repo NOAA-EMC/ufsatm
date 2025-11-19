@@ -231,7 +231,7 @@ module post_nems_routines
                              lsmdef,ALSL,me,d3d_on,gocart_on,hyb_sigp,&
                              pthresh,novegtype,ivegsrc,icu_physics,   &
                              isf_surface_physics,modelname,submodelname,&
-                             rdaod,d2d_chem,nasa_on,gccpp_on
+                             rdaod,d2d_chem,nasa_on,gccpp_on,method_blsn
       use upp_ifi_mod, only: write_ifi_debug_files
 !
 !    revision history:
@@ -249,7 +249,7 @@ module post_nems_routines
 
       namelist/nampgb/kpo,po,kth,th,kpv,pv,popascal,d3d_on,gocart_on,  &
                       hyb_sigp,write_ifi_debug_files,rdaod,nasa_on,gccpp_on, &
-                      d2d_chem
+                      method_blsn,d2d_chem
       namelist/model_inputs/modelname,submodelname
 !---------------------------------------------------------------------
 !
