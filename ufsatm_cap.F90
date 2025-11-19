@@ -1,6 +1,6 @@
 !--------------- UFS ATM solo model ----------------
 !
-!*** The UFS ATMosphere grid component nuopc cap 
+!*** The UFS ATMosphere grid component nuopc cap
 !
 ! Author:  Jun Wang@noaa.gov
 !
@@ -93,7 +93,7 @@ module ufsatm_cap_mod
 
   integer                                     :: mype = -1
   integer                                     :: dbug = 0
-  integer                                     :: frestart(999) = -1
+  integer, allocatable                        :: frestart(:)
 
   real(kind=8)                                :: timere, timep2re
 !-----------------------------------------------------------------------
@@ -445,7 +445,7 @@ module ufsatm_cap_mod
     ! Initialize PIO
     allocate(pio_subsystem)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
-    
+
     ! PIO debug related options
     ! pio_debug_level
     call NUOPC_CompAttributeGet(gcomp, name='pio_debug_level', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -463,9 +463,9 @@ module ufsatm_cap_mod
 
     ! set PIO debug level
     call pio_setdebuglevel(pio_debug_level)
-        
+
 #endif
-    
+
     ! set cpl_scalars from config. Default to null values for standalone
     flds_scalar_name = ''
     flds_scalar_num = 0
@@ -722,9 +722,11 @@ module ufsatm_cap_mod
                                 line=__LINE__, file=__FILE__, rcToReturn=rc)
           return
         endif
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3", name="grid_id", value=grid_id, rc=rc)
+        call ESMF_InfoGetFromHost(fcstFB(i), info=info, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3-nooutput", name="frestart", valueList=frestart, rc=rc)
+        call ESMF_InfoGet(info, key="/NetCDF/FV3/grid_id", value=grid_id, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        call ESMF_InfoGetAlloc(info, key="/NetCDF/FV3-nooutput/frestart", values=frestart, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         is_moving_fb(i) = is_moving(grid_id)
