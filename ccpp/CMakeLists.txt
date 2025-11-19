@@ -1,8 +1,12 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.19)
 
 project(CCPP-UFS
         LANGUAGES C CXX Fortran)
 set(PROJECT "CCPP-UFS")
+
+#------------------------------------------------------------------------------
+# Which dycore are we coupling the CCPP to?
+#------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
 # FV3 dynamical core
@@ -10,18 +14,28 @@ set(PROJECT "CCPP-UFS")
 if (FV3)
   message(STATUS "Build CCPP interface to FV3 dynamical core")
   set(CCPP_TARGET fv3ccpp)
-  set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config.py)
+  set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config_fv3.py)
   set(DYCORE_CCPP_SRCS
         driver/GFS_diagnostics.F90
         driver/GFS_restart.F90
         driver/GFS_init.F90
         CCPP_driver.F90
         )
-  #list(TRANSFORM DYCORE_CCPP_SRCS PREPEND ../ccpp/driver/)
 
   # Add dycore-specific preprocessor flag (needed for some physics schemes)
   add_definitions(-DFV3)
+endif()
 
+#------------------------------------------------------------------------------
+# MPAS dynamical core
+#------------------------------------------------------------------------------
+if (MPAS)
+  message(STATUS "Build CCPP interface to MPAS dynamical core")
+  set(CCPP_TARGET mpasccpp)
+  set(CCPP_PREBUILD_CONFIG config/ccpp_prebuild_config_mpas.py)
+  set(DYCORE_CCPP_SRCS
+	CCPP_driver.F90
+        )
 endif()
 
 #------------------------------------------------------------------------------
@@ -99,6 +113,22 @@ else(CCPP_32BIT)
 endif(CCPP_32BIT)
 
 #------------------------------------------------------------------------------
+# Set flags for rte-rrtmgp radiation
+if(RRTMGP_32BIT)
+  message(STATUS "Compile CCPP RTE-RRTMGP with 32-bit precision")
+  add_definitions(-DRTE_USE_SP)
+  if(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    set(CMAKE_Fortran_FLAGS_RTERRTMGP  "-real-size 32")
+  elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+    set(CMAKE_Fortran_FLAGS_RTERRTMGP  "-fno-default-real-8 -fdefault-double-8")
+  endif()
+else()
+  message(STATUS "Compile CCPP RTE-RRTMGP with 64-bit precision")
+  remove_definitions(-DRTE_USE_SP)
+  set(CMAKE_Fortran_FLAGS_RTERRTMGP  ${CMAKE_Fortran_FLAGS_PHYSICS})
+endif()
+
+#------------------------------------------------------------------------------
 # Add model-specific flags for C/C++/Fortran preprocessor
 if(NOT HYDRO)
   add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
@@ -115,6 +145,7 @@ endif()
 #------------------------------------------------------------------------------
 # Build CCPP framework and physics
 
+set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(framework)
 add_subdirectory(physics)
 
@@ -130,7 +161,7 @@ add_library(
 
 # Compile GFS_diagnostics.F90 without optimization, this leads to out of memory errors on wcoss_dell_p3
 if (FV3)
-  set_property(SOURCE ../fv3/ccpp/driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
+  set_property(SOURCE driver/GFS_diagnostics.F90 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
 endif()
 
 target_link_libraries(${CCPP_TARGET} PUBLIC ccpp_framework)
