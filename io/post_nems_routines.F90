@@ -270,6 +270,7 @@ module post_nems_routines
       nasa_on     = .false.
       gccpp_on    = .false.
       d2d_chem    = .false.
+      method_blsn = .true. 
 !
       if (me == 0) print *,'post_namelist=',post_namelist
 !jw post namelist is using the same file itag as standalone post
