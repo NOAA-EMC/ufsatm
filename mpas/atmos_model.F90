@@ -273,6 +273,14 @@ contains
 
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
     ! we are calling the physics before the dynamical core.
+    !
+    ! DJS to GJF: See fcst_run_phase_1 in module_fcst_grid_comp.F90. That is where we call the
+    ! "pieces" of the Atmospheric timestep defined below.
+    ! Since we are calling the radiation/physics first, we need to take the MPAS Initial state
+    ! and map it to the physics data containers (e.g. Typdefs). We will use the same routine
+    ! in a different "piece" later, but copying the Updated state from the dycore before calling
+    ! the microphsyics.
+    !
     call ufs_mpas_to_physics(UFSATM_statein)
 
     ! Initialize the CCPP framework
@@ -321,13 +329,19 @@ contains
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
-    !call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
 
     ! Call CCPP Radiation Group
     call mpp_clock_begin(radClock)
     if (UFSATM_control%lsswr .or. UFSATM_control%lslwr) then
+       ! DJS to GJF: If you un comment this line, you will get an error in the RRTMG radiation.
+       ! Needless to say, I didn't see why, but I assume it is due to one of the many instances
+       ! that we will need to identify as being FV3/MPAS specifc. Mostly in the Typedefs I suspect,
+       ! but there may be interstitial schemes (NOTE that I added an new MPAS specific interstital file
+       ! already, GFS_rad_time_vary.mpas.F90. I don't think it is complete.
+       ! 
        !call CCPP_step (step="radiation", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
@@ -335,7 +349,7 @@ contains
 
     ! Call CCPP Physics Group
     call mpp_clock_begin(physClock)
-    !call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
 
@@ -353,7 +367,7 @@ contains
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
-    !call ufs_physics_to_mpas(UFSATM_stateout)
+    call ufs_physics_to_mpas(UFSATM_stateout)
     
     ! Call MPAS dycore
     call mpp_clock_begin(mpasClock)
@@ -361,7 +375,7 @@ contains
     call mpp_clock_end(mpasClock)
 
     ! Prepare CCPP physics inputs with MPAS dycore outputs.
-    !call ufs_mpas_to_physics(UFSATM_statein)
+    call ufs_mpas_to_physics(UFSATM_statein)
     
   end subroutine atmos_model_dynamics
 

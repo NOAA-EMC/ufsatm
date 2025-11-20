@@ -516,6 +516,10 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
+
+    !
+    ! DJS2025 BEGIN Diagnostic block
+    !
     call atm_compute_output_diagnostics(state, 1, diag, mesh)
     call mpas_pool_get_array(diag, 'theta',  theta1)
     call mpas_pool_get_array(mesh, 'lonCell', lon)
@@ -527,6 +531,9 @@ contains
     call mpas_pool_get_dimension(mesh, 'nCells', nCells_ptr)
     call mpas_pool_get_dimension(mesh, 'nCellsSolve', nCellsSolve_ptr)
     print*,'MPAS_DEBUG0 ', lon(10),   lat(10),   theta1(10,1)
+    !
+    ! DJS2025 END Diagnostic block
+    !
     
     ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
