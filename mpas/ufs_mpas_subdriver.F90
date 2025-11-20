@@ -114,6 +114,7 @@ contains
     use mpas_attlist,               only : mpas_add_att
     use mpas_rbf_interpolation,     only : mpas_rbf_interp_initialize
     use mpas_vector_reconstruction, only : mpas_init_reconstruct
+    use mpas_timekeeping,           only : mpas_NOW
     ! FMS
     use field_manager_mod,          only : MODEL_ATMOS
     use fms2_io_mod,                only : file_exists
@@ -189,7 +190,7 @@ contains
     call mpas_pool_add_config(domain_ptr % configs, 'config_stop_time', date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
     call mpas_log_write('config_stop_time  = '//date2yyyymmdd(ndate2)//'_'//sec2hms(tod))
 
-    ! Set forecaste run time (config_run_duration) #DJS2025 this is not correct. need to fix, but works for current test.
+    ! Set forecaste run time (config_run_duration)
     tod = max(ndate2 - ndate1 - 1,0)
     call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
     call mpas_log_write('config_run_duration = '//trim(int2str(tod))//'_'//sec2hms(total_time))
@@ -263,7 +264,7 @@ contains
     !
     ! Read in static (invariant) data
     !
-    call dyn_mpas_read_write_stream( 'r', 'invariant', pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1)
+    call dyn_mpas_read_write_stream(domain_ptr % clock,  'r', 'invariant',     pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1, whence=mpas_NOW)
 
     ! FROM CAM/driver/cam_mpas_subdriver.F90
     ! Compute unit vectors giving the local north and east directions as well as
@@ -277,12 +278,14 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
     call mpas_rbf_interp_initialize(mesh)
     call mpas_init_reconstruct(mesh)
+
+    !call dyn_mpas_cell_to_edge_winds()
     
     ! Read the global sphere_radius attribute.  This is needed to normalize the cell areas.
-!    ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', sphere_radius)
-!    if( ierr /= 0 ) then
-!       call mpp_error(FATAL,subname//": Could not find sphere_radius PIO attribute")
-!    endif
+    ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', sphere_radius)
+    if( ierr /= 0 ) then
+       call mpp_error(FATAL,subname//": Could not find sphere_radius PIO attribute")
+    endif
 
     ! FROM CAM/dyn_grid.F90:dyn_grid_init()
     ! Query global grid dimensions from MPAS
@@ -323,6 +326,7 @@ contains
     use atm_core,                   only : atm_mpas_init_block, mpas_atm_run_compatibility
     use atm_time_integration,       only : mpas_atm_dynamics_init
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, mpas_START_TIME
+    use mpas_timekeeping,           only : mpas_NOW
     use mpas_log,                   only : mpas_log_write
     use mpas_attlist,               only : mpas_modify_att
     use mpas_string_utils,          only : mpas_string_replace
@@ -332,7 +336,7 @@ contains
     type(mpas_pool_type), pointer :: tend_physics_pool
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_atm_core_init'
-    type (mpas_pool_type), pointer :: state, mesh
+    type (mpas_pool_type), pointer :: state, mesh, diag
     integer :: ierr
     integer, pointer :: nVertLevels1, maxEdges1, maxEdges2, num_scalars
     real (kind=RKIND), pointer :: dt
@@ -345,6 +349,7 @@ contains
     type(field0dreal), pointer :: field_0d_real
     type(field2dreal), pointer :: field_2d_real
     logical, pointer :: config_apply_lbcs
+    real(RKIND), dimension(:,:), pointer :: theta1
 
     !
     ! Setup threading
@@ -375,12 +380,17 @@ contains
     !
     ! Build halo exchange groups and set method for exchanging halos in a group
     !
-    call mpas_log_write('Building halo exchange groups.')    
+    call mpas_log_write('Building halo exchange groups.')
+    nullify(exchange_halo_group)
     call atm_build_halo_groups(domain_ptr, ierr)
     if (ierr /= 0) then
        call mpp_error(FATAL,subname//": failed to build MPAS-A halo exchange groups.")
     end if
+    if (.not. associated(exchange_halo_group)) then
+       call mpp_error(FATAL,subname//": failed to build MPAS-A halo exchange groups.")
+    endif
 
+    !
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_do_restart', config_do_restart)
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_dt', dt)
 
@@ -388,23 +398,19 @@ contains
     ! Read in initial-conditions
     !
     call mpas_log_write('Reading in MPAS initial condition stream.')
-    call dyn_mpas_read_write_stream('r', 'input-scalars', pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1)
+    call dyn_mpas_read_write_stream(clock, 'r', 'input-scalars', pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1, whence=mpas_NOW)
 
     !
     ! Read in restart data.
     !
     !call mpas_log_write('Reading in MPAS restart stream.'
-    !call dyn_mpas_read_write_stream('r', 'restart', ierr=ierr, timeLevel=1)
+    !call dyn_mpas_read_write_stream(clock, 'r', 'restart', ierr=ierr, timeLevel=1, whence=mpas_NOW)
 
 
     if (.not. config_do_restart) then
        call mpas_log_write('Initializing time levels')
-       block => domain_ptr % blocklist
-       do while (associated(block))
-          call mpas_pool_get_subpool(block % structs, 'state', state)
-          call mpas_pool_initialize_time_levels(state)
-          block => block % next
-       end do
+       call mpas_pool_get_subpool(domain_ptr % blocklist  % structs, 'state', state)
+       call mpas_pool_initialize_time_levels(state)
     end if
 
     call mpas_log_write('Initializing atmospheric variables')
@@ -441,36 +447,20 @@ contains
        return
     end if
     
-    block => domain_ptr % blocklist
-    do while (associated(block))
-       call mpas_pool_get_subpool(block % structs, 'mesh', mesh)
-       call mpas_pool_get_subpool(block % structs, 'state', state)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
 
-       call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, block, mesh, dt)
-       call mpas_pool_get_array(state, 'xtime', xtime, timelevel=1)
-       xtime = startTimeStamp
+    call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, domain_ptr % blocklist, mesh, dt)
 
-       ! Initialize initial_time in second time level. We need to do this because initial state
-       ! is read into time level 1, and if we write output from the set of state arrays that
-       ! represent the original time level 2, the initial_time field will be invalid.
-       call mpas_pool_get_array(state, 'initial_time', initial_time1, timelevel=1)
-       call mpas_pool_get_array(state, 'initial_time', initial_time2, timelevel=2)
-       initial_time2 = initial_time1
+    call mpas_pool_get_array(state, 'xtime', xtime, timelevel=1)
+    xtime = startTimeStamp
 
-       ! Set time units to CF-compliant "seconds since <date and time>".
-       call mpas_pool_get_field(state, 'Time', field_0d_real, timelevel=1)
-       if (.not. associated(field_0d_real)) then
-          call mpp_error(FATAL,subname//'Failed to find variable "Time"')
-       end if
-       
-       call mpas_modify_att(field_0d_real % attlists(1) % attlist, 'units', &
-            'seconds since ' // mpas_string_replace(initial_time1, '_', ' '), ierr=ierr)
-       if (ierr /= 0) then
-          call mpp_error(FATAL,subname//'Failed to set time units')
-       end if
-
-       block => block % next
-      end do
+    ! Initialize initial_time in second time level. We need to do this because initial state
+    ! is read into time level 1, and if we write output from the set of state arrays that
+    ! represent the original time level 2, the initial_time field will be invalid.
+    call mpas_pool_get_array(state, 'initial_time', initial_time1, timelevel=1)
+    call mpas_pool_get_array(state, 'initial_time', initial_time2, timelevel=2)
+    initial_time2 = initial_time1
       
     call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw',ierr=ierr)
     if ( ierr /= 0 ) then
@@ -517,21 +507,26 @@ contains
     type (mpas_Time_type) :: timeNow, timeStop,timeLBCnew
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime, itimestep
-    integer, pointer :: index_qv
-    real(kind=RKIND), dimension(:,:), pointer :: theta_m, rho_zz, zz, theta, rho
-    real(kind=RKIND), dimension(:,:,:), pointer :: scalars
     real (kind=R8KIND) :: integ_start_time, integ_stop_time 
     logical, pointer :: config_apply_lbcs
     type(mpas_timeinterval_type) :: mpas_time_interval
     real(RKIND), dimension(:,:), pointer :: theta1, ux1, uy1, theta2, ux2, uy2
-
+    real(RKIND), dimension(:),   pointer :: lon,lat
+    integer, pointer :: nCells_ptr,nCellsSolve_ptr
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
+    call atm_compute_output_diagnostics(state, 1, diag, mesh)
     call mpas_pool_get_array(diag, 'theta',  theta1)
+    call mpas_pool_get_array(mesh, 'lonCell', lon)
+    call mpas_pool_get_array(mesh, 'latCell', lat)
     call mpas_pool_get_array(diag, 'uReconstructZonal', ux1)
     call mpas_pool_get_array(diag, 'uReconstructMeridional', uy1)
-    print*,'SWALES theta1 = ', theta1(1,1), ux1(1,1), uy1(1,1)
+    lon = lon*180/3.14
+    lat = lat*180/3.14
+    call mpas_pool_get_dimension(mesh, 'nCells', nCells_ptr)
+    call mpas_pool_get_dimension(mesh, 'nCellsSolve', nCellsSolve_ptr)
+    print*,'MPAS_DEBUG0 ', lon(10),   lat(10),   theta1(10,1)
     
     ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
@@ -554,8 +549,12 @@ contains
        call mpp_error(FATAL,subname//'Failed to set dynamics time step')
     endif
 
-    ! Compute lateral boundary conditions (timeLevel=1)
+    !
+    ! Read initial boundary state
+    !
     if (config_apply_lbcs) then
+       call mpas_log_write('--------------------------------------------------')
+       call mpas_log_write('Compute initial lateral boundary conditions for timestep '//trim(timeStamp))
        call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .true., ierr)
        if (ierr /= 0) then
           call mpas_log_write('Failed to process LBC data at next time after '//trim(timeStamp), messageType=MPAS_LOG_ERR)
@@ -570,7 +569,8 @@ contains
     !   time step, and time level 2 stores the state advanced config_dt in time by timestep(...)
     timeStop = timeNow + mpas_time_interval
     itimestep =	0
-    call mpas_log_write(' MPAS dynamics start')
+    call mpas_log_write('--------------------------------------------------')
+    call mpas_log_write('MPAS dynamics start timestep')
     do while (timeNow .LT. timeStop)
        itimestep = itimestep + 1
 
@@ -579,18 +579,21 @@ contains
           call mpp_error(FATAL,subname//': Failed to get time mpas_NOW"')
        end if
        !
-       call mpas_log_write('') 
-       call mpas_log_write(' MPAS dynamics start timestep '//trim(timeStamp))
+       call mpas_log_write(' Start timestep at '//trim(timeStamp))
 
-       ! Compute lateral boundary conditions.
+       !
+       ! Read future boundary state and compute boundary tendencies
+       !
        if (config_apply_lbcs) then
-          if (timeNow .GT. timeLBCnew) then
-             call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .false., ierr)
-             if (ierr /= 0) then
-                call mpas_log_write('Failed to process LBC data at next time after '//trim(timeStamp), messageType=MPAS_LOG_ERR)
-                return
-             end if
+          !if (timeNow .GT. timeLBCnew) then
+          call mpas_log_write('--------------------------------------------------')
+          call mpas_log_write('Update lateral boundary conditions for timestep '//trim(timeStamp))
+          !call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .false., ierr)
+          if (ierr /= 0) then
+             call mpas_log_write('Failed to process LBC data at next time after '//trim(timeStamp), messageType=MPAS_LOG_ERR)
+             return
           end if
+          !end if
        end if
        
        ! Integrate forward one dycore time step
@@ -613,18 +616,15 @@ contains
        if (ierr /= 0) then
           call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
        endif
-
     end do
+    call mpas_log_write('MPAS dynamics stop timestep')
+
     !
     ! Compute diagnostic fields  (theta, rho, pres) from
     ! the final prognostic state (theta_m, rho_zz, zz)
     !
     call atm_compute_output_diagnostics(state, 1, diag, mesh)
-    call mpas_pool_get_array(diag, 'theta',  theta2)
-    call mpas_pool_get_array(diag, 'uReconstructZonal', ux2)
-    call mpas_pool_get_array(diag, 'uReconstructMeridional', uy2)
-    print*,'SWALES theta2 = ', theta2(1,1), ux2(1,1), uy2(1,1)
-    
+
     !
     ! Write any output streams
     !

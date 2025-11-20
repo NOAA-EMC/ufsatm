@@ -9,9 +9,10 @@
 !>
 !> ###########################################################################################
 module ufs_mpas_module
-  use mpas_derived_types, only : core_type, domain_type, mpas_Clock_type
-  use mpas_derived_types, only : mpas_time_type
-  use mpas_kind_types,    only : StrKIND
+  use mpas_derived_types,  only : core_type, domain_type, mpas_Clock_type
+  use mpas_derived_types,  only : mpas_time_type
+  use mpas_kind_types,     only : StrKIND
+  use mpas_atm_boundaries, only : LBC_intv_end
   implicit none
 
   public
@@ -20,9 +21,6 @@ module ufs_mpas_module
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
-
-  !
-  type (MPAS_Time_Type) :: LBC_intv_end
 
   !
   character(StrKIND), allocatable :: constituent_name(:)
@@ -47,8 +45,8 @@ module ufs_mpas_module
        var_info_type('lbc_u'                           , 'real'      , 2), &
        var_info_type('lbc_w'                           , 'real'      , 2), &
        var_info_type('lbc_rho'                         , 'real'      , 2), &
-       var_info_type('lbc_theta'                       , 'real'      , 2), &
-       var_info_type('lbc_scalars'                     , 'real'      , 3)  &
+       var_info_type('lbc_theta'                       , 'real'      , 2)  &
+       !var_info_type('lbc_scalars'                     , 'real'      , 3)  &
        ]
 
   !> #########################################################################################
@@ -143,7 +141,7 @@ module ufs_mpas_module
        var_info_type('initial_time'                    , 'character' , 0), &
        var_info_type('rho'                             , 'real'      , 2), &
        var_info_type('rho_base'                        , 'real'      , 2), &
-       var_info_type('scalars'                         , 'real'      , 3), &
+       !var_info_type('scalars'                         , 'real'      , 3), &
        var_info_type('theta'                           , 'real'      , 2), &
        var_info_type('theta_base'                      , 'real'      , 2), &
        var_info_type('u'                               , 'real'      , 2), &
@@ -341,7 +339,7 @@ contains
     use mpas_pool_routines,  only : mpas_pool_shift_time_levels, mpas_pool_get_array
     use mpas_pool_routines,  only : mpas_pool_get_dimension
     use module_mpas_config,  only : lbc_filename, pioid_lbc, pio_subsystem_lbc
-
+    
     implicit none
 
     type (mpas_clock_type), intent(in) :: clock
@@ -401,7 +399,8 @@ contains
     call mpas_pool_get_subpool(block % structs, 'lbc', lbc)
 
     if (firstCall) then
-       call dyn_mpas_read_write_stream('r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2)
+       call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2, &
+            whence = MPAS_STREAM_LATEST_BEFORE, actualWhen=read_time)
        if (ierr /= MPAS_STREAM_MGR_NOERR) then
           call mpas_log_write('Could not read from ''lbc_in'' stream on or before the current date '// &
                               'to update lateral boundary tendencies', messageType=MPAS_LOG_ERR)
@@ -409,7 +408,8 @@ contains
        end if
     else
        call mpas_pool_shift_time_levels(lbc)
-       call dyn_mpas_read_write_stream('r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2)
+       call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2,  &
+            whence = MPAS_STREAM_EARLIEST_STRICTLY_AFTER, actualWhen=read_time)
        if (ierr /= MPAS_STREAM_MGR_NOERR) then
           call mpas_log_write('Could not read from ''lbc_in'' stream after the current date '// &
                               'to update lateral boundary tendencies', messageType=MPAS_LOG_ERR)
@@ -420,11 +420,12 @@ contains
        return
     end if
 
-    !read_time = '2023-03-10_00:00:00'
+    !read_time = '2023-03-10_18:00:00'
     !call mpas_set_time(currTime, dateTimeString=trim(read_time))
     currTime = mpas_get_clock_time(clock, MPAS_NOW, ierr)
     call mpas_get_time(currTime, dateTimeString=read_time, ierr=ierr)
     call mpas_set_time(currTime,dateTimeString=trim(read_time))
+    !print*,'read_time=',read_time
     !
     ! Compute any derived fields from those that were read from the lbc_in stream
     !
@@ -503,7 +504,10 @@ contains
        call mpas_get_timeInterval(interval=lbc_interval, DD=dd_intv, S=s_intv, S_n=sn_intv, S_d=sd_intv, ierr=ierr)
        dt = 86400.0_RKIND * real(dd_intv, kind=RKIND) + real(s_intv, kind=RKIND) &
             + (real(sn_intv, kind=RKIND) / real(sd_intv, kind=RKIND))
-
+       !print*,'SWALES ufs_mpas_atm_update_bdy_tend dd_intv = ',dd_intv
+       !print*,'SWALES ufs_mpas_atm_update_bdy_tend s_intv  = ',s_intv
+       !print*,'SWALES ufs_mpas_atm_update_bdy_tend sn_intv = ',sn_intv
+       !print*,'SWALES ufs_mpas_atm_update_bdy_tend sd_intv = ',sd_intv
 
        dt = 1.0_RKIND / dt
 
@@ -1176,9 +1180,7 @@ contains
          if (.not. associated(field_2d_real)) then
             call mpp_error(FATAL,subname//'Failed to find field "' // trim(adjustl(field_name)) // '"')
          end if
-
          call mpas_dmpar_exch_halo_field(field_2d_real)
-
          nullify(field_2d_real)
       case (3)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
@@ -1239,23 +1241,27 @@ contains
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
  !>
  !> ########################################################################################
- subroutine dyn_mpas_read_write_stream(stream_mode, stream_name, pio_file_desc, timeLevel, ierr)
+ subroutine dyn_mpas_read_write_stream(clock, stream_mode, stream_name, pio_file_desc, timeLevel, when, whence, actualWhen, ierr)
    ! Module(s) from external libraries.
    use pio, only: file_desc_t
    use mpp_mod,             only : FATAL, mpp_error
    ! Module(s) from MPAS.
    use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
-   use mpas_io_streams,     only : mpas_closestream, mpas_readstream, mpas_writestream
+   use mpas_io_streams,     only : mpas_closestream, mpas_writestream
    use mpas_pool_routines,  only : mpas_pool_destroy_pool
    use mpas_stream_manager, only : postread_reindex, prewrite_reindex, postwrite_reindex
    use mpas_log,            only : mpas_log_write
    use mpas_atm_halos,      only : exchange_halo_group
    use mpas_io_streams,     only : MPAS_STREAM_EXACT_TIME
-
+   use mpas_timekeeping,    only : mpas_get_clock_time, MPAS_NOW
+   type (mpas_clock_type), intent(in) :: clock
    character(*), intent(in) :: stream_mode
    character(*), intent(in) :: stream_name
    type(file_desc_t), pointer, intent(in) :: pio_file_desc
    integer, intent(in) :: timeLevel
+   character (len=*), intent(in), optional :: when
+   integer, intent(in), optional :: whence
+   character (len=*), intent(out), optional :: actualWhen
    integer, intent(out) :: ierr
    
    character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_read_write_stream'
@@ -1263,11 +1269,34 @@ contains
    type(mpas_pool_type), pointer :: mpas_pool
    type(mpas_stream_type), pointer :: mpas_stream
    type(var_info_type), allocatable :: var_info_list(:)
-
+   character (len=StrKIND) :: local_when
+   integer :: local_whence
+   integer :: local_ierr
+   type (MPAS_Time_type) :: now_time
+   
    ierr = 0
    call mpas_log_write('')
 
-   
+   !
+   ! Optional arguments.
+   !
+   if (present(actualWhen)) write(actualWhen,'(a)') '0000-01-01_00:00:00'
+   if (present(whence)) then
+      local_whence = whence
+   else
+      local_whence = MPAS_STREAM_EXACT_TIME
+   end if
+
+   if (present(when)) then
+      local_when = when
+   else
+      now_time = mpas_get_clock_time(clock, MPAS_NOW, ierr=local_ierr)
+      if (local_ierr /= 0) then
+         call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
+      endif
+      !call mpas_get_time(now_time, dateTimeString=local_when)
+   end if
+
    nullify(mpas_pool)
    nullify(mpas_stream)
    call mpas_log_write( '---------------------------------------------------------------------')
@@ -1287,7 +1316,7 @@ contains
    case ('r', 'read')
       call mpas_log_write('Reading stream "' // trim(adjustl(stream_name)) // '"')
 
-      call mpas_readstream(mpas_stream, timeLevel, ierr=ierr)
+      call read_stream(mpas_stream, timeLevel, local_when, local_whence, actualWhen, ierr)
 
       if (ierr /= mpas_stream_noerr) then
          call mpp_error(FATAL,subname//'Failed to read stream "' // trim(adjustl(stream_name)) // '"')
@@ -1346,7 +1375,35 @@ contains
    call mpas_log_write(subname // ' completed')
    
  end subroutine dyn_mpas_read_write_stream
- 
+
+ !> ########################################################################################
+ !> subroutine read_stream
+ !>
+ !>
+ !> ########################################################################################
+ subroutine read_stream(stream, timeLevel, when, whence, actualWhen, ierr)
+   use mpas_io_streams,     only : mpas_readstream
+   use mpas_derived_types,  only : MPAS_Time_type, MPAS_TimeInterval_type
+   use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
+
+   type(mpas_stream_type), pointer, intent(inout) :: stream
+   integer, intent(in) :: timeLevel
+   character (len=*), intent(in) :: when
+   integer, intent(in) ::  whence
+   character (len=*), intent(out), optional :: actualWhen
+   integer, intent(out) :: ierr
+
+   type (MPAS_Time_type) :: now_time
+   type (MPAS_TimeInterval_type) :: filename_interval
+   integer :: local_ierr
+   character (len=StrKIND) :: temp_filename
+
+   !call mpas_set_time(now_time, dateTimeString=whence, ierr=local_ierr)
+   !call mpas_set_timeInterval(filename_interval, timeString=stream % filename_interval)
+   
+   call mpas_readstream(stream, timeLevel, ierr=ierr)
+   
+ end subroutine read_stream
  !> ########################################################################################
  !> subroutine dyn_mpas_init_stream_with_pool
  !>
@@ -1492,7 +1549,7 @@ contains
          if (.not. any(var_is_present)) then
             call mpas_log_write('Skipping variable "' // trim(adjustl(var_info_list(i) % name)) // '" due to not present')
 
-            !cycle
+            cycle
          end if
 
          if (any(var_is_present .and. .not. var_is_tkr_compatible)) then
@@ -1619,11 +1676,9 @@ contains
          case (2)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
                  trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=timeLevel)
-
             if (.not. associated(field_2d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
             end if
-
             call mpas_streamaddfield(mpas_stream, field_2d_real, ierr=ierr)
 
             nullify(field_2d_real)
@@ -1634,7 +1689,6 @@ contains
             if (.not. associated(field_3d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
             end if
-
             call mpas_streamaddfield(mpas_stream, field_3d_real, ierr=ierr)
 
             nullify(field_3d_real)
@@ -2456,5 +2510,56 @@ contains
    call mpas_log_write(subname // ' completed')
  end subroutine dyn_mpas_check_variable_status
 
+ !> ########################################################################################  
+ !  routine dyn_mpas_cell_to_edge_winds
+ !
+ !> \brief  Projects cell-centered winds to the normal component of velocity on edges
+ !> \author Michael Duda
+ !> \date   16 January 2020
+ !> \details
+ !>  Given zonal and meridional winds at cell centers, unit vectors in the east
+ !>  and north directions at cell centers, and unit vectors in the normal
+ !>  direction at edges, this routine projects the cell-centered winds onto
+ !>  the normal vectors.
+ !>
+ !>  Prior to calling this routine, the halos for the zonal and meridional
+ !>  components of cell-centered winds should be updated. It is also critical
+ !>  that the east, north, uZonal, and uMerid field are all allocated with
+ !>  a "garbage" element; this is handled automatically for fields allocated
+ !>  by the MPAS infrastructure.
+ !>
+ !> ########################################################################################
+ subroutine dyn_mpas_cell_to_edge_winds(nEdges, uZonal, uMerid, east, north, edgeNormalVectors, &
+      cellsOnEdge, uNormal)
+   use mpas_kind_types, only : RKIND
+   integer, intent(in) :: nEdges
+   real(kind=RKIND), dimension(:,:), intent(in) :: uZonal, uMerid
+   real(kind=RKIND), dimension(:,:), intent(in) :: east, north, edgeNormalVectors
+   integer, dimension(:,:), intent(in) :: cellsOnEdge
+   real(kind=RKIND), dimension(:,:), intent(out) :: uNormal
+
+   integer :: iEdge, cell1, cell2
+
+   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::dyn_mpas_cell_to_edge_winds'
+
+   do iEdge = 1, nEdges
+      cell1 = cellsOnEdge(1,iEdge)
+      cell2 = cellsOnEdge(2,iEdge)
+
+      uNormal(:,iEdge) = uZonal(:,cell1)*0.5_RKIND*(edgeNormalVectors(1,iEdge)*east(1,cell1)   &
+                                                  + edgeNormalVectors(2,iEdge)*east(2,cell1)   &
+                                                  + edgeNormalVectors(3,iEdge)*east(3,cell1))  &
+                       + uMerid(:,cell1)*0.5_RKIND*(edgeNormalVectors(1,iEdge)*north(1,cell1)  &
+                                                  + edgeNormalVectors(2,iEdge)*north(2,cell1)  &
+                                                  + edgeNormalVectors(3,iEdge)*north(3,cell1)) &
+                       + uZonal(:,cell2)*0.5_RKIND*(edgeNormalVectors(1,iEdge)*east(1,cell2)   &
+                                                  + edgeNormalVectors(2,iEdge)*east(2,cell2)   &
+                                                  + edgeNormalVectors(3,iEdge)*east(3,cell2))  &
+                       + uMerid(:,cell2)*0.5_RKIND*(edgeNormalVectors(1,iEdge)*north(1,cell2)  &
+                                                  + edgeNormalVectors(2,iEdge)*north(2,cell2)  &
+                                                  + edgeNormalVectors(3,iEdge)*north(3,cell2))
+   end do
+
+ end subroutine dyn_mpas_cell_to_edge_winds
 
 end module ufs_mpas_module
