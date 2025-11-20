@@ -1545,6 +1545,11 @@ module GFS_typedefs
     integer              :: nchem           !< number of prognostic chemical species (vertically mixied)
     integer              :: ndvel           !< number of prognostic chemical species (which are deposited, usually =nchem)
     integer              :: ntchm           !< number of prognostic chemical tracers (advected)
+!IVAI: "cplaqm" tracer
+    integer              :: nto3            !< tracer index for Ozone chemical species CMAQ
+    integer              :: ntno            !< tracer index for NO    chemical species CMAQ
+    integer              :: ntno2           !< tracer index for NO2   chemical species CMAQ
+!IVAI
     integer              :: ntchs           !< tracer index for first prognostic chemical tracer
     integer              :: ntche           !< tracer index for last prognostic chemical tracer
     integer              :: ntdu1           !< tracer index for dust bin1
@@ -5506,6 +5511,11 @@ module GFS_typedefs
     Model%dtidx = physics_no_tracer
 
     if(Model%ntchm>0) then
+!IVAI
+      Model%ntno2 = get_physics_tracer_index('no2', Model)  ! ntno2=9  (index 8  is  "no2" in PBL scheme)
+      Model%ntno  = get_physics_tracer_index('no', Model)   ! ntno =10 (index 9  is  "no"  in PBL scheme)
+      Model%nto3  = get_physics_tracer_index('o3', Model)   ! nto3 =11 (index 10 is  "o3"  in PBL scheme)
+!IVAI
       Model%ntdu1 = get_physics_tracer_index('dust1', Model)
       Model%ntdu2 = get_physics_tracer_index('dust2', Model)
       Model%ntdu3 = get_physics_tracer_index('dust3', Model)
@@ -5580,22 +5590,45 @@ module GFS_typedefs
            endif
 
            ! More specific chemical tracer names:
+! IVAI: NB. ntchs is 1st chemical tracer (not so2 tracer)
            call label_dtend_tracer(Model,100+Model%ntchs,'so2','sulfur dioxide concentration','kg kg-1 s-1')
+
            if(Model%ntchm>0) then
               ! Need better descriptions of these.
               call label_dtend_tracer(Model,100+Model%ntchm+Model%ntchs-1,'pp10','pp10 concentration','kg kg-1 s-1')
 
               itrac=get_physics_tracer_index('DMS', Model)
               if(itrac>0) then
+!                print*,'Index of DMS: ntdms = ', itrac
                  call label_dtend_tracer(Model,100+itrac,'DMS','DMS concentration','kg kg-1 s-1')
               endif
+
               itrac=get_physics_tracer_index('msa', Model)
               if(itrac>0) then
+!                print*,'Index of MSA: ntmsa = ', itrac
                  call label_dtend_tracer(Model,100+itrac,'msa','msa concentration','kg kg-1 s-1')
               endif
+!IVAI
+              itrac=get_physics_tracer_index('o3', Model)
+              if(itrac>0) then
+!                print*,'Index of O3: nto3 = ', itrac ! nto3 = 11
+                call label_dtend_tracer(Model,100+itrac, 'o3_cpl', 'cplaqm ozone concentration','kg kg-1 s-1')
+              endif
+
+              itrac=get_physics_tracer_index('no2', Model)
+              if(itrac>0) then
+!                print*,'Index of NO2: ntno2 = ', itrac ! ntno2 = 9
+                call label_dtend_tracer(Model,100+itrac, 'no2_cpl', 'cplaqm nitrogen dioxide concentration','kg kg-1 s-1')
+              endif
+
+              itrac=get_physics_tracer_index('no', Model)
+              if(itrac>0) then
+!                print*,'Index of NO: ntno = ', itrac ! ntno = 10
+                call label_dtend_tracer(Model,100+itrac, 'no_cpl', 'cplaqm nitrogen monoxide concentration','kg kg-1 s-1')
+              endif
+!IVAI
            endif
         endif
-
 
         call label_dtend_tracer(Model,Model%index_of_temperature,'temp','temperature','K s-1')
         call label_dtend_tracer(Model,Model%index_of_x_wind,'u','x wind','m s-2')
@@ -5629,6 +5662,7 @@ module GFS_typedefs
         call label_dtend_tracer(Model,100+Model%ntia,'ice_aero','number concentration of ice-friendly aerosols','kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto,'o_ion','oxygen ion concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto2,'o2','oxygen concentration','kg kg-1 s-1')
+
         call label_dtend_cause(Model,Model%index_of_process_pbl,'pbl','tendency due to PBL')
         call label_dtend_cause(Model,Model%index_of_process_dcnv,'deepcnv','tendency due to deep convection')
         call label_dtend_cause(Model,Model%index_of_process_scnv,'shalcnv','tendency due to shallow convection')
@@ -5710,6 +5744,12 @@ module GFS_typedefs
                 call fill_dtidx(Model,dtend_select,100+itrac,Model%index_of_process_dcnv,have_dcnv)
              enddo
           endif
+
+!IVAI: NB. In PBL scheme chemical tracers indexes are offset by 1
+          call fill_dtidx(Model,dtend_select,100+Model%ntno2,Model%index_of_process_pbl,have_pbl) ! ntno2= 9   (index 8 is  "no2" in PBL scheme)
+          call fill_dtidx(Model,dtend_select,100+Model%ntno ,Model%index_of_process_pbl,have_pbl) ! ntno = 10  (index 9 is  "no"  in PBL scheme)
+          call fill_dtidx(Model,dtend_select,100+Model%nto3 ,Model%index_of_process_pbl,have_pbl) ! nto3 = 11  (index 10 is "o3"  in PBL scheme)
+!IVAI
 
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_pbl,have_pbl)
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_prod_loss,have_oz_phys)
@@ -6666,6 +6706,13 @@ module GFS_typedefs
     if (Model%ntchm > 0) Model%ntche = Model%ntchs + Model%ntchm - 1
     if (Model%ndchm > 0) Model%ndche = Model%ndchs + Model%ndchm - 1
 
+!IVAI
+!    print*,'control_chm_init: ntche = ', Model%ntchs, Model%ntche, Model%ntchm !IVAI
+!                                         ntchs = 9  to  ntche = 197  => ntchm = 189
+!    print*,'control_chm_init: ndche = ', Model%ndchs, Model%ndche, Model%ndchm !IVAI
+!                                                198 to 201   =>      4
+!IVAI
+
   end subroutine control_chemistry_initialize
 
 
@@ -7249,6 +7296,11 @@ module GFS_typedefs
       print *, ' nqrimef           : ', Model%nqrimef
       print *, ' ntqv              : ', Model%ntqv
       print *, ' ntoz              : ', Model%ntoz
+!IVAI
+      print *, ' ntno2             : ', Model%ntno2 ! "no2"  tracer cplaqm/CMAQ
+      print *, ' ntno              : ', Model%ntno  ! "no"   tracer cplaqm/CMAQ
+      print *, ' nto3              : ', Model%nto3  ! "o3"   tracer cplaqm/CMAQ
+!IVAI
       print *, ' ntcw              : ', Model%ntcw
       print *, ' ntiw              : ', Model%ntiw
       print *, ' ntrw              : ', Model%ntrw
