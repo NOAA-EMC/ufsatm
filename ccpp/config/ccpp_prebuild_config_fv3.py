@@ -189,7 +189,7 @@ SCHEME_FILES = [
     'physics/physics/PBL/MYNN_EDMF/mynnedmf_wrapper.F90',
     'physics/physics/PBL/SATMEDMF/satmedmfvdif.F',
     'physics/physics/PBL/SATMEDMF/satmedmfvdifq.F',
-    'physics/physics/PBL/SATMEDMF/canopy_satmedmfvdifq.F',
+    'physics/physics/PBL/SATMEDMF/canopy_driver.F',
     'physics/physics/PBL/YSU/ysuvdif.F90',
     'physics/physics/PBL/saYSU/shinhongvdif.F90',
     'physics/physics/Radiation/RRTMG/radsw_main.F90',
