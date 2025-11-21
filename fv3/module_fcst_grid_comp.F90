@@ -1208,7 +1208,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         frestart(1) = total_inttime
       else
         do i=1,num_restart_fh
-          frestart(i) = restart_fh(i) * 3600.
+          frestart(i) = nint(restart_fh(i) * 3600.)
         enddo
       endif
     endif
