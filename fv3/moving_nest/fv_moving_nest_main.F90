@@ -99,7 +99,7 @@ module fv_moving_nest_main_mod
   !------------------------------------
 
   use fv_moving_nest_types_mod, only: allocate_fv_moving_nest_prog_type, allocate_fv_moving_nest_physics_type
-  use fv_moving_nest_types_mod, only: deallocate_fv_moving_nests
+  use fv_moving_nest_types_mod, only: deallocate_fv_moving_nests, mn_set_leading_edge
   use fv_moving_nest_types_mod, only: Moving_nest
   use fv_moving_nest_types_mod, only: mn_apply_lakes, mn_overwrite_with_nest_init_values, alloc_set_facwf
   use fv_moving_nest_types_mod, only: mn_static_overwrite_ls_from_nest, mn_static_overwrite_fix_from_nest
@@ -951,7 +951,7 @@ contains
         allocate(wt_v(Atm(child_grid_num)%bd%isd:Atm(child_grid_num)%bd%ied+1, Atm(child_grid_num)%bd%jsd:Atm(child_grid_num)%bd%jed, 4))
         wt_v = real_snan
 
-	! Fill in the local weights with the ones from Atm just to be safe
+        ! Fill in the local weights with the ones from Atm just to be safe
         call fill_weight_grid(wt_h, Atm(n)%neststruct%wt_h)
         call fill_weight_grid(wt_u, Atm(n)%neststruct%wt_u)
         call fill_weight_grid(wt_v, Atm(n)%neststruct%wt_v)
@@ -1318,6 +1318,10 @@ contains
            enddo
          enddo
        endif
+
+      if (is_fine_pe) then
+        call mn_set_leading_edge(Moving_nest(child_grid_num)%mn_phys, isd, ied, jsd, jed, delta_i_c, delta_j_c)
+      endif
 
       call mn_prog_apply_temp_variables(Atm, n, child_grid_num, is_fine_pe, npz)
       call mn_phys_apply_temp_variables(Atm, Atm_block, GFS_control, GFS_sfcprop, GFS_tbd, GFS_cldprop, GFS_intdiag, n, child_grid_num, is_fine_pe, npz)

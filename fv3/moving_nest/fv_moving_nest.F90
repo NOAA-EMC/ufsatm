@@ -763,7 +763,10 @@ contains
 
     write(parent_str, '(I0)'), tile_num
 
-    if (refine .eq. 1 .and. (tag .eq. 'grid' .or. tag .eq. 'oro_data')) then
+    if (refine .eq. 1 .and.  tag .eq. 'sfc_data') then
+      ! 
+      grid_filename = trim(trim(surface_dir) // '/../' // trim(tag) // '.nc')
+    elseif (refine .eq. 1 .and. (tag .eq. 'grid' .or. tag .eq. 'oro_data')) then
       ! For 1x files in INPUT directory; go at the symbolic link
       grid_filename = trim(trim(surface_dir) // '/' // trim(tag) // '.tile' // trim(parent_str) // '.nc')
     else
@@ -890,7 +893,16 @@ contains
     endif
 
     ! Read in coarse resolution land sea mask to use for masked interpolations; factor in lakes as well
-    call mn_static_read_hires(npx, npy, refine, pelist, surface_dir, "oro_data", "slmsk", static_ls%ls_mask_grid,  tile_num)
+
+    if (refine .eq. 1 .and. tile_num .eq. 1) then
+      ! Read in coarse parent slmask from sfc_data.nc -- this will have land/sea/sea ice mask
+      print '("[INFO] WDR STATIC_READ_LS parent sfc_data npe=",I0)', mpp_pe()
+      call mn_static_read_hires(npx, npy, refine, pelist, surface_dir, "sfc_data", "slmsk", static_ls%ls_mask_grid,  tile_num)
+    else
+      print '("[INFO] WDR STATIC_READ_LS other oro_data npe=",I0)', mpp_pe()
+      call mn_static_read_hires(npx, npy, refine, pelist, surface_dir, "oro_data", "slmsk", static_ls%ls_mask_grid,  tile_num)
+    endif
+
     call mn_static_read_hires(npx, npy, refine, pelist, surface_dir, "oro_data", "land_frac", static_ls%land_frac_grid,  tile_num)
 
     !! Lat lons for debugging
@@ -910,7 +922,7 @@ contains
     character(len=*), intent(in)       :: surface_dir            !< Surface directory
     integer, intent(in) :: npx, npy, refine, tile_num, month     !< Number of x,y points and nest refinement, (parent) tile number
 
-    call mn_static_read_hires(npx, npy, refine, pelist, surface_dir, "substrate_temperature", "substrate_temperature", static_fix%deep_soil_temp_grid, tile_num)
+    call mn_static_read_hires(npx, npy, refine, pelist, trim(surface_dir), "substrate_temperature", "substrate_temperature", static_fix%deep_soil_temp_grid, tile_num)
     ! set any -999s to +4C
     call mn_replace_low_values(static_fix%deep_soil_temp_grid, -100.0, 277.0)
 

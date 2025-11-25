@@ -119,6 +119,91 @@ module fv_moving_nest_physics_mod
 
 contains
 
+  subroutine mn_phys_apply_coarse_seaice(Atm, n, mn_static, ioffset, joffset, refine)
+    type(fv_atmos_type), intent(inout),allocatable   :: Atm(:)              !< Array of atmospheric data
+    integer, intent(in)                              :: n                   !< Current grid number
+    type(mn_surface_grids), intent(in)               :: mn_static           !< Static surface data
+    integer, intent(in)                              :: ioffset, joffset    !< Current nest offset in i,j direction
+    integer, intent(in)                              :: refine              !< Nest refinement ratio
+
+    integer                 :: i_pe, j_pe               ! indices of the nest on this PE
+    integer                 :: i_idx, j_idx
+    integer                 :: i_parent, j_parent       ! parent indices
+    integer                 :: this_pe, halo
+
+    integer                 :: i,j, num_seaice
+
+    integer, parameter :: M_WATER = 0, M_LAND = 1, M_SEAICE = 2
+
+    this_pe = mpp_pe()
+    ! Should only be run for a fine PE
+
+    !print '("[INFO] MASK BEGIN inside mn_phys_apply_coarse_seaice npe=",I0," n=",I0," refine=",I0," ioffset=",I0," joffset=",I0)', this_pe, n, refine, ioffset, joffset
+    ! Setup local land sea mask grid for masked interpolations
+    ! These are grid centers, not corners
+
+    halo = 3
+
+    num_seaice = 0
+
+    do i = lbound(mn_static%parent_ls%ls_mask_grid,1), ubound(mn_static%parent_ls%ls_mask_grid,1)
+      do j = lbound(mn_static%parent_ls%ls_mask_grid,2), ubound(mn_static%parent_ls%ls_mask_grid,2)
+        if (mn_static%parent_ls%ls_mask_grid(i, j) .eq. M_SEAICE) num_seaice = num_seaice + 1
+      enddo
+    enddo
+
+    !print '("[INFO] MASK ICE npe=",I0," parent_ls num_seaice=",I0)',this_pe, num_seaice
+
+    num_seaice = 0
+
+    do i = lbound(mn_static%fp_ls%ls_mask_grid,1), ubound(mn_static%fp_ls%ls_mask_grid,1)
+      do j = lbound(mn_static%fp_ls%ls_mask_grid,2), ubound(mn_static%fp_ls%ls_mask_grid,2)
+        if (mn_static%fp_ls%ls_mask_grid(i, j) .eq. M_SEAICE) num_seaice = num_seaice + 1
+      enddo
+    enddo
+
+    !print '("[INFO] MASK ICE npe=",I0," fp_ls num_seaice=",I0)',this_pe, num_seaice
+
+    do i_pe = Atm(n)%bd%isd, Atm(n)%bd%ied
+      do j_pe = Atm(n)%bd%jsd, Atm(n)%bd%jed
+        i_idx = (ioffset-1)*refine + i_pe
+        j_idx = (joffset-1)*refine + j_pe
+
+        ! Fortran integer division truncates the fractional parts
+        i_parent = ioffset + (i_pe + 3)/refine
+        j_parent = joffset + (j_pe + 3)/refine
+        if (Moving_nest(n)%mn_phys%slmsk(i_pe, j_pe) .eq. M_WATER) then
+          if (mn_static%parent_ls%ls_mask_grid(i_parent, j_parent) .eq. M_SEAICE) then
+            !print '("[INFO] WDR COARSE_SEAICE AA npe=",I0," i_pe=",I0," j_pe=",I0)', this_pe, i_pe, j_pe
+            Moving_nest(n)%mn_phys%slmsk(i_pe, j_pe) = M_SEAICE
+            !print '("[INFO] WDR COARSE_SEAICE ZZ npe=",I0," i_pe=",I0," j_pe=",I0)', this_pe, i_pe, j_pe
+
+            !print '("[INFO] WDR COARSE_SEAICE Z1 npe=",I0," parent geolat_grid(",I0,"-",I0,",",I0,"-",I0,") i_parent=",I0," j_parent=",I0)', this_pe, lbound(mn_static%parent_ls%geolat_grid,1), ubound(mn_static%parent_ls%geolat_grid,1), lbound(mn_static%parent_ls%geolat_grid,2), ubound(mn_static%parent_ls%geolat_grid,2), i_parent, j_parent
+
+            !print '("[INFO] WDR COARSE_SEAICE Z1 npe=",I0," fp geolat_grid(",I0,",",I0,")")', this_pe, ubound(mn_static%fp_ls%geolat_grid,1), ubound(mn_static%fp_ls%geolat_grid,2)
+
+            !print '("[INFO] WDR COARSE_SEAICE Z1 npe=",I0," nest geolat_grid(",I0,"-",I0,",",I0,"-",I0,") i_pe=",I0," j_pe=",I0)', this_pe, lbound(mn_static%nest_ls%geolat_grid,1), ubound(mn_static%nest_ls%geolat_grid,1), lbound(mn_static%nest_ls%geolat_grid,2), ubound(mn_static%nest_ls%geolat_grid,2), i_pe, j_pe
+
+            !if (i_pe .ge. lbound(mn_static%nest_ls%geolat_grid,1) .and. i_pe .le.  ubound(mn_static%nest_ls%geolat_grid,1) .and. j_pe .ge. lbound(mn_static%nest_ls%geolat_grid,2) .and. j_pe .le.  ubound(mn_static%nest_ls%geolat_grid,2) ) then
+              !print '("[INFO] WDR COARSE_SEAICE INSIDE npe=",I0," i_pe=",I0," j_pe=",I0)', this_pe, i_pe, j_pe
+              !print '("[INFO] WDR COARSE_SEAICE npe=",I0," parent latlon ",F8.3,","F8.3," nest latlon ",F8.3,","F8.3)', this_pe, &
+              !    mn_static%parent_ls%geolat_grid(i_parent, j_parent), mn_static%parent_ls%geolon_grid(i_parent, j_parent), &
+              !    mn_static%nest_ls%geolat_grid(i_pe, j_pe), mn_static%nest_ls%geolon_grid(i_pe, j_pe)
+            !endif
+
+
+            !print '("[INFO] WDR COARSE_SEAICE npe=",I0," parent cell ",F8.3,","F8.3," nest cell ",F8.3,","F8.3)', this_pe, &
+            !    mn_static%parent_ls%geolat_grid(i_parent, j_parent), mn_static%parent_ls%geolon_grid(i_parent, j_parent), &
+            !    mn_static%nest_ls%geolat_grid(i_parent, j_parent), mn_static%nest_ls%geolon_grid(i_parent, j_parent)
+          endif
+        endif
+      enddo
+    enddo
+
+    !print '("[INFO] MASK END inside mn_phys_apply_coarse_seaice npe=",I0)', this_pe
+
+  end subroutine mn_phys_apply_coarse_seaice
+
 
   subroutine mn_phys_set_slmsk(Atm, n, mn_static, ioffset, joffset, refine)
     type(fv_atmos_type), intent(inout),allocatable   :: Atm(:)              !< Array of atmospheric data
@@ -154,13 +239,20 @@ contains
     integer, intent(in)                              :: ioffset, joffset    !< Current nest offset in i,j direction
     integer, intent(in)                              :: refine              !< Nest refinement ratio
 
+    integer, parameter :: M_WATER = 0, M_LAND = 1, M_SEAICE = 2
+
     ! For iterating through physics/surface vector data
     integer                 :: nb, blen, ix, i_pe, j_pe, i_idx, j_idx, im
     real(kind=kind_phys)    :: phys_oro
+    integer                 :: cell_slmsk
+    integer                 :: this_pe
+
+    this_pe = mpp_pe()
 
     !print '("[INFO] MASK inside mn_phys_reset_sfc_props npe=",I0)', mpp_pe()
     call mn_phys_set_slmsk(Atm, n, mn_static, ioffset, joffset, refine)
 
+    call mn_phys_apply_coarse_seaice(Atm, n, mn_static, ioffset, joffset, refine)
     !  Reset the variables from the fix_sfc files
     im = 0
     do nb = 1,Atm_block%nblks
@@ -175,19 +267,39 @@ contains
         im = im + 1
 
         ! Reset the land sea mask from the hires parent data
-        GFS_Sfcprop%slmsk(im) = mn_static%fp_ls%ls_mask_grid(i_idx, j_idx)
+        !GFS_Sfcprop%slmsk(im) = mn_static%fp_ls%ls_mask_grid(i_idx, j_idx)
+        cell_slmsk = Moving_nest(n)%mn_phys%slmsk(i_pe, j_pe)
+        GFS_Sfcprop%slmsk(im) = cell_slmsk
 
         !  IFD values are 0 for land, and 1 for oceans/lakes -- reverse of the land sea mask
         !  Land Sea Mask has values of 0 for oceans/lakes, 1 for land, 2 for sea ice
         !  TODO figure out what ifd should be for sea ice
-        if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. 1 ) then
+
+        ! ICEFIX
+        ! ccpp/physics/physics/Interstitials/UFS_SCM_NEPTUNE/sfcsub.F
+        !     sli .. land/sea/sea-ice mask. (1/0/2 respectively)
+        ! Seems to be slimsk
+
+        ! Process land-sea-ice mask points
+
+        !if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. M_LAND ) then  ! Land
+        if (cell_slmsk .eq. M_LAND ) then  ! Land
           if (move_nsst) GFS_Sfcprop%ifd(im) = 0         ! Land
           GFS_Sfcprop%oceanfrac(im) = 0   ! Land -- TODO permit fractions
           GFS_Sfcprop%landfrac(im) = 1    ! Land -- TODO permit fractions
-        else
+          GFS_Sfcprop%fice(im) = 0        ! ice fraction over open water grid
+        !else if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. M_WATER ) then   ! Ocean
+        else if (cell_slmsk .eq. M_WATER ) then   ! Ocean
           if (move_nsst) GFS_Sfcprop%ifd(im) = 1         ! Ocean
           GFS_Sfcprop%oceanfrac(im) = 1   ! Ocean -- TODO permit fractions
           GFS_Sfcprop%landfrac(im) = 0    ! Ocean -- TODO permit fractions
+          GFS_Sfcprop%fice(im) = 0        ! ice fraction over open water grid
+        !else if (mn_static%fp_ls%ls_mask_grid(i_idx, j_idx) .eq. M_SEAICE ) then     ! Sea Ice
+        else if (cell_slmsk .eq. M_SEAICE ) then     ! Sea Ice
+          if (move_nsst) GFS_Sfcprop%ifd(im) = 0         ! For Sea ice - ifd is set to Land 0, checked in sfc files
+          GFS_Sfcprop%oceanfrac(im) = 0   ! sea ice -- TODO permit fractions
+          GFS_Sfcprop%landfrac(im) = 0    ! sea ice -- TODO permit fractions
+          GFS_Sfcprop%fice(im) = 1        ! ice fraction over open water grid
         endif
 
         GFS_Sfcprop%tg3(im) = mn_static%fp_fix%deep_soil_temp_grid(i_idx, j_idx)
@@ -206,7 +318,7 @@ contains
           GFS_Sfcprop%oceanfrac(im) = 1   ! Ocean -- TODO permit fractions
           GFS_Sfcprop%landfrac(im) = 0    ! Ocean -- TODO permit fractions
 
-          GFS_Sfcprop%stype(im) = 0
+          GFS_Sfcprop%stype(im) = 14 ! change from 0 to 14 to avoid index conflict with porosity
           GFS_Sfcprop%slmsk(im) = 0
         else
           GFS_Sfcprop%stype(im) = nint(mn_static%fp_ls%soil_type_grid(i_idx, j_idx))
@@ -499,6 +611,16 @@ contains
             mn_phys%tsnoxy(i,j,k)     = GFS_sfcprop%tsnoxy(im,k)
           enddo
 
+          ! ICEFIX handle tiice
+          do k = 1, GFS_control%kice
+            mn_phys%tiice(i,j,k)    = GFS_sfcprop%tiice(im,k)
+          enddo
+          mn_phys%tisfc(i,j)      = GFS_sfcprop%tisfc(im)
+          mn_phys%sncovr(i,j)     = GFS_sfcprop%sncovr(im)
+
+          mn_phys%fice(i,j)      = GFS_sfcprop%fice(im)
+          mn_phys%hice(i,j)      = GFS_sfcprop%hice(im)
+
           mn_phys%snowd(i,j)      = GFS_sfcprop%snowd(im)
           mn_phys%weasd(i,j)      = GFS_sfcprop%weasd(im)
 
@@ -529,10 +651,23 @@ contains
     integer :: is, ie, js, je
     integer :: this_pe
     integer :: nb, blen, i, j ,k, ix, nv, im
+    integer :: isnow                           !local for Noah MP
+    real(kind=kind_phys) :: dzs(1:4)           !local for Noah MP
+    real(kind=kind_phys) :: dzsno(-2:0)        !local for Noah MP
+    real(kind=kind_phys) :: dzsnso(-2:4)       !local for Noah MP
+    real(kind=kind_phys) :: porosity(1:19)     !local for Noah MP
+    real(kind=kind_phys) :: zsns_default(-2:4) !local for Noah MP
     type(fv_moving_nest_physics_type), pointer       :: mn_phys
 
     this_pe = mpp_pe()
     mn_phys => Moving_nest(n)%mn_phys
+    dzs      = (/0.1,0.3,0.6,1.0/)             ! 4 layer soil thickness
+    dzsno    = (/0.0,0.0,0.0/)                 ! 3 snow layer thichness
+    dzsnso   = (/0.0,0.0,0.0,0.1,0.3,0.6,1.0/) ! dzs + dzsno
+    porosity = (/0.339,0.421,0.434,0.476,0.484,0.439,0.404,0.464, &
+                 0.465,0.406,0.468,0.468,0.439,1.000,0.200,0.421, &
+                 0.468,0.200,0.339/)
+    zsns_default = (/0.0, 0.0, 0.0,  -0.1,-0.4,-1.0,-2.0 /) !depths from snow surface
 
     !  Needed to fill the local grids for parent and nest PEs in order to transmit/interpolate data from parent to nest
     !  But only the nest PE's have changed the values with nest motion, so they are the only ones that need to update the original arrays
@@ -706,7 +841,6 @@ contains
           if (GFS_control%lsm == GFS_control%lsm_noahmp) then
 
             GFS_sfcprop%scolor(im)  = mn_phys%soilcolor(i,j)
-            GFS_sfcprop%snowxy(im)     = mn_phys%snowxy(i,j)
             GFS_sfcprop%tvxy(im)       = mn_phys%tvxy(i,j)
             GFS_sfcprop%tgxy(im)       = mn_phys%tgxy(i,j)
             GFS_sfcprop%canicexy(im)   = mn_phys%canicexy(i,j)
@@ -735,45 +869,149 @@ contains
             GFS_sfcprop%smcwtdxy(im)   = mn_phys%smcwtdxy(i,j)
             GFS_sfcprop%deeprechxy(im) = mn_phys%deeprechxy(i,j)
             GFS_sfcprop%rechxy(im)     = mn_phys%rechxy(i,j)
-
-            do k = 1, GFS_control%lsoil
-               GFS_sfcprop%smoiseq(im,k)    = mn_phys%smoiseq(i,j,k)
-            enddo
-
-
-            do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound
-              GFS_sfcprop%snicexy(im,k)    = mn_phys%snicexy(i,j,k)
-              GFS_sfcprop%snliqxy(im,k)    = mn_phys%snliqxy(i,j,k)
-              GFS_sfcprop%tsnoxy(im,k)     = mn_phys%tsnoxy(i,j,k)
-            enddo
-
             GFS_sfcprop%snowd(im)      = mn_phys%snowd(i,j)
             GFS_sfcprop%weasd(im)      = mn_phys%weasd(i,j)
 
-            do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsoil
-              GFS_sfcprop%zsnsoxy(im,k)    = mn_phys%zsnsoxy(i,j,k)
+            if (GFS_sfcprop%snowd(im) == 0.0 .and. GFS_sfcprop%weasd(im) /= 0.0) then
+              GFS_sfcprop%snowd(im) = GFS_sfcprop%weasd(im)/10.0
+            endif
+
+            ! ICEFIX handle tiice
+            do k = 1, GFS_control%kice
+              GFS_sfcprop%tiice(im,k) = mn_phys%tiice(i,j,k)
+            enddo
+            if (mn_phys%tisfc(i,j) .lt. 240.0 .or. mn_phys%tisfc(i,j) .gt. 285.0 ) then
+              mn_phys%tisfc(i,j) = 273.15 - 5.0
+            endif
+            GFS_sfcprop%tisfc(im) = mn_phys%tisfc(i,j)
+            GFS_sfcprop%sncovr(im) = mn_phys%sncovr(i,j)
+
+            GFS_sfcprop%fice(im) = mn_phys%fice(i,j)
+            GFS_sfcprop%hice(im) = mn_phys%hice(i,j)
+
+
+
+            do k = 1, GFS_control%lsoil
+              GFS_sfcprop%smoiseq(im,k) = mn_phys%smoiseq(i,j,k)
             enddo
 
+            do k = 1, GFS_control%lsoil
+              GFS_sfcprop%smc(im,k) = min(GFS_sfcprop%smc(im,k),porosity(GFS_sfcprop%stype(im))-0.01)
+              GFS_sfcprop%slc(im,k) = min(GFS_sfcprop%slc(im,k),porosity(GFS_sfcprop%stype(im))-0.01)
+            enddo
+
+            if (GFS_sfcprop%vtype(im) == 15) then ! glacier
+              do k = 1,GFS_control%lsoil
+                GFS_sfcprop%stc(im,k) = min(mn_phys%stc(i,j,k), min(GFS_Sfcprop%tg3(im), 263.15))
+                GFS_sfcprop%smc(im,k) = 1.0
+                GFS_sfcprop%slc(im,k) = 0.0
+              enddo
+              GFS_sfcprop%weasd(im) = 600.0   ! 600mm SWE for glacier
+              GFS_sfcprop%snowd(im) = 2000.0  ! 2m snow depth for glacier, snowd/snwdph is in mm
+            endif
+
+            if (mn_phys%leading_edge(i,j) == .True. .and. GFS_sfcprop%snowd(im) < 99999.0) then ! new land with snow
+              if (GFS_sfcprop%snowd(im)/1000.0 < 0.025) then
+                GFS_sfcprop%snowxy(im) = 0.0
+                dzsno(-2:0) = 0.0
+              elseif (GFS_sfcprop%snowd(im)/1000.0 >= 0.025 .and. GFS_sfcprop%snowd(im)/1000.0 <= 0.05) then
+                GFS_sfcprop%snowxy(im) = -1.0
+                dzsno(0) = GFS_sfcprop%snowd(im)/1000.0
+              elseif (GFS_sfcprop%snowd(im)/1000.0 > 0.05 .and. GFS_sfcprop%snowd(im)/1000.0 <= 0.10) then
+                GFS_sfcprop%snowxy(im) = -2.0
+                dzsno(-1) = 0.5*GFS_sfcprop%snowd(im)/1000.0
+                dzsno(0) = 0.5*GFS_sfcprop%snowd(im)/1000.0
+              elseif (GFS_sfcprop%snowd(im)/1000.0> 0.10 .and. GFS_sfcprop%snowd(im)/1000.0 <= 0.25) then
+                GFS_sfcprop%snowxy(im) = -2.0
+                dzsno(-1) = 0.05
+                dzsno(0) = GFS_sfcprop%snowd(im)/1000.0 - 0.05
+              elseif (GFS_sfcprop%snowd(im)/1000.0 > 0.25 .and. GFS_sfcprop%snowd(im)/1000.0 <= 0.45) then
+                GFS_sfcprop%snowxy(im) = -3.0
+                dzsno(-2) = 0.05
+                dzsno(-1) = 0.5*(GFS_sfcprop%snowd(im)/1000.0-0.05)
+                dzsno(0) = 0.5*(GFS_sfcprop%snowd(im)/1000.0-0.05)
+              elseif (GFS_sfcprop%snowd(im)/1000.0 > 0.45) then
+                GFS_sfcprop%snowxy(im) = -3.0
+                dzsno(-2) = 0.05
+                dzsno(-1) = 0.20
+                dzsno(0) = GFS_sfcprop%snowd(im)/1000.0 - 0.05 - 0.20
+              else
+                write(*,*)  'Error in fv_moving_nest_physics.F90 - Problem with the logic assigning snow layers'
+                stop
+              endif
+              isnow = nint(GFS_sfcprop%snowxy(im)) + 1
+              do k = isnow, GFS_control%lsnow_lsm_ubound
+                GFS_sfcprop%tsnoxy(im,k) = GFS_sfcprop%tgxy(im) + ( (sum(dzsno(isnow:k))-0.5*dzsno(k)) / \
+                                           GFS_sfcprop%snowd(im)/1000.0 ) * (GFS_sfcprop%stc(im,1)-GFS_sfcprop%tgxy(im))
+                GFS_sfcprop%snliqxy(im,k) = 0.0
+                GFS_sfcprop%snicexy(im,k) = 1.0 * dzsno(k) * GFS_sfcprop%weasd(im)/GFS_sfcprop%snowd(im)
+              enddo
+              do k = isnow,GFS_control%lsnow_lsm_ubound
+                dzsnso(k) = -dzsno(k)
+              enddo
+              do k = 1, GFS_control%lsoil
+                dzsnso(k) = -dzs(k)
+              enddo
+              GFS_sfcprop%zsnsoxy(im,isnow) = dzsnso(isnow)
+
+              do k = isnow + 1, GFS_control%lsoil
+                GFS_sfcprop%zsnsoxy(im, k) = GFS_sfcprop%zsnsoxy(im,k-1) + dzsnso(k)
+              enddo
+            else ! internal moving land points
+              GFS_sfcprop%snowxy(im) = mn_phys%snowxy(i,j)
+              isnow = nint(GFS_sfcprop%snowxy(im)) + 1
+              if (abs(isnow) < GFS_control%lsoil) then ! only isnow /= fill value
+                do k = GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound
+                  GFS_sfcprop%snicexy(im,k) = mn_phys%snicexy(i,j,k)
+                  GFS_sfcprop%snliqxy(im,k) = mn_phys%snliqxy(i,j,k)
+                  GFS_sfcprop%tsnoxy(im,k)  = mn_phys%tsnoxy(i,j,k)
+                enddo
+                do k = isnow, GFS_control%lsoil
+                  GFS_sfcprop%zsnsoxy(im,k) = mn_phys%zsnsoxy(i,j,k)
+                enddo
+              endif
+              ! reset snow-related fields over the old glacier points to be consistent with the new glacier land points
+              ! for the next iteration
+              if (GFS_sfcprop%vtype(im) == 15) then
+                GFS_sfcprop%snowxy(im) = -3.0
+                dzsno(-2) = 0.05
+                dzsno(-1) = 0.20
+                dzsno(0) = 2.0 - 0.05 - 0.20
+                isnow = -2
+                do k = isnow, GFS_control%lsnow_lsm_ubound
+                  GFS_sfcprop%tsnoxy(im,k) = GFS_sfcprop%tgxy(im) + ( (sum(dzsno(isnow:k))-0.5*dzsno(k)) / \
+                                             GFS_sfcprop%snowd(im)/1000.0 ) * (GFS_sfcprop%stc(im,1)-GFS_sfcprop%tgxy(im))
+                  GFS_sfcprop%snliqxy(im,k) = 0.0
+                  GFS_sfcprop%snicexy(im,k) = 1.0 * dzsno(k) * GFS_sfcprop%weasd(im)/GFS_sfcprop%snowd(im)
+                enddo
+                do k = isnow, GFS_control%lsnow_lsm_ubound
+                  dzsnso(k) = -dzsno(k)
+                enddo
+                do k = 1, GFS_control%lsoil
+                  dzsnso(k) = -dzs(k)
+                enddo
+                GFS_sfcprop%zsnsoxy(im,isnow) = dzsnso(isnow)
+                do k = isnow + 1, GFS_control%lsoil
+                  GFS_sfcprop%zsnsoxy(im, k) = GFS_sfcprop%zsnsoxy(im,k-1) + dzsnso(k)
+                enddo
+              endif
+            endif
           endif
 
-          ! Check if stype and vtype are properly set for land points.  Set to reasonable values if they have fill values.
-          if ( (int(GFS_sfcprop%slmsk(im)) .eq. 1) )  then
-
+          ! Check if stype and vtype are properly set for land points. Set to reasonable values if they have fill values.
+          if ( (int(GFS_sfcprop%slmsk(im)) .eq. 1) ) then
             if (GFS_sfcprop%vtype(im) .lt. 0.5) then
               GFS_sfcprop%vtype(im) = 7    ! Force to grassland
             endif
-
             if (GFS_sfcprop%stype(im) .lt. 0.5) then
               GFS_sfcprop%stype(im) = 3    ! Force to sandy loam
             endif
-
             if (GFS_sfcprop%vtype_save(im) .lt. 0.5) then
               GFS_sfcprop%vtype_save(im) = 7    ! Force to grassland
             endif
             if (GFS_sfcprop%stype_save(im) .lt. 0.5) then
               GFS_sfcprop%stype_save(im) = 3    ! Force to sandy loam
             endif
-
           endif
         enddo
       enddo
@@ -1278,7 +1516,7 @@ contains
           is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
 
       call fill_nest_halos_from_parent_masked("smoiseq", mn_phys%smoiseq, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
-          Atm(child_grid_num)%neststruct%ind_h, & 
+          Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
           is_fine_pe, nest_domain, position, 1, GFS_control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
 
@@ -1287,6 +1525,26 @@ contains
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsoil, &
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, zsns_default)
+
+
+      ! ICEFIX tiice
+      call fill_nest_halos_from_parent_masked("tiice", mn_phys%tiice, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+	  Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, 1, 2, & !! kice
+          mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_SEAICE, mn_phys%ts)
+      call fill_nest_halos_from_parent_masked("tisfc", mn_phys%tisfc, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+          Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_SEAICE, mn_phys%ts)
+      call fill_nest_halos_from_parent_masked("sncovr", mn_phys%sncovr, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+          Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.0D0)
+
+      call fill_nest_halos_from_parent_masked("fice", mn_phys%fice, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+          Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_SEAICE, 1.0D0)
+      call fill_nest_halos_from_parent_masked("hice", mn_phys%hice, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
+          Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_SEAICE, 0.1D0)
 
     endif
 
@@ -1416,6 +1674,13 @@ contains
       call mn_var_fill_intern_nest_halos(mn_phys%weasd, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%smoiseq, domain_fine, is_fine_pe)
       call mn_var_fill_intern_nest_halos(mn_phys%zsnsoxy, domain_fine, is_fine_pe)
+
+      call mn_var_fill_intern_nest_halos(mn_phys%tiice, domain_fine, is_fine_pe)
+      call mn_var_fill_intern_nest_halos(mn_phys%tisfc, domain_fine, is_fine_pe)
+      call mn_var_fill_intern_nest_halos(mn_phys%sncovr, domain_fine, is_fine_pe)
+
+      call mn_var_fill_intern_nest_halos(mn_phys%fice, domain_fine, is_fine_pe)
+      call mn_var_fill_intern_nest_halos(mn_phys%hice, domain_fine, is_fine_pe)
 
     endif
 
@@ -1657,6 +1922,18 @@ contains
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       call mn_var_shift_data(mn_phys%zsnsoxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsoil)
+
+      ! ICEFIX
+      call mn_var_shift_data(mn_phys%tiice, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, 1, GFS_control%kice)
+      call mn_var_shift_data(mn_phys%tisfc, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
+      call mn_var_shift_data(mn_phys%sncovr, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
+      call mn_var_shift_data(mn_phys%fice, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
+      call mn_var_shift_data(mn_phys%hice, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
+          delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
 
     endif
 

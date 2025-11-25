@@ -80,7 +80,7 @@ module fv_moving_nest_types_mod
   type mn_land_mask_grids
     real, allocatable  :: orog_grid(:,:)               _NULL  ! orography -- raw or filtered depending on namelist option, in meters
     real, allocatable  :: orog_std_grid(:,:)           _NULL  ! terrain standard deviation for gravity wave drag, in meters (?)
-    real, allocatable  :: ls_mask_grid(:,:)            _NULL  ! land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
+    real, allocatable  :: ls_mask_grid(:,:)            _NULL  ! land sea mask -- 0 for ocean/lakes, 1, for land.  2 for sea ice.
     real, allocatable  :: soil_type_grid(:,:)          _NULL  ! STATSGO soil type
     ! Land frac needs to be kind_phys because CCPP defines it that way.  Can have rounding mismatches around 0.5 if types don't match.
     real(kind=kind_phys), allocatable  :: land_frac_grid(:,:)          _NULL  ! Continuous land fraction - 0.0 ocean, 0.5 half of each, 1.0 all land
@@ -144,6 +144,9 @@ module fv_moving_nest_types_mod
   type fv_moving_nest_physics_type
     real, _ALLOCATABLE                  :: ts(:,:)          _NULL   !< 2D skin temperature/SST
     real, _ALLOCATABLE                  :: slmsk(:,:)       _NULL   !< land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
+
+    logical, _ALLOCATABLE               :: leading_edge(:,:) _NULL  !< logical array -- at each nest move timestep, is this point getting interpolated values at the leading edge
+
     real (kind=kind_phys), _ALLOCATABLE :: smc (:,:,:)      _NULL   !< soil moisture content
     real (kind=kind_phys), _ALLOCATABLE :: stc (:,:,:)      _NULL   !< soil temperature
     real (kind=kind_phys), _ALLOCATABLE :: slc (:,:,:)      _NULL   !< soil liquid water content
@@ -269,6 +272,15 @@ module fv_moving_nest_types_mod
     real (kind=kind_phys), _ALLOCATABLE :: weasd (:,:)      _NULL   !< water equivalent accumulated snow depth over land
     real (kind=kind_phys), _ALLOCATABLE :: zsnsoxy (:,:,:)  _NULL   !< depth from snow surface at bottom interface
 
+    ! ICEFIX Additional cryosphere variables Sept 2025
+    real (kind=kind_phys), _ALLOCATABLE :: tiice (:,:,:)    _NULL   !< sea ice internal temperature, 2 layers [K]
+    real (kind=kind_phys), _ALLOCATABLE :: tisfc (:,:)      _NULL   !< surface skin temperature over ice [K]
+    real (kind=kind_phys), _ALLOCATABLE :: sncovr (:,:)     _NULL   !< snow cover in fraction over land
+
+    real (kind=kind_phys), _ALLOCATABLE :: fice (:,:)       _NULL   !< sea ice fraction
+    real (kind=kind_phys), _ALLOCATABLE :: hice (:,:)       _NULL   !< sea ice thickness
+
+    
   end type fv_moving_nest_physics_type
 
   type fv_moving_nest_type
@@ -314,6 +326,36 @@ module fv_moving_nest_types_mod
 
 contains
 
+  subroutine mn_set_leading_edge(mn_phys, isd, ied, jsd, jed, ioffset, joffset)
+    type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
+    integer, intent(in)                              :: isd, ied, jsd, jed
+    integer, intent(in)                              :: ioffset, joffset
+
+    mn_phys%leading_edge = .False.
+
+    mn_phys%leading_edge(isd:isd+2,:) = .True.
+    mn_phys%leading_edge(ied-2:ied,:) = .True.
+    
+    mn_phys%leading_edge(:, jsd:jsd+2) = .True.
+    mn_phys%leading_edge(:, jed-2:jed) = .True.
+
+    if (ioffset .eq. 1) then
+      mn_phys%leading_edge(isd+3:isd+5, :) = .True.
+    endif
+    if (ioffset .eq. -1) then
+      mn_phys%leading_edge(ied-5:ied-3, :) = .True.
+    endif
+
+    if (joffset .eq. 1) then
+      mn_phys%leading_edge(: ,jsd+3:jsd+5) = .True.
+    endif
+    if (joffset .eq. -1) then
+      mn_phys%leading_edge(:, jed-5:jed-3) = .True.
+    endif
+
+
+  end subroutine mn_set_leading_edge
+  
   subroutine fv_moving_nest_init(Atm, this_grid)
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)
     integer, intent(in)                          :: this_grid
@@ -592,6 +634,8 @@ contains
     !print '("[INFO] WDR allocate_fv_moving_nest_physics_type npe=",I0," lsnow_lbound=",I0," lsnow_ubound=",I0," lsoil=",I0)', mpp_pe(), lsnow_lbound, lsnow_ubound, lsoil
 
     if (move_physics) then
+      allocate ( mn_phys%leading_edge (isd:ied, jsd:jed) )
+
       allocate ( mn_phys%slmsk(isd:ied, jsd:jed) )
       allocate ( mn_phys%smc(isd:ied, jsd:jed, lsoil) )
       allocate ( mn_phys%stc(isd:ied, jsd:jed, lsoil) )
@@ -716,11 +760,20 @@ contains
       allocate ( mn_phys%weasd(isd:ied, jsd:jed) )
       allocate ( mn_phys%zsnsoxy(isd:ied, jsd:jed, lsnow_lbound:lsoil) )
 
+      ! ICEFIX
+      allocate ( mn_phys%tiice(isd:ied, jsd:jed, 2) )
+      allocate ( mn_phys%tisfc(isd:ied, jsd:jed) )
+      allocate ( mn_phys%sncovr(isd:ied, jsd:jed) )
+      allocate ( mn_phys%fice(isd:ied, jsd:jed) )
+      allocate ( mn_phys%hice(isd:ied, jsd:jed) )
+      
       !allocate ( mn_phys%ustar1(isd:ied, jsd:jed) )
     endif
 
     mn_phys%ts = +99999.9
     if (move_physics) then
+      mn_phys%leading_edge = .false.
+
       mn_phys%slmsk = +99999.9
       mn_phys%smc = +99999.9
       mn_phys%stc = +99999.9
@@ -847,6 +900,13 @@ contains
       mn_phys%weasd = +99999.9
       mn_phys%zsnsoxy = +99999.9
 
+      mn_phys%tiice = +99999.9
+      mn_phys%tisfc = +99999.9
+      mn_phys%sncovr = +99999.9
+
+      mn_phys%fice = +99999.9
+      mn_phys%hice = +99999.9
+
       !mn_phys%ustar1 = +99999.9
     endif
 
@@ -865,6 +925,7 @@ contains
 
     !  if move_phys
     if (allocated(mn_phys%smc)) then
+      deallocate( mn_phys%leading_edge )
       deallocate( mn_phys%slmsk )
       deallocate( mn_phys%smc )
       deallocate( mn_phys%stc )
@@ -990,6 +1051,12 @@ contains
       deallocate ( mn_phys%tsnoxy )
       deallocate ( mn_phys%weasd )
       deallocate ( mn_phys%zsnsoxy )
+
+      deallocate ( mn_phys%tiice )
+      deallocate ( mn_phys%tisfc )
+      deallocate ( mn_phys%sncovr )
+      deallocate ( mn_phys%fice )
+      deallocate ( mn_phys%hice )
 
     endif
 
