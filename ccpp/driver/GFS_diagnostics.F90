@@ -3368,6 +3368,28 @@ module GFS_diagnostics
       ExtDiag(idx)%data%var3 => sfcprop%stc(:,:)
    endif
 
+   if (Model%lsm == Model%lsm_noahmp) then
+      do num = Model%lsnow_lsm_lbound, Model%lsnow_lsm_ubound
+         write (xtra,'(i1)') abs(num)+1
+         idx = idx + 1
+         ExtDiag(idx)%axes = 2
+         ExtDiag(idx)%name = 'snowt'//trim(xtra)
+         ExtDiag(idx)%desc = 'Snow temperature at layer ' // trim(xtra) // ' (from the bottom)'
+         ExtDiag(idx)%unit = 'K'
+         ExtDiag(idx)%mod_name = 'gfs_sfc'
+         ExtDiag(idx)%intpl_method = 'nearest_stod'
+         ExtDiag(idx)%data%var2 => sfcprop%tsnoxy(:,num)
+      enddo
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'snowt'
+      ExtDiag(idx)%desc = 'Snow temperature'
+      ExtDiag(idx)%unit = 'K'
+      ExtDiag(idx)%mod_name = 'gfs_sfc'
+      ExtDiag(idx)%intpl_method = 'nearest_stod'
+      ExtDiag(idx)%data%var3 => sfcprop%tsnoxy(:,:)
+   endif
+
 !--------------------------nsst variables
   if (model%nstf_name(1) > 0) then
 !--------------------------nsst variables
