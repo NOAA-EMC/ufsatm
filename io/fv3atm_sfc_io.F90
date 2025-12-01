@@ -10,7 +10,7 @@ module fv3atm_sfc_io
                                 register_axis, register_restart_field,       &
                                 register_variable_attribute, register_field, &
                                 get_global_io_domain_indices, variable_exists, &
-                                get_dimension_size
+                                get_dimension_size, register_global_attribute
   use fv3atm_common_io,   only: GFS_Data_transfer, axis_type, &
        create_2d_field_and_add_to_bundle, create_3d_field_and_add_to_bundle
   use GFS_typedefs,       only: GFS_sfcprop_type, GFS_control_type, kind_phys
@@ -367,6 +367,10 @@ contains
     call register_field(Sfc_restart, 'Time', axis_type, (/'Time'/))
     call register_variable_attribute(Sfc_restart, 'Time', 'cartesian_axis', 'T', str_len=1)
     call write_data( Sfc_restart, 'Time', 1)
+
+    if (trim(Model%sfc_file_version) /= "V1") then
+       call register_global_attribute(Sfc_restart, "file_version", trim(Model%sfc_file_version), len(trim(Model%sfc_file_version)))
+    end if
   end subroutine Sfc_io_write_axes
 
   !>@ Fills the name3d array with all surface 3D field names.
