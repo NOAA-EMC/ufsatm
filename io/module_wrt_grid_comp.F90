@@ -75,7 +75,7 @@
      integer,save      :: idate(7), start_time(7)
      logical,save      :: write_nsflip
      logical,save      :: change_wrtidate=.false.
-     integer,save      :: frestart(999) = -1
+     integer,allocatable,save      :: frestart(:)
      integer,save      :: calendar_type = 3
      logical           :: lprnt
 !
@@ -910,19 +910,12 @@
                             fieldbundle=fcstFB, rc=rc)
          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-         call ESMF_AttributeGet(fcstFB, convention="NetCDF", purpose="FV3", &
-                                name="grid_id", value=grid_id, rc=rc)
+         call ESMF_InfoGetFromHost(fcstFB, info=info, rc=rc)
          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-         call ESMF_AttributeGet(fcstFB, convention="NetCDF", purpose="FV3-nooutput", &
-                                name="frestart", valueList=frestart, isPresent=isPresent, rc=rc)
+         call ESMF_InfoGet(info, key="/NetCDF/FV3/grid_id", value=grid_id, rc=rc)
          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-         if (isPresent) then
-           ! if (lprnt) write(0,*)'wrt_initialize_p1: frestart(1:10) = ',frestart(1:10)
-           call ESMF_AttributeRemove(fcstFB, convention="NetCDF", purpose="FV3-nooutput", name="frestart", rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-         endif
-
+         call ESMF_InfoGetAlloc(info, key="/NetCDF/FV3-nooutput/frestart", values=frestart, rc=rc)
+         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 !---  get grid dim count
          ! call ESMF_GridGet(wrtGrid(grid_id), dimCount=gridDimCount, rc=rc)
@@ -1799,7 +1792,7 @@
      !
      call ESMF_TimeIntervalGet(timeinterval=io_currtimediff, s=fcst_seconds, rc=rc)
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-     
+
      ! fcst_seconds is number of seconds in io_currtimediff, which is time interval between currenttime and io_basetime.
      ! io_basetime has been adjusted by iau_offset in initialize phase.
      ! Since output_fh and frestart and NOT adjusted by iau_offset, in order to compare
@@ -2099,7 +2092,7 @@
           close(nolog)
         endif
         if (lprnt) then
-          write(*,'(A,F10.5,A,I4.2,A,I2.2)')' actual    inline post time is ',wend-wbeg &
+          write(*,'(A,F10.5,A,I5.2,A,I2.2)')' actual    inline post time is ',wend-wbeg &
                      ,' at Fcst ',nf_hours,':',nf_minutes
         endif
 #else
@@ -2466,7 +2459,7 @@
             endif  ! restart or history bundle
             wend = MPI_Wtime()
             if (lprnt) then
-              write(*,'(A56,A,F10.5,A,I4.2,A,I2.2,1X,A)') trim(filename),' write time is ',wend-wbeg  &
+              write(*,'(A56,A,F10.5,A,I5.2,A,I2.2,1X,A)') trim(filename),' write time is ',wend-wbeg  &
                      ,' at fcst ',NF_HOURS,':',NF_MINUTES
             endif
 
@@ -2502,7 +2495,7 @@
       write_run_tim = MPI_Wtime() - tbeg
 
       IF (lprnt) THEN
-        write(*,'(A56,A,F10.5,A,I4.2,A,I2.2,1X,A)')'------- total',' write time is ',write_run_tim &
+        write(*,'(A56,A,F10.5,A,I5.2,A,I2.2,1X,A)')'------- total',' write time is ',write_run_tim &
                  ,' at Fcst ',NF_HOURS,':',NF_MINUTES
       ENDIF
 !
