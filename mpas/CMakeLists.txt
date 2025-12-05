@@ -51,7 +51,7 @@ if(NOT ESMF_FOUND)
   find_package(ESMF REQUIRED)
 endif()
 add_definitions(-DMPAS_EXTERNAL_ESMF_LIB -DMPAS_NO_ESMF_INIT)
-add_library(${PROJECT_NAME}::external::esmf ALIAS esmf)
+add_library(${PROJECT_NAME}::external::esmf ALIAS ESMF::ESMF)
 
 # MPAS Namelist
 add_subdirectory(MPAS-Model/src/tools/input_gen) # Targets: namelist_gen, streams_gen
