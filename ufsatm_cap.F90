@@ -1,6 +1,6 @@
 !--------------- UFS ATM solo model ----------------
 !
-!*** The UFS ATMosphere grid component nuopc cap 
+!*** The UFS ATMosphere grid component nuopc cap
 !
 ! Author:  Jun Wang@noaa.gov
 !
@@ -97,7 +97,7 @@ module ufsatm_cap_mod
 
   integer                                     :: mype = -1
   integer                                     :: dbug = 0
-  integer                                     :: frestart(999) = -1
+  integer, allocatable                        :: frestart(:)
 
   real(kind=8)                                :: timere, timep2re
 !-----------------------------------------------------------------------
@@ -212,6 +212,7 @@ module ufsatm_cap_mod
     use pio, only: PIO_IOTYPE_NETCDF, PIO_IOTYPE_PNETCDF
     use pio, only: PIO_IOTYPE_NETCDF4C, PIO_IOTYPE_NETCDF4P
 #endif
+    use mpi_f08, only: MPI_Wtime
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
 
@@ -251,7 +252,7 @@ module ufsatm_cap_mod
     type(ESMF_Field), allocatable          :: fieldList(:)
 
     character(len=*),parameter             :: subname='(ufsatm_cap:InitializeAdvertise)'
-    real(kind=8)                           :: MPI_Wtime, timeis, timerhs, time_rh_fb_start, time_rh_start
+    real(kind=8)                           :: timeis, timerhs, time_rh_fb_start, time_rh_start
 
     integer                                :: wrttasks_per_group_from_parent, wrtLocalPet, num_threads
     character(len=64)                      :: rh_filename
@@ -467,7 +468,7 @@ module ufsatm_cap_mod
     ! Initialize PIO
     allocate(pio_subsystem)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem, base=pio_root)
-    
+
     ! PIO debug related options
     ! pio_debug_level
     call NUOPC_CompAttributeGet(gcomp, name='pio_debug_level', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -485,9 +486,9 @@ module ufsatm_cap_mod
 
     ! set PIO debug level
     call pio_setdebuglevel(pio_debug_level)
-        
+
 #endif
-    
+
     ! set cpl_scalars from config. Default to null values for standalone
     flds_scalar_name = ''
     flds_scalar_num = 0
@@ -744,9 +745,11 @@ module ufsatm_cap_mod
                                 line=__LINE__, file=__FILE__, rcToReturn=rc)
           return
         endif
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3", name="grid_id", value=grid_id, rc=rc)
+        call ESMF_InfoGetFromHost(fcstFB(i), info=info, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-        call ESMF_AttributeGet(fcstFB(i), convention="NetCDF", purpose="FV3-nooutput", name="frestart", valueList=frestart, rc=rc)
+        call ESMF_InfoGet(info, key="/NetCDF/FV3/grid_id", value=grid_id, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        call ESMF_InfoGetAlloc(info, key="/NetCDF/FV3-nooutput/frestart", values=frestart, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         is_moving_fb(i) = is_moving(grid_id)
@@ -1356,6 +1359,8 @@ module ufsatm_cap_mod
   end subroutine OutputHours_ArrayInput
 
   subroutine InitializeRealize(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
 
@@ -1365,7 +1370,7 @@ module ufsatm_cap_mod
     type(ESMF_State)           :: importState, exportState
     integer                    :: urc
 
-    real(8)                   :: MPI_Wtime, timeirs
+    real(8)                   :: timeirs
 
     rc = ESMF_SUCCESS
     timeirs = MPI_Wtime()
@@ -1399,10 +1404,12 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance(gcomp, rc)
+    
+    use mpi_f08, only : MPI_Wtime
 
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
-    real(kind=8)                :: MPI_Wtime, timers
+    real(kind=8)                :: timers
 
 !-----------------------------------------------------------------------------
 
@@ -1434,6 +1441,8 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance_phase1(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
 
@@ -1443,7 +1452,7 @@ module ufsatm_cap_mod
     logical                     :: fcstpe
     character(len=*),parameter  :: subname='(ufsatm_cap:ModelAdvance_phase1)'
     character(240)              :: msgString
-    real(kind=8)                :: MPI_Wtime, timep1rs, timep1re
+    real(kind=8)                :: timep1rs, timep1re
 
 !-----------------------------------------------------------------------------
 
@@ -1496,6 +1505,8 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance_phase2(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
+
     type(ESMF_GridComp)         :: gcomp
     integer, intent(out)        :: rc
 
@@ -1515,7 +1526,7 @@ module ufsatm_cap_mod
     type(ESMF_Clock)            :: clock, clock_out
     integer                     :: fieldCount
 
-    real(kind=8)                :: MPI_Wtime, timep2rs
+    real(kind=8)                :: timep2rs
 
     character(len=ESMF_MAXSTR)  :: fb_name
     type(ESMF_Info)             :: info
@@ -1818,6 +1829,7 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelFinalize(gcomp, rc)
+    use mpi_f08, only : MPI_Wtime
 
     ! input arguments
     type(ESMF_GridComp)        :: gcomp
@@ -1827,7 +1839,7 @@ module ufsatm_cap_mod
     character(len=*),parameter :: subname='(ufsatm_cap:ModelFinalize)'
     integer                    :: i, urc
     type(ESMF_VM)              :: vm
-    real(kind=8)               :: MPI_Wtime, timeffs
+    real(kind=8)               :: timeffs
 !
 !-----------------------------------------------------------------------------
 !*** finialize forecast
