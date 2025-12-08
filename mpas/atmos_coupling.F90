@@ -11,14 +11,11 @@ module atmos_coupling_mod
   public :: MPAS_statein_type
   public :: MPAS_stateout_type
   public :: ufs_mpas_to_physics
-  public :: ufs_physics_to_mpas
+  public :: ufs_microphysics_to_mpas
+  public :: ufs_mpas_to_microphysics
 
-  ! Indices for MPAS domain deceomposition on each task.
-  integer, dimension(:), pointer :: indicesGlobal
-  
   !> #######################################################################################
   !> MPAS_statein_type
-  !>
   !> Fields needed by the MPAS dynamical core for forward integration.
   !>
   !> #######################################################################################
@@ -83,14 +80,12 @@ module atmos_coupling_mod
                                                   ! from physics [kg K/m^3/s]        (nlev,ncol)
      real(mpas_kind), pointer :: rho_tend(:,:)    ! Dry air density tendency
                                                   ! from physics [kg/m^3/s]          (nlev,ncol)
-   contains
-     procedure :: populate  => populate_MPAS_statein
   end type MPAS_statein_type
 
   !> #######################################################################################
   !> MPAS_stateout_type
-  !>
   !> Fields prognosed (or diagnosed) by the MPAS dynamical core.
+  !>
   !> #######################################################################################
     type MPAS_stateout_type
      ! Dimensions
@@ -138,13 +133,18 @@ module atmos_coupling_mod
                                                   !                                  (nlev,nvtx)
      real(mpas_kind), pointer :: divergence(:,:)  ! Horizontal velocity divergence [s^-1]
                                                   !                                  (nlev,ncol)
-   contains
-     procedure :: populate  => populate_MPAS_stateout
   end type MPAS_stateout_type
   
 contains
   !> #########################################################################################
-  !> Procedure to populate inputs to the CCPP physics using outputs the MPAS dynamical core.
+  !> Procedure to convert input "MPAS" variables to "CCPP" variables.
+  !> Called prior to MPAS dynamical core (initial-step only).
+  !>
+  !> Analogous to MPAS_to_physics in src/core_atmosphere/physics/mpas_atmphys_interface.F
+  !>
+  !> This procedure accesses MPAS data using MPAS native procedures and stores the data
+  !> locally in the data-containers defined above. The MPAS "state" is then translated to the
+  !> CCPP "state" needed by the physics.
   !>
   !> #########################################################################################
   subroutine ufs_mpas_to_physics(physics_state)
@@ -162,8 +162,7 @@ contains
     type(mpas_pool_type), pointer :: mesh_pool
     integer :: iCol, iTracer
     integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv, nVertLevels
-    real(RKIND), pointer :: surface_p(:)
-
+    
     ! Access MPAS data pools.
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
@@ -187,7 +186,7 @@ contains
     call mpas_pool_get_array(mesh_pool,  'zz',                     MPAS_state % zz)
     call mpas_pool_get_array(state_pool, 'theta_m',                MPAS_state % theta_m, timeLevel=1)
     call mpas_pool_get_array(state_pool, 'rho_zz',                 MPAS_state % rho_zz,  timeLevel=1)
-
+    
     ! Copy fields from MPAS data containers to physics data containers.
     ! [k, i] -> [i, k]
     ! bottom-up -> top-down ordering convention
@@ -220,14 +219,24 @@ contains
        physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCol)
        physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCol)
     enddo
+
+    ! Housekeeping
+    nullify (mesh_pool)
+    nullify (state_pool)
+    nullify (diag_pool)
+
   end subroutine ufs_mpas_to_physics
 
   !> #########################################################################################
-  !> Procedure to populate inputs to the MPAS dynamical core using outputs from the CCPP
-  !> physics.
+  !> Procedure to convert of output "CCPP" variables to "MPAS" variables
+  !> Called prior to MPAS dynamical core (integration)
+  !>
+  !> This procedure updates the MPAS "state" using prognosed physics/microphysics variables.
+  !>
+  !> Analogous to microphysics_to_MPAS in src/core_atmosphere/physics/mpas_atmphys_interface.F
   !>
   !> #########################################################################################
-  subroutine ufs_physics_to_mpas(physics_state)
+  subroutine ufs_microphysics_to_mpas(physics_state)
     use GFS_typedefs,       only : GFS_stateout_type
     ! Arguments
     type(GFS_stateout_type), intent(in   ) :: physics_state
@@ -238,8 +247,26 @@ contains
     ! top-down -> bottom-up ordering convention
     ! Thermodynamic conversions from moist (CCPP) to dry (MPAS)
 
-  end subroutine ufs_physics_to_mpas
+  end subroutine ufs_microphysics_to_mpas
 
+  !> #########################################################################################
+  !> Procedure to convert of "MPAS" variables to "CCPP" variables.
+  !> Called prior to CCPP Microphysics Group.
+  !> 
+  !> Analogous to microphysics_from_MPAS in src/core_atmosphere/physics/mpas_atmphys_interface.F
+  !>
+  !> This procedure accesses MPAS data using MPAS native procedures and stores the data
+  !> locally in the data-containers defined above. The MPAS "state" is then translated to the
+  !> CCPP "state" needed by the microphysics.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_to_microphysics(physics_state)
+    use GFS_typedefs,         only : GFS_statein_type
+    ! Arguments
+    type(GFS_statein_type),   intent(inout) :: physics_state
+ 
+  end subroutine ufs_mpas_to_microphysics
+  
   !> #########################################################################################
   !> Procedure to compute dry hydrostatic pressure at layer interfaces and midpoints.
   !>
@@ -249,6 +276,9 @@ contains
   !> or level in the fields.
   !>
   !> \update: Dustin Swales April 2025 - Modified for use in UWM
+  !>
+  !> DJS to GJF: We shouldn't need this once you port the MPAS_to_physics/MPAS_to_microphysics
+  !> routines from MPAS.
   !>
   !> ######################################################################################### 
   subroutine hydrostatic_pressure(nCells, nVertLevels, qsize, index_qv, zz, zgrid, rho_zz,   &
@@ -340,222 +370,4 @@ contains
     end do
   end subroutine hydrostatic_pressure
 
-  !> #########################################################################################
-  !> Procedure to retreieve MPAS domain decomposition <indicesGlobal>, for <varname>.
-  !> Called from atmos_model.F90:_init()
-  !>
-  !> #########################################################################################
-  subroutine get_mpas_pio_decomp(varname)
-    use mpas_kind_types,      only : StrKIND, RKIND
-    use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
-    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array
-    use mpas_pool_routines,   only : mpas_pool_get_dimension
-    use mpas_derived_types,   only : mpas_pool_field_info_type, field2DReal, field3DReal
-    use mpas_derived_types,   only : mpas_pool_type
-    ! Arguments
-    character(len=*), intent(in)  :: varname
-    ! Locals
-    character(len=*), parameter :: subname = 'atmos_coupling::get_mpas_pio_decomp'
-    integer, dimension(:), pointer :: indexArray, indices
-    integer, pointer :: indexDimension
-    type (field2DReal), pointer :: field2d
-    type (field3DReal), pointer :: field3d
-    type (mpas_pool_field_info_type) :: fieldInfo
-    character (len=StrKIND) :: elementName, elementNamePlural
-    logical :: meshFieldDim, cellFieldDIm
-    integer :: i
-
-    !
-    call mpas_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
-    if (trim(varname) == 'scalars') then
-       nullify(field3d)
-       if (fieldInfo % nTimeLevels > 1) then
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
-                                   timeLevel=fieldInfo % nTimeLevels )
-       else
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
-       endif
-       if ( field3d % isDecomposed ) then
-          meshFieldDim = .false.
-          cellFieldDIm = .false.
-          if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nCells') then
-             elementName = 'Cell'
-             elementNamePlural = 'Cells'
-             meshFieldDim = .true.
-             cellFieldDIm = .true.
-          else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-             elementName = 'Edge'
-             elementNamePlural = 'Edges'
-             meshFieldDim = .true.
-          else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-             elementName = 'Vertex'
-             elementNamePlural = 'Vertices'
-             meshFieldDim = .true.
-          end if
-       endif
-       nullify(field3d)
-    else
-       nullify(field2d)
-       if (fieldInfo % nTimeLevels > 1) then
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
-                                   timeLevel=fieldInfo % nTimeLevels )
-       else
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
-       endif
-       if ( field2d % isDecomposed ) then
-          meshFieldDim = .false.
-          cellFieldDIm = .false.
-          if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nCells') then
-             elementName = 'Cell'
-             elementNamePlural = 'Cells'
-             meshFieldDim = .true.
-             cellFieldDIm = .true.
-          else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-             elementName = 'Edge'
-             elementNamePlural = 'Edges'
-             meshFieldDim = .true.
-          else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-             elementName = 'Vertex'
-             elementNamePlural = 'Vertices'
-             meshFieldDim = .true.
-          end if
-       endif
-       nullify(field2d)
-    endif
-    !
-    if ( meshFieldDim ) then
-       allocate(indices(0))
-       call mpas_pool_get_array(domain_ptr % blocklist % allFields, 'indexTo' // &
-                                trim(elementName) // 'ID', indexArray)
-       call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' //  &
-                                    trim(elementNamePlural) // 'Solve', indexDimension)
-       call mergeArrays(indices, indexArray(1:indexDimension))
-    endif
-    ! Save indices for P2D coupling in run phase(s).
-    if ( cellFieldDIm ) then
-       allocate(indicesGlobal(indexDimension))
-       indicesGlobal = indices
-    endif
-
-  end subroutine get_mpas_pio_decomp
-  
-  subroutine mergeArrays(array1, array2)
-    implicit none
-    integer, dimension(:), pointer :: array1
-    integer, dimension(:), intent(in) :: array2
-    integer :: n1, n2
-    integer, dimension(:), pointer :: newArray
-
-    n1 = size(array1)
-    n2 = size(array2)
-
-    allocate(newArray(n1+n2))
-
-    newArray(1:n1) = array1(:)
-    newArray(n1+1:n1+n2) = array2(:)
-
-    deallocate(array1)
-    array1 => newArray
-  end subroutine mergeArrays
-
-  !> #######################################################################################
-  !> 
-  !> #######################################################################################
-  subroutine populate_MPAS_statein(state)
-    use mpas_derived_types,   only : mpas_pool_type
-    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
-    implicit none
-    class(MPAS_statein_type) :: state
-    type(mpas_pool_type), pointer :: state_pool, diag_pool, mesh_pool
-    integer, pointer :: nCells, nEdges, nVertices, nVertLevels, nCellsSolve, nEdgesSolve, nVerticesSolve, index_qv
-
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
-
-    ! Let dynamics import state point to memory managed by MPAS-Atmosphere
-    call mpas_pool_get_dimension(mesh_pool,  'nCells',         nCells)
-    call mpas_pool_get_dimension(mesh_pool,  'nEdges',         nEdges)
-    call mpas_pool_get_dimension(mesh_pool,  'nVertices',      nVertices)
-    call mpas_pool_get_dimension(mesh_pool,  'nVertLevels',    nVertLevels)
-    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve',    nCellsSolve)
-    call mpas_pool_get_dimension(mesh_pool,  'nEdgesSolve',    nEdgesSolve)
-    call mpas_pool_get_dimension(mesh_pool,  'nVerticesSolve', nVerticesSolve)
-    call mpas_pool_get_dimension(state_pool, 'index_qv',       index_qv)
-    state % nCells         = nCells
-    state % nEdges         = nEdges
-    state % nVertices      = nVertices
-    state % nVertLevels    = nVertLevels
-    state % nCellsSolve    = nCellsSolve
-    state % nEdgesSolve    = nEdgesSolve
-    state % nVerticesSolve = nVerticesSolve
-    state % index_qv       = index_qv
-
-    ! In MPAS timeLevel=1 is the current state.  So the fields input to the dycore should
-    ! be in timeLevel=1.
-    call mpas_pool_get_array(state_pool, 'u',                      state % uperp,   timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'w',                      state % w,       timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'theta_m',                state % theta_m, timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'rho_zz',                 state % rho_zz,  timeLevel=1)
-    call mpas_pool_get_array(state_pool, 'scalars',                state % tracers, timeLevel=1)
-    call mpas_pool_get_array(diag_pool,  'rho_base',               state % rho_base)
-    call mpas_pool_get_array(diag_pool,  'theta_base',             state % theta_base)
-    call mpas_pool_get_array(mesh_pool,  'zgrid',                  state % zint)
-    call mpas_pool_get_array(mesh_pool,  'zz',                     state % zz)
-    call mpas_pool_get_array(mesh_pool,  'fzm',                    state % fzm)
-    call mpas_pool_get_array(mesh_pool,  'fzp',                    state % fzp)
-    call mpas_pool_get_array(mesh_pool,  'areaCell',               state % areaCell)
-    call mpas_pool_get_array(mesh_pool,  'east',                   state % east)
-    call mpas_pool_get_array(mesh_pool,  'north',                  state % north)
-    call mpas_pool_get_array(mesh_pool,  'edgeNormalVectors',      state % normal)
-    call mpas_pool_get_array(mesh_pool,  'cellsOnEdge',            state % cellsOnEdge)
-    call mpas_pool_get_array(diag_pool,  'theta',                  state % theta)
-    call mpas_pool_get_array(diag_pool,  'exner',                  state % exner)
-    call mpas_pool_get_array(diag_pool,  'rho',                    state % rho)
-    call mpas_pool_get_array(diag_pool,  'uReconstructZonal',      state % ux)
-    call mpas_pool_get_array(diag_pool,  'uReconstructMeridional', state % uy)
-
-  end subroutine populate_MPAS_statein
-
-  !> #######################################################################################
-  !> 
-  !> #######################################################################################
-  subroutine populate_MPAS_stateout(stateout, statein)
-    implicit none
-    class(MPAS_stateout_type) :: stateout
-    type(MPAS_statein_type), intent(in) :: statein
-
-    ! Let dynamics export state point to memory managed by MPAS-Atmosphere
-    ! Exception: pmiddry and pintdry are not managed by the MPAS infrastructure
-    stateout % nCells         = statein % nCells
-    stateout % nEdges         = statein % nEdges
-    stateout % nVertices      = statein % nVertices
-    stateout % nVertLevels    = statein % nVertLevels
-    stateout % nCellsSolve    = statein % nCellsSolve
-    stateout % nEdgesSolve    = statein % nEdgesSolve
-    stateout % nVerticesSolve = statein % nVerticesSolve
-    stateout % index_qv       = statein % index_qv
-
-    ! MPAS swaps pointers internally so that after a dycore timestep, the updated state is
-    ! in timeLevel=1.  Thus we want stateout to also point to timeLevel=1.  Can just copy
-    ! the pointers from statein.
-    stateout % uperp   => statein % uperp
-    stateout % w       => statein % w
-    stateout % theta_m => statein % theta_m
-    stateout % rho_zz  => statein % rho_zz
-    stateout % tracers => statein % tracers
-
-    ! These components don't have a time level index.
-    stateout % zint  => statein % zint
-    stateout % zz    => statein % zz
-    stateout % fzm   => statein % fzm
-    stateout % fzp   => statein % fzp
-
-    stateout % theta => statein % theta
-    stateout % exner => statein % exner
-    stateout % rho   => statein % rho
-    stateout % ux    => statein % ux
-    stateout % uy    => statein % uy
-
-  end subroutine populate_MPAS_stateout
 end module atmos_coupling_mod

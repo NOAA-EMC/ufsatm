@@ -260,7 +260,8 @@ contains
     call mpas_pool_add_dimension(state, 'index_qv', 1)
     call mpas_pool_add_dimension(state, 'moist_start', 1)
     call mpas_pool_add_dimension(state, 'moist_end', Cfg % nwat)
-
+    nullify (state)
+    
     !
     ! Read in static (invariant) data
     !
@@ -278,6 +279,7 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
     call mpas_rbf_interp_initialize(mesh)
     call mpas_init_reconstruct(mesh)
+    nullify (mesh)
 
     !call dyn_mpas_cell_to_edge_winds()
     
@@ -371,6 +373,7 @@ contains
     call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
     call mpas_atm_set_dims(nVertLevels1, maxEdges1, maxEdges2, num_scalars)
     Cfg % levs = nVertLevels1 !DJS: Do we need this?
+    nullify (state)
 
     !
     ! Set "local" clock to point to the clock contained in the domain type
@@ -411,6 +414,7 @@ contains
        call mpas_log_write('Initializing time levels')
        call mpas_pool_get_subpool(domain_ptr % blocklist  % structs, 'state', state)
        call mpas_pool_initialize_time_levels(state)
+       nullify (state)
     end if
 
     call mpas_log_write('Initializing atmospheric variables')
@@ -451,6 +455,7 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
 
     call atm_mpas_init_block(domain_ptr % dminfo, domain_ptr % streamManager, domain_ptr % blocklist, mesh, dt)
+    nullify (mesh)
 
     call mpas_pool_get_array(state, 'xtime', xtime, timelevel=1)
     xtime = startTimeStamp
@@ -461,6 +466,7 @@ contains
     call mpas_pool_get_array(state, 'initial_time', initial_time1, timelevel=1)
     call mpas_pool_get_array(state, 'initial_time', initial_time2, timelevel=2)
     initial_time2 = initial_time1
+    nullify (state)
       
     call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw',ierr=ierr)
     if ( ierr /= 0 ) then
@@ -512,7 +518,8 @@ contains
     type(mpas_timeinterval_type) :: mpas_time_interval
     real(RKIND), dimension(:,:), pointer :: theta1, ux1, uy1, theta2, ux2, uy2
     real(RKIND), dimension(:),   pointer :: lon,lat
-    integer, pointer :: nCells_ptr,nCellsSolve_ptr
+    real(RKIND), allocatable :: lon_p(:), lat_p(:)
+    integer, pointer :: nCellsSolve
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
@@ -526,11 +533,15 @@ contains
     call mpas_pool_get_array(mesh, 'latCell', lat)
     call mpas_pool_get_array(diag, 'uReconstructZonal', ux1)
     call mpas_pool_get_array(diag, 'uReconstructMeridional', uy1)
-    lon = lon*180/3.14
-    lat = lat*180/3.14
-    call mpas_pool_get_dimension(mesh, 'nCells', nCells_ptr)
-    call mpas_pool_get_dimension(mesh, 'nCellsSolve', nCellsSolve_ptr)
-    print*,'MPAS_DEBUG0 ', lon(10),   lat(10),   theta1(10,1)
+
+    call mpas_pool_get_dimension(mesh,  'nCellsSolve', nCellsSolve)
+    allocate(lon_p(nCellsSolve))
+    allocate(lat_p(nCellsSolve))
+    call mpas_pool_get_array(mesh, 'lonCell', lon)
+    call mpas_pool_get_array(mesh, 'latCell', lat)
+    lon_p = lon*180/3.14
+    lat_p = lat*180/3.14
+    !print*,'MPAS_DEBUG2 ', lon_p(10),   lat_p(10), theta1(1,10)
     !
     ! DJS2025 END Diagnostic block
     !
@@ -587,10 +598,11 @@ contains
        end if
        !
        call mpas_log_write(' Start timestep at '//trim(timeStamp))
-
        !
        ! Read future boundary state and compute boundary tendencies
        !
+       ! DJS: Currently we are not updating the LBCs ars we integrate. Bad.Bad.
+       ! Need to extend ufs_mpas_atm_update_bdy_tend() accordingly.
        if (config_apply_lbcs) then
           !if (timeNow .GT. timeLBCnew) then
           call mpas_log_write('--------------------------------------------------')

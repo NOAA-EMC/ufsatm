@@ -68,9 +68,9 @@ module atmos_model_mod
      integer          :: nblks      ! Number of physics blocks.
   end type atmos_control_type
   
-  ! Index map between MPAS tracers and CAM constituents
-  integer, dimension(:), pointer :: mpas_from_ufs_cnst => null() ! indices into UFS constituent array
   ! Index map between MPAS tracers and UFS constituents
+  integer, dimension(:), pointer :: mpas_from_ufs_cnst => null() ! indices into UFS constituent array
+  ! Index map between UFS tracers and MPAS constituents
   integer, dimension(:), pointer :: ufs_from_mpas_cnst => null() ! indices into MPAS tracers array  
   
   ! Namelist
@@ -110,7 +110,7 @@ contains
     use ufs_mpas_subdriver, only : ufs_mpas_open_init, ufs_mpas_open_lbc
     use ufs_mpas_module,    only : ufs_mpas_define_scalars
     use ufs_mpas_module,    only : constituent_name, is_water_species
-    use atmos_coupling_mod, only : ufs_mpas_to_physics, get_mpas_pio_decomp
+    use atmos_coupling_mod, only : ufs_mpas_to_physics
     use MPAS_init,          only : MPAS_initialize
 
     ! Arguments
@@ -217,10 +217,6 @@ contains
     !> #########################################################################################
     !> #########################################################################################
 
-    ! Set domain decomposition needed for P2D step
-    ! Use 'theta', but any MPAS field defined on the cell center will work.
-    call get_mpas_pio_decomp('theta')
-
     !> #########################################################################################
     !> #########################################################################################
     !> BEGIN CCPP PHYSICS INITIALIZATION
@@ -261,23 +257,13 @@ contains
     call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
          UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
 
-    ! Get longitude/latitude/area from MPAS to use in the physics.
-    ! DJS2025: lonCell and latCell are defined by nCells, including halo points, whereas
-    !          xlon and xlat are allocated by nCellsSolve, excluding halo points.
-    !          Need to be able to grab lon and lat for nCellsSolve.
-    !UFSATM_grid % xlon   = lonCell
-    !UFSATM_grid % xlat   = latCell
-    !UFSATM_grid % xlon_d = lonCell*180./pi
-    !UFSATM_grid % xlat_d = latCell*180./pi
-    !UFSATM_grid % area   = areaCellGlobal
-
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
-    ! we are calling the physics before the dynamical core.
+    ! we are calling the physics before the MPAS dynamical core.
     !
     ! DJS to GJF: See fcst_run_phase_1 in module_fcst_grid_comp.F90. That is where we call the
     ! "pieces" of the Atmospheric timestep defined below.
     ! Since we are calling the radiation/physics first, we need to take the MPAS Initial state
-    ! and map it to the physics data containers (e.g. Typdefs). We will use the same routine
+    ! and map it to the physics data containers (e.g. Typdefs). We will use a similar routine
     ! in a different "piece" later, but copying the Updated state from the dycore before calling
     ! the microphsyics.
     !
@@ -302,7 +288,7 @@ contains
   end subroutine atmos_model_init
 
   !> #########################################################################################
-  !> Procedure to finalize model.
+  !> Procedure to finalize atmospheric forecast.
   !>
   !> #########################################################################################
   subroutine atmos_model_end(Atmos)
@@ -348,6 +334,7 @@ contains
     call mpp_clock_end(radClock)
 
     ! Call CCPP Physics Group
+    ! NOT YET IMPLEMENTED in SDF
     call mpp_clock_begin(physClock)
     call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
@@ -361,21 +348,19 @@ contains
   !> #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
     use ufs_mpas_subdriver, only : ufs_mpas_run
-    use atmos_coupling_mod, only : ufs_physics_to_mpas, ufs_mpas_to_physics
+    use atmos_coupling_mod, only : ufs_microphysics_to_mpas
     use MPAS_init,          only : MPAS_initialize
     
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
-    call ufs_physics_to_mpas(UFSATM_stateout)
+    ! NOT YET IMPLEMENTED
+    call ufs_microphysics_to_mpas(UFSATM_stateout)
     
     ! Call MPAS dycore
     call mpp_clock_begin(mpasClock)
     call ufs_mpas_run()
     call mpp_clock_end(mpasClock)
-
-    ! Prepare CCPP physics inputs with MPAS dycore outputs.
-    call ufs_mpas_to_physics(UFSATM_statein)
     
   end subroutine atmos_model_dynamics
 
@@ -384,11 +369,17 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_microphysics(Atmos)
+    use atmos_coupling_mod, only : ufs_mpas_to_microphysics
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
-    
+
+    ! Prepare CCPP physics inputs with MPAS dycore outputs.
+    ! NOT YET IMPLEMENTED
+    call ufs_mpas_to_microphysics(UFSATM_statein)
+
     ! Call CCPP Microphysics Group
+    ! NOT YET IMPLEMENTED in SDF
     call mpp_clock_begin(mpClock)
     call CCPP_step (step="microphysics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP microphysics step failed')
@@ -401,8 +392,10 @@ contains
     call mpp_clock_end(setupClock)
 
   end subroutine atmos_model_microphysics
+
   !> #########################################################################################
-  !> 
+  !> Procedure to advance the model forecast time
+  !>
   !> #########################################################################################
   subroutine update_atmos_model_state(Atmos)
     type (atmos_control_type), intent(inout) :: Atmos
