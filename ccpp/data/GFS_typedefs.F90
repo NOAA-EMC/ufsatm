@@ -1057,6 +1057,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min       !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max        !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min          !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
+    real(kind=kind_phys) :: tc_rain         !< TC adjustment for rain fall speed
+    real(kind=kind_phys) :: tc_snow         !< TC adjustment for snow fall speed
     
     
     !--- GFDL microphysical paramters
@@ -3670,6 +3672,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min      = 0.15               !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max       = 4999.e3            !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min         = 1000.0             !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
+    real(kind=kind_phys) :: tc_rain        = 1.0                !< TC adjustment for rain fall speed
+    real(kind=kind_phys) :: tc_snow        = 1.0                !< TC adjustment for snow fall speed
     
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
@@ -4182,7 +4186,8 @@ module GFS_typedefs
                                mg_alf,   mg_qcmin, mg_do_ice_gmao, mg_do_liq_liu,           &
                                ltaerosol, lthailaware, lradar, nsfullradar_diag, lrefres,   &
                                ttendlim, ext_diag_thompson, nt_c_l, nt_c_o, av_i, xnc_max,  &
-                               ssati_min, Nt_i_max, rr_min, dt_inner, lgfdlmprad,           &
+                               ssati_min, Nt_i_max, rr_min, tc_rain, tc_snow,               &
+                               dt_inner, lgfdlmprad,                                        &
                                sedi_semi, decfl,                                            &
                                nssl_cccn, nssl_alphah, nssl_alphahl,                        &
                                nssl_alphar, nssl_ehw0, nssl_ehlw0,                          &
@@ -4910,6 +4915,8 @@ module GFS_typedefs
     Model%ssati_min        = ssati_min
     Model%Nt_i_max         = Nt_i_max
     Model%rr_min           = rr_min
+    Model%tc_rain          = tc_rain
+    Model%tc_snow          = tc_snow
 
 !--- TEMPO MP parameters
     ! DJS to Anders: Maybe we put more of these nml options into the TEMPO configuration type?
@@ -6369,6 +6376,8 @@ module GFS_typedefs
                                           ' ssati_min',ssati_min, &
                                           ' Nt_i_max',Nt_i_max, &
                                           ' rr_min',rr_min, &
+                                          ' tc_rain',tc_rain, &
+                                          ' tc_snow',tc_snow, &
                                           ' effr_in =',Model%effr_in, &
                                           ' lradar =',Model%lradar, &
                                           ' nsfullradar_diag =',Model%nsfullradar_diag, &
@@ -6935,6 +6944,8 @@ module GFS_typedefs
         print *, ' ssati_min         : ', Model%ssati_min
         print *, ' Nt_i_max          : ', Model%Nt_i_max
         print *, ' rr_min            : ', Model%rr_min
+        print *, ' tc_rain           : ', Model%tc_rain
+        print *, ' tc_snow           : ', Model%tc_snow
         print *, ' '
       endif
       if (Model%imp_physics == Model%imp_physics_nssl) then
