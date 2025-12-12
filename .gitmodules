@@ -1,7 +1,7 @@
 [submodule "fv3/atmos_cubed_sphere"]
   path = fv3/atmos_cubed_sphere
   url = https://github.com/hafs-community/GFDL_atmos_cubed_sphere
-  branch = feature/hafsv2p2_phase2
+  branch = feature/hafsv2_sync
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
@@ -9,11 +9,11 @@
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/hafs-community/ccpp-physics
-  branch = feature/hafsv2p2_phase2
+  branch = feature/hafsv2_sync
 [submodule "upp"]
   path = upp
-  url = https://github.com/hafs-community/UPP
-  branch = feature/hafsv2p2_baseline
+  url = https://github.com/NOAA-EMC/UPP
+  branch = develop
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
   url = https://github.com/ufs-community/MPAS-Model.git
