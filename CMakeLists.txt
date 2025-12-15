@@ -276,7 +276,7 @@ endif()
 target_link_libraries(${DYCORE_TARGET} PUBLIC w3emc::w3emc_d
                                               sp::sp_d
 					      bacio::bacio_4
-					      esmf)
+					      ESMF::ESMF)
 
 # OpenMP
 if(OPENMP)
