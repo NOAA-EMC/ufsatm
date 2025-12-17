@@ -5,7 +5,7 @@
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
-  branch = main
+  branch = develop
 [submodule "ccpp/physics"]
   path = ccpp/physics
   url = https://github.com/ufs-community/ccpp-physics

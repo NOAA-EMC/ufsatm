@@ -2,7 +2,7 @@
 [ccpp-table-properties]
   name = MPAS_typedefs
   type = module
-  relative_path = ../physics/physics/
+  dependencies_path = ../physics/physics/
   dependencies = hooks/machine.F
 
 [ccpp-arg-table]
