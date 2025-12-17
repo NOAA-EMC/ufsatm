@@ -1203,7 +1203,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
     endif
     if(freq_restart) then
       if(restart_fh(1) >= 0) then
-        tmpvar = restart_fh(1) * 3600
+        tmpvar = nint(restart_fh(1) * 3600)
         Time_step_restart = set_time (tmpvar, 0)
         Time_restart = Time_init + Time_step_restart
         if(restart_fh(1) > 0) then
@@ -1229,7 +1229,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
         frestart(1) = total_inttime
       else
         do i=1,num_restart_fh
-          frestart(i) = restart_fh(i) * 3600.
+          frestart(i) = nint(restart_fh(i) * 3600.)
         enddo
       endif
     endif
