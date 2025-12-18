@@ -26,81 +26,81 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 121
+  integer,          public, parameter :: NexportFields = 121 - 71
   type(ESMF_Field), target, public    :: exportFields(NexportFields)
 
   type(FieldInfo), dimension(NexportFields), public, parameter :: exportFieldsInfo = [ &
-    FieldInfo("inst_pres_interface                      ", "i"), &
-    FieldInfo("inst_pres_levels                         ", "l"), &
-    FieldInfo("inst_geop_interface                      ", "i"), &
-    FieldInfo("inst_geop_levels                         ", "l"), &
-    FieldInfo("inst_temp_levels                         ", "l"), &
-    FieldInfo("inst_zonal_wind_levels                   ", "l"), &
-    FieldInfo("inst_merid_wind_levels                   ", "l"), &
-    FieldInfo("inst_omega_levels                        ", "l"), &
-    FieldInfo("inst_tracer_mass_frac                    ", "t"), &
-    FieldInfo("soil_type                                ", "s"), &
-    FieldInfo("inst_pbl_height                          ", "s"), &
-    FieldInfo("surface_cell_area                        ", "s"), &
-    FieldInfo("inst_convective_rainfall_amount          ", "s"), &
-    FieldInfo("inst_exchange_coefficient_heat_levels    ", "l"), &
-    FieldInfo("inst_spec_humid_conv_tendency_levels     ", "l"), &
-    FieldInfo("inst_ice_nonconv_tendency_levels         ", "l"), &
-    FieldInfo("inst_liq_nonconv_tendency_levels         ", "l"), &
-    FieldInfo("inst_cloud_frac_levels                   ", "l"), &
-    FieldInfo("inst_friction_velocity                   ", "s"), &
-    FieldInfo("inst_rainfall_amount                     ", "s"), &
-    FieldInfo("inst_soil_moisture_content               ", "g"), &
-    FieldInfo("inst_surface_soil_wetness                ", "s"), &
-    FieldInfo("inst_up_sensi_heat_flx                   ", "s"), &
-    FieldInfo("inst_lwe_snow_thickness                  ", "s"), &
-    FieldInfo("vegetation_type                          ", "s"), &
-    FieldInfo("inst_vegetation_area_frac                ", "s"), &
-    FieldInfo("inst_surface_roughness                   ", "s"), &
-    FieldInfo("mean_zonal_moment_flx_atm                ", "s"), &
-    FieldInfo("mean_merid_moment_flx_atm                ", "s"), &
-    FieldInfo("mean_sensi_heat_flx                      ", "s"), &
-    FieldInfo("mean_laten_heat_flx                      ", "s"), &
-    FieldInfo("mean_evap_rate                           ", "s"), &
-    FieldInfo("mean_down_lw_flx                         ", "s"), &
-    FieldInfo("mean_down_sw_flx                         ", "s"), &
-    FieldInfo("mean_prec_rate                           ", "s"), &
+    ! FieldInfo("inst_pres_interface                      ", "i"), &
+    ! FieldInfo("inst_pres_levels                         ", "l"), &
+    ! FieldInfo("inst_geop_interface                      ", "i"), &
+    ! FieldInfo("inst_geop_levels                         ", "l"), &
+    ! FieldInfo("inst_temp_levels                         ", "l"), &
+    ! FieldInfo("inst_zonal_wind_levels                   ", "l"), &
+    ! FieldInfo("inst_merid_wind_levels                   ", "l"), &
+    ! FieldInfo("inst_omega_levels                        ", "l"), &
+    ! FieldInfo("inst_tracer_mass_frac                    ", "t"), &
+    ! FieldInfo("soil_type                                ", "s"), &
+    ! FieldInfo("inst_pbl_height                          ", "s"), &
+    ! FieldInfo("surface_cell_area                        ", "s"), &
+    ! FieldInfo("inst_convective_rainfall_amount          ", "s"), &
+    ! FieldInfo("inst_exchange_coefficient_heat_levels    ", "l"), &
+    ! FieldInfo("inst_spec_humid_conv_tendency_levels     ", "l"), &
+    ! FieldInfo("inst_ice_nonconv_tendency_levels         ", "l"), &
+    ! FieldInfo("inst_liq_nonconv_tendency_levels         ", "l"), &
+    ! FieldInfo("inst_cloud_frac_levels                   ", "l"), &
+    ! FieldInfo("inst_friction_velocity                   ", "s"), &
+    ! FieldInfo("inst_rainfall_amount                     ", "s"), &
+    ! FieldInfo("inst_soil_moisture_content               ", "g"), &
+    ! FieldInfo("inst_surface_soil_wetness                ", "s"), &
+    ! FieldInfo("inst_up_sensi_heat_flx                   ", "s"), &
+    ! FieldInfo("inst_lwe_snow_thickness                  ", "s"), &
+    ! FieldInfo("vegetation_type                          ", "s"), &
+    ! FieldInfo("inst_vegetation_area_frac                ", "s"), &
+    ! FieldInfo("inst_surface_roughness                   ", "s"), &
+    ! FieldInfo("mean_zonal_moment_flx_atm                ", "s"), &
+    ! FieldInfo("mean_merid_moment_flx_atm                ", "s"), &
+    ! FieldInfo("mean_sensi_heat_flx                      ", "s"), &
+    ! FieldInfo("mean_laten_heat_flx                      ", "s"), &
+    ! FieldInfo("mean_evap_rate                           ", "s"), &
+    ! FieldInfo("mean_down_lw_flx                         ", "s"), &
+    ! FieldInfo("mean_down_sw_flx                         ", "s"), &
+    ! FieldInfo("mean_prec_rate                           ", "s"), &
     FieldInfo("inst_prec_rate                           ", "s"), &
     FieldInfo("inst_zonal_moment_flx                    ", "s"), &
     FieldInfo("inst_merid_moment_flx                    ", "s"), &
     FieldInfo("inst_sensi_heat_flx                      ", "s"), &
-    FieldInfo("inst_laten_heat_flx                      ", "s"), &
+    ! FieldInfo("inst_laten_heat_flx                      ", "s"), &
     FieldInfo("inst_evap_rate                           ", "s"), &
     FieldInfo("inst_down_lw_flx                         ", "s"), &
-    FieldInfo("inst_down_sw_flx                         ", "s"), &
+    ! FieldInfo("inst_down_sw_flx                         ", "s"), &
     FieldInfo("inst_temp_height2m                       ", "s"), &
     FieldInfo("inst_spec_humid_height2m                 ", "s"), &
     FieldInfo("inst_zonal_wind_height10m                ", "s"), &
     FieldInfo("inst_merid_wind_height10m                ", "s"), &
-    FieldInfo("inst_temp_height_surface                 ", "s"), &
+    ! FieldInfo("inst_temp_height_surface                 ", "s"), &
     FieldInfo("inst_pres_height_surface                 ", "s"), &
-    FieldInfo("inst_surface_height                      ", "s"), &
-    FieldInfo("mean_net_lw_flx                          ", "s"), &
-    FieldInfo("mean_net_sw_flx                          ", "s"), &
-    FieldInfo("inst_net_lw_flx                          ", "s"), &
-    FieldInfo("inst_net_sw_flx                          ", "s"), &
-    FieldInfo("mean_down_sw_ir_dir_flx                  ", "s"), &
-    FieldInfo("mean_down_sw_ir_dif_flx                  ", "s"), &
-    FieldInfo("mean_down_sw_vis_dir_flx                 ", "s"), &
-    FieldInfo("mean_down_sw_vis_dif_flx                 ", "s"), &
+    ! FieldInfo("inst_surface_height                      ", "s"), &
+    ! FieldInfo("mean_net_lw_flx                          ", "s"), &
+    ! FieldInfo("mean_net_sw_flx                          ", "s"), &
+     FieldInfo("inst_net_lw_flx                          ", "s"), &
+    ! FieldInfo("inst_net_sw_flx                          ", "s"), &
+    ! FieldInfo("mean_down_sw_ir_dir_flx                  ", "s"), &
+    ! FieldInfo("mean_down_sw_ir_dif_flx                  ", "s"), &
+    ! FieldInfo("mean_down_sw_vis_dir_flx                 ", "s"), &
+    ! FieldInfo("mean_down_sw_vis_dif_flx                 ", "s"), &
     FieldInfo("inst_down_sw_ir_dir_flx                  ", "s"), &
     FieldInfo("inst_down_sw_ir_dif_flx                  ", "s"), &
     FieldInfo("inst_down_sw_vis_dir_flx                 ", "s"), &
     FieldInfo("inst_down_sw_vis_dif_flx                 ", "s"), &
-    FieldInfo("mean_net_sw_ir_dir_flx                   ", "s"), &
-    FieldInfo("mean_net_sw_ir_dif_flx                   ", "s"), &
-    FieldInfo("mean_net_sw_vis_dir_flx                  ", "s"), &
-    FieldInfo("mean_net_sw_vis_dif_flx                  ", "s"), &
-    FieldInfo("inst_net_sw_ir_dir_flx                   ", "s"), &
-    FieldInfo("inst_net_sw_ir_dif_flx                   ", "s"), &
-    FieldInfo("inst_net_sw_vis_dir_flx                  ", "s"), &
-    FieldInfo("inst_net_sw_vis_dif_flx                  ", "s"), &
-    FieldInfo("inst_land_sea_mask                       ", "s"), &
+    ! FieldInfo("mean_net_sw_ir_dir_flx                   ", "s"), &
+    ! FieldInfo("mean_net_sw_ir_dif_flx                   ", "s"), &
+    ! FieldInfo("mean_net_sw_vis_dir_flx                  ", "s"), &
+    ! FieldInfo("mean_net_sw_vis_dif_flx                  ", "s"), &
+    ! FieldInfo("inst_net_sw_ir_dir_flx                   ", "s"), &
+    ! FieldInfo("inst_net_sw_ir_dif_flx                   ", "s"), &
+    ! FieldInfo("inst_net_sw_vis_dir_flx                  ", "s"), &
+    ! FieldInfo("inst_net_sw_vis_dif_flx                  ", "s"), &
+    ! FieldInfo("inst_land_sea_mask                       ", "s"), &
     FieldInfo("inst_temp_height_lowest                  ", "s"), &
     FieldInfo("inst_spec_humid_height_lowest            ", "s"), &
     FieldInfo("inst_zonal_wind_height_lowest            ", "s"), &
@@ -109,26 +109,26 @@ module module_cplfields
     FieldInfo("inst_height_lowest                       ", "s"), &
     FieldInfo("inst_fprec_rate                          ", "s"), &
     FieldInfo("openwater_frac_in_atm                    ", "s"), &
-    FieldInfo("ice_fraction_in_atm                      ", "s"), &
-    FieldInfo("lake_fraction                            ", "s"), &
-    FieldInfo("ocean_fraction                           ", "s"), &
-    FieldInfo("surface_snow_area_fraction               ", "s"), &
-    FieldInfo("canopy_moisture_storage                  ", "s"), &
-    FieldInfo("inst_aerodynamic_conductance             ", "s"), &
-    FieldInfo("inst_canopy_resistance                   ", "s"), &
-    FieldInfo("leaf_area_index                          ", "s"), &
-    FieldInfo("temperature_of_soil_layer                ", "g"), &
-    FieldInfo("height                                   ", "s"), &
-    FieldInfo("inst_pres_height_lowest_from_phys        ", "s"), &
-    FieldInfo("inst_spec_humid_height_lowest_from_phys  ", "s"), &
-    FieldInfo("inst_prec_rate_conv                      ", "s"), &
-    FieldInfo("inst_temp_height_lowest_from_phys        ", "s"), &
-    FieldInfo("inst_exner_function_height_lowest        ", "s"), &
-    FieldInfo("surface_friction_velocity                ", "s"), &
-    ! FieldInfo("fraction_of_vegetation_category          ", "s"), &
-    ! FieldInfo("number_of_vegetation_categories          ", "s"), &
+    ! FieldInfo("ice_fraction_in_atm                      ", "s"), &
+    ! FieldInfo("lake_fraction                            ", "s"), &
+    ! FieldInfo("ocean_fraction                           ", "s"), &
+    ! FieldInfo("surface_snow_area_fraction               ", "s"), &
+    ! FieldInfo("canopy_moisture_storage                  ", "s"), &
+    ! FieldInfo("inst_aerodynamic_conductance             ", "s"), &
+    ! FieldInfo("inst_canopy_resistance                   ", "s"), &
+    ! FieldInfo("leaf_area_index                          ", "s"), &
+    ! FieldInfo("temperature_of_soil_layer                ", "g"), &
+    ! FieldInfo("height                                   ", "s"), &
+    ! FieldInfo("inst_pres_height_lowest_from_phys        ", "s"), &
+    ! FieldInfo("inst_spec_humid_height_lowest_from_phys  ", "s"), &
+    ! FieldInfo("inst_prec_rate_conv                      ", "s"), &
+    ! FieldInfo("inst_temp_height_lowest_from_phys        ", "s"), &
+    ! FieldInfo("inst_exner_function_height_lowest        ", "s"), &
+    ! FieldInfo("surface_friction_velocity                ", "s"), &
+    !! FieldInfo("fraction_of_vegetation_category          ", "s"), &
+    !! FieldInfo("number_of_vegetation_categories          ", "s"), &
 
-
+    ! These are not connected for model, but ?
     !  For JEDI
     ! dynamics
     FieldInfo("u                                        ", "l"), &
@@ -160,13 +160,13 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67 + 3 + 5 !IVAI: add 3 inst_tracer_diag
+  integer,          public, parameter :: NimportFields = 67 + 3 + 5 - 35 !IVAI: add 3 inst_tracer_diag
   logical,          public            :: importFieldsValid(NimportFields)
   type(ESMF_Field), target, public    :: importFields(NimportFields)
 
   type(FieldInfo), dimension(NimportFields), public, parameter :: importFieldsInfo = [ &
-    FieldInfo("inst_tracer_mass_frac                    ", "t"), &
-    FieldInfo("land_mask                                ", "s"), &
+    ! FieldInfo("inst_tracer_mass_frac                    ", "t"), &
+    ! FieldInfo("land_mask                                ", "s"), &
     FieldInfo("sea_ice_surface_temperature              ", "s"), &
     FieldInfo("sea_surface_temperature                  ", "s"), &
     FieldInfo("ice_fraction                             ", "s"), &
@@ -182,44 +182,45 @@ module module_cplfields
     FieldInfo("inst_ice_vis_dif_albedo                  ", "s"), &
     FieldInfo("inst_ice_vis_dir_albedo                  ", "s"), &
     FieldInfo("wave_z0_roughness_length                 ", "s"), &
-    FieldInfo("inst_tracer_diag_aod                     ", "s"), &
+    ! FieldInfo("inst_tracer_diag_aod                     ", "s"), &
 !IVAI: import canopy fields from AQM component
-    FieldInfo("inst_tracer_diag_claie                   ", "s"), &
-    FieldInfo("inst_tracer_diag_cfch                    ", "s"), &
-    FieldInfo("inst_tracer_diag_cfrt                    ", "s"), &
-    FieldInfo("inst_tracer_diag_cclu                    ", "s"), &
-    FieldInfo("inst_tracer_diag_cpopu                   ", "s"), &
+    ! FieldInfo("inst_tracer_diag_claie                   ", "s"), &
+    ! FieldInfo("inst_tracer_diag_cfch                    ", "s"), &
+    ! FieldInfo("inst_tracer_diag_cfrt                    ", "s"), &
+    ! FieldInfo("inst_tracer_diag_cclu                    ", "s"), &
+    ! FieldInfo("inst_tracer_diag_cpopu                   ", "s"), &
 !IVAI: import photolysis diagnostics from AQM component
-    FieldInfo("inst_tracer_diag_coszens                 ", "s"), &
-    FieldInfo("inst_tracer_diag_jo3o1d                  ", "s"), &
-    FieldInfo("inst_tracer_diag_jno2                    ", "s"), &
+    ! FieldInfo("inst_tracer_diag_coszens                 ", "s"), &
+    ! FieldInfo("inst_tracer_diag_jo3o1d                  ", "s"), &
+    ! FieldInfo("inst_tracer_diag_jno2                    ", "s"), &
 !IVAI
-    FieldInfo("ocn_current_zonal                        ", "s"), &
-    FieldInfo("ocn_current_merid                        ", "s"), &
+    ! FieldInfo("ocn_current_zonal                        ", "s"), &
+    ! FieldInfo("ocn_current_merid                        ", "s"), &
 
-    ! For receiving fluxes from mediator
-    FieldInfo("stress_on_air_ocn_zonal                  ", "s"), &
-    FieldInfo("stress_on_air_ocn_merid                  ", "s"), &
-    FieldInfo("laten_heat_flx_atm_into_ocn              ", "s"), &
-    FieldInfo("sensi_heat_flx_atm_into_ocn              ", "s"), &
-    FieldInfo("lwup_flx_ocn                             ", "s"), &
+    !! For receiving fluxes from mediator
+    ! FieldInfo("stress_on_air_ocn_zonal                  ", "s"), &
+    ! FieldInfo("stress_on_air_ocn_merid                  ", "s"), &
+    ! FieldInfo("laten_heat_flx_atm_into_ocn              ", "s"), &
+    ! FieldInfo("sensi_heat_flx_atm_into_ocn              ", "s"), &
+    ! FieldInfo("lwup_flx_ocn                             ", "s"), &
 
-    ! For receiving fluxes from external land component
-    FieldInfo("land_fraction                            ", "s"), &
-    FieldInfo("inst_snow_area_fraction_lnd              ", "s"), &
-    FieldInfo("inst_spec_humid_lnd                      ", "s"), &
-    FieldInfo("inst_laten_heat_flx_lnd                  ", "s"), &
-    FieldInfo("inst_sensi_heat_flx_lnd                  ", "s"), &
-    FieldInfo("inst_potential_laten_heat_flx_lnd        ", "s"), &
-    FieldInfo("inst_temp_height2m_lnd                   ", "s"), &
-    FieldInfo("inst_spec_humid_height2m_lnd             ", "s"), &
-    FieldInfo("inst_upward_heat_flux_lnd                ", "s"), &
-    FieldInfo("inst_runoff_rate_lnd                     ", "s"), &
-    FieldInfo("inst_subsurface_runoff_rate_lnd          ", "s"), &
-    FieldInfo("inst_drag_wind_speed_for_momentum        ", "s"), &
-    FieldInfo("inst_drag_mass_flux_for_heat_and_moisture", "s"), &
-    FieldInfo("inst_func_of_roughness_length_and_vfrac  ", "s"), &
+    !! For receiving fluxes from external land component
+    ! FieldInfo("land_fraction                            ", "s"), &
+    ! FieldInfo("inst_snow_area_fraction_lnd              ", "s"), &
+    ! FieldInfo("inst_spec_humid_lnd                      ", "s"), &
+    ! FieldInfo("inst_laten_heat_flx_lnd                  ", "s"), &
+    ! FieldInfo("inst_sensi_heat_flx_lnd                  ", "s"), &
+    ! FieldInfo("inst_potential_laten_heat_flx_lnd        ", "s"), &
+    ! FieldInfo("inst_temp_height2m_lnd                   ", "s"), &
+    ! FieldInfo("inst_spec_humid_height2m_lnd             ", "s"), &
+    ! FieldInfo("inst_upward_heat_flux_lnd                ", "s"), &
+    ! FieldInfo("inst_runoff_rate_lnd                     ", "s"), &
+    ! FieldInfo("inst_subsurface_runoff_rate_lnd          ", "s"), &
+    ! FieldInfo("inst_drag_wind_speed_for_momentum        ", "s"), &
+    ! FieldInfo("inst_drag_mass_flux_for_heat_and_moisture", "s"), &
+    ! FieldInfo("inst_func_of_roughness_length_and_vfrac  ", "s"), &
 
+    ! These are not connected for model, but ?
     !  For JEDI
     ! dynamics
     FieldInfo("u                                        ", "l"), &
@@ -247,12 +248,13 @@ module module_cplfields
     FieldInfo("snwdph                                   ", "s"), &
     FieldInfo("f10m                                     ", "s"), &
     FieldInfo("zorl                                     ", "s"), &
-    FieldInfo("t2m                                      ", "s"), &
-
+    FieldInfo("t2m                                      ", "s")  &
+                                                               ]
     ! For FIRE
-    FieldInfo("hflx_fire                                ", "s"), &
-    FieldInfo("evap_fire                                ", "s"), &
-    FieldInfo("smoke_fire                               ", "s") ]
+    ! FieldInfo("hflx_fire                                ", "s"), &
+    ! FieldInfo("evap_fire                                ", "s"), &
+    ! FieldInfo("smoke_fire                               ", "s")
+
 
 ! Fields exported exclusively for coupling with chemistry
   character(*), public, parameter :: chemistryFieldNames(*) = [ &
