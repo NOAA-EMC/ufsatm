@@ -27,7 +27,7 @@ program test_post_nems_routines
   if (.not.hyb_sigp) stop 7
   if (d3d_on) stop 8
   if (gocart_on) stop 9
-  if (lsm.ne.46) stop 10 ! 'lsm' is determined by 'popascal'
+  if (lsm.ne.55) stop 10 ! 'lsm' is determined by 'popascal'
   if (rdaod) stop 11
   if (nasa_on) stop 12
   if (gccpp_on) stop 13
