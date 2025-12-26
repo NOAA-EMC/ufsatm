@@ -10,7 +10,6 @@ on:
   push:
     branches:
     - develop
-    - test_ci
   pull_request:
     branches:
     - develop
