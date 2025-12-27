@@ -1132,7 +1132,7 @@ module GFS_diagnostics
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
     ExtDiag(idx)%intpl_method = 'bilinear'
-    ExtDiag(idx)%data%var2 => IntDiag%totprcpb(:)
+    ExtDiag(idx)%data%var2 => IntDiag%totprcpb(:,1)
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
@@ -1284,7 +1284,7 @@ module GFS_diagnostics
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
     ExtDiag(idx)%intpl_method = 'bilinear'
-    ExtDiag(idx)%data%var2 => IntDiag%cnvprcpb(:)
+    ExtDiag(idx)%data%var2 => IntDiag%cnvprcpb(:,1)
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2

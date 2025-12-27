@@ -310,8 +310,8 @@ CONTAINS
 
     rtime_int     = one/time_int
     rtime_intfull = one/time_intfull
-    rtime_radsw   = one/time_radsw
-    rtime_radlw   = one/time_radlw
+    rtime_radsw   = one/(time_radsw * (int((time_int-dt_atmos)/time_radsw)+1))
+    rtime_radlw   = one/(time_radlw * (int((time_int-dt_atmos)/time_radlw)+1))
 
     !     if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. time avg, time_int=',time_int
     history_loop: do idx = 1,hist%tot_diag_idx
@@ -322,13 +322,13 @@ CONTAINS
             lcnvfac = lcnvfac*rtime_intfull
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. full time avg, field=',trim(Diag(idx)%name),' time=',time_intfull
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_lw' ) then
-            lcnvfac = lcnvfac*rtime_radlw/int(time_int/dt_atmos)
+            lcnvfac = lcnvfac*rtime_radlw
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad longwave avg, field=',trim(Diag(idx)%name),' time=',time_radlw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_sw' ) then
-            lcnvfac = lcnvfac*rtime_radsw/int(time_int/dt_atmos)
+            lcnvfac = lcnvfac*rtime_radsw
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad shortwave avg, field=',trim(Diag(idx)%name),' time=',time_radsw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_swlw_min' ) then
-            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)/int(time_int/dt_atmos)
+            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad swlw min avg, field=',trim(Diag(idx)%name),' time=',time_radlw,time_radsw,time_int
           else
             lcnvfac = lcnvfac*rtime_int
