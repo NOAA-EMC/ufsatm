@@ -8,8 +8,10 @@
   branch = develop
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  #url = https://github.com/ufs-community/ccpp-physics
+  #branch = ufs/dev
+  url = https://github.com/DavidHuber-NOAA/ccpp-physics
+  branch = feature/gcycle_non6
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
