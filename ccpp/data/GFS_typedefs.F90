@@ -14,8 +14,8 @@ module GFS_typedefs
                                        con_avgd, con_amd, con_amw, con_one, con_p001,  &
                                        con_secinday
 
-   use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
-   use module_radlw_parameters,  only: topflw_type, sfcflw_type
+   use module_radsw_parameters,  only: topfsw_type, sfcfsw_type, NBDSW
+   use module_radlw_parameters,  only: topflw_type, sfcflw_type, NBDLW
    use module_mp_tempo_params,   only: ty_tempo_cfg
    use module_ozphys,            only: ty_ozphys
    use module_h2ophys,           only: ty_h2ophys
@@ -732,6 +732,9 @@ module GFS_typedefs
                                                                         !< for use with internal file reads
     integer              :: input_nml_file_length    !< length (number of lines) in namelist for internal reads
     integer              :: logunit
+    integer              :: latidxprnt
+    integer              :: ipr
+    integer              :: n_diag_buckets
     real(kind=kind_phys) :: fhzero          !< hours between clearing of diagnostic buckets (current bucket)
     real(kind=kind_phys) :: fhzero_array(2) !< array to hold the the hours between clearing of diagnostic buckets
     real(kind=kind_phys) :: fhzero_fhour(2) !< the maximum forecast length for the hours between clearing of diagnostic buckets
@@ -815,6 +818,7 @@ module GFS_typedefs
 !--- calendars and time parameters and activation triggers
     real(kind=kind_phys) :: dtp             !< physics timestep in seconds
     real(kind=kind_phys) :: dtf             !< dynamics timestep in seconds
+    real(kind=kind_phys) :: frain           !< ratio of dynamics timestep to physics timestep
     integer              :: nscyc           !< trigger for surface data cycling
     integer              :: nszero          !< trigger for zeroing diagnostic buckets
     integer              :: idat(1:8)       !< initialization date and time
@@ -831,6 +835,15 @@ module GFS_typedefs
     integer              :: nhfrad          !< number of timesteps for which to call radiation on physics timestep (coldstarts)
     integer              :: levr            !< number of vertical levels for radiation calculations
     integer              :: levrp1          !< number of vertical levels for radiation calculations plus one
+    integer              :: lmk
+    integer              :: lmp
+    integer              :: nbdlw
+    integer              :: nbdsw
+    integer              :: NF_AESW
+    integer              :: NF_AELW
+    integer              :: NF_ALBD
+    integer              :: NSPC
+    integer              :: NSPC1
     integer              :: nfxr            !< second dimension for fluxr diagnostic variable (radiation)
     logical              :: iaerclm         !< flag for initializing aerosol data
     integer              :: ntrcaer         !< number of aerosol tracers for Morrison-Gettelman microphysics
@@ -906,6 +919,8 @@ module GFS_typedefs
     logical              :: lrseeds         !< flag to use host-provided random seeds
     integer              :: nrstreams       !< number of random number streams in host-provided random seed array
     logical              :: lextop          !< flag for using an extra top layer for radiation
+    real(kind_phys)      :: xr_con          !< Xu-Randall cloud fraction multiplicative constant
+    real(kind_phys)      :: xr_exp          !< Xu-Randall cloud fraction exponent constant
 
     ! RRTMGP
     logical              :: do_RRTMGP               !< Use RRTMGP
@@ -980,6 +995,7 @@ module GFS_typedefs
     !--- M-G microphysical parameters
     integer              :: fprcp              !< no prognostic rain and snow (MG)
     integer              :: pdfflag            !< pdf flag for MG macrophysics
+    logical              :: skip_macro
     real(kind=kind_phys) :: mg_dcs             !< Morrison-Gettelman microphysics parameters
     real(kind=kind_phys) :: mg_qcvar
     real(kind=kind_phys) :: mg_ts_auto_ice(2)  !< ice auto conversion time scale
@@ -1063,6 +1079,7 @@ module GFS_typedefs
     
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
+    logical              :: phys_hydrostatic
 
     !--- Thompson,GFDL mp parameter
     logical              :: lrefres          !< flag for radar reflectivity in restart file
@@ -1281,7 +1298,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: psauras(2)      !< [in] auto conversion coeff from ice to snow in ras
     real(kind=kind_phys) :: prauras(2)      !< [in] auto conversion coeff from cloud to rain in ras
     real(kind=kind_phys) :: wminras(2)      !< [in] water and ice minimum threshold for ras
-  
+
     integer              :: seed0           !< random seed for radiation
 
     real(kind=kind_phys) :: rbcr            !< Critical Richardson Number in the PBL scheme
@@ -1693,6 +1710,7 @@ module GFS_typedefs
     type(ty_ozphys) :: ozphys          !< DDT with data needed by ozone physics
     integer         :: levozp          !< Number of vertical layers in ozone forcing data
     integer         :: oz_coeff        !< Number of coefficients in ozone forcing data
+    integer         :: oz_coeffp5
 !--- NRL h2o photchemistry physics
     type(ty_h2ophys) :: h2ophys        !< DDT with data needed by h2o photchemistry physics.
     integer          :: levh2o         !< Number of vertical layers in stratospheric h2o data.
@@ -1990,7 +2008,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dtsfc  (:)     => null()   !< sensible heat flux (w/m2)
     real (kind=kind_phys), pointer :: dqsfc  (:)     => null()   !< latent heat flux (w/m2)
     real (kind=kind_phys), pointer :: totprcp(:)     => null()   !< accumulated total precipitation (kg/m2)
-    real (kind=kind_phys), pointer :: totprcpb(:)    => null()   !< accumulated total precipitation in bucket(kg/m2)
+    real (kind=kind_phys), pointer :: totprcpb(:,:)  => null()   !< accumulated total precipitation in bucket(kg/m2)
     real (kind=kind_phys), pointer :: gflux  (:)     => null()   !< groud conductive heat flux
     real (kind=kind_phys), pointer :: dlwsfc (:)     => null()   !< time accumulated sfc dn lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: ulwsfc (:)     => null()   !< time accumulated sfc up lw flux ( w/m**2 )
@@ -2006,7 +2024,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dvgwd  (:)     => null()   !< vertically integrated v change by OGWD
     real (kind=kind_phys), pointer :: psmean (:)     => null()   !< surface pressure (kPa)
     real (kind=kind_phys), pointer :: cnvprcp(:)     => null()   !< accumulated convective precipitation (kg/m2)
-    real (kind=kind_phys), pointer :: cnvprcpb(:)    => null()   !< accumulated convective precipitation in bucket (kg/m2)
+    real (kind=kind_phys), pointer :: cnvprcpb(:,:)  => null()   !< accumulated convective precipitation in bucket (kg/m2)
     real (kind=kind_phys), pointer :: spfhmin(:)     => null()   !< minimum specific humidity
     real (kind=kind_phys), pointer :: spfhmax(:)     => null()   !< maximum specific humidity
     real (kind=kind_phys), pointer :: u10mmax(:)     => null()   !< maximum u-wind
@@ -3567,6 +3585,8 @@ module GFS_typedefs
     logical              :: lrseeds           = .false.      !< flag to use host-provided random seeds
     integer              :: nrstreams         = 2            !< number of random number streams in host-provided random seed array
     logical              :: lextop            = .false.      !< flag for using an extra top layer for radiation
+    real(kind_phys)      :: xr_con            = -999.0       !< Xu-Randall cloud fraction multiplicative constant          
+    real(kind_phys)      :: xr_exp            = -999.0       !< Xu-Randall cloud fraction exponent constant
     ! RRTMGP
     logical              :: do_RRTMGP           = .false.    !< Use RRTMGP?
     character(len=128)   :: active_gases        = ''         !< Character list of active gases used in RRTMGP
@@ -3811,7 +3831,7 @@ module GFS_typedefs
     logical              :: shinhong       = .false.                  !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu         = .false.                  !< flag for YSU vertical turbulent mixing scheme
     logical              :: dspheat        = .false.                  !< flag for tke dissipative heating
-    logical              :: sa3dtke        = .false.                   !< flag for scale-aware 3D tke scheme
+    logical              :: sa3dtke        = .false.                  !< flag for scale-aware 3D tke scheme
     logical              :: hurr_pbl       = .false.                  !< flag for hurricane-specific options in PBL scheme
     logical              :: lheatstrg      = .false.                  !< flag for canopy heat storage parameterization
     logical              :: lseaspray      = .false.                  !< flag for sea spray parameterization
@@ -4165,7 +4185,7 @@ module GFS_typedefs
                                fhswr, fhlwr, levr, nfxr, iaerclm, iflip, isol, ico2, ialb,  &
                                isot, iems, iaer, icliq_sw, iovr, ictm, isubc_sw,            &
                                isubc_lw, lcrick, lcnorm, lwhtr, swhtr,                      &
-                               nhfrad, idcor, dcorr_con,                                    &
+                               nhfrad, idcor, dcorr_con, xr_con, xr_exp,                    &
                           ! --- RRTMGP
                                do_RRTMGP, active_gases, nGases, rrtmgp_root,                &
                                lw_file_gas, lw_file_clouds, rrtmgp_nBandsLW, rrtmgp_nGptsLW,&
@@ -4428,6 +4448,8 @@ module GFS_typedefs
     Model%nlunit           = nlunit
     Model%fn_nml           = fn_nml
     Model%logunit          = logunit
+    Model%latidxprnt       = 1
+    Model%n_diag_buckets   = 1
     Model%fhzero           = fhzero
     Model%fhzero_array     = fhzero_array
     Model%fhzero_fhour     = fhzero_fhour
@@ -4569,6 +4591,7 @@ module GFS_typedefs
         Model%chunk_begin(i) = Model%chunk_end(i-1) + 1
         Model%chunk_end(i) = Model%chunk_begin(i) + blksz(i) - 1
     end do
+    Model%ipr = min(minval(Model%blksz), 10)
 
 !--- coupling parameters
     Model%cplflx           = cplflx
@@ -4648,6 +4671,7 @@ module GFS_typedefs
 !--- calendars and time parameters and activation triggers
     Model%dtp              = dt_phys
     Model%dtf              = dt_dycore
+    Model%frain            = Model%dtf/Model%dtp
     Model%nscyc            = nint(Model%fhcyc*con_hr/Model%dtp)
     Model%nszero           = nint(Model%fhzero*con_hr/Model%dtp)
     Model%idat(1:8)        = idat(1:8)
@@ -4682,6 +4706,15 @@ module GFS_typedefs
       Model%levr           = levr
     endif
     Model%levrp1           = Model%levr + 1
+    Model%lmk              = Model%levr + LTP
+    Model%lmp              = Model%levr + 1 + LTP
+    Model%nbdlw            = NBDLW
+    Model%nbdsw            = NBDSW
+    Model%NF_AESW          = 3
+    Model%NF_AELW          = 3
+    Model%NF_ALBD          = 4
+    Model%NSPC             = 5
+    Model%NSPC1            = Model%NSPC + 1
 
     if (isubc_sw < 0 .or. isubc_sw > 2) then
        write(0,'(a,i0)') 'ERROR: shortwave cloud-sampling (isubc_sw) scheme selected not valid: ',isubc_sw
@@ -4761,7 +4794,6 @@ module GFS_typedefs
     Model%lrseeds          = lrseeds
     Model%nrstreams        = nrstreams
     Model%lextop           = (ltp > 0)
-
     ! RRTMGP
     Model%do_RRTMGP           = do_RRTMGP
     Model%rrtmgp_nrghice      = rrtmgp_nrghice
@@ -4850,6 +4882,7 @@ module GFS_typedefs
 !--- Morrison-Gettelman MP parameters
     Model%fprcp            = fprcp
     Model%pdfflag          = pdfflag
+    Model%skip_macro       = .false.  ! this gets reset in m_micro_pre
     Model%mg_dcs           = mg_dcs
     Model%mg_qcvar         = mg_qcvar
     Model%mg_ts_auto_ice   = mg_ts_auto_ice
@@ -4934,6 +4967,10 @@ module GFS_typedefs
 
 !--- GFDL MP parameters
     Model%lgfdlmprad       = lgfdlmprad
+    ! The value phys_hydrostatic from dynamics does not match the
+    ! hardcoded value for calling GFDL MP in GFS_physics_driver.F90,
+    ! which is set to .true.
+    Model%phys_hydrostatic = .true.
 !--- Thompson,GFDL,NSSL MP parameter
     Model%lrefres          = lrefres
 
@@ -5858,6 +5895,11 @@ module GFS_typedefs
        err_message    = Model%ozphys%load_o3prog('global_o3prdlos.f77',kozpl)
        Model%levozp   = Model%ozphys%nlev
        Model%oz_coeff = Model%ozphys%ncf
+       if (Model%oz_phys .or. Model%oz_phys_2015) then
+         Model%oz_coeffp5     = Model%oz_coeff+5
+       else
+         Model%oz_coeffp5     = 5
+       endif
 
        if (Model%me == Model%master) then
           write(*,*) 'Reading in o3data from global_o3prdlos.f77 '
@@ -5980,7 +6022,7 @@ module GFS_typedefs
 !--- BEGIN CODE FROM COMPNS_PHYSICS
 !--- shoc scheme
     if (do_shoc) then
-       if ((Model%imp_physics == Model%imp_physics_thompson) .or. &
+      if ((Model%imp_physics == Model%imp_physics_thompson) .or. &
             (Model%imp_physics == Model%imp_physics_tempo)) then
         print *,'SHOC is not currently compatible with Thompson/TEMPO  MP -- shutting down'
         stop
@@ -6523,7 +6565,34 @@ module GFS_typedefs
 !--- BEGIN CODE FROM GLOOPB
 !--- set up random number seed needed for RAS and old SAS and when cal_pre=.true.
 !    Model%imfdeepcnv < 0 when Model%ras = .true.
-
+    
+    if (xr_con > 0.0 .and. xr_exp > 0.0) then !values have been read in from namelist, so set them to read values
+      Model%xr_con = xr_con
+      Model%xr_exp = xr_exp
+    else  ! values have not been read in from namelist and should be set according to logic in radiation_clouds.f
+      if (Model%imp_physics == Model%imp_physics_zhao_carr .or. Model%imp_physics == Model%imp_physics_mg .or. Model%imp_physics == Model%imp_physics_fer_hires) then
+        if (.not. Model%lmfshal) then
+          !calls cloud_fraction_XuRandall()
+          Model%xr_con = 2000.0
+          Model%xr_exp = 0.25
+        else
+          !calls cloud_fraction_mass_flx_1()
+          Model%xr_con = 100.0
+          Model%xr_exp = 0.49
+        endif
+      else ! specifically used when progcld_thompson_wsm6 is called in radiation_clouds.f (see logic in that routine)
+        if (.not. Model%lmfshal) then
+          !calls cloud_fraction_XuRandall()
+          Model%xr_con = 2000.0
+          Model%xr_exp = 0.25
+        else
+          !calls cloud_fraction_mass_flx_2()
+          Model%xr_con = 2000.0
+          Model%xr_exp = 0.25
+        endif
+      endif     
+    endif
+    
     if (Model%imfdeepcnv <= 0 .or. Model%cal_pre ) then
       if (Model%random_clds) then
         seed0 = Model%idate(1) + Model%idate(2) + Model%idate(3) + Model%idate(4)
@@ -6735,6 +6804,7 @@ module GFS_typedefs
       print *, ' fhzero            : ', Model%fhzero
       print *, ' fhzero_array      : ', Model%fhzero_array
       print *, ' fhzero_fhour      : ', Model%fhzero_fhour
+      print *, ' n_diag_buckets    : ', Model%n_diag_buckets
       print *, ' ldiag3d           : ', Model%ldiag3d
       print *, ' qdiag3d           : ', Model%qdiag3d
       print *, ' lssav             : ', Model%lssav
@@ -6832,6 +6902,7 @@ module GFS_typedefs
       print *, 'calendars and time parameters and activation triggers'
       print *, ' dtp               : ', Model%dtp
       print *, ' dtf               : ', Model%dtf
+      print *, ' frain             : ', Model%frain
       print *, ' nscyc             : ', Model%nscyc
       print *, ' nszero            : ', Model%nszero
       print *, ' idat              : ', Model%idat
@@ -6884,6 +6955,8 @@ module GFS_typedefs
       print *, ' lrseeds           : ', Model%lrseeds
       print *, ' nrstreams         : ', Model%nrstreams
       print *, ' lextop            : ', Model%lextop
+      print *, ' xr_con            : ', Model%xr_con
+      print *, ' xr_exp            : ', Model%xr_exp
       if (Model%do_RRTMGP) then
         print *, ' rrtmgp_nrghice     : ', Model%rrtmgp_nrghice
         print *, ' do_GPsw_Glw        : ', Model%do_GPsw_Glw
@@ -7951,11 +8024,12 @@ module GFS_typedefs
   subroutine diag_create (Diag, Model)
     class(GFS_diag_type)               :: Diag
     type(GFS_control_type), intent(in) :: Model
-    integer :: IM
+    integer :: IM, ndb
     logical, save :: linit
     logical :: have_pbl, have_dcnv, have_scnv, have_mp, have_oz_phys
 
     IM = Model%ncols
+    ndb = Model%n_diag_buckets
 
     if(Model%print_diff_pgr) then
       allocate (Diag%old_pgr(IM))
@@ -7998,7 +8072,7 @@ module GFS_typedefs
     allocate (Diag%dtsfc   (IM))
     allocate (Diag%dqsfc   (IM))
     allocate (Diag%totprcp (IM))
-    allocate (Diag%totprcpb(IM))
+    allocate (Diag%totprcpb(IM,ndb))
     allocate (Diag%gflux   (IM))
     allocate (Diag%dlwsfc  (IM))
     allocate (Diag%ulwsfc  (IM))
@@ -8013,7 +8087,7 @@ module GFS_typedefs
     allocate (Diag%dvgwd   (IM))
     allocate (Diag%psmean  (IM))
     allocate (Diag%cnvprcp (IM))
-    allocate (Diag%cnvprcpb(IM))
+    allocate (Diag%cnvprcpb(IM,ndb))
     allocate (Diag%spfhmin (IM))
     allocate (Diag%spfhmax (IM))
     allocate (Diag%u10mmax (IM))
