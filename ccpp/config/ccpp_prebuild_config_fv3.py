@@ -219,7 +219,6 @@ SCHEME_FILES = [
     'physics/physics/SFC_Models/SeaIce/CICE/sfc_sice.f',
     'physics/physics/smoke_dust/rrfs_smoke_wrapper.F90',
     'physics/physics/smoke_dust/rrfs_smoke_postpbl.F90',
-    'physics/physics/SFC_Models/Data/sfc_data.F90',
     'physics/physics/tools/get_prs_fv3.F90',
     'physics/physics/tools/get_phi_fv3.F90'
     ]
