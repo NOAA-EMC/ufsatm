@@ -10,9 +10,9 @@
 !> ###########################################################################################
 module ufs_mpas_module
   use mpas_derived_types,  only : core_type, domain_type, mpas_Clock_type
-  use mpas_derived_types,  only : mpas_time_type
+  use mpas_derived_types,  only : MPAS_Time_Type
   use mpas_kind_types,     only : StrKIND
-  use mpas_atm_boundaries, only : LBC_intv_end
+  !use mpas_atm_boundaries, only : LBC_intv_end
   implicit none
 
   public
@@ -27,6 +27,9 @@ module ufs_mpas_module
   integer, allocatable :: index_constituent_to_mpas_scalar(:)
   integer, allocatable :: index_mpas_scalar_to_constituent(:)
   logical, allocatable :: is_water_species(:)
+
+  private
+  type (MPAS_Time_Type) :: LBC_intv_end
   
   !> #########################################################################################
   !>
@@ -328,7 +331,7 @@ contains
     use mpas_log,            only : mpas_log_write
     use mpas_derived_types,  only : MPAS_STREAM_MGR_NOERR, MPAS_LOG_ERR
     use mpas_derived_types,  only : mpas_pool_type, mpas_Clock_type, block_type
-    use mpas_derived_types,  only : mpas_Time_type, MPAS_TimeInterval_type
+    use mpas_derived_types,  only : MPAS_TimeInterval_type
     use mpas_timekeeping,    only : mpas_set_time
     use mpas_kind_types,     only : StrKIND, RKIND
     use mpas_derived_types,  only : MPAS_STREAM_LATEST_BEFORE
@@ -420,12 +423,15 @@ contains
        return
     end if
 
-    !read_time = '2023-03-10_18:00:00'
-    !call mpas_set_time(currTime, dateTimeString=trim(read_time))
-    currTime = mpas_get_clock_time(clock, MPAS_NOW, ierr)
-    call mpas_get_time(currTime, dateTimeString=read_time, ierr=ierr)
-    call mpas_set_time(currTime,dateTimeString=trim(read_time))
-    !print*,'read_time=',read_time
+    call mpas_set_time(currTime, dateTimeString=trim(read_time))
+    call mpas_log_write('    ufs_mpas_atm_update_bdy_tend read_time = '//read_time)
+    
+    !currTime = mpas_get_clock_time(clock, MPAS_NOW, ierr)
+    !call mpas_get_time(currTime, dateTimeString=read_time, ierr=ierr)
+    !call mpas_set_time(currTime,dateTimeString=trim(read_time))
+    !call mpas_log_write('    ufs_mpas_atm_update_bdy_tend read_time = '//read_time)
+
+    
     !
     ! Compute any derived fields from those that were read from the lbc_in stream
     !
@@ -501,13 +507,19 @@ contains
 
     if (.not. firstCall) then
        lbc_interval = currTime - LBC_intv_end
+       call mpas_get_time(LBC_intv_end, dateTimeString=lbc_intv_start_string)
+       call mpas_get_time(currTime, dateTimeString=lbc_intv_end_string)
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend LBC_intv_end = '//trim(lbc_intv_start_string))
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend currTime     = '//trim(lbc_intv_end_string))
+
        call mpas_get_timeInterval(interval=lbc_interval, DD=dd_intv, S=s_intv, S_n=sn_intv, S_d=sd_intv, ierr=ierr)
        dt = 86400.0_RKIND * real(dd_intv, kind=RKIND) + real(s_intv, kind=RKIND) &
             + (real(sn_intv, kind=RKIND) / real(sd_intv, kind=RKIND))
-       !print*,'SWALES ufs_mpas_atm_update_bdy_tend dd_intv = ',dd_intv
-       !print*,'SWALES ufs_mpas_atm_update_bdy_tend s_intv  = ',s_intv
-       !print*,'SWALES ufs_mpas_atm_update_bdy_tend sn_intv = ',sn_intv
-       !print*,'SWALES ufs_mpas_atm_update_bdy_tend sd_intv = ',sd_intv
+       !DJS This lbc_interval should increase?
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend dd_intv = '//stringify([dd_intv]))
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend  s_intv = '//stringify([s_intv]))
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend sn_intv = '//stringify([sn_intv]))
+       call mpas_log_write('    ufs_mpas_atm_update_bdy_tend sd_intv = '//stringify([sd_intv]))
 
        dt = 1.0_RKIND / dt
 
@@ -1383,7 +1395,7 @@ contains
  !> ########################################################################################
  subroutine read_stream(stream, timeLevel, when, whence, actualWhen, ierr)
    use mpas_io_streams,     only : mpas_readstream
-   use mpas_derived_types,  only : MPAS_Time_type, MPAS_TimeInterval_type
+   use mpas_derived_types,  only : MPAS_TimeInterval_type
    use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
 
    type(mpas_stream_type), pointer, intent(inout) :: stream

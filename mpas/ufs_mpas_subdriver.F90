@@ -601,13 +601,14 @@ contains
        !
        ! Read future boundary state and compute boundary tendencies
        !
-       ! DJS: Currently we are not updating the LBCs ars we integrate. Bad.Bad.
+       ! DJS: Currently we are not updating the LBCs as we integrate. Bad.Bad.
        ! Need to extend ufs_mpas_atm_update_bdy_tend() accordingly.
        if (config_apply_lbcs) then
           !if (timeNow .GT. timeLBCnew) then
           call mpas_log_write('--------------------------------------------------')
           call mpas_log_write('Update lateral boundary conditions for timestep '//trim(timeStamp))
-          !call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .false., ierr)
+          !call mpas_log_write('   '//
+          call ufs_mpas_atm_update_bdy_tend(clock, domain_ptr % blocklist, .false., ierr)
           if (ierr /= 0) then
              call mpas_log_write('Failed to process LBC data at next time after '//trim(timeStamp), messageType=MPAS_LOG_ERR)
              return
