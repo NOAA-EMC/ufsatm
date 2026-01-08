@@ -28,8 +28,7 @@ module ufs_mpas_module
   integer, allocatable :: index_mpas_scalar_to_constituent(:)
   logical, allocatable :: is_water_species(:)
 
-  private
-  type (MPAS_Time_Type) :: LBC_intv_end
+  private type (MPAS_Time_Type) :: LBC_intv_end
   
   !> #########################################################################################
   !>
