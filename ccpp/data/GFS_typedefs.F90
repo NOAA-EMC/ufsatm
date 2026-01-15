@@ -5511,10 +5511,13 @@ module GFS_typedefs
     Model%dtidx = physics_no_tracer
 
     if(Model%ntchm>0) then
-!IVAI
-      Model%ntno2 = get_physics_tracer_index('no2', Model)  ! ntno2=9  (index 8  is  "no2" in PBL scheme)
-      Model%ntno  = get_physics_tracer_index('no', Model)   ! ntno =10 (index 9  is  "no"  in PBL scheme)
-      Model%nto3  = get_physics_tracer_index('o3', Model)   ! nto3 =11 (index 10 is  "o3"  in PBL scheme)
+!IVAI: GFS_v16 n=9 "no2" n=10 "no" n=11 "o3" (n=8,9, 10 in PBL resp.)
+      Model%ntno2 = get_physics_tracer_index('no2', Model)  ! n=11 (index 10 "no2" in PBL scheme) GFS_v17_p8
+      Model%ntno  = get_physics_tracer_index('no', Model)   ! n=12 (index 11 "no"  in PBL scheme) GFS_v17_p8
+      Model%nto3  = get_physics_tracer_index('o3', Model)   ! n=13 (index 12 "o3"  in PBL scheme) GFS_v17_p8
+!     print*,'Index of NO2 : ntno2 = ', Model%ntno2
+!     print*,'Index of NO : ntno = ', Model%ntno
+!     print*,'Index of O3 : nto3 = ', Model%nto3 ! nto3 = 11 "GFS_v16"
 !IVAI
       Model%ntdu1 = get_physics_tracer_index('dust1', Model)
       Model%ntdu2 = get_physics_tracer_index('dust2', Model)
@@ -5608,25 +5611,6 @@ module GFS_typedefs
 !                print*,'Index of MSA: ntmsa = ', itrac
                  call label_dtend_tracer(Model,100+itrac,'msa','msa concentration','kg kg-1 s-1')
               endif
-!IVAI
-              itrac=get_physics_tracer_index('o3', Model)
-              if(itrac>0) then
-!                print*,'Index of O3: nto3 = ', itrac ! nto3 = 11
-                call label_dtend_tracer(Model,100+itrac, 'o3_cpl', 'cplaqm ozone concentration','kg kg-1 s-1')
-              endif
-
-              itrac=get_physics_tracer_index('no2', Model)
-              if(itrac>0) then
-!                print*,'Index of NO2: ntno2 = ', itrac ! ntno2 = 9
-                call label_dtend_tracer(Model,100+itrac, 'no2_cpl', 'cplaqm nitrogen dioxide concentration','kg kg-1 s-1')
-              endif
-
-              itrac=get_physics_tracer_index('no', Model)
-              if(itrac>0) then
-!                print*,'Index of NO: ntno = ', itrac ! ntno = 10
-                call label_dtend_tracer(Model,100+itrac, 'no_cpl', 'cplaqm nitrogen monoxide concentration','kg kg-1 s-1')
-              endif
-!IVAI
            endif
         endif
 
@@ -5662,6 +5646,11 @@ module GFS_typedefs
         call label_dtend_tracer(Model,100+Model%ntia,'ice_aero','number concentration of ice-friendly aerosols','kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto,'o_ion','oxygen ion concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto2,'o2','oxygen concentration','kg kg-1 s-1')
+!IVAI: "o3" tracer CMAQ
+        call label_dtend_tracer(Model,100+Model%ntno2,'no2_cpl','cplaqm NO2   concentration','kg kg-1 s-1')
+        call label_dtend_tracer(Model,100+Model%ntno, 'no_cpl', 'cplaqm NO    concentration','kg kg-1 s-1')
+        call label_dtend_tracer(Model,100+Model%nto3, 'o3_cpl', 'cplaqm ozone concentration','kg kg-1 s-1')
+!IVAI
 
         call label_dtend_cause(Model,Model%index_of_process_pbl,'pbl','tendency due to PBL')
         call label_dtend_cause(Model,Model%index_of_process_dcnv,'deepcnv','tendency due to deep convection')
@@ -5746,9 +5735,10 @@ module GFS_typedefs
           endif
 
 !IVAI: NB. In PBL scheme chemical tracers indexes are offset by 1
-          call fill_dtidx(Model,dtend_select,100+Model%ntno2,Model%index_of_process_pbl,have_pbl) ! ntno2= 9   (index 8 is  "no2" in PBL scheme)
-          call fill_dtidx(Model,dtend_select,100+Model%ntno ,Model%index_of_process_pbl,have_pbl) ! ntno = 10  (index 9 is  "no"  in PBL scheme)
-          call fill_dtidx(Model,dtend_select,100+Model%nto3 ,Model%index_of_process_pbl,have_pbl) ! nto3 = 11  (index 10 is "o3"  in PBL scheme)
+! (qdiag3d) cplaqm tracers "no2", "no", "o3"
+          call fill_dtidx(Model,dtend_select,100+Model%ntno2,Model%index_of_process_pbl,have_pbl) ! ntno2= 11  (index 10 is "no2" in PBL scheme) GFS_v17_p8
+          call fill_dtidx(Model,dtend_select,100+Model%ntno ,Model%index_of_process_pbl,have_pbl) ! ntno = 12  (index 11 is "no"  in PBL scheme) GFS_v17_p8
+          call fill_dtidx(Model,dtend_select,100+Model%nto3 ,Model%index_of_process_pbl,have_pbl) ! nto3 = 13  (index 12 is "o3"  in PBL scheme) GFS_v17_p8
 !IVAI
 
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_pbl,have_pbl)
@@ -7715,7 +7705,7 @@ module GFS_typedefs
     Cldprop%cvt = clear_val
     Cldprop%cvb = clear_val
     Cldprop%cnvw = clear_val
-    
+
   end subroutine cldprop_create
 
 
