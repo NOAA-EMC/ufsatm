@@ -209,8 +209,8 @@ contains
        enddo
     enddo
     
-    physics_grid % xlat(:) = MPAS_state % lat(:)
-    physics_grid % xlon(:) = MPAS_state % lon(:)
+    physics_grid % xlat(1:iCol) = MPAS_state % lat(1:iCol)
+    physics_grid % xlon(1:iCol) = MPAS_state % lon(1:iCol)
     
     ! Compute hydrostatic pressures
     allocate(MPAS_state % pmid(   nVertLevels,   nCellsSolve))
