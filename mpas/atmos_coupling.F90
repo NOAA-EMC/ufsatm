@@ -157,7 +157,8 @@ contains
     use atm_core,             only : atm_compute_output_diagnostics
     use mpas_kind_types,      only : RKIND
     ! Arguments
-    type(GFS_statein_type),   intent(inout) :: physics_state, physics_grid
+    type(GFS_statein_type),   intent(inout) :: physics_state
+    type(GFS_grid_type),      intent(inout) :: physics_grid
     ! Locals
     type(mpas_stateout_type) :: mpas_state
     type(mpas_pool_type), pointer :: state_pool
