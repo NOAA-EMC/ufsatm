@@ -382,7 +382,8 @@ contains
     use mpas_kind_types,      only : RKIND
     use mpas_constants,       only : pii
     use mpas_log,             only : mpas_log_write
-    use mpp_mod,              only : mpp_error
+    use mpas_derived_types,   only : MPAS_LOG_ERR, MPAS_LOG_WARN
+    use mpp_mod,              only : mpp_error, FATAL
     ! Arguments
     type(GFS_grid_type),      intent(inout) :: physics_grid
     ! Locals
@@ -393,9 +394,10 @@ contains
     
     real(RKIND), pointer :: nominalMinDc
     real(RKIND), pointer :: config_len_disp
-    real(RKIND), parameter  :: rad2deg = 180.0_RKIND/pii
+    real(RKIND)          :: rad2deg
     
     ierr = 0
+    rad2deg = 180.0_RKIND/pii
     
     ! Access MPAS data pools.
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
