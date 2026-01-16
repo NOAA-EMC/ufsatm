@@ -320,9 +320,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hice   (:)   => null()  !< sea ice thickness
     real (kind=kind_phys), pointer :: weasd  (:)   => null()  !< water equiv of accumulated snow depth (kg/m**2)
                                                               !< over land and sea ice
-! IVAI: GFS_sfcprop%
-    real (kind=kind_phys), pointer :: canmsk (:)   => null()  !< canopy/no-canopy mask array (no-canopy:0,canopy:1)
-! IVAI
     real (kind=kind_phys), pointer :: canopy (:)   => null()  !< canopy water
     real (kind=kind_phys), pointer :: ffmm   (:)   => null()  !< fm parameter from PBL scheme
     real (kind=kind_phys), pointer :: ffhh   (:)   => null()  !< fh parameter from PBL scheme
@@ -2617,11 +2614,6 @@ module GFS_typedefs
       allocate (Sfcprop%sfalb_ice (IM))
       allocate (Sfcprop%sfalb_lnd_bck (IM))
     endif
-!IVAI
-    if (Model%do_canopy) then
-      allocate (Sfcprop%canmsk (IM))
-    endif
-!IVAI
     allocate (Sfcprop%canopy (IM))
     allocate (Sfcprop%ffmm   (IM))
     allocate (Sfcprop%ffhh   (IM))
@@ -2647,11 +2639,6 @@ module GFS_typedefs
       Sfcprop%sfalb_ice     = clear_val
       Sfcprop%sfalb_lnd_bck = clear_val
     endif
-!IVAI
-    if (Model%do_canopy) then
-      Sfcprop%canmsk     = clear_val
-    endif
-!IVAI
     Sfcprop%canopy = clear_val
     Sfcprop%ffmm   = clear_val
     Sfcprop%ffhh   = clear_val
@@ -3605,7 +3592,7 @@ module GFS_typedefs
     logical              :: lrseeds           = .false.      !< flag to use host-provided random seeds
     integer              :: nrstreams         = 2            !< number of random number streams in host-provided random seed array
     logical              :: lextop            = .false.      !< flag for using an extra top layer for radiation
-    real(kind_phys)      :: xr_con            = -999.0       !< Xu-Randall cloud fraction multiplicative constant          
+    real(kind_phys)      :: xr_con            = -999.0       !< Xu-Randall cloud fraction multiplicative constant
     real(kind_phys)      :: xr_exp            = -999.0       !< Xu-Randall cloud fraction exponent constant
     ! RRTMGP
     logical              :: do_RRTMGP           = .false.    !< Use RRTMGP?
@@ -6599,7 +6586,7 @@ module GFS_typedefs
 !--- BEGIN CODE FROM GLOOPB
 !--- set up random number seed needed for RAS and old SAS and when cal_pre=.true.
 !    Model%imfdeepcnv < 0 when Model%ras = .true.
-    
+
     if (xr_con > 0.0 .and. xr_exp > 0.0) then !values have been read in from namelist, so set them to read values
       Model%xr_con = xr_con
       Model%xr_exp = xr_exp
@@ -6624,9 +6611,9 @@ module GFS_typedefs
           Model%xr_con = 2000.0
           Model%xr_exp = 0.25
         endif
-      endif     
+      endif
     endif
-    
+
     if (Model%imfdeepcnv <= 0 .or. Model%cal_pre ) then
       if (Model%random_clds) then
         seed0 = Model%idate(1) + Model%idate(2) + Model%idate(3) + Model%idate(4)

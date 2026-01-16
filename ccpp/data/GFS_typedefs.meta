@@ -1267,16 +1267,6 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-### IVAI GFS_sfcprop%
-[canmsk]
-  standard_name = forest_canopy_mask
-  long_name = contiguous forest canopy mask for 3-layer canopy model
-  units = none
-  dimensions = (horizontal_dimension)
-  type = real
-  kind = kind_phys
-  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
-###IVAI
 [canopy]
   standard_name = canopy_water_amount
   long_name = canopy water amount
