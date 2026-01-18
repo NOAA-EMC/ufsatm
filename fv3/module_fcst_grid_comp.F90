@@ -79,6 +79,10 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
   use atmos_model_mod,        only: setup_exportdata
   use CCPP_data,              only: GFS_control
+#ifdef CDEPS_INLINE
+  use module_cdeps_inline,    only: cdeps_stream_init
+  use module_cdeps_inline,    only: cdeps_stream_run
+#endif
 !
 !-----------------------------------------------------------------------
 !
@@ -1293,6 +1297,14 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                  exportState=exportState, phase=4, userrc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
+
+#ifdef CDEPS_INLINE
+    ! --- call cdeps inline initialization -------------------
+    if (GFS_control%use_cdeps_inline) then
+       call cdeps_stream_init(fcstGridComp(cpl_grid_id), clock, rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
+#endif
 !
 !
 !-----------------------------------------------------------------------
@@ -1349,6 +1361,16 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
       else
         Atmos%isAtCapTime = .false.
       endif
+!
+!-----------------------------------------------------------------------
+! *** call cdeps inline
+
+#ifdef CDEPS_INLINE
+    if (GFS_control%use_cdeps_inline) then
+       call cdeps_stream_run(clock, rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
+#endif
 !
 !-----------------------------------------------------------------------
 ! *** call fcst integration subroutines
