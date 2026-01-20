@@ -51,6 +51,11 @@ if(ENABLE_PARALLELRESTART)
   list(APPEND _ufsatm_defs_private ENABLE_PARALLELRESTART)
 endif()
 
+# Inline
+if(CDEPS_INLINE)
+  add_definitions(-DCDEPS_INLINE)
+endif()
+
 if(ENABLE_RRFS_WAR)
   list(APPEND _ufsatm_defs_private ENABLE_RRFS_WAR)
 endif()
@@ -110,6 +115,10 @@ if (FV3)
 
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
+    find_package(crtm REQUIRED)
+    if (TARGET crtm)
+      add_library(crtm::crtm ALIAS crtm)
+    endif()
     add_subdirectory(upp)
     set(POST_SRC io/post_nems_routines.F90 io/post_fv3.F90)
     list(APPEND _ufsatm_defs_private INLINE_POST)
@@ -156,6 +165,13 @@ if (FV3)
     list(APPEND moving_nest_srcs "")
   endif()
 
+  # Inline
+  if(CDEPS_INLINE)
+    list(APPEND cdeps_inline_srcs cpl/module_cdeps_inline.F90)
+  else()
+    list(APPEND cdeps_inline_srcs "")
+  endif()
+
   # FV3 drivers and dependencies
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
@@ -168,9 +184,14 @@ if (FV3)
     ${fv3_io_srcs}
     ${io_srcs}
     ${moving_nest_srcs}
+    ${cdeps_inline_srcs}
     ${POST_SRC}
     )
   add_dependencies(${DYCORE_TARGET} fv3 fv3ccpp stochastic_physics)
+
+  if(CDEPS_INLINE)
+    add_dependencies(${DYCORE_TARGET} cdeps::cdeps)
+  endif()
 
   list(APPEND _ufsatm_defs_private GFS_PHYS
                                    INTERNAL_FILE_NML
@@ -263,6 +284,9 @@ if (FV3)
 					 fms)
   if(INLINE_POST)
     target_link_libraries(${DYCORE_TARGET} PUBLIC upp::upp)
+  endif()
+  if(CDEPS_INLINE)
+    target_link_libraries(${DYCORE_TARGET} PUBLIC cdeps::cdeps)
   endif()
 endif()
 
