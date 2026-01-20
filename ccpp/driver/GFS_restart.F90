@@ -179,7 +179,7 @@ module GFS_restart
       Restart%num3d = Restart%num3d + 9
     endif
     if (Model%rrfs_sd) then
-      Restart%num3d = Restart%num3d + 4
+      Restart%num3d = Restart%num3d + 5
     endif
     !Prognostic area fraction
     if (Model%progsigma) then
@@ -688,6 +688,11 @@ module GFS_restart
       Restart%name3d(num) = 'chem3d_3'
       do nb = 1,nblks
         Restart%data(nb,num)%var3p => Coupling(nb)%chem3d(:,:,3)
+      enddo
+      num = num + 1
+      Restart%name3d(num) = 'ebu_smoke'
+      do nb = 1,nblks
+        Restart%data(nb,num)%var3p => Coupling(nb)%ebu_smoke(:,:)
       enddo
       num = num + 1
       Restart%name3d(num) = 'ext550'

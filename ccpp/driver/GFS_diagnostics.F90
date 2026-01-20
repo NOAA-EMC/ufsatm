@@ -3849,6 +3849,18 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
+    ExtDiag(idx)%name = 'qss'
+    ExtDiag(idx)%desc = 'surface specific humidity'
+    ExtDiag(idx)%unit = 'kg/kg'
+    ExtDiag(idx)%mod_name = 'gfs_sfc'
+    ExtDiag(idx)%intpl_method = 'bilinear'
+    allocate (ExtDiag(idx)%data(nblks))
+    do nb = 1,nblks
+      ExtDiag(idx)%data(nb)%var2 => Sfcprop(nb)%qss(:)
+    enddo
+
+    idx = idx + 1
+    ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 't2m'
     ExtDiag(idx)%desc = '2m temperature'
     ExtDiag(idx)%unit = 'K'
