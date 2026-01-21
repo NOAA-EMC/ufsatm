@@ -275,13 +275,16 @@ target_compile_definitions(${DYCORE_TARGET} PRIVATE "${_ufsatm_defs_private}")
 
 set_target_properties(${DYCORE_TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
 target_include_directories(${DYCORE_TARGET} INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>
-                                                  $<INSTALL_INTERFACE:mod>)
+                                                      $<INSTALL_INTERFACE:mod>)
 # link target
 if (FV3)
   target_link_libraries(${DYCORE_TARGET} PUBLIC fv3
                                          fv3ccpp
-					 stochastic_physics
-					 fms)
+                                         stochastic_physics
+                                         fms)
+  if(UFS_TRACING)
+    target_link_libraries(${DYCORE_TARGET} PUBLIC ufs_tracing)
+  endif()
   if(INLINE_POST)
     target_link_libraries(${DYCORE_TARGET} PUBLIC upp::upp)
   endif()
@@ -299,8 +302,8 @@ endif()
 # Always include EMC libraries in dycore install
 target_link_libraries(${DYCORE_TARGET} PUBLIC w3emc::w3emc_d
                                               sp::sp_d
-					      bacio::bacio_4
-					      ESMF::ESMF)
+                                              bacio::bacio_4
+                                              ESMF::ESMF)
 
 # OpenMP
 if(OPENMP)
