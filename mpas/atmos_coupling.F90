@@ -161,13 +161,18 @@ contains
     type(mpas_pool_type), pointer :: state_pool
     type(mpas_pool_type), pointer :: diag_pool
     type(mpas_pool_type), pointer :: mesh_pool
+    type(mpas_pool_type), pointer :: sfc_pool
     integer :: iCol, iTracer
     integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv, nVertLevels
-    
+    integer, dimension(:), pointer :: isltyp
     ! Access MPAS data pools.
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state',     state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',      diag_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',      mesh_pool)
+
+    ! DJS to GFS: Sanity check to ensure data is in "sfc_pool" to pass to physics types.
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'sfc_input', sfc_pool)
+    call mpas_pool_get_array(sfc_pool, 'isltyp', isltyp, 1)
 
     ! Get MPAS dimensions
     call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
@@ -370,7 +375,7 @@ contains
        end do
     end do
   end subroutine hydrostatic_pressure
-  
+
 !> #########################################################################################
 !> Procedure to transfer MPAS grid information to physics DDTs.
 !>

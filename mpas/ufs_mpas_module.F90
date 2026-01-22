@@ -150,6 +150,41 @@ module ufs_mpas_module
        ]
 
   !> #########################################################################################
+  !> This list corresponds to the "sfc_input" stream in MPAS registry.
+  !> It consists of variables that are members of the "sfc_input" structure.
+  !> Only variables needed to initialize the CCPP physics surface schemes  are included.
+  !> #########################################################################################
+  type(var_info_type), parameter :: sfc_input_var_info_list(*) = [ &
+       var_info_type('isltyp'                          , 'integer'   , 1), &
+       var_info_type('ivgtyp'                          , 'integer'   , 1), &
+       var_info_type('sfc_albbck'                      , 'real'      , 1), &
+       var_info_type('skintemp'                        , 'real'      , 1), &
+       var_info_type('snow'                            , 'real'      , 1), &
+       var_info_type('snowc'                           , 'real'      , 1), &
+       var_info_type('snowh'                           , 'real'      , 1), &
+       var_info_type('sst'                             , 'real'      , 1), &
+       var_info_type('tmn'                             , 'real'      , 1), &
+       var_info_type('vegfra'                          , 'real'      , 1), &
+       var_info_type('seaice'                          , 'real'      , 1), &
+       var_info_type('xice'                            , 'real'      , 1), &
+       var_info_type('xland'                           , 'real'      , 1), &
+       var_info_type('dzs'                             , 'real'      , 2), &
+       var_info_type('sh2o'                            , 'real'      , 2), &
+       var_info_type('smois'                           , 'real'      , 2), &
+       var_info_type('tslb'                            , 'real'      , 2), &
+       var_info_type('ter'                             , 'real'      , 1), &
+       var_info_type('landmask'                        , 'integer'   , 1), &
+       var_info_type('mminlu'                          , 'character' , 0), &
+       var_info_type('isice_lu'                        , 'integer'   , 0), &
+       var_info_type('iswater_lu'                      , 'integer'   , 0), &
+       var_info_type('shdmin'                          , 'real'      , 1), &
+       var_info_type('shdmax'                          , 'real'      , 1), &
+       var_info_type('snoalb'                          , 'real'      , 1), &
+       var_info_type('greenfrac'                       , 'real'      , 2), &
+       var_info_type('albedo12m'                       , 'real'      , 2)  &
+       ]
+
+  !> #########################################################################################
   !> This list corresponds to the "restart" stream in MPAS registry.
   !> It consists of variables that are members of the "diag" and "state" structure.
   !> Only variables that are specific to the "restart" stream are included.
@@ -468,7 +503,7 @@ contains
     nScalars = nScalars_ptr
     index_qv = index_qv_ptr
     call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nlbc_scalars       = '//stringify([nScalars_ptr]))
-    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: shape(lbc_scalars) = '//stringify([shape(scalars))
+    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: shape(lbc_scalars) = '//stringify([shape(scalars)]))
 
     ! Compute lbc_rho_zz
     do k=1,nVertLevels
@@ -2045,6 +2080,8 @@ contains
       allocate(var_info_list, source=output_var_info_list)
    case ('lbc_in')
       allocate(var_info_list, source=lbc_in_var_info_list)
+   case ('sfc_input')
+      allocate(var_info_list, source=sfc_input_var_info_list)
    case default
       allocate(var_info_list(0))
 

@@ -135,6 +135,7 @@ contains
     type (field3dReal), pointer :: scalarsField
     character (len=StrKIND), pointer :: initial_time, config_start_time
     integer, pointer :: num_scalars, mpas_from_ufs_cnst2(:), ufs_from_mpas_cnst2(:)
+    logical, pointer :: config_apply_lbcs
 
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
@@ -274,15 +275,18 @@ contains
     !
     ! Setup scalars for LBC pool and scalars_tend for LBC pool.
     !
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'lbc', lbc)
-    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'num_scalars', num_scalars)
-    call mpas_pool_add_dimension(lbc, 'num_scalars', num_scalars)
-    call mpas_pool_add_dimension(lbc, 'moist_start', 1)
-    call mpas_pool_add_dimension(lbc, 'moist_end', Cfg % nwat)
-    nullify (lbc)
-    call ufs_mpas_define_lbc_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
-    if (ierr /= 0) then
-       call mpp_error(FATAL,'ERROR: Set-up of LBC constituents for MPAS-A dycore failed.')
+    call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_apply_lbcs', config_apply_lbcs)
+    if (config_apply_lbcs) then
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'lbc', lbc)
+       call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'num_scalars', num_scalars)
+       call mpas_pool_add_dimension(lbc, 'num_scalars', num_scalars)
+       call mpas_pool_add_dimension(lbc, 'moist_start', 1)
+       call mpas_pool_add_dimension(lbc, 'moist_end', Cfg % nwat)
+       nullify (lbc)
+       call ufs_mpas_define_lbc_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
+       if (ierr /= 0) then
+          call mpp_error(FATAL,'ERROR: Set-up of LBC constituents for MPAS-A dycore failed.')
+       end if
     end if
 
     !
@@ -430,6 +434,11 @@ contains
     call dyn_mpas_read_write_stream(clock, 'r', 'input', pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1, whence=mpas_NOW)
     if (ierr /= MPAS_STREAM_MGR_NOERR) then
        call mpas_log_write('Could not read from ''input'' stream ',messageType=MPAS_LOG_ERR)
+       call mpp_error(FATAL,'ERROR: Could not read from ''input'' stream ')
+    end if
+    call dyn_mpas_read_write_stream(clock, 'r', 'sfc_input', pio_file_desc=pioid_ic, ierr=ierr, timeLevel=1, whence=mpas_NOW)
+    if (ierr /= MPAS_STREAM_MGR_NOERR) then
+       call mpas_log_write('Could not read from ''sfc_input'' stream ',messageType=MPAS_LOG_ERR)
        call mpp_error(FATAL,'ERROR: Could not read from ''input'' stream ')
     end if
 
