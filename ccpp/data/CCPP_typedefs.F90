@@ -11,8 +11,8 @@ module CCPP_typedefs
     use GFS_typedefs,             only: clear_val, LTP
 
     ! Physics type defininitions needed for interstitial DDTs
-    use module_radsw_parameters,  only: profsw_type, cmpfsw_type, NBDSW
-    use module_radlw_parameters,  only: proflw_type, NBDLW
+    use module_radsw_parameters,  only: profsw_type, cmpfsw_type
+    use module_radlw_parameters,  only: proflw_type
     use GFS_typedefs,             only: GFS_control_type
 
     implicit none
@@ -21,17 +21,11 @@ module CCPP_typedefs
 
     ! To ensure that these values match what's in the physics, array
     ! sizes are compared in the auto-generated physics caps in debug mode
-    ! from module_radiation_aerosols
-    integer, parameter :: NF_AESW = 3
-    integer, parameter :: NF_AELW = 3
-    integer, parameter :: NSPC    = 5
-    integer, parameter :: NSPC1   = NSPC + 1
     ! from module_radiation_clouds
     integer, parameter :: NF_CLDS = 9
     ! from module_radiation_gases
     integer, parameter :: NF_VGAS = 10
     ! from module_radiation_surface
-    integer, parameter :: NF_ALBD = 4
 
     ! GFS_interstitial_type         !< fields required to replace interstitial code in GFS_{physics,radiation}_driver.F90 in CCPP
     public GFS_interstitial_type
@@ -148,7 +142,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: fm10_ice(:)        => null()  !<
     real (kind=kind_phys), pointer      :: fm10_land(:)       => null()  !<
     real (kind=kind_phys), pointer      :: fm10_water(:)      => null()  !<
-    real (kind=kind_phys)               :: frain                         !<
     real (kind=kind_phys), pointer      :: frland(:)          => null()  !<
     real (kind=kind_phys), pointer      :: fscav(:)           => null()  !<
     real (kind=kind_phys), pointer      :: fswtr(:)           => null()  !<
@@ -185,7 +178,6 @@ module CCPP_typedefs
     logical,               pointer      :: icy(:)             => null()  !<
     logical,               pointer      :: lake(:)            => null()  !<
     logical,               pointer      :: ocean(:)           => null()  !<
-    integer                             :: ipr                           !<
     integer,               pointer      :: islmsk(:)          => null()  !<
     integer,               pointer      :: islmsk_cice(:)     => null()  !<
     integer                             :: itc                           !<
@@ -198,27 +190,17 @@ module CCPP_typedefs
     integer,               pointer      :: kpbl(:)            => null()  !<
     integer                             :: kt                            !<
     integer,               pointer      :: ktop(:)            => null()  !<
-    integer                             :: latidxprnt                    !<
-    integer                             :: levi                          !<
-    integer                             :: lmk                           !<
-    integer                             :: lmp                           !<
     integer,               pointer      :: mbota(:,:)         => null()  !<
     logical                             :: mg3_as_mg2                    !<
     integer,               pointer      :: mtopa(:,:)         => null()  !<
-    integer                             :: nbdlw                         !<
-    integer                             :: nbdsw                         !<
     real (kind=kind_phys), pointer      :: ncgl(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: ncpr(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: ncps(:,:)          => null()  !<
     integer                             :: ncstrac                       !<
     integer                             :: nday                          !<
-    integer                             :: nf_aelw                       !<
-    integer                             :: nf_aesw                       !<
-    integer                             :: nf_albd                       !<
     integer                             :: nn                            !<
     integer                             :: nsamftrac                     !<
     integer                             :: nscav                         !<
-    integer                             :: nspc1                         !<
     integer                             :: ntcwx                         !<
     integer                             :: ntiwx                         !<
     integer                             :: ntrwx                         !<
@@ -230,8 +212,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: olyr(:,:)          => null()  !<
     logical              , pointer      :: otspt(:,:)         => null()  !<
     logical              , pointer      :: otsptflag(:)       => null()  !<
-    integer                             :: oz_coeffp5                    !<
-    logical                             :: phys_hydrostatic              !<
     real (kind=kind_phys), pointer      :: plvl(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: plyr(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: prcpmp(:)          => null()  !<
@@ -273,7 +253,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: sigmaf(:)          => null()  !<
     real (kind=kind_phys), pointer      :: sigmafrac(:,:)     => null()  !<
     real (kind=kind_phys), pointer      :: sigmatot(:,:)      => null()  !<
-    logical                             :: skip_macro                    !<
     real (kind=kind_phys), pointer      :: snowc(:)           => null()  !<
     real (kind=kind_phys), pointer      :: snohf(:)           => null()  !<
     real (kind=kind_phys), pointer      :: snowmp(:)          => null()  !<
@@ -362,8 +341,8 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: qs_lay(:,:)               => null()  !<
     real (kind=kind_phys), pointer      :: q_lay(:,:)                => null()  !<
     real (kind=kind_phys), pointer      :: deltaZ(:,:)               => null()  !<
-    real (kind=kind_phys), pointer      :: deltaZc(:,:)              => null()  !< 
-    real (kind=kind_phys), pointer      :: deltaP(:,:)               => null()  !< 
+    real (kind=kind_phys), pointer      :: deltaZc(:,:)              => null()  !<
+    real (kind=kind_phys), pointer      :: deltaP(:,:)               => null()  !<
     real (kind=kind_phys), pointer      :: cloud_overlap_param(:,:)  => null()  !< Cloud overlap parameter
     real (kind=kind_phys), pointer      :: cnv_cloud_overlap_param(:,:) => null()  !< Convective cloud overlap parameter
     real (kind=kind_phys), pointer      :: precip_overlap_param(:,:) => null()  !< Precipitation overlap parameter
@@ -371,12 +350,12 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: aerosolslw(:,:,:,:)       => null()  !< Aerosol radiative properties in each LW band.
     real (kind=kind_phys), pointer      :: aerosolssw(:,:,:,:)       => null()  !< Aerosol radiative properties in each SW band.
     real (kind=kind_phys), pointer      :: precip_frac(:,:)          => null()  !< Precipitation fraction
-    real (kind=kind_phys), pointer      :: cld_cnv_frac(:,:)         => null()  !< SGS convective cloud fraction 
+    real (kind=kind_phys), pointer      :: cld_cnv_frac(:,:)         => null()  !< SGS convective cloud fraction
     real (kind=kind_phys), pointer      :: cld_cnv_lwp(:,:)          => null()  !< SGS convective cloud liquid water path
     real (kind=kind_phys), pointer      :: cld_cnv_reliq(:,:)        => null()  !< SGS convective cloud liquid effective radius
     real (kind=kind_phys), pointer      :: cld_cnv_iwp(:,:)          => null()  !< SGS convective cloud ice water path
     real (kind=kind_phys), pointer      :: cld_cnv_reice(:,:)        => null()  !< SGS convective cloud ice effecive radius
-    real (kind=kind_phys), pointer      :: cld_pbl_lwp(:,:)          => null()  !< SGS PBL        cloud liquid water path 
+    real (kind=kind_phys), pointer      :: cld_pbl_lwp(:,:)          => null()  !< SGS PBL        cloud liquid water path
     real (kind=kind_phys), pointer      :: cld_pbl_reliq(:,:)        => null()  !< SGS PBL        cloud liquid effective radius
     real (kind=kind_phys), pointer      :: cld_pbl_iwp(:,:)          => null()  !< SGS PBL        cloud ice water path
     real (kind=kind_phys), pointer      :: cld_pbl_reice(:,:)        => null()  !< SGS PBL        cloud ice effecive radius
@@ -388,7 +367,7 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: fluxswDOWN_allsky(:,:)    => null()  !< RRTMGP downward shortwave all-sky flux profile
     real (kind=kind_phys), pointer      :: fluxswUP_clrsky(:,:)      => null()  !< RRTMGP upward   shortwave clr-sky flux profile
     real (kind=kind_phys), pointer      :: fluxswDOWN_clrsky(:,:)    => null()  !< RRTMGP downward shortwave clr-sky flux profile
-    real (kind=kind_phys), pointer      :: sfc_emiss_byband(:,:)     => null()  !< 
+    real (kind=kind_phys), pointer      :: sfc_emiss_byband(:,:)     => null()  !<
     real (kind=kind_phys), pointer      :: sec_diff_byband(:,:)      => null()  !<
     real (kind=kind_phys), pointer      :: sfc_alb_nir_dir(:,:)      => null()  !<
     real (kind=kind_phys), pointer      :: sfc_alb_nir_dif(:,:)      => null()  !<
@@ -529,7 +508,7 @@ contains
     allocate (Interstitial%adjvisbmu       (ixs:ixe))
     allocate (Interstitial%adjvisdfu       (ixs:ixe))
     allocate (Interstitial%adjvisdfd       (ixs:ixe))
-    allocate (Interstitial%aerodp          (ixs:ixe,NSPC1))
+    allocate (Interstitial%aerodp          (ixs:ixe,Model%NSPC1))
     allocate (Interstitial%alb1d           (ixs:ixe))
     if (.not. Model%do_RRTMGP) then
       ! RRTMGP uses its own cloud_overlap_param
@@ -598,8 +577,8 @@ contains
     allocate (Interstitial%ecan            (ixs:ixe))
     allocate (Interstitial%etran           (ixs:ixe))
     allocate (Interstitial%edir            (ixs:ixe))
-    allocate (Interstitial%faerlw          (ixs:ixe,Model%levr+LTP,NBDLW,NF_AELW))
-    allocate (Interstitial%faersw          (ixs:ixe,Model%levr+LTP,NBDSW,NF_AESW))
+    allocate (Interstitial%faerlw          (ixs:ixe,Model%levr+LTP,Model%NBDLW,Model%NF_AELW))
+    allocate (Interstitial%faersw          (ixs:ixe,Model%levr+LTP,Model%NBDSW,Model%NF_AESW))
     allocate (Interstitial%ffhh_ice        (ixs:ixe))
     allocate (Interstitial%ffhh_land       (ixs:ixe))
     allocate (Interstitial%ffhh_water      (ixs:ixe))
@@ -688,7 +667,7 @@ contains
     allocate (Interstitial%save_v          (ixs:ixe,Model%levs))
     allocate (Interstitial%sbsno           (ixs:ixe))
     allocate (Interstitial%scmpsw          (ixs:ixe))
-    allocate (Interstitial%sfcalb          (ixs:ixe,NF_ALBD))
+    allocate (Interstitial%sfcalb          (ixs:ixe,Model%NF_ALBD))
     allocate (Interstitial%sigma           (ixs:ixe))
     allocate (Interstitial%sigmaf          (ixs:ixe))
     allocate (Interstitial%sigmafrac       (ixs:ixe,Model%levs))
@@ -763,8 +742,8 @@ contains
        allocate (Interstitial%fluxswDOWN_allsky    (ixs:ixe, Model%levs+1))
        allocate (Interstitial%fluxswUP_clrsky      (ixs:ixe, Model%levs+1))
        allocate (Interstitial%fluxswDOWN_clrsky    (ixs:ixe, Model%levs+1))
-       allocate (Interstitial%aerosolslw           (ixs:ixe, Model%levs, Model%rrtmgp_nBandsLW, NF_AELW))
-       allocate (Interstitial%aerosolssw           (ixs:ixe, Model%levs, Model%rrtmgp_nBandsSW, NF_AESW))
+       allocate (Interstitial%aerosolslw           (ixs:ixe, Model%levs, Model%rrtmgp_nBandsLW, Model%NF_AELW))
+       allocate (Interstitial%aerosolssw           (ixs:ixe, Model%levs, Model%rrtmgp_nBandsSW, Model%NF_AESW))
        allocate (Interstitial%precip_frac          (ixs:ixe, Model%levs))
        allocate (Interstitial%cld_cnv_frac         (ixs:ixe, Model%levs))
        allocate (Interstitial%cnv_cloud_overlap_param(ixs:ixe, Model%levs))
@@ -856,32 +835,7 @@ contains
        allocate (Interstitial%t2mmp (ixs:ixe))
        allocate (Interstitial%q2mp  (ixs:ixe))
     end if
-    !
-    ! Set components that do not change
-    Interstitial%frain            = Model%dtf/Model%dtp
-    Interstitial%ipr              = min(ixe-ixs+1,10)
-    Interstitial%latidxprnt       = 1
-    Interstitial%levi             = Model%levs+1
-    Interstitial%lmk              = Model%levr+LTP
-    Interstitial%lmp              = Model%levr+1+LTP
-    Interstitial%nbdlw            = NBDLW
-    Interstitial%nbdsw            = NBDSW
-    Interstitial%nf_aelw          = NF_AELW
-    Interstitial%nf_aesw          = NF_AESW
-    Interstitial%nf_albd          = NF_ALBD
-    Interstitial%nspc1            = NSPC1
-    if (Model%oz_phys .or. Model%oz_phys_2015) then
-      Interstitial%oz_coeffp5     = Model%oz_coeff+5
-    else
-      Interstitial%oz_coeffp5     = 5
-    endif
-    !
-    Interstitial%skip_macro       = .false.
-    ! The value phys_hydrostatic from dynamics does not match the
-    ! hardcoded value for calling GFDL MP in GFS_physics_driver.F90,
-    ! which is set to .true.
-    Interstitial%phys_hydrostatic = .true.
-    !
+
     ! Reset all other variables
     call Interstitial%reset (Model)
     !
@@ -1288,7 +1242,7 @@ contains
         Interstitial%nvdiff = Interstitial%nvdiff + 1
       ENDIF
       if (Model%me == Model%master)  write(0,*) 'nssl_settings2: nvdiff,ntrac = ', Interstitial%nvdiff, Model%ntrac
-    
+
     elseif (Model%imp_physics == Model%imp_physics_wsm6) then
       Interstitial%nvdiff = Model%ntrac -3
       if (Model%satmedmf) Interstitial%nvdiff = Interstitial%nvdiff + 1

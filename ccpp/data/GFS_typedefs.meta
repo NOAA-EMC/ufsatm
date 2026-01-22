@@ -3428,6 +3428,46 @@
   type = real
   kind = kind_phys
   active = (flag_for_rrtmgp_radiation_scheme)
+[tsfco_dat]
+  standard_name = sea_surface_temperature_from_data
+  long_name = sfc temperature
+  units = K
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (do_cdeps_inline)
+[mask_dat]
+  standard_name = land_sea_mask_from_data 
+  long_name = landmask
+  units = flag
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (do_cdeps_inline)
+[tice_dat]
+  standard_name = surface_skin_temperature_over_ice_from_data
+  long_name = surface skin temperature over ice
+  units = K
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (do_cdeps_inline)
+[hice_dat]
+  standard_name = sea_ice_thickness_from_data
+  long_name = sea-ice thickness
+  units = m
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (do_cdeps_inline)
+[fice_dat]
+  standard_name = sea_ice_area_fraction_of_sea_area_fraction_from_data
+  long_name = sea-ice concentration [0,1]
+  units = frac
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (do_cdeps_inline)
 
 ########################################################################
 [ccpp-table-properties]
@@ -3505,6 +3545,24 @@
   standard_name = iounit_of_log
   long_name = fortran unit number for logfile
   units = none
+  dimensions = ()
+  type = integer
+[latidxprnt]
+  standard_name = latitude_index_in_debug_printouts
+  long_name = latitude index in debug printouts
+  units = index
+  dimensions = ()
+  type = integer
+[ipr]
+  standard_name = horizontal_index_of_printed_column
+  long_name = horizontal index of printed column
+  units = index
+  dimensions = ()
+  type = integer
+[n_diag_buckets]
+  standard_name = number_of_diagnostic_buckets
+  long_name = number of diagnostic bucket reset periods
+  units = count
   dimensions = ()
   type = integer
 [ldiag3d]
@@ -3813,6 +3871,12 @@
   units = flag
   dimensions = ()
   type = logical
+[use_cdeps_inline]
+  standard_name = do_cdeps_inline
+  long_name = flag for using data provided by CDEPS inline (default false)
+  units = flag
+  dimensions = ()
+  type = logical
 [fhcyc]
   standard_name = frequency_for_surface_cycling_calls
   long_name = frequency for surface cycling calls
@@ -3843,6 +3907,13 @@
   standard_name = timestep_for_dynamics
   long_name = dynamics timestep
   units = s
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[frain]
+  standard_name = dynamics_to_physics_timestep_ratio
+  long_name = ratio of dynamics timestep to physics timestep
+  units = none
   dimensions = ()
   type = real
   kind = kind_phys
@@ -3965,6 +4036,54 @@
 [levrp1]
   standard_name = vertical_interface_dimension_for_radiation
   long_name = number of vertical levels for radiation calculations + 1
+  units = count
+  dimensions = ()
+  type = integer
+[lmk]
+  standard_name = adjusted_vertical_layer_dimension_for_radiation
+  long_name = adjusted number of vertical layers for radiation
+  units = count
+  dimensions = ()
+  type = integer
+[lmp]
+  standard_name = adjusted_vertical_level_dimension_for_radiation
+  long_name = adjusted number of vertical levels for radiation
+  units = count
+  dimensions = ()
+  type = integer
+[nbdlw]
+  standard_name = number_of_aerosol_bands_for_longwave_radiation
+  long_name = number of aerosol bands for longwave radiation
+  units = count
+  dimensions = ()
+  type = integer
+[nbdsw]
+  standard_name = number_of_aerosol_bands_for_shortwave_radiation
+  long_name = number of aerosol bands for shortwave radiation
+  units = count
+  dimensions = ()
+  type = integer
+[nf_aelw]
+  standard_name = number_of_aerosol_output_fields_for_longwave_radiation
+  long_name = number of aerosol output fields for longwave radiation
+  units = count
+  dimensions = ()
+  type = integer
+[nf_aesw]
+  standard_name = number_of_aerosol_output_fields_for_shortwave_radiation
+  long_name = number of aerosol output fields for shortwave radiation
+  units = count
+  dimensions = ()
+  type = integer
+[nf_albd]
+  standard_name = number_of_components_for_surface_albedo
+  long_name = number of IR/VIS/UV compinents for surface albedo
+  units = count
+  dimensions = ()
+  type = integer
+[nspc1]
+  standard_name = number_of_species_for_aerosol_optical_depth
+  long_name = number of species for output aerosol optical depth plus total
   units = count
   dimensions = ()
   type = integer
@@ -4227,6 +4346,20 @@
   units = flag
   dimensions = ()
   type = logical
+[xr_con]
+  standard_name = multiplicative_tuning_parameter_for_Xu_Randall_cloud_fraction
+  long_name = multiplicative tuning parameter for Xu Randall cloud fraction
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[xr_exp]
+  standard_name = exponent_tuning_parameter_for_Xu_Randall_cloud_fraction
+  long_name = exponent tuning parameter for Xu Randall cloud fraction
+  units = 1
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [active_gases]
   standard_name = active_gases_used_by_RRTMGP
   long_name = active gases used by RRTMGP
@@ -4658,6 +4791,12 @@
   units = flag
   dimensions = ()
   type = integer
+[skip_macro]
+  standard_name = flag_skip_macro
+  long_name = flag to skip cloud macrophysics in Morrison scheme
+  units = flag
+  dimensions = ()
+  type = logical
 [mg_dcs]
   standard_name = autoconverion_to_snow_size_threshold
   long_name = autoconversion size threshold for cloud ice to snow for MG microphysics
@@ -5131,6 +5270,12 @@
 [lgfdlmprad]
   standard_name = flag_for_GFDL_microphysics_radiation_interaction
   long_name = flag for GFDL microphysics-radiation interaction
+  units = flag
+  dimensions = ()
+  type = logical
+[phys_hydrostatic]
+  standard_name = flag_for_hydrostatic_heating_from_physics
+  long_name = flag for use of hydrostatic heating in physics
   units = flag
   dimensions = ()
   type = logical
@@ -7412,6 +7557,12 @@
   units = count
   dimensions = ()
   type = integer
+[oz_coeffp5]
+  standard_name = number_of_coefficients_in_ozone_forcing_data_plus_five
+  long_name = number of coefficients in ozone forcing data plus five
+  units = index
+  dimensions = ()
+  type = integer
 [levh2o]
   standard_name = vertical_dimension_of_h2o_forcing_data
   long_name = number of vertical layers in h2o forcing data
@@ -9129,7 +9280,7 @@
   standard_name = accumulated_lwe_thickness_of_precipitation_amount_in_bucket
   long_name = accumulated total precipitation in bucket
   units = m
-  dimensions = (horizontal_dimension)
+  dimensions = (horizontal_dimension,number_of_diagnostic_buckets)
   type = real
   kind = kind_phys
 [toticeb]
@@ -9320,7 +9471,7 @@
   standard_name = cumulative_lwe_thickness_of_convective_precipitation_amount_in_bucket
   long_name = cumulative convective precipitation in bucket
   units = m
-  dimensions = (horizontal_dimension)
+  dimensions = (horizontal_dimension,number_of_diagnostic_buckets)
   type = real
   kind = kind_phys
 [spfhmin]

@@ -12,7 +12,7 @@
 spack:
   specs:
   - bacio@2.4.1
-  - crtm@2.4.0
+  - crtm@3.1.2
   - esmf@8.8.0
   - fms@2024.02 +gfs_phys +openmp +pic +quad_precision +deprecated_io constants=GFS precision=32,64
   - g2@3.5.1

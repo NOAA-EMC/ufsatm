@@ -960,13 +960,6 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-[frain]
-  standard_name = dynamics_to_physics_timestep_ratio
-  long_name = ratio of dynamics timestep to physics timestep
-  units = none
-  dimensions = ()
-  type = real
-  kind = kind_phys
 [frland]
   standard_name = land_area_fraction_for_microphysics
   long_name = land area fraction used in microphysics schemes
@@ -1265,12 +1258,6 @@
   units = flag
   dimensions = (horizontal_dimension)
   type = logical
-[ipr]
-  standard_name = horizontal_index_of_printed_column
-  long_name = horizontal index of printed column
-  units = index
-  dimensions = ()
-  type = integer
 [islmsk]
   standard_name = sea_land_ice_mask
   long_name = sea/land/ice mask (=0/1/2)
@@ -1343,30 +1330,6 @@
   units = index
   dimensions = (horizontal_dimension)
   type = integer
-[latidxprnt]
-  standard_name = latitude_index_in_debug_printouts
-  long_name = latitude index in debug printouts
-  units = index
-  dimensions = ()
-  type = integer
-[levi]
-  standard_name = vertical_interface_dimension_interstitial
-  long_name = vertical interface dimension
-  units = count
-  dimensions = ()
-  type = integer
-[lmk]
-  standard_name = adjusted_vertical_layer_dimension_for_radiation
-  long_name = adjusted number of vertical layers for radiation
-  units = count
-  dimensions = ()
-  type = integer
-[lmp]
-  standard_name = adjusted_vertical_level_dimension_for_radiation
-  long_name = adjusted number of vertical levels for radiation
-  units = count
-  dimensions = ()
-  type = integer
 [mbota]
   standard_name = model_layer_number_at_cloud_base
   long_name = vertical indices for low, middle and high cloud bases
@@ -1384,18 +1347,6 @@
   long_name = vertical indices for low, middle and high cloud tops
   units = index
   dimensions = (horizontal_dimension,3)
-  type = integer
-[nbdlw]
-  standard_name = number_of_aerosol_bands_for_longwave_radiation
-  long_name = number of aerosol bands for longwave radiation
-  units = count
-  dimensions = ()
-  type = integer
-[nbdsw]
-  standard_name = number_of_aerosol_bands_for_shortwave_radiation
-  long_name = number of aerosol bands for shortwave radiation
-  units = count
-  dimensions = ()
   type = integer
 [ncgl]
   standard_name = local_graupel_number_concentration
@@ -1433,24 +1384,6 @@
   units = count
   dimensions = ()
   type = integer
-[nf_aelw]
-  standard_name = number_of_aerosol_output_fields_for_longwave_radiation
-  long_name = number of aerosol output fields for longwave radiation
-  units = count
-  dimensions = ()
-  type = integer
-[nf_aesw]
-  standard_name = number_of_aerosol_output_fields_for_shortwave_radiation
-  long_name = number of aerosol output fields for shortwave radiation
-  units = count
-  dimensions = ()
-  type = integer
-[nf_albd]
-  standard_name = number_of_components_for_surface_albedo
-  long_name = number of IR/VIS/UV compinents for surface albedo
-  units = count
-  dimensions = ()
-  type = integer
 [nn]
   standard_name = number_of_tracers_for_convective_transport
   long_name = number of tracers for convective transport
@@ -1466,12 +1399,6 @@
 [nscav]
   standard_name = number_of_tracers_scavenged
   long_name = number of tracers scavenged
-  units = count
-  dimensions = ()
-  type = integer
-[nspc1]
-  standard_name = number_of_species_for_aerosol_optical_depth
-  long_name = number of species for output aerosol optical depth plus total
   units = count
   dimensions = ()
   type = integer
@@ -1567,18 +1494,6 @@
   long_name = flag for interstitial tracer transport
   units = flag
   dimensions = (number_of_tracers)
-  type = logical
-[oz_coeffp5]
-  standard_name = number_of_coefficients_in_ozone_forcing_data_plus_five
-  long_name = number of coefficients in ozone forcing data plus five
-  units = index
-  dimensions = ()
-  type = integer
-[phys_hydrostatic]
-  standard_name = flag_for_hydrostatic_heating_from_physics
-  long_name = flag for use of hydrostatic heating in physics
-  units = flag
-  dimensions = ()
   type = logical
 [plvl]
   standard_name = air_pressure_at_interface_for_radiation_in_hPa
@@ -1954,12 +1869,6 @@
   dimensions = (horizontal_dimension,vertical_interface_dimension)
   type = real
   kind = kind_phys
-[skip_macro]
-  standard_name = flag_skip_macro
-  long_name = flag to skip cloud macrophysics in Morrison scheme
-  units = flag
-  dimensions = ()
-  type = logical
 [snowc]
   standard_name = surface_snow_area_fraction
   long_name = surface snow area fraction
