@@ -109,7 +109,7 @@ contains
     use ufs_mpas_subdriver, only : ufs_mpas_init
     use ufs_mpas_subdriver, only : ufs_mpas_open_init, ufs_mpas_open_lbc
     use ufs_mpas_module,    only : constituent_name, is_water_species
-    use atmos_coupling_mod, only : ufs_mpas_to_physics
+    use atmos_coupling_mod, only : ufs_mpas_to_physics, ufs_mpas_grid_to_physics
     use MPAS_init,          only : MPAS_initialize
 
     ! Arguments
@@ -269,6 +269,8 @@ contains
     ! Read in physics namelist and allocate data containers.
     call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
          UFSATM_statein, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
+    
+    call ufs_mpas_grid_to_physics(UFSATM_grid)
 
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
     ! we are calling the physics before the MPAS dynamical core.

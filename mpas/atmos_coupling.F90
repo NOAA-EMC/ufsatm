@@ -13,6 +13,7 @@ module atmos_coupling_mod
   public :: ufs_mpas_to_physics
   public :: ufs_microphysics_to_mpas
   public :: ufs_mpas_to_microphysics
+  public :: ufs_mpas_grid_to_physics
 
   !> #######################################################################################
   !> MPAS_statein_type
@@ -201,7 +202,7 @@ contains
        do iTracer = 1,num_scalars
           physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCol)
        enddo
-    enddo
+    enddo    
 
     ! Compute hydrostatic pressures
     allocate(MPAS_state % pmid(   nVertLevels,   nCellsSolve))
@@ -369,5 +370,91 @@ contains
        end do
     end do
   end subroutine hydrostatic_pressure
+  
+!> #########################################################################################
+!> Procedure to transfer MPAS grid information to physics DDTs.
+!>
+!> #########################################################################################
+  subroutine ufs_mpas_grid_to_physics(physics_grid)
+    use GFS_typedefs,         only : GFS_grid_type
+    use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_dimension, mpas_pool_get_array, mpas_pool_get_config
+    use mpas_kind_types,      only : RKIND
+    use mpas_constants,       only : pii
+    use mpas_log,             only : mpas_log_write
+    use mpas_derived_types,   only : MPAS_LOG_ERR, MPAS_LOG_WARN
+    use mpp_mod,              only : mpp_error, FATAL
+    ! Arguments
+    type(GFS_grid_type),      intent(inout) :: physics_grid
+    ! Locals
+    type(mpas_pool_type), pointer :: mesh_pool
+    integer :: i, ierr
+    integer, pointer :: nCellsSolve
+    real(RKIND), pointer :: lat(:), lon(:), area(:), meshDensity(:)
+    
+    real(RKIND), pointer :: nominalMinDc
+    real(RKIND), pointer :: config_len_disp
+    real(RKIND)          :: rad2deg
+    
+    ierr = 0
+    rad2deg = 180.0_RKIND/pii
+    
+    ! Access MPAS data pools.
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+    
+    ! Get MPAS dimensions
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
+    
+    call mpas_pool_get_array(mesh_pool,  'latCell',                lat)
+    call mpas_pool_get_array(mesh_pool,  'lonCell',                lon)
+    call mpas_pool_get_array(mesh_pool,  'areaCell',               area)
+    call mpas_pool_get_array(mesh_pool,  'meshDensity',            meshDensity)
+    
+    ! (from mpas_atm_core.F/atm_core_init Determine horizontal length scale used by horizontal diffusion and 3-d divergence damping
+    nullify(nominalMinDc)
+    call mpas_pool_get_array(mesh_pool, 'nominalMinDc', nominalMinDc)
 
+    nullify(config_len_disp)
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_len_disp', config_len_disp)
+
+    ! If config_len_disp was specified as a valid value, use that
+    if (config_len_disp > 0.0_RKIND) then
+      ! But if nominalMinDc was available in the input file and is different, print a warning
+      if (nominalMinDc > 0.0_RKIND .and. abs(nominalMinDc - config_len_disp) > 1.0e-6_RKIND * config_len_disp) then
+        call mpas_log_write('nominalMinDc was read from input file as a positive value ($r) that differs', &
+                                realArgs=[nominalMinDc], messageType=MPAS_LOG_WARN)
+        call mpas_log_write('from the specified config_len_disp value ($r)', &
+                                realArgs=[config_len_disp], messageType=MPAS_LOG_WARN)
+      end if
+      nominalMinDc = config_len_disp
+    ! Otherwise, try to use nominalMinDc
+    else
+      if (nominalMinDc > 0.0_RKIND) then
+        call mpas_log_write('Setting config_len_disp to $r based on nominalMinDc value in input file', realArgs=[nominalMinDc])
+          config_len_disp = nominalMinDc
+      else
+        call mpas_log_write('Both config_len_disp and nominalMinDc are <= 0.0.', messageType=MPAS_LOG_ERR)
+        call mpas_log_write('Please either specify config_len_disp in the &nhyd_model namelist group,', &
+                                messageType=MPAS_LOG_ERR)
+        call mpas_log_write('or use an input file that provides a valid value for the nominalMinDc variable.', &
+                                messageType=MPAS_LOG_ERR)
+        ierr = 1
+      end if
+    end if
+    if (ierr/=0)  call mpp_error(FATAL, 'Call to ufs_mpas_grid_to_physics() failed')  
+    
+    do i=1, nCellsSolve
+      physics_grid % xlat(i)   = lat(i)
+      physics_grid % xlon(i)   = lon(i)
+      physics_grid % xlat_d(i) = physics_grid % xlat(i) * rad2deg
+      physics_grid % xlon_d(i) = physics_grid % xlon(i) * rad2deg
+      physics_grid % sinlat(i) = sin(physics_grid % xlat(i))
+      physics_grid % coslat(i) = sqrt(1.0_RKIND - physics_grid % sinlat(i) * physics_grid % sinlat(i))
+      physics_grid % area(i)   = area(i)
+      !formula for dx comes from mpas_atmphys_driver_gwdo.F instead of sqrt(area) as in FV3
+      physics_grid % dx(i)     = config_len_disp / meshDensity(i)**0.25
+    end do
+    
+  end subroutine ufs_mpas_grid_to_physics
+  
 end module atmos_coupling_mod
