@@ -25,7 +25,6 @@
 !! @email William.Ramstrom@noaa.gov
 ! =======================================================================!
 
-
 ! =======================================================================!
 !
 ! Notes
@@ -204,7 +203,6 @@ contains
 
   end subroutine mn_phys_apply_coarse_seaice
 
-
   subroutine mn_phys_set_slmsk(Atm, n, mn_static, ioffset, joffset, refine)
     type(fv_atmos_type), intent(inout),allocatable   :: Atm(:)              !< Array of atmospheric data
     integer, intent(in)                              :: n                   !< Current grid number
@@ -225,7 +223,6 @@ contains
       enddo
     enddo
   end subroutine mn_phys_set_slmsk
-
 
   !>@brief The subroutine 'mn_phys_reset_sfc_props' sets the static surface parameters from the high-resolution input file data
   !>@details This subroutine relies on earlier code reading the data from files into the mn_static data structure
@@ -570,7 +567,6 @@ contains
           mn_phys%snowxy(i,j)     = GFS_sfcprop%snowxy(im)
           !if (i .eq. 149 .and. j .eq. 169) print '("[INFO] WDR SNOWXY MASK2D npe=",I0," i=",I0," j=",I0," snowxy=",E10.5)', this_pe, i, j, mn_phys%snowxy(i,j)
 
-
           mn_phys%tvxy(i,j)       = GFS_sfcprop%tvxy(im)
           mn_phys%tgxy(i,j)       = GFS_sfcprop%tgxy(im)
           mn_phys%canicexy(i,j)   = GFS_sfcprop%canicexy(im)
@@ -889,8 +885,6 @@ contains
             GFS_sfcprop%fice(im) = mn_phys%fice(i,j)
             GFS_sfcprop%hice(im) = mn_phys%hice(i,j)
 
-
-
             do k = 1, GFS_control%lsoil
               GFS_sfcprop%smoiseq(im,k) = mn_phys%smoiseq(i,j,k)
             enddo
@@ -1019,7 +1013,6 @@ contains
 
   end subroutine mn_phys_apply_temp_variables
 
-
   !>@brief The subroutine 'mn_physfill_nest_halos_from_parent' transfers data from the coarse grid to the nest edge
   !>@details This subroutine must run on parent and nest PEs to complete the data transfers
   subroutine mn_phys_fill_nest_halos_from_parent(Atm, GFS_control, mn_static, n, child_grid_num, is_fine_pe, nest_domain, nz)
@@ -1049,7 +1042,6 @@ contains
       ! Expect that zsns_default is not used in this case, but just to be safe, set to 0
       zsns_default = 0.0
     endif
-
 
     interp_type = 1        ! cell-centered A-grid
     interp_type_u = 4      ! D-grid
@@ -1186,8 +1178,6 @@ contains
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.50D0)
 
-
-
       call fill_nest_halos_from_parent("uustar", mn_phys%uustar, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
@@ -1256,8 +1246,6 @@ contains
           Atm(child_grid_num)%neststruct%ind_h, &
           x_refine, y_refine, &
           is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.5D0)
-
-
 
       call fill_nest_halos_from_parent("cv", mn_phys%cv, interp_type, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, &
@@ -1433,7 +1421,6 @@ contains
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 4900.0D0)
 
-
       ! Leaf mass [g/m2] -- TODO find better default
       call fill_nest_halos_from_parent_masked("lfmassxy", mn_phys%lfmassxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
@@ -1520,16 +1507,14 @@ contains
           x_refine, y_refine, &
           is_fine_pe, nest_domain, position, 1, GFS_control%lsoil, mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, 0.3D0)
 
-
       call fill_nest_halos_from_parent_masked("zsnsoxy", mn_phys%zsnsoxy, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
           Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsoil, &
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_LAND, zsns_default)
 
-
       ! ICEFIX tiice
       call fill_nest_halos_from_parent_masked("tiice", mn_phys%tiice, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
-	  Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
+          Atm(child_grid_num)%neststruct%ind_h, x_refine, y_refine, &
           is_fine_pe, nest_domain, position, 1, 2, & !! kice
           mn_phys%slmsk, mn_static%parent_ls%ls_mask_grid, M_SEAICE, mn_phys%ts)
       call fill_nest_halos_from_parent_masked("tisfc", mn_phys%tisfc, interp_type_lmask, Atm(child_grid_num)%neststruct%wt_h, &
@@ -1740,7 +1725,6 @@ contains
       call mn_var_shift_data(mn_phys%emis_wat, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
 
-
       !call mn_var_shift_data(mn_phys%sfalb_lnd, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
       !  delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
       !call mn_var_shift_data(mn_phys%sfalb_lnd_bck, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
@@ -1909,7 +1893,6 @@ contains
       call mn_var_shift_data(mn_phys%smoiseq, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsoil)
 
-
       call mn_var_shift_data(mn_phys%snicexy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position, GFS_control%lsnow_lsm_lbound, GFS_control%lsnow_lsm_ubound)
       call mn_var_shift_data(mn_phys%snliqxy, interp_type, wt_h, Atm(child_grid_num)%neststruct%ind_h, &
@@ -1936,7 +1919,6 @@ contains
           delta_i_c, delta_j_c, x_refine, y_refine, is_fine_pe, nest_domain, position)
 
     endif
-
 
   end subroutine mn_phys_shift_data
 
@@ -2234,7 +2216,6 @@ contains
     if (move_nsst) deallocate(tref_pr_local, c_0_pr_local, xt_pr_local,  xu_pr_local,  xv_pr_local, ifd_pr_local)
 
     if (move_noahmp) deallocate(snowxy_pr_local)
-
 
   end subroutine mn_phys_dump_to_netcdf
 

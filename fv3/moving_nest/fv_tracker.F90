@@ -79,7 +79,6 @@ module fv_tracker_mod
 
   real, parameter :: km2nmi=0.539957, kn2mps=0.514444, mps2kn=1./kn2mps
 
-
   type fv_tracker_type
     ! For internal vortex tracker
     real, _ALLOCATABLE :: vort850(:,:)  _NULL  !< relative vorticity at 850 mb

@@ -166,7 +166,6 @@ module fv_moving_nest_main_mod
 
   type(mn_surface_grids), save           :: mn_static
 
-
 contains
 
   !>@brief The subroutine 'update_moving_nest' decides whether the nest should be moved, and if so, performs the move.
@@ -220,8 +219,6 @@ contains
 
   end subroutine update_moving_nest
 
-
-
   subroutine moving_nest_end()
     integer :: n
 
@@ -240,7 +237,6 @@ contains
 
   end subroutine moving_nest_end
 
-
   ! This subroutine sits in this file to have access to Atm structure
   subroutine nest_tracker_init()
     call fv_tracker_init(size(Atm))
@@ -252,16 +248,12 @@ contains
     call deallocate_tracker(ngrids)
   end subroutine nest_tracker_end
 
-
-
-
   subroutine log_landsea_mask(Atm_block, GFS_control, GFS_sfcprop, time_step, parent_grid_num, child_grid_num)
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
     type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
     type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop   !< Physics variable data
     type(time_type), intent(in)          :: time_step     !< Current timestep
     integer, intent(in)                  :: parent_grid_num, child_grid_num
-
 
     character(len=160)  :: line
     character(len=1)    :: mask_char
@@ -299,7 +291,6 @@ contains
       !print '("[INFO] WDR oro npe=",I0," time=",I0," i=",I0," ",A80)',this_pe,a_step,i,trim(line)
 
     enddo
-
 
     local_slmsk = 8
     !print '("[INFO] WDR local_slmsk size npe=",I0," i=",I0,"-",I0," j=",I0,"-",I0," n=",I0)', this_pe, lbound(local_slmsk,1), ubound(local_slmsk,1), lbound(local_slmsk,2), ubound(local_slmsk,2), n
@@ -376,7 +367,6 @@ contains
     enddo
   end subroutine log_landsea_mask
 
-
   subroutine validate_geo_coords(tag, geo_grid, nest_geo_grid, refine, ioffset, joffset)
     character(len=*)                     :: tag
     real(kind=kind_phys), allocatable, intent(in)  :: geo_grid(:,:)
@@ -399,15 +389,12 @@ contains
 
   end subroutine validate_geo_coords
 
-
-
   subroutine validate_navigation_fields(tag, Atm_block, GFS_control, GFS_sfcprop, parent_grid_num, child_grid_num)
     character(len=*)                     :: tag
     type(block_control_type), intent(in) :: Atm_block     !< Physics block layout
     type(GFS_control_type), intent(in)   :: GFS_control   !< Physics metadata
     type(GFS_sfcprop_type), intent(in)   :: GFS_sfcprop   !< Physics variable data
     integer, intent(in)                  :: parent_grid_num, child_grid_num
-
 
     character(len=160)  :: line
     character(len=1)    :: mask_char
@@ -459,7 +446,6 @@ contains
                     GFS_sfcprop%oceanfrac(im)
               endif
 
-
 !              if ((i_pe .eq. 149 .and. j_pe .eq. 169) .or.(i_pe .eq. 152 .and. j_pe .eq. 169) .or. int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
               if (int(local_slmsk(i_pe,j_pe)) .ne. int(mn_static%fp_ls%ls_mask_grid((ioffset-1)*refine+i_pe, (joffset-1)*refine+j_pe))) then
                 print '("[INFO] WDR mismatch VALIDATE B tag=",A4," npe=",I0," time=",I3," i_pe=",I3," j_pe=",I3," GFS%slmsk=",I0," phys%slmsk=",I0," fp_slmsk=",I0," soil_type_grid=",I0," phys%soil_type=",I0," GFS_sfcprop%landfrac=",F10.5," land_frac_grid=",F12.5," GFS_sfcprop%lakefrac=",F10.5," GFS_sfcprop%oceanfrac=",F10.5)', &
@@ -481,7 +467,6 @@ contains
     enddo
 
   end subroutine validate_navigation_fields
-
 
   !>@brief The subroutine 'dump_moving_nest' outputs native grid format data to netCDF files
   !>@details This subroutine exports model variables using FMS IO to netCDF files if tsvar_out is set to .True.
@@ -919,7 +904,6 @@ contains
       !!================================================================
       !! Step 1.1 -- Show the nest grids - (now removed)
       !!================================================================
-
 
       !!================================================================
       !! Step 1.2 -- Configure local variables
