@@ -687,7 +687,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dqdt_qmicro(:,:) => null()  !< instantanious microphysics tendency to be passed from MP to convection
 
     !-- lake surface temperature from cdeps inline
-    real (kind=kind_phys), pointer :: mask_dat   (:) => null()   !< land-sea mask from cdeps inline  
+    real (kind=kind_phys), pointer :: mask_dat   (:) => null()   !< land-sea mask from cdeps inline
     real (kind=kind_phys), pointer :: tsfco_dat  (:) => null()   !< sfc temperature from cdeps inline
     real (kind=kind_phys), pointer :: tice_dat   (:) => null()   !< sfc temperature over ice from cdeps inline
     real (kind=kind_phys), pointer :: hice_dat   (:) => null()   !< sfc ice thickness from cdeps inline
@@ -5570,9 +5570,6 @@ module GFS_typedefs
       Model%ntno2 = get_physics_tracer_index('no2', Model)  ! n=11 (index 10 "no2" in PBL scheme) GFS_v17_p8
       Model%ntno  = get_physics_tracer_index('no', Model)   ! n=12 (index 11 "no"  in PBL scheme) GFS_v17_p8
       Model%nto3  = get_physics_tracer_index('o3', Model)   ! n=13 (index 12 "o3"  in PBL scheme) GFS_v17_p8
-!     print*,'Index of NO2 : ntno2 = ', Model%ntno2
-!     print*,'Index of NO : ntno = ', Model%ntno
-!     print*,'Index of O3 : nto3 = ', Model%nto3 ! nto3 = 11 "GFS_v16"
 !IVAI
       Model%ntdu1 = get_physics_tracer_index('dust1', Model)
       Model%ntdu2 = get_physics_tracer_index('dust2', Model)
@@ -5657,13 +5654,11 @@ module GFS_typedefs
 
               itrac=get_physics_tracer_index('DMS', Model)
               if(itrac>0) then
-!                print*,'Index of DMS: ntdms = ', itrac
                  call label_dtend_tracer(Model,100+itrac,'DMS','DMS concentration','kg kg-1 s-1')
               endif
 
               itrac=get_physics_tracer_index('msa', Model)
               if(itrac>0) then
-!                print*,'Index of MSA: ntmsa = ', itrac
                  call label_dtend_tracer(Model,100+itrac,'msa','msa concentration','kg kg-1 s-1')
               endif
            endif
@@ -6782,13 +6777,6 @@ module GFS_typedefs
 
     if (Model%ntchm > 0) Model%ntche = Model%ntchs + Model%ntchm - 1
     if (Model%ndchm > 0) Model%ndche = Model%ndchs + Model%ndchm - 1
-
-!IVAI
-!    print*,'control_chm_init: ntche = ', Model%ntchs, Model%ntche, Model%ntchm !IVAI
-!                                         ntchs = 9  to  ntche = 197  => ntchm = 189
-!    print*,'control_chm_init: ndche = ', Model%ndchs, Model%ndche, Model%ndchm !IVAI
-!                                                198 to 201   =>      4
-!IVAI
 
   end subroutine control_chemistry_initialize
 
