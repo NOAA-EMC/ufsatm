@@ -13,7 +13,7 @@
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
-  branch = develop
+  branch = release/gfs_v17
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
   url = https://github.com/ufs-community/MPAS-Model.git
