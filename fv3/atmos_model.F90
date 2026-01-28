@@ -134,6 +134,7 @@ public get_atmos_model_ungridded_dim
 public atmos_model_get_nth_domain_info
 public addLsmask2grid
 public setup_exportdata
+public setup_inlinedata
 public set_fhzero_loop, InitTimeFromIAUOffset
 public get_atmos_tracer_types
 !-----------------------------------------------------------------------
@@ -3326,7 +3327,83 @@ end subroutine update_atmos_chemistry
     rc=0
 !
   end subroutine assign_importdata
+!
+  subroutine setup_inlinedata(fieldName, datar82d, logunit)
 
+    use ESMF, only: ESMF_KIND_R8
+
+    !--- arguments
+    character(len=*), intent(in) :: fieldName
+    real(kind=ESMF_KIND_R8), dimension(:,:), target, intent(in) :: datar82d
+    integer, intent(in) :: logunit
+
+    !--- local variables
+    integer :: i, j, ix, nb, im
+    integer :: isc, iec, jsc, jec
+
+! set up local dimension
+    isc = GFS_control%isc
+    iec = GFS_control%isc+GFS_control%nx-1
+    jsc = GFS_control%jsc
+    jec = GFS_control%jsc+GFS_control%ny-1
+
+! fill variables
+    select case(trim(fieldName))
+       case ('Si_ifrac')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%fice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('Si_thick')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%hice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('So_omask')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%mask_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('So_t')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%tsfco_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('Si_t')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%tice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case default
+          write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
+    end select
+
+  end subroutine setup_inlinedata
 !
   subroutine setup_exportdata(rc)
 
