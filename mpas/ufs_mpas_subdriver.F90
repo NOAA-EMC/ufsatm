@@ -318,10 +318,11 @@ contains
     !call dyn_mpas_cell_to_edge_winds()
     
     ! Read the global sphere_radius attribute.  This is needed to normalize the cell areas.
-    ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', sphere_radius)
+    ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', domain_ptr % sphere_radius)
     if( ierr /= 0 ) then
        call mpp_error(FATAL,subname//": Could not find sphere_radius PIO attribute")
     endif
+    call mpas_log_write('sphere_radius = '//stringify([domain_ptr % sphere_radius]))
 
     ! FROM CAM/dyn_grid.F90:dyn_grid_init()
     ! Query global grid dimensions from MPAS
@@ -557,45 +558,18 @@ contains
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_run::ufs_mpas_run'
     real (kind=RKIND), pointer :: config_dt
-    type (mpas_pool_type), pointer :: state, diag, mesh, lbc
+    type (mpas_pool_type), pointer :: state, diag, mesh
     type (mpas_Time_type) :: timeNow, timeStop,timeLBCnew
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime, itimestep
     real (kind=R8KIND) :: integ_start_time, integ_stop_time 
     logical, pointer :: config_apply_lbcs
     type(mpas_timeinterval_type) :: mpas_time_interval
-    real(RKIND), dimension(:,:), pointer :: theta1, ux1, uy1, theta2, ux2, uy2
-    real(RKIND), dimension(:),   pointer :: lon,lat
-    real(RKIND), allocatable :: lon_p(:), lat_p(:)
-    integer, pointer :: nCellsSolve
-    real (kind=RKIND), dimension(:,:), pointer :: theta, theta_tend
 
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)    
  
-    !
-    ! DJS2025 BEGIN Diagnostic block
-    !
-    call atm_compute_output_diagnostics(state, 1, diag, mesh)
-    call mpas_pool_get_array(diag, 'theta',  theta1)
-    call mpas_pool_get_array(mesh, 'lonCell', lon)
-    call mpas_pool_get_array(mesh, 'latCell', lat)
-    call mpas_pool_get_array(diag, 'uReconstructZonal', ux1)
-    call mpas_pool_get_array(diag, 'uReconstructMeridional', uy1)
-
-    call mpas_pool_get_dimension(mesh,  'nCellsSolve', nCellsSolve)
-    allocate(lon_p(nCellsSolve))
-    allocate(lat_p(nCellsSolve))
-    call mpas_pool_get_array(mesh, 'lonCell', lon)
-    call mpas_pool_get_array(mesh, 'latCell', lat)
-    lon_p = lon*180/3.14
-    lat_p = lat*180/3.14
-    !print*,'MPAS_DEBUG2 ', lon_p(10),   lat_p(10), theta1(1,10)
-    !
-    ! DJS2025 END Diagnostic block
-    !
-    
     ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_apply_lbcs', config_apply_lbcs)
@@ -617,17 +591,10 @@ contains
        call mpp_error(FATAL,subname//'Failed to set dynamics time step')
     endif
 
-    ! DO we need to update LBCs?
-    if (LBC_intv_end .LE. timeNow) then
-       call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
-       call mpas_log_write(' Time to update LBCs from '//trim(timeStamp))
-       call mpas_get_time(curr_time=LBC_intv_end, dateTimeString=timeStamp, ierr=ierr)
-       call mpas_log_write(' Time to update LBCs to   '//trim(timeStamp))
-    endif
-
     !
     ! Read initial boundary state
-    !
+    ! During integration, time level 1 stores the boundary tendencies (next-current) file records,
+    ! and time level 2 stores the state at the next file record.
     if (config_apply_lbcs .and. init_lbc) then
        call mpas_log_write('--------------------------------------------------')
        call mpas_log_write('Compute initial lateral boundary conditions for timestep '//trim(timeStamp))
@@ -669,11 +636,6 @@ contains
              end if
           end if
        end if
-
-       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'lbc',   lbc)
-       call mpas_pool_get_array(lbc, 'lbc_theta', theta, 1)
-       call mpas_pool_get_array(lbc, 'lbc_theta', theta_tend, 2)
-       print*,'IMP_DEBUG theta = ',theta(1,2),theta_tend(1,2)
 
        ! Integrate forward one dycore time step
        call mpas_timer_start('time integration')

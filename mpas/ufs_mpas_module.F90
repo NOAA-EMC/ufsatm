@@ -434,7 +434,6 @@ contains
     call mpas_pool_get_subpool(block % structs, 'state', state)
     call mpas_pool_get_subpool(block % structs, 'lbc', lbc)
 
-    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nRecord            = '//stringify([nRecord]))
     if (firstCall) then
        call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2, &
             whence = MPAS_STREAM_LATEST_BEFORE, actualWhen=read_time, nRecord=nRecord)
@@ -458,7 +457,6 @@ contains
     end if
 
     call mpas_set_time(currTime, dateTimeString=trim(read_time))
-    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: read_time          = '//read_time)
     
     !
     ! Compute any derived fields from those that were read from the lbc_in stream
@@ -492,14 +490,13 @@ contains
        call mpas_pool_get_array(lbc, 'lbc_rho', lbc_tend_rho, 1)
        call mpas_pool_get_array(lbc, 'lbc_scalars', lbc_tend_scalars, 1)
     endif
+
     ! Dereference the pointers to avoid non-array pointer for OpenACC
     nCells = nCells_ptr
     nEdges = nEdges_ptr
     nVertLevels = nVertLevels_ptr
     nScalars = nScalars_ptr
     index_qv = index_qv_ptr
-    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nlbc_scalars       = '//stringify([nScalars_ptr]))
-    call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: shape(lbc_scalars) = '//stringify([shape(scalars)]))
 
     ! Compute lbc_rho_zz
     do k=1,nVertLevels
@@ -536,26 +533,13 @@ contains
     end do
 
     if (.not. firstCall) then
-       ! DJS2026: Implementation Diagnostics (To be removed)
-       call mpas_get_time(LBC_intv_end, dateTimeString = lbc_intv_start_string)
-       call mpas_get_time(currTime,     dateTimeString = lbc_intv_end_string)
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: LBC_intv_end       = '//trim(lbc_intv_start_string))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: currTime           = '//trim(lbc_intv_end_string))
 
        lbc_interval = currTime - LBC_intv_end
        call mpas_get_timeInterval(interval=lbc_interval, DD=dd_intv, S=s_intv, S_n=sn_intv, S_d=sd_intv, ierr=ierr)
        dt = 86400.0_RKIND * real(dd_intv, kind=RKIND) + real(s_intv, kind=RKIND) &
             + (real(sn_intv, kind=RKIND) / real(sd_intv, kind=RKIND))
 
-       ! DJS2026: Implementation Diagnostics (To be removed)
-       !DJS This lbc_interval should increase?
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: dd_intv            = '//stringify([dd_intv]))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend:  s_intv            = '//stringify([s_intv]))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: sn_intv            = '//stringify([sn_intv]))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: sd_intv            = '//stringify([sd_intv]))
-
        dt = 1.0_RKIND / dt
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: dt                 = '//stringify([dt]))
 
        do iEdge=1,nEdges+1
           do k=1,nVertLevels
@@ -571,7 +555,6 @@ contains
           end do
        end do
 
-       print*,'SWALES theta/theta_tend = ',theta(1,2),lbc_tend_theta(1,2)
        do iCell=1,nCells+1
           do k=1,nVertLevels
              lbc_tend_theta(k,iCell) = (theta(k,iCell) - lbc_tend_theta(k,iCell)) * dt
@@ -581,9 +564,6 @@ contains
           end do
        end do
 
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nCells             = '//stringify([nCells]))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nVertLevels        = '//stringify([nVertLevels]))
-       call mpas_log_write('IMP_DIAG ufs_mpas_atm_update_bdy_tend: nScalars           = '//stringify([nScalars]))
        do iCell=1,nCells+1
           do k=1,nVertLevels
              do j = 1,nScalars
@@ -605,7 +585,6 @@ contains
        call mpas_log_write('----------------------------------------------------------------------')
 
     end if
-
     LBC_intv_end = currTime
     
   end subroutine ufs_mpas_atm_update_bdy_tend
@@ -972,7 +951,6 @@ contains
 
       do j = 2, size(constituent_name)
          scalarsField % constituentNames(j) = 'lbc_'//trim(constituent_name(mpas_from_ufs_cnst(j)))
-         call mpas_log_write('IMP_DIAG scalarsField % constituentNames(j) = '//trim(scalarsField % constituentNames(j)))
       end do
 
    end do
@@ -1433,7 +1411,7 @@ contains
    call mpas_log_write( '---------------------------------------------------------------------')
    call mpas_log_write( 'Initializing stream "' // trim(adjustl(stream_name)) // '"')
 
-   call dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pio_file_desc, stream_mode, stream_name)
+   call dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pio_file_desc, stream_mode, stream_name, timeLevel)
 
    if (.not. associated(mpas_pool)) then
       call mpp_error(FATAL,subname//'Failed to initialize stream "' // trim(adjustl(stream_name)) // '"')
@@ -1518,7 +1496,6 @@ contains
    use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
 
    type(mpas_stream_type), pointer, intent(inout) :: stream
-   !integer, intent(in) :: timeLevel
    character (len=*), intent(in) :: when
    integer, intent(in) :: whence
    integer, intent(in) :: nRecord
@@ -1531,6 +1508,7 @@ contains
    endif
    
  end subroutine read_stream
+     
  !> ########################################################################################
  !> subroutine dyn_mpas_init_stream_with_pool
  !>
@@ -1550,7 +1528,7 @@ contains
  !>
  !> ########################################################################################
  subroutine dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pio_file, stream_mode,  &
-                                           stream_name)
+                                           stream_name, timeLevel)
    ! Module(s) from external libraries.
    use pio, only: file_desc_t, pio_file_is_open
    ! Module(s) from MPAS.
@@ -1571,6 +1549,7 @@ contains
    type(file_desc_t), pointer, intent(in) :: pio_file
    character(*), intent(in) :: stream_mode
    character(*), intent(in) :: stream_name
+   integer, intent(in) :: timeLevel
 
    interface add_stream_attribute
       procedure :: add_stream_attribute_0d
@@ -1701,7 +1680,7 @@ contains
          select case (var_info_list(i) % rank)
          case (0)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_0d_char, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_0d_char, timelevel=timeLevel)
 
             if (.not. associated(field_0d_char)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1712,7 +1691,7 @@ contains
             nullify(field_0d_char)
          case (1)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_1d_char, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_1d_char, timelevel=timeLevel)
 
             if (.not. associated(field_1d_char)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1729,7 +1708,7 @@ contains
          select case (var_info_list(i) % rank)
          case (0)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_0d_integer)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1740,7 +1719,7 @@ contains
             nullify(field_0d_integer)
          case (1)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_1d_integer)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1751,7 +1730,7 @@ contains
             nullify(field_1d_integer)
          case (2)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_2d_integer)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1762,7 +1741,7 @@ contains
             nullify(field_2d_integer)
          case (3)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_3d_integer)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1779,7 +1758,7 @@ contains
          select case (var_info_list(i) % rank)
          case (0)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_0d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_0d_real, timelevel=timeLevel)
 
             if (.not. associated(field_0d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1790,7 +1769,7 @@ contains
             nullify(field_0d_real)
          case (1)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_1d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_1d_real, timelevel=timeLevel)
 
             if (.not. associated(field_1d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1801,7 +1780,7 @@ contains
             nullify(field_1d_real)
          case (2)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=timeLevel)
             if (.not. associated(field_2d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
             end if
@@ -1810,7 +1789,7 @@ contains
             nullify(field_2d_real)
          case (3)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_3d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_3d_real, timelevel=timeLevel)
 
             if (.not. associated(field_3d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1820,7 +1799,7 @@ contains
             nullify(field_3d_real)
          case (4)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_4d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_4d_real, timelevel=timeLevel)
 
             if (.not. associated(field_4d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
@@ -1831,7 +1810,7 @@ contains
             nullify(field_4d_real)
          case (5)
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-                 trim(adjustl(var_info_list(i) % name)), field_5d_real, timelevel=1)
+                 trim(adjustl(var_info_list(i) % name)), field_5d_real, timelevel=timeLevel)
 
             if (.not. associated(field_5d_real)) then
                call mpp_error(FATAL,subname//'Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // '"')
