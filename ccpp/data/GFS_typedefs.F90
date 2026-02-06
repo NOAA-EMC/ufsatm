@@ -1083,8 +1083,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min       !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max        !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min          !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-    real(kind=kind_phys) :: fs_fac_rain     !<  adjustment for rain fall speed
-    real(kind=kind_phys) :: fs_fac_snow     !<  adjustment for snow fall speed
+    real(kind=kind_phys) :: fs_fac_rain     !< adjustment for rain fall speed
+    real(kind=kind_phys) :: fs_fac_snow     !< adjustment for snow fall speed
     
     
     !--- GFDL microphysical paramters
@@ -1367,7 +1367,7 @@ module GFS_typedefs
                                             !< Nccn: CCN number concentration in cm^(-3)
                                             !< Until a realistic Nccn is provided, Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=1000 for land
-    real(kind=kind_phys) :: cat_adj_deep    !< Adjustment for convective advection time for deep convection
+    real(kind=kind_phys) :: cat_adj_deep    !< adjustment for convective advection time for deep convection
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal       !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -1382,7 +1382,7 @@ module GFS_typedefs
                                             !< Nccn: CCN number concentration in cm^(-3)
                                             !< Until a realistic Nccn is provided, Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=1000 for land
-    real(kind=kind_phys) :: cat_adj_shal    !< Adjustment for convective advection time for shallow convection
+    real(kind=kind_phys) :: cat_adj_shal    !< adjustment for convective advection time for shallow convection
 
 !--- near surface temperature model
     logical              :: nst_anl         !< flag for NSSTM analysis in gcycle/sfcsub
@@ -3975,7 +3975,7 @@ module GFS_typedefs
                                                              !< Nccn: CCN number concentration in cm^(-3)
                                                              !< Until a realistic Nccn is provided, Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=1000 for land
-    real(kind=kind_phys) :: cat_adj_deep   = 1.0             !< Adjustment for convective advection time for deep convection
+    real(kind=kind_phys) :: cat_adj_deep   = 1.0             !< adjustment for convective advection time for deep convection
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal      = 0.3             !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -3990,7 +3990,7 @@ module GFS_typedefs
                                                              !< Nccn: CCN number concentration in cm^(-3)
                                                              !< Until a realistic Nccn is provided, Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=1000 for land
-    real(kind=kind_phys) :: cat_adj_shal   = 1.0             !< Adjustment for convective advection time for shallow convection
+    real(kind=kind_phys) :: cat_adj_shal   = 1.0             !< adjustment for convective advection time for shallow convection
 
 !--- near surface sea temperature model
     logical              :: nst_anl        = .false.         !< flag for NSSTM analysis in gcycle/sfcsub

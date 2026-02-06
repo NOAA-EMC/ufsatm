@@ -5194,7 +5194,6 @@
   dimensions = ()
   type = real
   kind = kind_phys
-  intent = in
 [fs_fac_snow]
   standard_name = multiplicative_tuning_parameter_for_snow_fall_speed
   long_name = multiplicative tuning parameter_for snow fall speed
@@ -5202,7 +5201,6 @@
   dimensions = ()
   type = real
   kind = kind_phys
-  intent = in
 [gfs_phys_time_vary_is_init]
   standard_name = flag_for_gfs_phys_time_vary_interstitial_initialization
   long_name = flag carrying interstitial initialization status
@@ -6222,7 +6220,6 @@
   dimensions = ()
   type = real
   kind = kind_phys
-  intent = in
 [clam_shal]
   standard_name = entrainment_rate_coefficient_for_shallow_convection
   long_name = entrainment rate coefficient for shallow convection
@@ -6265,7 +6262,6 @@
   dimensions = ()
   type = real
   kind = kind_phys
-  intent = in
 [xkzm_m]
   standard_name = atmosphere_momentum_diffusivity_due_to_background
   long_name = background vertical diffusion for momentum
