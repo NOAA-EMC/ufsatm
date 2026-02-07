@@ -39,6 +39,7 @@ module ufsatm_cap_mod
   use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
                                     pio_subsystem_ic, pio_stride, pio_subsystem_lbc, &
+                                    pio_subsystem_output, &
                                     pio_numiotasks, pio_iodesc, cpl_grid_id, &
                                     cplprint_flag, first_kdt, quilting,      &
                                     quilting_restart
@@ -253,6 +254,7 @@ module ufsatm_cap_mod
     integer                                :: ngrids
     type(ESMF_Grid)                        :: src_grid, dst_grid
     type(ESMF_Field), allocatable          :: dst_field_mask(:)
+    integer                                :: ierr
 !
 !------------------------------------------------------------------------
 !
@@ -447,7 +449,11 @@ module ufsatm_cap_mod
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_ic, base=pio_root)
     allocate(pio_subsystem_lbc)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_lbc, base=pio_root)
-    
+
+    allocate(pio_subsystem_output)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, &
+         pio_rearranger, pio_subsystem_output, base=pio_root)
+
     ! PIO debug related options
     ! pio_debug_level
     call NUOPC_CompAttributeGet(gcomp, name='pio_debug_level', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
@@ -1374,7 +1380,7 @@ module ufsatm_cap_mod
 !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance(gcomp, rc)
-    
+
     use mpi_f08, only : MPI_Wtime
 
     type(ESMF_GridComp)         :: gcomp
