@@ -669,12 +669,20 @@ contains
     !
     ! Write any output streams
     !
-    call ufs_mpas_write("output")
-    call ufs_mpas_write("restart")
+    call mpas_get_time(curr_time=timeStop, dateTimeString=timeStamp, ierr=ierr)
+    if ( ierr /= 0 ) then
+       call mpp_error(FATAL,subname//': Failed to get time timeStop"')
+    end if
+    call ufs_mpas_write("output", timeStamp)
+    !call ufs_mpas_write("restart")
 
   end subroutine ufs_mpas_run
 
-  subroutine ufs_mpas_write(stream_name)
+  !> #########################################################################################
+  !> Procedure to create and write to MPAS stream 
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_write(stream_name, timestamp)
     use pio, only : pio_openfile, pio_createfile, PIO_WRITE, PIO_CLOBBER
     use module_mpas_config, only : ic_filename,  pioid_output, &
          pio_subsystem_output, output_filename, restart_filename, &
@@ -685,6 +693,7 @@ contains
     use mpp_mod, only : mpp_error, FATAL
     ! Arguments
     character(len=*), intent(in) :: stream_name
+    character(len=*), intent(in) :: timestamp
     ! Locals
     character(len=*), parameter :: subname = &
          'ufs_mpas_subdriver::ufs_mpas_write'
@@ -695,27 +704,18 @@ contains
     logical, parameter :: debug = .true.
 
     if (trim(stream_name) == "output") then
-       filename = output_filename
+       filename = 'history.'//trim(timestamp)//'.nc'
     else if (trim(stream_name) == "restart") then
-       filename = restart_filename
+       filename = 'restart.'//trim(timestamp)//'.nc'
     else
        stop "Invalid stream_name to ufs_mpas_write: stream_name =" &
             //trim(stream_name)
     end if
 
     if (debug) call mpas_log_write("entering ufs_mpas_write")
-    if (.not. pio_subsystem_output_file_created) then
-       ierr = pio_createfile(pio_subsystem_output, pioid_output, pio_iotype, &
-            trim(filename))
-       if ( ierr /= 0 ) call mpp_error(FATAL, &
-            subname//": pio_createfile failed ")
-       pio_subsystem_output_file_created = .true.
-    else
-       ! ierr = pio_openfile(pio_subsystem_output, pioid_output, pio_iotype, &
-       !      output_filename, PIO_WRITE)
-       ! if ( ierr /= 0 ) call mpp_error(FATAL, subname//": pio_openfile failed")
-       stop "Appending to pio file has not been implemented yet"
-    end if
+    if (debug) call mpas_log_write("creating "//trim(stream_name)//" stream file: "//trim(filename))
+    ierr = pio_createfile(pio_subsystem_output, pioid_output, pio_iotype, trim(filename))
+    if ( ierr /= 0 ) call mpp_error(FATAL, subname//": pio_createfile failed ")
 
     output_var_info_list = parse_stream_name_fragment('output')
     timelevel = TIMELEVEL_NOW
@@ -723,15 +723,10 @@ contains
 
     call dyn_mpas_read_write_stream(clock, "write", stream_name, pioid_output, &
          timeLevel=timelevel, whence=whence, &
-         nRecord=pio_subsystem_output_record, ierr=ierr)
+         nRecord=1, ierr=ierr)
     if ( ierr /= 0 ) call mpp_error(FATAL, &
          subname//": dyn_mpas_read_write_stream failed ")
 
-    ! advance record so writing appends
-    pio_subsystem_output_record = pio_subsystem_output_record + 1
-    ! TODO: resetting variables until appending to pio is fixed
-    pio_subsystem_output_record = 1
-    pio_subsystem_output_file_created = .false.
     if (debug) call mpas_log_write("exiting ufs_mpas_write")
   end subroutine ufs_mpas_write
 

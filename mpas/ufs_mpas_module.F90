@@ -125,12 +125,6 @@ module ufs_mpas_module
        var_info_type('zz'                              , 'real'      , 2)  &
     ]
 
-  ! Whether a variable should be in input or restart can be determined by looking at
-  ! the `atm_init_coupled_diagnostics` subroutine in MPAS.
-  ! If a variable first appears on the LHS of an equation, it should be in restart.
-  ! If a variable first appears on the RHS of an equation, it should be in input.
-  ! The remaining ones of interest should be in output.
-
   !> #########################################################################################
   !> This list corresponds to the "input" stream in MPAS registry.
   !> It consists of variables that are members of the "diag" and "state" structure.
@@ -150,9 +144,36 @@ module ufs_mpas_module
        ]
 
   !> #########################################################################################
+  !> This list corresponds to the "ugwp_oro_data_in" stream in MPAS registry.
+  !> It consists of variables that are members of the "sfc_input" structure.
+  !> #########################################################################################
+  type(var_info_type), parameter :: ugwp_oro_data_var_info_list(*) = [ &
+       var_info_type('var2dls'                         , 'real'      , 1), &
+       var_info_type('conls'                           , 'real'      , 1), &
+       var_info_type('oa1ls'                           , 'real'      , 1), &
+       var_info_type('oa2ls'                           , 'real'      , 1), &
+       var_info_type('oa3ls'                           , 'real'      , 1), &
+       var_info_type('oa4ls'                           , 'real'      , 1), &
+       var_info_type('ol1ls'                           , 'real'      , 1), &
+       var_info_type('ol2ls'                           , 'real'      , 1), &
+       var_info_type('ol3ls'                           , 'real'      , 1), &
+       var_info_type('ol4ls'                           , 'real'      , 1), &
+       var_info_type('var2dss'                         , 'real'      , 1), &
+       var_info_type('conss'                           , 'real'      , 1), &
+       var_info_type('oa1ss'                           , 'real'      , 1), &
+       var_info_type('oa2ss'                           , 'real'      , 1), &
+       var_info_type('oa3ss'                           , 'real'      , 1), &
+       var_info_type('oa4ss'                           , 'real'      , 1), &
+       var_info_type('ol1ss'                           , 'real'      , 1), &
+       var_info_type('ol2ss'                           , 'real'      , 1), &
+       var_info_type('ol3ss'                           , 'real'      , 1), &
+       var_info_type('ol4ss'                           , 'real'      , 1)  &
+       ]
+
+  !> #########################################################################################
   !> This list corresponds to the "sfc_input" stream in MPAS registry.
   !> It consists of variables that are members of the "sfc_input" structure.
-  !> Only variables needed to initialize the CCPP physics surface schemes  are included.
+  !> Only variables needed to initialize the CCPP physics surface schemes are included.
   !> #########################################################################################
   type(var_info_type), parameter :: sfc_input_var_info_list(*) = [ &
        var_info_type('isltyp'                          , 'integer'   , 1), &
@@ -181,7 +202,22 @@ module ufs_mpas_module
        var_info_type('shdmax'                          , 'real'      , 1), &
        var_info_type('snoalb'                          , 'real'      , 1), &
        var_info_type('greenfrac'                       , 'real'      , 2), &
-       var_info_type('albedo12m'                       , 'real'      , 2)  &
+       var_info_type('albedo12m'                       , 'real'      , 2), &
+       var_info_type('soilcomp'                        , 'real'      , 2), &
+       var_info_type('soilcl1'                         , 'real'      , 1), &
+       var_info_type('soilcl2'                         , 'real'      , 1), &
+       var_info_type('soilcl3'                         , 'real'      , 1), &
+       var_info_type('soilcl4'                         , 'real'      , 1), &
+       var_info_type('var2d'                           , 'real'      , 1), &
+       var_info_type('con'                             , 'real'      , 1), &
+       var_info_type('oa1'                             , 'real'      , 1), &
+       var_info_type('oa2'                             , 'real'      , 1), &
+       var_info_type('oa3'                             , 'real'      , 1), &
+       var_info_type('oa4'                             , 'real'      , 1), &
+       var_info_type('ol1'                             , 'real'      , 1), &
+       var_info_type('ol2'                             , 'real'      , 1), &
+       var_info_type('ol3'                             , 'real'      , 1), &
+       var_info_type('ol4'                             , 'real'      , 1)  &
        ]
 
   !> #########################################################################################
@@ -211,13 +247,19 @@ module ufs_mpas_module
   !> Only variables that are specific to the "output" stream are included.
   !> #########################################################################################
   type(var_info_type), parameter :: output_var_info_list(*) = [ &
+       var_info_type('Time'                            , 'real'      , 0), &
+       var_info_type('initial_time'                    , 'character' , 0), &
        var_info_type('divergence'                      , 'real'      , 2), &
        var_info_type('pressure'                        , 'real'      , 2), &
        var_info_type('relhum'                          , 'real'      , 2), &
+       var_info_type('rho'                             , 'real'      , 2), &
+       var_info_type('scalars'                         , 'real'      , 3), &
        var_info_type('surface_pressure'                , 'real'      , 1), &
-       var_info_type('uReconstructMeridional'          , 'real'      , 2), &
-       var_info_type('uReconstructZonal'               , 'real'      , 2), &
-       var_info_type('vorticity'                       , 'real'      , 2)  &
+       var_info_type('theta'                           , 'real'      , 2), &
+       var_info_type('u'                               , 'real'      , 2), &
+       var_info_type('vorticity'                       , 'real'      , 2), &
+       var_info_type('w'                               , 'real'      , 2), &
+       var_info_type('zz'                              , 'real'      , 2)  &
     ]
   
 contains
@@ -2063,6 +2105,8 @@ contains
       allocate(var_info_list, source=lbc_in_var_info_list)
    case ('sfc_input')
       allocate(var_info_list, source=sfc_input_var_info_list)
+   case ('ugwp_oro_data')
+      allocate(var_info_list, source=ugwp_oro_data_var_info_list)
    case default
       allocate(var_info_list(0))
 
