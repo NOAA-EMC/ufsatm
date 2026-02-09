@@ -33,7 +33,7 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
   use ufs_mpas_module
   implicit none
-  
+
   private
 
   public :: MPAS_control_type
@@ -60,7 +60,7 @@ module ufs_mpas_subdriver
      integer          :: master       !< master MPI-rank
      type(MPI_Comm)   :: mpi_comm     !< forecast tasks mpi communicator
 
-     ! ESMF 
+     ! ESMF
      integer          :: fcst_ntasks  !< total number of forecast tasks
 
      ! Log file identifier
@@ -87,11 +87,11 @@ module ufs_mpas_subdriver
      integer                    :: nwat            !< number of hydrometeors in dcyore (including water vapor)
      character(len=32), pointer :: tracer_names(:) !< tracers names to dereference tracer id
      integer,           pointer :: tracer_types(:) !< tracers types: 0=generic, 1=chem,prog, 2=chem,diag
-     
+
   end type MPAS_control_type
 
 contains
-  
+
   !> #########################################################################################
   !> Procedure to initialize UWM with MPAS dynamical core.
   !>
@@ -199,7 +199,7 @@ contains
     tod = max(ndate2 - ndate1 - 1,0)
     call mpas_pool_add_config(domain_ptr % configs, 'config_run_duration', trim(int2str(tod))//'_'//sec2hms(total_time))
     call mpas_log_write('config_run_duration = '//trim(int2str(tod))//'_'//sec2hms(total_time))
-    
+
     ! Set other MPAS required configuration information.
     call mpas_pool_add_config(domain_ptr % configs, 'config_restart_timestamp_name', 'restart_timestamp')
     call mpas_pool_add_config(domain_ptr % configs, 'config_IAU_option',             'off')
@@ -316,7 +316,7 @@ contains
     nullify (mesh)
 
     !call dyn_mpas_cell_to_edge_winds()
-    
+
     ! Read the global sphere_radius attribute.  This is needed to normalize the cell areas.
     ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', domain_ptr % sphere_radius)
     if( ierr /= 0 ) then
@@ -339,7 +339,7 @@ contains
     ! Initialize core
     !
     call ufs_mpas_atm_core_init(Cfg)
-    
+
   end subroutine ufs_mpas_init
 
   !> ########################################################################################
@@ -466,11 +466,11 @@ contains
     end if
 
     call mpas_log_write('Initializing atmospheric variables')
-    
+
     ! How many calls to MPAS dycore for each ATMosphere time step?
     Cfg%dt_dycore = dt    ! DJS: Does this need to be here?
     n_atmos = dt_atmos/dt ! DJS: Does this need to be here?
-    
+
     !
     ! Set startTimeStamp based on the start time of the simulation clock
     !
@@ -498,7 +498,7 @@ contains
        call mpas_log_write('Please correct issues with the model input fields and/or namelist.')
        return
     end if
-    
+
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', mesh)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
 
@@ -515,7 +515,7 @@ contains
     call mpas_pool_get_array(state, 'initial_time', initial_time2, timelevel=2)
     initial_time2 = initial_time1
     nullify (state)
-      
+
     call exchange_halo_group(domain_ptr, 'initialization:pv_edge,ru,rw',ierr=ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//'Failed to exchange halo layers for group "initialization:ru,rw"')
@@ -562,14 +562,14 @@ contains
     type (mpas_Time_type) :: timeNow, timeStop,timeLBCnew
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime, itimestep
-    real (kind=R8KIND) :: integ_start_time, integ_stop_time 
+    real (kind=R8KIND) :: integ_start_time, integ_stop_time
     logical, pointer :: config_apply_lbcs
     type(mpas_timeinterval_type) :: mpas_time_interval
 
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)    
- 
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
+
     ! Eventually, dt should be domain specific
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_dt', config_dt)
     call mpas_pool_get_config( domain_ptr % blocklist % configs, 'config_apply_lbcs', config_apply_lbcs)
@@ -579,7 +579,7 @@ contains
     if (ierr /= 0) then
        call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
     endif
-    
+
     call mpas_get_time(curr_time=timeNow, dateTimeString=timeStamp, ierr=ierr)
     if (ierr /= 0) then
        call mpp_error(FATAL,subname//': Failed to get clock_time for "mpas_NOW"')
@@ -669,13 +669,76 @@ contains
     !
     ! Write any output streams
     !
+    call ufs_mpas_write("output")
+    call ufs_mpas_write("restart")
+
   end subroutine ufs_mpas_run
 
-  
+  subroutine ufs_mpas_write(stream_name)
+    use pio, only : pio_openfile, pio_createfile, PIO_WRITE, PIO_CLOBBER
+    use module_mpas_config, only : ic_filename,  pioid_output, &
+         pio_subsystem_output, output_filename, restart_filename, &
+         pio_subsystem_output_file_created, &
+         TIMELEVEL_NOW, pio_subsystem_output_record
+    use mpas_log, only : mpas_log_write
+    use mpas_timekeeping, only : MPAS_NOW, MPAS_STREAM_EARLIEST_STRICTLY_AFTER
+    use mpp_mod, only : mpp_error, FATAL
+    ! Arguments
+    character(len=*), intent(in) :: stream_name
+    ! Locals
+    character(len=*), parameter :: subname = &
+         'ufs_mpas_subdriver::ufs_mpas_write'
+    character(len=:), allocatable :: filename
+    integer :: ierr
+    type(var_info_type), allocatable :: output_var_info_list(:)
+    integer :: timelevel, whence
+    logical, parameter :: debug = .true.
+
+    if (trim(stream_name) == "output") then
+       filename = output_filename
+    else if (trim(stream_name) == "restart") then
+       filename = restart_filename
+    else
+       stop "Invalid stream_name to ufs_mpas_write: stream_name =" &
+            //trim(stream_name)
+    end if
+
+    if (debug) call mpas_log_write("entering ufs_mpas_write")
+    if (.not. pio_subsystem_output_file_created) then
+       ierr = pio_createfile(pio_subsystem_output, pioid_output, pio_iotype, &
+            trim(filename))
+       if ( ierr /= 0 ) call mpp_error(FATAL, &
+            subname//": pio_createfile failed ")
+       pio_subsystem_output_file_created = .true.
+    else
+       ! ierr = pio_openfile(pio_subsystem_output, pioid_output, pio_iotype, &
+       !      output_filename, PIO_WRITE)
+       ! if ( ierr /= 0 ) call mpp_error(FATAL, subname//": pio_openfile failed")
+       stop "Appending to pio file has not been implemented yet"
+    end if
+
+    output_var_info_list = parse_stream_name_fragment('output')
+    timelevel = TIMELEVEL_NOW
+    whence = MPAS_NOW
+
+    call dyn_mpas_read_write_stream(clock, "write", stream_name, pioid_output, &
+         timeLevel=timelevel, whence=whence, &
+         nRecord=pio_subsystem_output_record, ierr=ierr)
+    if ( ierr /= 0 ) call mpp_error(FATAL, &
+         subname//": dyn_mpas_read_write_stream failed ")
+
+    ! advance record so writing appends
+    pio_subsystem_output_record = pio_subsystem_output_record + 1
+    ! TODO: resetting variables until appending to pio is fixed
+    pio_subsystem_output_record = 1
+    pio_subsystem_output_file_created = .false.
+    if (debug) call mpas_log_write("exiting ufs_mpas_write")
+  end subroutine ufs_mpas_write
+
   !> #########################################################################################
   !> Procedure to open MPAS IC file.
   !>
-  !> ######################################################################################### 
+  !> #########################################################################################
   subroutine ufs_mpas_open_init()
     ! PIO
     use pio,         only : pio_openfile, pio_nowrite
@@ -723,7 +786,7 @@ contains
        call mpp_error(FATAL,subname//": Cannot find MPAS LBC file: "//trim(lbc_filename))
     end if
   end subroutine ufs_mpas_open_lbc
-  
+
   !> #########################################################################################
   !> Procedure to read MPAS namelist(s).
   !>
@@ -810,7 +873,7 @@ contains
          mpas_h_mom_eddy_visc2, mpas_h_mom_eddy_visc4, mpas_v_mom_eddy_visc2,                 &
          mpas_h_theta_eddy_visc2, mpas_h_theta_eddy_visc4, mpas_v_theta_eddy_visc2,           &
          mpas_horiz_mixing, mpas_len_disp, mpas_visc4_2dsmag, mpas_del4u_div_factor,          &
-         mpas_w_adv_order, mpas_theta_adv_order, mpas_scalar_adv_order, mpas_u_vadv_order,    & 
+         mpas_w_adv_order, mpas_theta_adv_order, mpas_scalar_adv_order, mpas_u_vadv_order,    &
          mpas_w_vadv_order, mpas_theta_vadv_order, mpas_scalar_vadv_order,                    &
          mpas_scalar_advection, mpas_positive_definite, mpas_monotonic, mpas_coef_3rd_order,  &
          mpas_smagorinsky_coef, mpas_mix_full, mpas_epssm, mpas_smdiv, mpas_apvm_upwinding,   &
@@ -878,7 +941,7 @@ contains
 
     !
     ! MPI Broadcast to all
-    !    
+    !
     call mpi_bcast(mpas_time_integration,         StrKIND, mpi_character, master, mpicomm, mpierr)
     call mpi_bcast(mpas_time_integration_order,         1, mpi_integer,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_dt,                             1, mpi_real8,     master, mpicomm, mpierr)
@@ -935,7 +998,7 @@ contains
     call mpi_bcast(mpas_print_global_minmax_vel,        1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_detailed_minmax_vel,      1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_global_minmax_sca,        1, mpi_logical,   master, mpicomm, mpierr)
-    
+
     !
     ! Set MPAS configuration information pool variables
     !
