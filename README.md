@@ -1,5 +1,6 @@
 
 # ufsatm
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/NOAA-EMC/ufsatm)
 
 This repository contains a driver and key subcomponents of the
 atmospheric component of the NOAA's [Unified Forecast System
