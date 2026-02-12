@@ -5261,6 +5261,20 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[fs_fac_rain]
+  standard_name = multiplicative_tuning_parameter_for_rain_fall_speed
+  long_name = multiplicative tuning parameter for rain fall speed
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[fs_fac_snow]
+  standard_name = multiplicative_tuning_parameter_for_snow_fall_speed
+  long_name = multiplicative tuning parameter_for snow fall speed
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [gfs_phys_time_vary_is_init]
   standard_name = flag_for_gfs_phys_time_vary_interstitial_initialization
   long_name = flag carrying interstitial initialization status
@@ -6273,6 +6287,13 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[cat_adj_deep]
+  standard_name = adjustment_for_convective_advection_time_for_deep
+  long_name = adjustment for convective advection time for deep
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
 [clam_shal]
   standard_name = entrainment_rate_coefficient_for_shallow_convection
   long_name = entrainment rate coefficient for shallow convection
@@ -6304,6 +6325,13 @@
 [asolfac_shal]
   standard_name = aerosol_aware_multiplicative_rain_conversion_parameter_for_shallow_convection
   long_name = aerosol-aware parameter inversely proportional to CCN number concentraion from Lim (2011) for shallow convection
+  units = none
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[cat_adj_shal]
+  standard_name = adjustment_for_convective_advection_time_for_shallow
+  long_name = adjustment for convective advection time for shallow
   units = none
   dimensions = ()
   type = real
