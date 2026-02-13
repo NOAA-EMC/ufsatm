@@ -686,6 +686,12 @@ module ufsatm_cap_mod
 ! set start time for output
     output_startfh = 0.
 !
+!
+!-----------------------------------------------------------------------
+!***  create and initialize Write component(s).
+!-----------------------------------------------------------------------
+!
+    if( quilting ) then
 ! query the is_moving array from the fcstState (was set by fcstComp.Initialize() above)
 #ifdef FV3
     call ESMF_InfoGetFromHost(fcstState, info=info, rc=rc)
@@ -706,12 +712,6 @@ module ufsatm_cap_mod
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
-!
-!-----------------------------------------------------------------------
-!***  create and initialize Write component(s).
-!-----------------------------------------------------------------------
-!
-    if( quilting ) then
 
       allocate(fcstFB(FBCount), fcstItemNameList(FBCount), fcstItemTypeList(FBCount))
       allocate(wrtComp(write_groups), wrtState(write_groups) )
@@ -1851,6 +1851,8 @@ module ufsatm_cap_mod
     timeffs = MPI_Wtime()
 !
     call ESMF_GridCompGet(gcomp,vm=vm,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    call ESMF_VMBarrier(vm=vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !
 !*** finalize grid comps
