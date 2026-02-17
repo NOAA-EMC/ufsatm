@@ -1083,15 +1083,9 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min       !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max        !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min          !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-<<<<<<< HEAD
-
-
-=======
     real(kind=kind_phys) :: fs_fac_rain     !< adjustment for rain fall speed
     real(kind=kind_phys) :: fs_fac_snow     !< adjustment for snow fall speed
     
-    
->>>>>>> develop
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
     logical              :: phys_hydrostatic
@@ -3736,13 +3730,9 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min      = 0.15               !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max       = 4999.e3            !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min         = 1000.0             !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-<<<<<<< HEAD
-
-=======
     real(kind=kind_phys) :: fs_fac_rain    = 1.0                !< adjustment for rain fall speed
     real(kind=kind_phys) :: fs_fac_snow    = 1.0                !< adjustment for snow fall speed
     
->>>>>>> develop
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
 
