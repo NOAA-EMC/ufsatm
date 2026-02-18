@@ -200,7 +200,7 @@ SCHEME_FILES = [
     'physics/physics/Radiation/RRTMGP/rrtmgp_lw_main.F90',
     'physics/physics/Radiation/RRTMGP/rrtmgp_sw_main.F90',
     'physics/physics/SFC_Layer/GFDL/gfdl_sfc_layer.F90',
-    'physics/physics/SFC_Layer/MYNN/mynnsfc_wrapper.F90',
+    'physics/physics/SFC_Layer/MYNN/MYNN/CCPP/module_sf_mynnsfc_driver.F90',
     'physics/physics/SFC_Layer/MYJ/myjsfc_wrapper.F90',
     'physics/physics/SFC_Layer/UFS/sfc_diag.f',
     'physics/physics/SFC_Layer/UFS/sfc_diag_post.F90',
