@@ -602,6 +602,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array > 0)
 [gq0(:,:,index_of_mass_number_concentration_of_hail_in_tracer_concentration_array)]
   standard_name = mass_number_concentration_of_hail_of_new_state
   long_name = number concentration of hail updated by physics
