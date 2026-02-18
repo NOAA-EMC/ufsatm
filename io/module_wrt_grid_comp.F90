@@ -44,6 +44,7 @@
                                      cen_lon, cen_lat,                         &
                                      lon1, lat1, lon2, lat2, dlon, dlat,       &
                                      stdlat1, stdlat2, dx, dy, iau_offset,     &
+                                     ideflate_rst, zstandard_level_rst,        &
                                      ideflate, zstandard_level, lflname_fulltime
      use module_write_netcdf, only : write_netcdf
      use module_write_restart_netcdf, only : write_restart_netcdf
@@ -378,9 +379,11 @@
      allocate(jchunk3d(ngrids))
      allocate(kchunk3d(ngrids))
      allocate(ideflate(ngrids))
+     allocate(ideflate_rst(ngrids))
      allocate(quantize_mode(ngrids))
      allocate(quantize_nsd(ngrids))
      allocate(zstandard_level(ngrids))
+     allocate(zstandard_level_rst(ngrids))
 
      allocate(wrt_int_state%out_grid_info(ngrids))
 
@@ -494,11 +497,15 @@
 
        ! zstandard compression flag
        call ESMF_ConfigGetAttribute(config=CF,value=zstandard_level(n),default=0,label ='zstandard_level:',rc=rc)
+       call ESMF_ConfigGetAttribute(config=CF,value=zstandard_level_rst(n),default=0,label ='zstandard_level_rst:',rc=rc)
        if (zstandard_level(n) < 0) zstandard_level(n)=0
+       if (zstandard_level_rst(n) < 0) zstandard_level_rst(n)=0
 
        ! zlib compression flag
        call ESMF_ConfigGetAttribute(config=CF,value=ideflate(n),default=0,label ='ideflate:',rc=rc)
+       call ESMF_ConfigGetAttribute(config=CF,value=ideflate_rst(n),default=0,label ='ideflate_rst:',rc=rc)
        if (ideflate(n) < 0) ideflate(n)=0
+       if (ideflate_rst(n) < 0) ideflate_rst(n)=0
 
        if (ideflate(n) > 0 .and. zstandard_level(n) > 0) then
           write(0,*)"wrt_initialize_p1: zlib and zstd compression cannot be both enabled at the same time"

@@ -10,7 +10,7 @@ module module_write_restart_netcdf
   use mpi_f08
   use esmf
   use netcdf
-  use module_fv3_io_def,only : zstandard_level
+  use module_fv3_io_def,only : zstandard_level_rst
 
   implicit none
   private
@@ -417,8 +417,8 @@ module module_write_restart_netcdf
 
          ncerr = nf90_def_var_chunking(ncid, varids(i), NF90_CHUNKED, chunksizes) ; NC_ERR_STOP(ncerr)
 
-         if (zstandard_level(1) > 0) then
-            ncerr = nf90_def_var_zstandard(ncid, varids(i), zstandard_level(1))
+         if (zstandard_level_rst(1) > 0) then
+            ncerr = nf90_def_var_zstandard(ncid, varids(i), zstandard_level_rst(1))
             if (ncerr /= nf90_noerr) then
                if (ncerr == nf90_enofilter) then
                   if (mype == 0) write(0,*) 'Zstandard filter not found.'

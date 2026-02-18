@@ -100,13 +100,13 @@ module module_fv3_io_def
 
   !> Deflate level to use, 0 means no deflate.
   integer,dimension(:),allocatable  :: ideflate
-
+  integer,dimension(:),allocatable  :: ideflate_rst
   !> Number of significant digits for lossy compression.
   integer,dimension(:),allocatable  :: quantize_nsd
 
   !> Zstandard compression level, 0 means no zstandard compression.
   integer,dimension(:),allocatable  :: zstandard_level
-
+  integer,dimension(:),allocatable  :: zstandard_level_rst
   !> Quantize mode to use for lossy compression.
   character(len=esmf_maxstr),dimension(:),allocatable :: quantize_mode
 
