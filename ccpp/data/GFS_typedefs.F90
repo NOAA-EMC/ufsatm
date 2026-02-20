@@ -1083,8 +1083,9 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min       !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max        !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min          !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-
-
+    real(kind=kind_phys) :: fs_fac_rain     !< adjustment for rain fall speed
+    real(kind=kind_phys) :: fs_fac_snow     !< adjustment for snow fall speed
+    
     !--- GFDL microphysical paramters
     logical              :: lgfdlmprad      !< flag for GFDL mp scheme and radiation consistency
     logical              :: phys_hydrostatic
@@ -1365,6 +1366,7 @@ module GFS_typedefs
                                             !< Nccn: CCN number concentration in cm^(-3)
                                             !< Until a realistic Nccn is provided, Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=1000 for land
+    real(kind=kind_phys) :: cat_adj_deep    !< adjustment for convective advection time for deep convection
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal       !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -1379,6 +1381,7 @@ module GFS_typedefs
                                             !< Nccn: CCN number concentration in cm^(-3)
                                             !< Until a realistic Nccn is provided, Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=1000 for land
+    real(kind=kind_phys) :: cat_adj_shal    !< adjustment for convective advection time for shallow convection
 
 !--- near surface temperature model
     logical              :: nst_anl         !< flag for NSSTM analysis in gcycle/sfcsub
@@ -1701,6 +1704,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: iau_delthrs     ! iau time interval (to scale increments) in hours
     character(len=240)   :: iau_inc_files(7)! list of increment files
     real(kind=kind_phys) :: iaufhrs(7)      ! forecast hours associated with increment files
+    logical :: iau_regional                 !< doing IAU for the nested domain for regional model
+    real    :: iau_inc_scale                !< increase IAU weight for 3DIAU
     logical :: iau_filter_increments, iau_drymassfixer
 
     ! From physcons.F90, updated/set in control_initialize
@@ -3722,7 +3727,9 @@ module GFS_typedefs
     real(kind=kind_phys) :: ssati_min      = 0.15               !< minimum supersaturation over ice threshold for deposition nucleation
     real(kind=kind_phys) :: Nt_i_max       = 4999.e3            !< maximum threshold number concentration of cloud ice water crystals in air
     real(kind=kind_phys) :: rr_min         = 1000.0             !< multiplicative tuning parameter for microphysical sedimentation minimum threshold
-
+    real(kind=kind_phys) :: fs_fac_rain    = 1.0                !< adjustment for rain fall speed
+    real(kind=kind_phys) :: fs_fac_snow    = 1.0                !< adjustment for snow fall speed
+    
     !--- GFDL microphysical parameters
     logical              :: lgfdlmprad     = .false.            !< flag for GFDLMP radiation interaction
 
@@ -3975,6 +3982,7 @@ module GFS_typedefs
                                                              !< Nccn: CCN number concentration in cm^(-3)
                                                              !< Until a realistic Nccn is provided, Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=1000 for land
+    real(kind=kind_phys) :: cat_adj_deep   = 1.0             !< adjustment for convective advection time for deep convection
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal      = 0.3             !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -3989,6 +3997,7 @@ module GFS_typedefs
                                                              !< Nccn: CCN number concentration in cm^(-3)
                                                              !< Until a realistic Nccn is provided, Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=1000 for land
+    real(kind=kind_phys) :: cat_adj_shal   = 1.0             !< adjustment for convective advection time for shallow convection
 
 !--- near surface sea temperature model
     logical              :: nst_anl        = .false.         !< flag for NSSTM analysis in gcycle/sfcsub
@@ -4079,6 +4088,8 @@ module GFS_typedefs
     real(kind=kind_phys)  :: iau_delthrs      = 0           !< iau time interval (to scale increments)
     character(len=240)    :: iau_inc_files(7) = ''          !< list of increment files
     real(kind=kind_phys)  :: iaufhrs(7)       = -1          !< forecast hours associated with increment files
+    logical  :: iau_regional                  = .false.     !< doing IAU for the nested domain for regional model
+    real     :: iau_inc_scale                 = 1.          !< increase IAU weight for 3DIAU
     logical  :: iau_filter_increments         = .false.     !< filter IAU increments
     logical  :: iau_drymassfixer              = .false.     !< IAU dry mass fixer
 
@@ -4234,7 +4245,8 @@ module GFS_typedefs
                                mg_alf,   mg_qcmin, mg_do_ice_gmao, mg_do_liq_liu,           &
                                ltaerosol, lthailaware, lradar, nsfullradar_diag, lrefres,   &
                                ttendlim, ext_diag_thompson, nt_c_l, nt_c_o, av_i, xnc_max,  &
-                               ssati_min, Nt_i_max, rr_min, dt_inner, lgfdlmprad,           &
+                               ssati_min, Nt_i_max, rr_min, fs_fac_rain, fs_fac_snow,       &
+                               dt_inner, lgfdlmprad,                                        &
                                sedi_semi, decfl,                                            &
                                nssl_cccn, nssl_alphah, nssl_alphahl,                        &
                                nssl_alphar, nssl_ehw0, nssl_ehlw0,                          &
@@ -4300,9 +4312,10 @@ module GFS_typedefs
                           !--- mass flux deep convection
                                clam_deep, c0s_deep, c1_deep, betal_deep,                    &
                                betas_deep, evef, evfact_deep, evfactl_deep, pgcon_deep,     &
-                               asolfac_deep,                                                &
+                               asolfac_deep, cat_adj_deep,                                  &
                           !--- mass flux shallow convection
                                clam_shal, c0s_shal, c1_shal, pgcon_shal, asolfac_shal,      &
+                               cat_adj_shal,                                                &
                           !--- near surface sea temperature model
                                nst_anl, lsea, nstf_name,                                    &
                                frac_grid, min_lakeice, min_seaice, min_lake_height,         &
@@ -4327,7 +4340,7 @@ module GFS_typedefs
                                increment_file_on_native_grid,                               &
                           !--- IAU
                                iau_delthrs,iaufhrs,iau_inc_files,iau_filter_increments,     &
-                               iau_drymassfixer,                                            &
+                               iau_drymassfixer,iau_regional,iau_inc_scale,                 &
                           !--- debug options
                                debug, pre_rad, print_diff_pgr,                              &
                           !--- parameter range for critical relative humidity
@@ -4978,6 +4991,8 @@ module GFS_typedefs
     Model%ssati_min        = ssati_min
     Model%Nt_i_max         = Nt_i_max
     Model%rr_min           = rr_min
+    Model%fs_fac_rain      = fs_fac_rain
+    Model%fs_fac_snow      = fs_fac_snow
 
 !--- TEMPO MP parameters
     ! DJS to Anders: Maybe we put more of these nml options into the TEMPO configuration type?
@@ -5323,6 +5338,7 @@ module GFS_typedefs
     Model%evfactl_deep     = evfactl_deep
     Model%pgcon_deep       = pgcon_deep
     Model%asolfac_deep     = asolfac_deep
+    Model%cat_adj_deep     = cat_adj_deep
 
 !--- mass flux shallow convection
     Model%clam_shal        = clam_shal
@@ -5330,6 +5346,7 @@ module GFS_typedefs
     Model%c1_shal          = c1_shal
     Model%pgcon_shal       = pgcon_shal
     Model%asolfac_shal     = asolfac_shal
+    Model%cat_adj_shal     = cat_adj_shal
 
 !--- near surface sea temperature model
     Model%nst_anl          = nst_anl
@@ -5449,6 +5466,8 @@ module GFS_typedefs
     Model%iaufhrs         = iaufhrs
     Model%iau_inc_files   = iau_inc_files
     Model%iau_delthrs     = iau_delthrs
+    Model%iau_regional    = iau_regional
+    Model%iau_inc_scale   = iau_inc_scale
     Model%iau_filter_increments = iau_filter_increments
     Model%iau_drymassfixer = iau_drymassfixer
     if(Model%me==0) print *,' model init,iaufhrs=',Model%iaufhrs
@@ -6462,6 +6481,8 @@ module GFS_typedefs
                                           ' ssati_min',ssati_min, &
                                           ' Nt_i_max',Nt_i_max, &
                                           ' rr_min',rr_min, &
+                                          ' fs_fac_rain',fs_fac_rain, &
+                                          ' fs_fac_snow',fs_fac_snow, &
                                           ' effr_in =',Model%effr_in, &
                                           ' lradar =',Model%lradar, &
                                           ' nsfullradar_diag =',Model%nsfullradar_diag, &
@@ -7060,6 +7081,8 @@ module GFS_typedefs
         print *, ' ssati_min         : ', Model%ssati_min
         print *, ' Nt_i_max          : ', Model%Nt_i_max
         print *, ' rr_min            : ', Model%rr_min
+        print *, ' fs_fac_rain       : ', Model%fs_fac_rain
+        print *, ' fs_fac_snow       : ', Model%fs_fac_snow
         print *, ' '
       endif
       if (Model%imp_physics == Model%imp_physics_nssl) then
@@ -7273,6 +7296,7 @@ module GFS_typedefs
         print *, ' evfactl_deep      : ', Model%evfactl_deep
         print *, ' pgcon_deep        : ', Model%pgcon_deep
         print *, ' asolfac_deep      : ', Model%asolfac_deep
+        print *, ' cat_adj_deep      : ', Model%cat_adj_deep
         print *, ' '
       endif
       if (Model%imfshalcnv >= 0) then
@@ -7282,6 +7306,7 @@ module GFS_typedefs
         print *, ' c1_shal           : ', Model%c1_shal
         print *, ' pgcon_shal        : ', Model%pgcon_shal
         print *, ' asolfac_shal      : ', Model%asolfac_shal
+        print *, ' cat_adj_shal      : ', Model%cat_adj_shal
       endif
       print *, ' '
       print *, 'near surface sea temperature model'
