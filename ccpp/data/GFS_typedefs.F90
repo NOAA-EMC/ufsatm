@@ -1569,11 +1569,11 @@ module GFS_typedefs
     integer              :: nchem           !< number of prognostic chemical species (vertically mixied)
     integer              :: ndvel           !< number of prognostic chemical species (which are deposited, usually =nchem)
     integer              :: ntchm           !< number of prognostic chemical tracers (advected)
-!IVAI: "cplaqm" tracer
+! "cplaqm" tracers
     integer              :: nto3            !< tracer index for Ozone chemical species CMAQ
     integer              :: ntno            !< tracer index for NO    chemical species CMAQ
     integer              :: ntno2           !< tracer index for NO2   chemical species CMAQ
-!IVAI
+
     integer              :: ntchs           !< tracer index for first prognostic chemical tracer
     integer              :: ntche           !< tracer index for last prognostic chemical tracer
     integer              :: ntdu1           !< tracer index for dust bin1
@@ -2154,12 +2154,11 @@ module GFS_typedefs
     !--- Extra PBL diagnostics
     real (kind=kind_phys), pointer :: dkt(:,:)       => null()  !< Eddy diffusitivity for heat
     real (kind=kind_phys), pointer :: dku(:,:)       => null()  !< Eddy diffusitivity for momentum
-!IVAI
+
 !3-LAYER CANOPY
     !--- Extra PBL diagnostics in canopy
     real (kind=kind_phys), pointer :: dkt_can(:,:)   => null()  !< Eddy diffusitivity for heat
     real (kind=kind_phys), pointer :: dku_can(:,:)   => null()  !< Eddy diffusitivity for momentum
-!IVAI
 
 !
 !---vay-2018 UGWP-diagnostics instantaneous
@@ -2265,7 +2264,6 @@ module GFS_typedefs
     ! Diagnostics for coupled air quality model
     real (kind=kind_phys), pointer :: aod   (:)   => null()    !< instantaneous aerosol optical depth ( n/a )
 
-!IVAI
     ! Diagnostics for coupled air quality model
     real (kind=kind_phys), pointer :: coszens(:)  => null()    ! Cosine SZA for photolysis
     real (kind=kind_phys), pointer :: jo3o1d(:)   => null()    ! instantaneous O3O1D photolysis rate
@@ -2275,7 +2273,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: cfrt (:)    => null()    ! Forest Fraction
     real (kind=kind_phys), pointer :: cclu (:)    => null()    ! Clumping Index
     real (kind=kind_phys), pointer :: cpopu(:)    => null()    ! Population density
-!IVAI
 
     ! Auxiliary output arrays for debugging
     real (kind=kind_phys), pointer :: aux2d(:,:)  => null()    !< auxiliary 2d arrays in output (for debugging)
@@ -5566,11 +5563,11 @@ module GFS_typedefs
     Model%dtidx = physics_no_tracer
 
     if(Model%ntchm>0) then
-!IVAI: GFS_v16 n=9 "no2" n=10 "no" n=11 "o3" (n=8,9, 10 in PBL resp.)
+! GFS_v16 n=9 "no2" n=10 "no" n=11 "o3" (n=8,9, 10 in PBL resp.)
       Model%ntno2 = get_physics_tracer_index('no2', Model)  ! n=11 (index 10 "no2" in PBL scheme) GFS_v17_p8
       Model%ntno  = get_physics_tracer_index('no', Model)   ! n=12 (index 11 "no"  in PBL scheme) GFS_v17_p8
       Model%nto3  = get_physics_tracer_index('o3', Model)   ! n=13 (index 12 "o3"  in PBL scheme) GFS_v17_p8
-!IVAI
+
       Model%ntdu1 = get_physics_tracer_index('dust1', Model)
       Model%ntdu2 = get_physics_tracer_index('dust2', Model)
       Model%ntdu3 = get_physics_tracer_index('dust3', Model)
@@ -5645,7 +5642,7 @@ module GFS_typedefs
            endif
 
            ! More specific chemical tracer names:
-! IVAI: NB. ntchs is 1st chemical tracer (not so2 tracer)
+! NB. ntchs is 1st chemical tracer (not so2 tracer)
            call label_dtend_tracer(Model,100+Model%ntchs,'so2','sulfur dioxide concentration','kg kg-1 s-1')
 
            if(Model%ntchm>0) then
@@ -5696,11 +5693,10 @@ module GFS_typedefs
         call label_dtend_tracer(Model,100+Model%ntia,'ice_aero','number concentration of ice-friendly aerosols','kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto,'o_ion','oxygen ion concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto2,'o2','oxygen concentration','kg kg-1 s-1')
-!IVAI: "o3" tracer CMAQ
+! cplaqm tracers CMAQ
         call label_dtend_tracer(Model,100+Model%ntno2,'no2_cpl','cplaqm NO2   concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%ntno, 'no_cpl', 'cplaqm NO    concentration','kg kg-1 s-1')
         call label_dtend_tracer(Model,100+Model%nto3, 'o3_cpl', 'cplaqm ozone concentration','kg kg-1 s-1')
-!IVAI
 
         call label_dtend_cause(Model,Model%index_of_process_pbl,'pbl','tendency due to PBL')
         call label_dtend_cause(Model,Model%index_of_process_dcnv,'deepcnv','tendency due to deep convection')
@@ -5784,12 +5780,11 @@ module GFS_typedefs
              enddo
           endif
 
-!IVAI: NB. In PBL scheme chemical tracers indexes are offset by 1
+! NB. In PBL scheme chemical tracers indexes are offset by 1
 ! (qdiag3d) cplaqm tracers "no2", "no", "o3"
           call fill_dtidx(Model,dtend_select,100+Model%ntno2,Model%index_of_process_pbl,have_pbl) ! ntno2= 11  (index 10 is "no2" in PBL scheme) GFS_v17_p8
           call fill_dtidx(Model,dtend_select,100+Model%ntno ,Model%index_of_process_pbl,have_pbl) ! ntno = 12  (index 11 is "no"  in PBL scheme) GFS_v17_p8
           call fill_dtidx(Model,dtend_select,100+Model%nto3 ,Model%index_of_process_pbl,have_pbl) ! nto3 = 13  (index 12 is "o3"  in PBL scheme) GFS_v17_p8
-!IVAI
 
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_pbl,have_pbl)
           call fill_dtidx(Model,dtend_select,100+Model%ntoz,Model%index_of_process_prod_loss,have_oz_phys)
@@ -7366,11 +7361,9 @@ module GFS_typedefs
       print *, ' nqrimef           : ', Model%nqrimef
       print *, ' ntqv              : ', Model%ntqv
       print *, ' ntoz              : ', Model%ntoz
-!IVAI
       print *, ' ntno2             : ', Model%ntno2 ! "no2"  tracer cplaqm/CMAQ
       print *, ' ntno              : ', Model%ntno  ! "no"   tracer cplaqm/CMAQ
       print *, ' nto3              : ', Model%nto3  ! "o3"   tracer cplaqm/CMAQ
-!IVAI
       print *, ' ntcw              : ', Model%ntcw
       print *, ' ntiw              : ', Model%ntiw
       print *, ' ntrw              : ', Model%ntrw
@@ -8306,11 +8299,12 @@ module GFS_typedefs
     !--- New PBL Diagnostics
     allocate (Diag%dkt(IM,Model%levs))
     allocate (Diag%dku(IM,Model%levs))
-!IVAI
+
     !--- New PBL Diagnostics in 3-layer canopy
-    allocate (Diag%dkt_can(IM,Model%levs))
-    allocate (Diag%dku_can(IM,Model%levs))
-!IVAI
+    if (Model%do_canopy .and. Model%cplaqm) then
+      allocate (Diag%dkt_can(IM,Model%levs))
+      allocate (Diag%dku_can(IM,Model%levs))
+    endif
 
     !--  New max hourly diag.
     allocate (Diag%refdmax(IM))
@@ -8388,12 +8382,11 @@ module GFS_typedefs
       Diag%aod = zero
     end if
 
-!IVAI:
     ! Air quality diagnostics
     ! -- initialize diagnostic variables
     if (Model%cplaqm) then
 
-!IVAI: photdiag arrays
+! photdiag arrays
       allocate (Diag%coszens(IM))
       Diag%coszens= zero
 
@@ -8403,7 +8396,7 @@ module GFS_typedefs
       allocate (Diag%jno2(IM))
       Diag%jno2 = zero
 
-!IVAI: canopy arrays read via aqm_emis_read
+! Canopy arrays read via aqm_emis_read
       if (Model%do_canopy) then
         allocate (Diag%claie(IM))
         Diag%claie = zero
@@ -8422,7 +8415,6 @@ module GFS_typedefs
       end if! (Model%do_canopy)
 
     end if ! (Model%cplaqm)
-!IVAI
 
     ! Auxiliary arrays in output for debugging
     if (Model%naux2d>0) then
@@ -8689,11 +8681,12 @@ module GFS_typedefs
 ! Extra PBL diagnostics
     Diag%dkt = zero
     Diag%dku = zero
-!IVAI
+
 ! Extra PBL diagnostics in 3-layer canopy
-    Diag%dkt_can = zero
-    Diag%dku_can = zero
-!IVAI
+    if (Model%do_canopy .and. Model%cplaqm ) then
+      Diag%dkt_can = zero
+      Diag%dku_can = zero
+    endif
 
 ! max hourly diagnostics
     Diag%refl_10cm   = -35.
