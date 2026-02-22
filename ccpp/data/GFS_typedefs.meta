@@ -9939,7 +9939,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-###IVAI
 [dkt_can]
   standard_name = atmosphere_heat_diffusivity_in_canopy
   long_name = atmospheric heat diffusivity in canopy
@@ -9947,6 +9946,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [dku_can]
   standard_name = atmosphere_momentum_diffusivity_in_canopy
   long_name = atmospheric momentum diffusivity in canopy
@@ -9954,7 +9954,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-###IVAI
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cldfra]
   standard_name = instantaneous_3d_cloud_fraction
   long_name = instantaneous 3D cloud fraction for all MPs
