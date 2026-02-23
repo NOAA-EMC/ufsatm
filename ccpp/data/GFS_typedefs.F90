@@ -1368,6 +1368,8 @@ module GFS_typedefs
                                             !< Until a realistic Nccn is provided, Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=1000 for land
     real(kind=kind_phys) :: cat_adj_deep    !< adjustment for convective advection time for deep convection
+    integer              :: scale_fac_opt   !< control for Scale Awareness Options in the Tiedtke Convection Scheme
+    integer              :: icu_zoentr      !< options for using different entrainment for Tiedtke Convection Scheme
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal       !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -3976,6 +3978,8 @@ module GFS_typedefs
                                                              !< Until a realistic Nccn is provided, Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=1000 for land
     real(kind=kind_phys) :: cat_adj_deep   = 1.0             !< adjustment for convective advection time for deep convection
+    integer              :: scale_fac_opt  = 0               !< control for Scale Awareness Options in the Tiedtke Convection Scheme
+    integer              :: icu_zoentr     = 1               !< options for using different entrainment for Tiedtke Convection Scheme
 
 !--- mass flux shallow convection
     real(kind=kind_phys) :: clam_shal      = 0.3             !< c_e for shallow convection (Han and Pan, 2011, eq(6))
@@ -4305,7 +4309,7 @@ module GFS_typedefs
                           !--- mass flux deep convection
                                clam_deep, c0s_deep, c1_deep, betal_deep,                    &
                                betas_deep, evef, evfact_deep, evfactl_deep, pgcon_deep,     &
-                               asolfac_deep, cat_adj_deep,                                  &
+                               asolfac_deep, cat_adj_deep, scale_fac_opt, icu_zoentr,       &
                           !--- mass flux shallow convection
                                clam_shal, c0s_shal, c1_shal, pgcon_shal, asolfac_shal,      &
                                cat_adj_shal,                                                &
@@ -5332,6 +5336,8 @@ module GFS_typedefs
     Model%pgcon_deep       = pgcon_deep
     Model%asolfac_deep     = asolfac_deep
     Model%cat_adj_deep     = cat_adj_deep
+    Model%scale_fac_opt    = scale_fac_opt
+    Model%icu_zoentr       = icu_zoentr
 
 !--- mass flux shallow convection
     Model%clam_shal        = clam_shal
@@ -7272,6 +7278,8 @@ module GFS_typedefs
         print *, ' pgcon_deep        : ', Model%pgcon_deep
         print *, ' asolfac_deep      : ', Model%asolfac_deep
         print *, ' cat_adj_deep      : ', Model%cat_adj_deep
+        print *, ' scale_fac_opt     : ', Model%scale_fac_opt
+        print *, ' icu_zoentr        : ', Model%icu_zoentr
         print *, ' '
       endif
       if (Model%imfshalcnv >= 0) then
