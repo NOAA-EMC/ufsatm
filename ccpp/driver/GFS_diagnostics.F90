@@ -1318,7 +1318,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'maximum (magnitude) u-wind'
     ExtDiag(idx)%unit = 'm/s'
     ExtDiag(idx)%mod_name = 'gfs_phys'
-    ExtDiag(idx)%intpl_method = 'vector_bilinear'
+    ExtDiag(idx)%intpl_method = 'nearest_stod'
     ExtDiag(idx)%data%var2 => IntDiag%u10mmax(:)
 
     idx = idx + 1
@@ -1327,7 +1327,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'maximum (magnitude) v-wind'
     ExtDiag(idx)%unit = 'm/s'
     ExtDiag(idx)%mod_name = 'gfs_phys'
-    ExtDiag(idx)%intpl_method = 'vector_bilinear'
+    ExtDiag(idx)%intpl_method = 'nearest_stod'
     ExtDiag(idx)%data%var2 => IntDiag%v10mmax(:)
 
     idx = idx + 1
@@ -1336,7 +1336,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'maximum wind speed'
     ExtDiag(idx)%unit = 'm/s'
     ExtDiag(idx)%mod_name = 'gfs_phys'
-    ExtDiag(idx)%intpl_method = 'bilinear'
+    ExtDiag(idx)%intpl_method = 'nearest_stod'
     ExtDiag(idx)%data%var2 => IntDiag%wind10mmax(:)
 
     idx = idx + 1
