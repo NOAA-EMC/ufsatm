@@ -315,8 +315,6 @@ contains
     call mpas_init_reconstruct(mesh)
     nullify (mesh)
 
-    !call dyn_mpas_cell_to_edge_winds()
-
     ! Read the global sphere_radius attribute.  This is needed to normalize the cell areas.
     ierr = pio_get_att(pioid_ic, pio_global, 'sphere_radius', domain_ptr % sphere_radius)
     if( ierr /= 0 ) then
@@ -604,6 +602,8 @@ contains
           return
        end if
        init_lbc = .false.
+       ! Also, write IC state to history file while we're here.
+       call ufs_mpas_write("output", timeStamp)
     end if
 
     ! During integration, time level 1 stores the model state at the beginning of the
@@ -674,7 +674,6 @@ contains
        call mpp_error(FATAL,subname//': Failed to get time timeStop"')
     end if
     call ufs_mpas_write("output", timeStamp)
-    !call ufs_mpas_write("restart")
 
   end subroutine ufs_mpas_run
 
@@ -707,6 +706,8 @@ contains
        filename = 'history.'//trim(timestamp)//'.nc'
     else if (trim(stream_name) == "restart") then
        filename = 'restart.'//trim(timestamp)//'.nc'
+    else if (trim(stream_name) == "input") then
+       filename = 'input.'//trim(timestamp)//'.nc'
     else
        stop "Invalid stream_name to ufs_mpas_write: stream_name =" &
             //trim(stream_name)
