@@ -64,7 +64,6 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_2d
 
-
   subroutine fill_bbox_r4_3d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:,:)
@@ -84,7 +83,6 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_4d
-
 
   subroutine fill_bbox_r8_2d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
@@ -106,7 +104,6 @@ contains
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_3d
 
-
   subroutine fill_bbox_r8_4d(out_bbox, in_grid)
     type(bbox), intent(out)          :: out_bbox
     real*8, allocatable, intent(in)  :: in_grid(:,:,:,:)
@@ -116,7 +113,6 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_4d
-
 
   !>@brief This subroutine returns the nest grid indices that correspond to the input nest domain, direction, and position
   !>@details  Simplifies the call signature with the bbox type rather than 4 separate integers
