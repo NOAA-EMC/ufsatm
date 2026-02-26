@@ -6220,6 +6220,18 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[scale_fac_opt]
+  standard_name = control_for_scale_awareness_options_in_Tiedtke
+  long_name = control for scale awareness options in the Tiedtke scheme
+  units = none
+  dimensions = ()
+  type = integer
+[icu_zoentr]
+  standard_name = option_for_different_entrainment_in_Tiedtke
+  long_name = option for different entrainment in Tiedtke
+  units = none
+  dimensions = ()
+  type = integer
 [clam_shal]
   standard_name = entrainment_rate_coefficient_for_shallow_convection
   long_name = entrainment rate coefficient for shallow convection
