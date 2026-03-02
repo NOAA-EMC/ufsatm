@@ -6824,6 +6824,29 @@
   units = index
   dimensions = ()
   type = integer
+### IVAI
+[ntno2]
+  standard_name = index_for_no2_chemical_tracer_in_tracer_concentration_array
+  long_name = tracer index for coupled AQM/CMAQ NO2 chemical tracer
+  units = index
+  dimensions = ()
+  type = integer
+##  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[ntno]
+  standard_name = index_for_no_chemical_tracer_in_tracer_concentration_array
+  long_name = tracer index for coupled AQM/CMAQ NO chemical tracer
+  units = index
+  dimensions = ()
+  type = integer
+##  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[nto3]
+  standard_name = index_for_ozone_chemical_tracer_in_tracer_concentration_array
+  long_name = tracer index for coupled AQM/CMAQ ozone chemical tracer
+  units = index
+  dimensions = ()
+  type = integer
+##  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+### IVAI
 [ntcw]
   standard_name = index_of_cloud_liquid_water_mixing_ratio_in_tracer_concentration_array
   long_name = tracer index for cloud condensate (or liquid water)
@@ -9916,6 +9939,22 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+[dkt_can]
+  standard_name = atmosphere_heat_diffusivity_in_canopy
+  long_name = atmospheric heat diffusivity in canopy
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
+[dku_can]
+  standard_name = atmosphere_momentum_diffusivity_in_canopy
+  long_name = atmospheric momentum diffusivity in canopy
+  units = m2 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_air_quality_coupling .and. flag_for_canopy_option)
 [cldfra]
   standard_name = instantaneous_3d_cloud_fraction
   long_name = instantaneous 3D cloud fraction for all MPs
