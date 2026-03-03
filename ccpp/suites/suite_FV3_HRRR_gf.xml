@@ -21,7 +21,7 @@
       <scheme>rrtmg_lw</scheme>
       <scheme>sgscloud_radpost</scheme>
       <scheme>rrtmg_lw_post</scheme>
-      <scheme>GFS_rrtmg_post</scheme>
+      <scheme>GFS_radiation_post</scheme>
     </subcycle>
   </group>
   <group name="phys_ps">
@@ -37,7 +37,7 @@
     </subcycle>
     <!-- Surface iteration loop -->
     <subcycle loop="2">
-      <scheme>mynnsfc_wrapper</scheme>
+      <scheme>module_sf_mynnsfc_driver</scheme>
       <scheme>GFS_surface_loop_control_part1</scheme>
       <scheme>lsm_ruc</scheme>
       <scheme>clm_lake</scheme>

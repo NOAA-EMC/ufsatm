@@ -34,60 +34,44 @@ module fv3atm_history_io_mod
   public  fv_phys_bundle_setup
 #endif
 
-  !> The maximum allowed number of diagnostic fields that can be defined in any given model run.
-  !> This does not include rrfs-sd or clm lake, which have their own data structures.
+  !>\defgroup fv3atm_history_io_mod FV3ATM History I/O Module
+  !> @{
+
+  !>@ The maximum allowed number of diagnostic fields that can be defined in any given model run.
+  !! This does not include rrfs-sd or clm lake, which have their own data structures.
   integer, parameter, public :: DIAG_SIZE = 800
 
-  real, parameter :: missing_value = 9.99e20_kind_phys !< Missing value
-  real, parameter :: stndrd_atmos_ps = 101325.0_kind_phys !< Standard atmospheric sfc pressure
-  real, parameter :: stndrd_atmos_lapse = 0.0065_kind_phys !< Standard atmospheric lapse rate
-  real, parameter :: drythresh = 1.e-4_kind_phys !< This appears to be unused. Can we delete?
-  real, parameter :: zero = 0.0_kind_phys, one = 1.0_kind_phys !< Zero and one
+  real, parameter :: missing_value = 9.99e20_kind_phys
+  real, parameter :: stndrd_atmos_ps = 101325.0_kind_phys
+  real, parameter :: stndrd_atmos_lapse = 0.0065_kind_phys
+  real, parameter :: drythresh = 1.e-4_kind_phys
+  real, parameter :: zero = 0.0_kind_phys, one = 1.0_kind_phys
 
-  !> Storage type for temporary data during output of diagnostic (history) files
+  !>@ Storage type for temporary data during output of diagnostic (history) files
   type history_type
-    integer :: tot_diag_idx = 0 !< Total number of diagnostics to output
-    !> Starting and ending indices for the current diagnostic. 
-    !> Number of axes for the current diagnostic.
+    integer :: tot_diag_idx = 0
+
     integer :: isco=0,ieco=0,jsco=0,jeco=0,num_axes_phys=0
-    !> Number of cloud species; number of soil levels; number of soil levels in the LSM; 
-    !> microphysics scheme; land surface model.
     integer :: ncld=0, nsoil=0, nsoil_lsm=0, imp_physics=0, landsfcmdl=0
-    !> Dianostic reset freqency in hours.
     real(4) :: fhzero=0.
-    !> Time step for the current diagnostic.
     real(4) :: dtp=0
-    !> Number of vertical levels for the current diagnostic.
     integer,dimension(:),        pointer         :: levo => null()
-    !> Number of variables for bilinear interpolation.
     integer,dimension(:),        pointer         :: nstt => null()
-    !> Number of variables for vector bilinear interpolation.
     integer,dimension(:),        pointer         :: nstt_vctbl => null()
-    !> All possible axis names.
     integer,dimension(:),        pointer         :: all_axes => null()
-    !> Names for variable axes.
     character(20),dimension(:),  pointer         :: axis_name => null()
-    !> Pointer to variables for bilinear interpolation.
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_bl => null()
-    !> Pointer to variables for nearest-stod interpolation.
     real(4), dimension(:,:,:),   pointer         :: buffer_phys_nb => null()
-    !> Pointer to vector variables for bilinear interpolation.
     real(4), dimension(:,:,:,:), pointer         :: buffer_phys_windvect => null()
-    !> Pointer to longitude data for vector interpolation.
     real(kind=kind_phys),dimension(:,:),pointer  :: lon => null()
-    !> Pointer to latitude data for vector interpolation.
     real(kind=kind_phys),dimension(:,:),pointer  :: lat => null()
-    !> Pointer to temporary work variable for 2D u wind data.
     real(kind=kind_phys),dimension(:,:),pointer  :: uwork => null()
-    !> Pointer to temporary work variable for 3D u wind data.
     real(kind=kind_phys),dimension(:,:,:),pointer:: uwork3d => null()
-    !> Does current work variable contain u wind information?
     logical                    :: uwork_set = .false.
-    !> Current name for u wind variable.
     character(128)             :: uwindname = "(noname)"
 
     !--- miscellaneous other variables
-    logical :: use_wrtgridcomp_output = .FALSE. !< Use the write component for output?
+    logical :: use_wrtgridcomp_output = .FALSE.
   contains
     procedure :: register => history_type_register
     procedure :: output => history_type_output
@@ -137,33 +121,18 @@ CONTAINS
     call shared_history_data%register(Diag, Time, Atm_block, Model, xlon, xlat, axes)
   end subroutine fv3atm_diag_register
 
-  !> @brief Transfers diagnostic data to the FMS diagnostic manager
-  !> @details This routine transfers diagnostic data to the FMS diagnostic
-  !>   manager for eventual output to the history files.
-  !>
-  !> @param[in] time Model time.
-  !> @param[inout] diag Diag Container for write component configuration.
-  !> @param[in] atm_block Physics block layout information.
-  !> @param[in] nx Number of grid points on write grid in the x direction.
-  !> @param[in] ny Number of grid points on write grid the y direction.
-  !> @param[in] levs Number of vertical levels on write grid.
-  !> @param[in] ntcw Not used. Remove?
-  !> @param[in] ntoz Not used. Remove?
-  !> @param[in] dt Model time step.
-  !> @param[in] time_int Model integration time since last diag reset.
-  !> @param[in] time_intfull Total model integration time.
-  !> @param[in] time_radsw Time since last shortwave radiation update.
-  !> @param[in] time_radlw Time since last longwave radiation update.
-  !>
-  !> @author Samuel Trahan @date Jun 20, 2023
+  !>@brief Transfers diagnostic data to the FMS diagnostic manager
+  !> \section fv3atm_diag_output subroutine
+  !! This routine transfers diagnostic data to the FMS diagnostic
+  !!  manager for eventual output to the history files.
   subroutine fv3atm_diag_output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-       dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+       dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
     !--- subroutine interface variable definitions
     type(time_type),           intent(in) :: time
     type(GFS_externaldiag_type),       intent(in) :: diag(:)
     type (block_control_type), intent(in) :: atm_block
     type(GFS_control_type),    intent(in) :: Model
-    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz
+    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz, dt_atmos
     real(kind=kind_phys),      intent(in) :: dt
     real(kind=kind_phys),      intent(in) :: time_int
     real(kind=kind_phys),      intent(in) :: time_intfull
@@ -171,7 +140,7 @@ CONTAINS
     real(kind=kind_phys),      intent(in) :: time_radlw
 
     call shared_history_data%output(time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-         dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+         dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
 
   end subroutine fv3atm_diag_output
 
@@ -337,36 +306,20 @@ CONTAINS
 
   end subroutine history_type_register
 
-  !> @brief Internal implementation of fv3atm_diag_output
-  !> @details This is history_type%output, which provides the internal
-  !>  implementation of the public fv3atm_diag_output routine. Never
-  !>  call this directly.
-  !>
-  !> @param hist Container for temporary data during output of diagnostic files.
-  !> @param[in] time Model time.
-  !> @param[in] diag Container for write component configuration.
-  !> @param[in] atm_block Physics block layout information.
-  !> @param[in] nx Number of grid points on write grid in the x direction.
-  !> @param[in] ny Number of grid points on write grid the y direction.
-  !> @param[in] levs Number of vertical levels on write grid.
-  !> @param[in] ntcw Not used. Remove?
-  !> @param[in] ntoz Not used. Remove?
-  !> @param[in] dt Model time step.
-  !> @param[in] time_int Model integration time since last diag reset.
-  !> @param[in] time_intfull Total model integration time.
-  !> @param[in] time_radsw Time since last shortwave radiation update.
-  !> @param[in] time_radlw Time since last longwave radiation update.
-  !>
-  !> @author Samuel Trahan @date Jun 20, 2023
+  !>@brief Internal implementation of fv3atm_diag_output
+  !> \section history_type%output procedure
+  !! This is history_type%output, which provides the internal
+  !! implementation of the public fv3atm_diag_output routine. Never
+  !! call this directly.
   subroutine history_type_output(hist, time, diag, atm_block, nx, ny, levs, ntcw, ntoz, &
-       dt, time_int, time_intfull, time_radsw, time_radlw, Model)
+       dt, time_int, time_intfull, time_radsw, time_radlw, Model, dt_atmos)
     !--- subroutine interface variable definitions
     class(history_type)                   :: hist
     type(time_type),           intent(in) :: time
     type(GFS_externaldiag_type),       intent(in) :: diag(:)
     type (block_control_type), intent(in) :: atm_block
     type(GFS_control_type),    intent(in) :: Model
-    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz
+    integer,                   intent(in) :: nx, ny, levs, ntcw, ntoz, dt_atmos
     real(kind=kind_phys),      intent(in) :: dt
     real(kind=kind_phys),      intent(in) :: time_int
     real(kind=kind_phys),      intent(in) :: time_intfull
@@ -387,8 +340,8 @@ CONTAINS
 
     rtime_int     = one/time_int
     rtime_intfull = one/time_intfull
-    rtime_radsw   = one/time_radsw
-    rtime_radlw   = one/time_radlw
+    rtime_radsw   = one/(time_radsw * (int((time_int-dt_atmos)/time_radsw)+1))
+    rtime_radlw   = one/(time_radlw * (int((time_int-dt_atmos)/time_radlw)+1))
 
     !     if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. time avg, time_int=',time_int
     history_loop: do idx = 1,hist%tot_diag_idx
@@ -399,13 +352,13 @@ CONTAINS
             lcnvfac = lcnvfac*rtime_intfull
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. full time avg, field=',trim(Diag(idx)%name),' time=',time_intfull
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_lw' ) then
-            lcnvfac = lcnvfac*min(rtime_radlw,rtime_int)
+            lcnvfac = lcnvfac*rtime_radlw
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad longwave avg, field=',trim(Diag(idx)%name),' time=',time_radlw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_sw' ) then
-            lcnvfac = lcnvfac*min(rtime_radsw,rtime_int)
+            lcnvfac = lcnvfac*rtime_radsw
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad shortwave avg, field=',trim(Diag(idx)%name),' time=',time_radsw
           else if ( trim(diag(idx)%time_avg_kind) == 'rad_swlw_min' ) then
-            lcnvfac = lcnvfac*min(max(rtime_radsw,rtime_radlw),rtime_int)
+            lcnvfac = lcnvfac*max(rtime_radsw,rtime_radlw)
             !             if(mpp_pe()==mpp_root_pe())print *,'in,fv3atm_io. rad swlw min avg, field=',trim(Diag(idx)%name),' time=',time_radlw,time_radsw,time_int
           else
             lcnvfac = lcnvfac*rtime_int
@@ -1364,5 +1317,7 @@ CONTAINS
 
   end subroutine history_type_find_output_name
 #endif
+  !-------------------------------------------------------------------------
 
 end module fv3atm_history_io_mod
+!> @}

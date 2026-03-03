@@ -13,7 +13,7 @@ module fv3atm_sfc_io
                                 register_axis, register_restart_field,       &
                                 register_variable_attribute, register_field, &
                                 get_global_io_domain_indices, variable_exists, &
-                                get_dimension_size
+                                get_dimension_size, register_global_attribute
   use fv3atm_common_io,   only: GFS_Data_transfer, axis_type, &
        create_2d_field_and_add_to_bundle, create_3d_field_and_add_to_bundle
   use GFS_typedefs,       only: GFS_sfcprop_type, GFS_control_type, kind_phys
@@ -30,27 +30,29 @@ module fv3atm_sfc_io
        Sfc_io_register_3d_fields, Sfc_io_copy_to_grid, Sfc_io_copy_from_grid, &
        Sfc_io_apply_safeguards, Sfc_io_transfer, Sfc_io_final
 
-  !> Minimum temperature allowed for snow/ice
+  !> \defgroup fv3atm_sfc_io module
+  !> @{
+
+  !>@ Minimum temperature allowed for snow/ice
   real(kind=kind_phys), parameter :: timin = 173.0_kind_phys
-  !> Orographic height above which water points must be converted to lake
+
   real(kind_phys), parameter:: min_lake_orog = 200.0_kind_phys
-  !> Constants zero, one
   real(kind_phys), parameter:: zero = 0, one = 1
 
   !> Internal data storage type for reading and writing surface restart files
   type Sfc_io_data_type
-    integer, public :: nvar2o = 0 !< Number of 2d NSSTM variables in restart
-    integer, public :: nvar3 = 0 !< Number of 3d non-NoahMP variables in restart
-    integer, public :: nvar2r = 0 !< number of 2d RUC lsm variables
-    integer, public :: nvar2mp = 0 !< Number of 2d Noah MP variables in restart
-    integer, public :: nvar3mp = 0 !< Number of 3d Noah MP variables in restart
-    integer, public :: nvar2l = 0 !< Number of Lake/Flake variables in restart
-    integer, public :: nvar2m = 0 !< number of 2D variables in restart that don't fall into other categories
-    integer, public :: nvar_before_lake = 0 !< Number of variables before lake vars
+    integer, public :: nvar2o = 0
+    integer, public :: nvar3 = 0
+    integer, public :: nvar2r = 0
+    integer, public :: nvar2mp = 0
+    integer, public :: nvar3mp = 0
+    integer, public :: nvar2l = 0
+    integer, public :: nvar2m = 0
+    integer, public :: nvar_before_lake = 0
 
-    !> The lsoil flag is only meaningful when reading:
+    ! The lsoil flag is only meaningful when reading:;
     logical, public :: is_lsoil = .false.
-    !> Is surface file version 2
+
     logical, public :: is_v2_file = .false.
 
     ! SYNONYMS: Some nvar variables had two names in fv3atm_io.F90. They have
@@ -63,22 +65,14 @@ module fv3atm_sfc_io
     !  - nvar2mp = nvar_s2mp
     !  - nvar3mp = nvar_s3mp
 
-    !> Restart 2-dimensional variables (nx, ny, nvar2m+nvar2o+nvar2mp_nvar2r+nvarl)
     real(kind=kind_phys), pointer, dimension(:,:,:), public :: var2 => null()
-    !> Restart 3-dimensional ice (nx, ny, kice)
     real(kind=kind_phys), pointer, dimension(:,:,:), public :: var3ice => null()
-    !> Restart 3-dimensional surface variables (nx, ny,lsoil/lsoil_lsm,nvar3)
     real(kind=kind_phys), pointer, dimension(:,:,:,:), public :: var3 => null()
-    !> Restart snow layer ice (mm),layer liquid water(mm), temp (K) ; Noah MP LSM only
     real(kind=kind_phys), pointer, dimension(:,:,:,:), public :: var3sn => null()
-    !> Restart equivalent volumetric soil moisture [m3/m3]; Noah MP LSM only
     real(kind=kind_phys), pointer, dimension(:,:,:,:), public :: var3eq => null()
-    !> Restart snow/soil layer depth (m) ; Noah MP LSM only
     real(kind=kind_phys), pointer, dimension(:,:,:,:), public :: var3zn => null()
 
-    !> Names of 2-dimensional surface restart variables
     character(len=32), pointer, dimension(:), public :: name2 => null()
-    !> Names of 3-dimensional surface restart variables
     character(len=32), pointer, dimension(:), public :: name3 => null()
 
   contains
@@ -407,15 +401,13 @@ contains
     call register_field(Sfc_restart, 'Time', axis_type, (/'Time'/))
     call register_variable_attribute(Sfc_restart, 'Time', 'cartesian_axis', 'T', str_len=1)
     call write_data( Sfc_restart, 'Time', 1)
+
+    if (trim(Model%sfc_file_version) /= "V1") then
+       call register_global_attribute(Sfc_restart, "file_version", trim(Model%sfc_file_version), len(trim(Model%sfc_file_version)))
+    end if
   end subroutine Sfc_io_write_axes
 
-  !> @brief Fills the name3d array with all surface 3D field names.
-  !>
-  !> @param sfc Internal data storage type for reading and writing surface restart files.
-  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
-  !> @param[in] warm_start Is this a warm start run?
-  !>
-  !> @author Samuel Trahan @date Jun 20, 2023
+  !>@ Fills the name3d array with all surface 3D field names.
   subroutine Sfc_io_fill_3d_names(sfc,Model,warm_start)
     implicit none
     class(Sfc_io_data_type)           :: sfc

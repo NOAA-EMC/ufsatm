@@ -12,32 +12,17 @@ module fv3atm_oro_io
   implicit none
   private
 
-  !> Storage of working arrays for reading orography data
-  public :: Oro_io_data_type
-  !> Registers axes and fields for non-quilt restart reading of
-  !> non-scaled orography variables.
-  public :: Oro_io_register
-  !> Copies orography data from temporary arrays back to Sfcprop grid arrays.
-  public :: Oro_io_copy 
-  !> Destructor for Oro_io_data_type
-  public :: Oro_io_final 
-  !> Storage of working arrays for reading large-scale and small-scale
-  !> orography data for gravity wave drag schemes.
-  public :: Oro_scale_io_data_type
-  !> Registers axes and fields for non-quilt restart reading of scaled
-  !> orography variables.
-  public :: Oro_scale_io_register
-  !> Copies scaled orography data from temporary arrays back to
-  !> Sfcprop grid arrays.
-  public :: Oro_scale_io_copy 
-  !> Oro_scale_io_data_type destructor.
-  public :: Oro_scale_io_final
-  !> Storage of working arrays for reading orography data.
+  public :: Oro_io_data_type, Oro_io_register, Oro_io_copy, Oro_io_final
+  public :: Oro_scale_io_data_type, Oro_scale_io_register, Oro_scale_io_copy, Oro_scale_io_final
+
+  !>\defgroup fv3atm_oro_io FV3ATM Orography I/O Module
+  !> @{
+  !>@ Storage of working arrays for reading orography data.
   type Oro_io_data_type
-    character(len=32),    pointer, private, dimension(:)       :: name2 => null() !< Array containing oro field names
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var2  => null() !< Array containing oro field data
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3v => null() !< Array containing vegetation type data
-    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3s => null() !< Array containing soil type data
+    character(len=32),    pointer, private, dimension(:)       :: name2 => null()
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var2  => null()
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3v => null()
+    real(kind=kind_phys), pointer, private, dimension(:,:,:)   :: var3s => null()
   contains
     procedure, public :: register => Oro_io_register
     procedure, public :: copy => Oro_io_copy

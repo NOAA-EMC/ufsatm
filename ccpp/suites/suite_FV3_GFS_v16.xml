@@ -24,7 +24,7 @@
       <scheme>rrtmg_sw_post</scheme>
       <scheme>rrtmg_lw</scheme>
       <scheme>rrtmg_lw_post</scheme>
-      <scheme>GFS_rrtmg_post</scheme>
+      <scheme>GFS_radiation_post</scheme>
     </subcycle>
   </group>
   <group name="phys_ps">
@@ -57,6 +57,7 @@
       <scheme>GFS_surface_generic_post</scheme>
       <scheme>GFS_PBL_generic_pre</scheme>
       <scheme>satmedmfvdifq</scheme>
+      <scheme>canopy_driver</scheme>
       <scheme>GFS_PBL_generic_post</scheme>
       <scheme>GFS_GWD_generic_pre</scheme>
       <scheme>cires_ugwp</scheme>

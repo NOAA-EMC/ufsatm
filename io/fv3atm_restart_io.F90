@@ -60,28 +60,28 @@ module fv3atm_restart_io_mod
 
   !--- GFDL filenames
 
-  !> Filename template for orography data. FMS may add grid and tile information to the name
+  !>@ Filename template for orography data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_oro    = 'oro_data.nc'
 
-  !> Filename template for gravity wave drag large-scale orography data. FMS may add grid and tile information to the name
+  !>@ Filename template for gravity wave drag large-scale orography data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_oro_ls = 'oro_data_ls.nc'
 
-  !> Filename template for gravity wave drag small-scale orography data. FMS may add grid and tile information to the name
+  !>@ Filename template for gravity wave drag small-scale orography data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_oro_ss = 'oro_data_ss.nc'
 
-  !> Filename template for surface data that doesn't fall under other categories. FMS may add grid and tile information to the name
+  !>@ Filename template for surface data that doesn't fall under other categories. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_srf    = 'sfc_data.nc'
 
-  !> Filename template for physics diagnostic data. FMS may add grid and tile information to the name
+  !>@ Filename template for physics diagnostic data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_phy    = 'phy_data.nc'
 
-  !> Filename template for monthly dust data for RRFS_SD. FMS may add grid and tile information to the name
+  !>@ Filename template for monthly dust data for RRFS_SD. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_dust12m= 'dust12m_data.nc'
 
-  !> Filename template for RRFS-SD emissions data. FMS may add grid and tile information to the name
+  !>@ Filename template for RRFS-SD emissions data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_emi    = 'emi_data.nc'
 
-  !> Filename template for RRFS-SD smoke data. FMS may add grid and tile information to the name
+  !>@ Filename template for RRFS-SD smoke data. FMS may add grid and tile information to the name
   character(len=32), parameter  :: fn_rrfssd = 'SMOKE_RRFS_data.nc'
 
   real(kind_phys), parameter:: zero = 0.0, one = 1.0
@@ -736,6 +736,7 @@ contains
 
     if (global_att_exists(Sfc_restart, "file_version")) then
       call get_global_attribute(Sfc_restart, "file_version", file_ver)
+      Model%sfc_file_version = file_ver
       if (file_ver == "V2") then
         sfc%is_v2_file=.true.
       endif
@@ -1291,6 +1292,14 @@ contains
     if(Model%rrfs_sd) then
       call rrfs_sd_quilt%bundle_fields(bundle, grid, Model, outputfile)
     endif
+
+    if (trim(Model%sfc_file_version) /= "V1") then
+       call ESMF_AttributeAdd(bundle, convention="NetCDF", purpose="FV3", attrList=(/"file_version"/), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+       call ESMF_AttributeSet(bundle, convention="NetCDF", purpose="FV3", name="file_version", value=trim(Model%sfc_file_version), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    end if
 
   end subroutine fv_sfc_restart_bundle_setup
 

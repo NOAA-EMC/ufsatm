@@ -27,63 +27,57 @@ module fv3atm_rrfs_sd_io
        rrfs_sd_emissions_register_emi, rrfs_sd_emissions_copy_emi, &
        rrfs_sd_emissions_register_fire, rrfs_sd_emissions_copy_fire
 
-  !> Temporary data storage for reading and writing restart data for the RRFS-SD scheme.
+  !>\defgroup fv3atm_rrfs_sd_io module
+  !> @{
+
+  !>@ Temporary data storage for reading and writing restart data for the RRFS-SD scheme.
   type rrfs_sd_state_type
-    !> The rrfs_sd_state_type stores temporary arrays used to read or
-    !> write RRFS-SD restart and axis variables.
-    real(kind_phys), pointer, private, dimension(:,:) :: & !< i,j variables
+    ! The rrfs_sd_state_type stores temporary arrays used to read or
+    ! write RRFS-SD restart and axis variables.
+
+    real(kind_phys), pointer, private, dimension(:,:) :: & ! i,j variables
          emdust=>null(), emseas=>null(), emanoc=>null(), fhist=>null(), coef_bb_dc=>null()
 
     real(kind_phys), pointer, private, dimension(:,:,:) :: &
-         fire_in=>null() !< i, j, fire_aux_data_levels
+         fire_in=>null() ! i, j, fire_aux_data_levels
 
     real(kind_phys), pointer, private, dimension(:) :: &
-         fire_aux_data_levels=>null() !< 1:Model%fire_aux_data_levels index array for metadata write
+         fire_aux_data_levels=>null() ! 1:Model%fire_aux_data_levels index array for metadata write
 
   contains
-    procedure, public :: register_axis => rrfs_sd_state_register_axis !< register fire_aux_data_levels axis
-    procedure, public :: write_axis => rrfs_sd_state_write_axis !< write fire_aux_data_levels variable
-    procedure, public :: allocate_data => rrfs_sd_state_allocate_data !< allocate all pointers
-    procedure, public :: fill_data => rrfs_sd_state_fill_data !< fill data with default values
-    procedure, public :: register_fields => rrfs_sd_state_register_fields !< register rrfs_sd fields
-    procedure, public :: deallocate_data => rrfs_sd_state_deallocate_data !< deallocate pointers
-    procedure, public :: copy_from_grid => rrfs_sd_state_copy_from_grid !< Copy Sfcprop to arrays
-    procedure, public :: copy_to_grid => rrfs_sd_state_copy_to_grid !< Copy arrays to Sfcprop
-    procedure, public :: bundle_fields => rrfs_sd_bundle_fields !< Point esmf bundles to arrays
-    final :: rrfs_sd_state_final !< Destructor; calls deallocate_data
+    procedure, public :: register_axis => rrfs_sd_state_register_axis ! register fire_aux_data_levels axis
+    procedure, public :: write_axis => rrfs_sd_state_write_axis ! write fire_aux_data_levels variable
+    procedure, public :: allocate_data => rrfs_sd_state_allocate_data ! allocate all pointers
+    procedure, public :: fill_data => rrfs_sd_state_fill_data ! fill data with default values
+    procedure, public :: register_fields => rrfs_sd_state_register_fields ! register rrfs_sd fields
+    procedure, public :: deallocate_data => rrfs_sd_state_deallocate_data ! deallocate pointers
+    procedure, public :: copy_from_grid => rrfs_sd_state_copy_from_grid ! Copy Sfcprop to arrays
+    procedure, public :: copy_to_grid => rrfs_sd_state_copy_to_grid ! Copy arrays to Sfcprop
+    procedure, public :: bundle_fields => rrfs_sd_bundle_fields ! Point esmf bundles to arrays
+    final :: rrfs_sd_state_final ! Destructor; calls deallocate_data
   end type rrfs_sd_state_type
 
   ! --------------------------------------------------------------------
 
-  !> Temporary data storage for reading RRFS-SD emissions data
+  !>@ Temporary data storage for reading RRFS-SD emissions data
   type rrfs_sd_emissions_type
-    !> Number of dust variables for 12-month period
     integer, private :: nvar_dust12m = 5
-    !> Number of emission variables.
     integer, private :: nvar_emi = 1
-    !> Number of fire variables.
     integer, private :: nvar_fire = 2
-    !> Number of fire variables for 2D fields.
     integer, private :: nvar_fire2d = 5
 
-    !> Names of variables in the dust12m file
     character(len=32), pointer, dimension(:), private :: dust12m_name => null()
-    !> Names of variables in the emissions file
     character(len=32), pointer, dimension(:), private :: emi_name => null()
-    !> Names of variables in the fire file
     character(len=32), pointer, dimension(:), private :: fire_name => null()
-    !> Names of variables in the fire file for 2D fields
     character(len=32), pointer, dimension(:), private :: fire_name2d => null()
-    !> 3d variables from the dust12m file
+
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: dust12m_var => null()
-    !> 3d variables from the emissions file
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: emi_var => null()
-    !> 3d variables from the fire file
     real(kind=kind_phys), pointer, dimension(:,:,:,:), private :: fire_var => null()
-    !> 2d variables from the fire file
     real(kind=kind_phys), pointer, dimension(:,:,:  ), private :: fire_var2d => null()
 
   contains
+
     procedure, public :: register_dust12m => rrfs_sd_emissions_register_dust12m
     procedure, public :: copy_dust12m => rrfs_sd_emissions_copy_dust12m
 

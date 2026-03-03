@@ -1,35 +1,23 @@
-!> @file
-!> @brief Miscellaneous subroutines to support inline post.
-!> @author Jun Wang @date Oct 8, 2019 
+module post_nems_routines
+   implicit none
+   contains
 
-!> @brief Allocate post variables.
-!>
-!> @details ## Subroutine History
-!>
-!> Date | Programmer | Modification
-!> -----|------------|-------------
-!> Jul 2019 | Jun Wang | allocate arrays for post processing
-!> Feb 2022 | J. Meng/B. Cui | create interface to run inline post with post_2d_decomp
-!>
-!> @param[in] imi i dimension size of the output grid.
-!> @param[in] jmi j dimension size of the output grid.
-!> @param[in] lmi l (layer) dimension size of the output grid.
-!> @param[in] mype MPI rank.
-!> @param[in] nwtlpes number of write tasks in the write group.
-!> @param[in] lead_write lead task of the write group.
-!> @param[in] mpicomp MPI communicator of the write grid component.
-!> @param[in] jts start index in j dimention in a task subdomain.
-!> @param[in] jte end index in j dimention in a task subdomain.
-!> @param[in] jtsgrp start index in j dimention of all write tasks.
-!> @param[in] jtegrp end index in j dimention of all write tasks.
-!> @param[in] its start index in i dimention in a task subdomain.
-!> @param[in] ite end index in j dimention in a task subdomain.
-!> @param[in] itsgrp start index in i dimention of all write tasks.
-!> @param[in] itegrp end idex in i dimention of all write tasks.
-!>
-!> @author Jun Wang @date Oct 8 2019 
+!-----------------------------------------------------------------------
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!-----------------------------------------------------------------------
+!
     subroutine post_alctvars(imi,jmi,lmi,mype,nwtlpes,lead_write, mpicomp,  &
                              jts,jte,jtsgrp,jtegrp,its,ite,itsgrp,itegrp)
+!
+!
+!   revision history:
+!    Jul 2019 Jun Wang: allocate arrays for post processing
+!    Feb 2022 J. Meng/B. Cui: create interface to run inline post with post_2d_decomp
+!
+!-----------------------------------------------------------------------
+!*** allocate post variables
+!-----------------------------------------------------------------------
+!
       use vrbls4d
       use vrbls3d
       use vrbls2d
@@ -44,9 +32,16 @@
                             ileft,iright,ileftb,irightb, &
                             icnt2, idsp2,isxa,iexa,jsxa,jexa, &
                             num_procs
+      use allocate_all_upp_mod, only: allocate_all
+!
+!-----------------------------------------------------------------------
+!
       use mpi
 !
       implicit none
+!
+!-----------------------------------------------------------------------
+!
       integer,intent(in)            :: imi,jmi,lmi,mype,nwtlpes,mpicomp
       integer,intent(in)            :: lead_write
       integer,intent(in)            :: jts,jte
@@ -243,7 +238,7 @@
                              lsmdef,ALSL,me,d3d_on,gocart_on,hyb_sigp,&
                              pthresh,novegtype,ivegsrc,icu_physics,   &
                              isf_surface_physics,modelname,submodelname,&
-                             rdaod,d2d_chem,nasa_on,gccpp_on
+                             rdaod,d2d_chem,nasa_on,gccpp_on,method_blsn
       use upp_ifi_mod, only: write_ifi_debug_files
 !
 !    revision history:
@@ -261,7 +256,7 @@
 
       namelist/nampgb/kpo,po,kth,th,kpv,pv,popascal,d3d_on,gocart_on,  &
                       hyb_sigp,write_ifi_debug_files,rdaod,nasa_on,gccpp_on, &
-                      d2d_chem
+                      method_blsn,d2d_chem
       namelist/model_inputs/modelname,submodelname
 !---------------------------------------------------------------------
 !
@@ -282,6 +277,7 @@
       nasa_on     = .false.
       gccpp_on    = .false.
       d2d_chem    = .false.
+      method_blsn = .true. 
 !
       if (me == 0) print *,'post_namelist=',post_namelist
 !jw post namelist is using the same file itag as standalone post
@@ -363,6 +359,7 @@
 !    Jul 2019 Jun Wang: finalize post step
 !
       use grib2_module, only : grib_info_finalize
+      use DE_ALLOCATE_UPP_MOD , only : de_allocate
 !
       character(*),intent(in) :: post_gribversion
 !
@@ -373,4 +370,6 @@
       call de_allocate
 !
     end subroutine post_finalize
+
+end module post_nems_routines
 

@@ -1,0 +1,10 @@
+########################################################################
+[ccpp-table-properties]
+  name = MPAS_typedefs
+  type = module
+  dependencies_path = ../physics/physics/
+  dependencies = hooks/machine.F
+
+[ccpp-arg-table]
+  name = MPAS_typedefs
+  type = module

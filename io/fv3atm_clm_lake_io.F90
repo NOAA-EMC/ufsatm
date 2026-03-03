@@ -56,40 +56,40 @@ module fv3atm_clm_lake_io
          levlake_clm_lake, levsnowsoil_clm_lake, levsnowsoil1_clm_lake
   contains
 
-    !>Rregister_axes calls registers_axis on Sfc_restart for all required axes
+    ! register_axes calls registers_axis on Sfc_restart for all required axes
     procedure, public :: register_axes => clm_lake_register_axes
 
-    !> Allocate_data allocates all of the pointers in this object
+    ! allocate_data allocates all of the pointers in this object
     procedure, public :: allocate_data => clm_lake_allocate_data
 
-    !> Register_fields calls register_field on Sfc_restart for all CLM Lake model restart variables
+    ! register_fields calls register_field on Sfc_restart for all CLM Lake model restart variables
     procedure, public :: register_fields => clm_lake_register_fields
 
-    !> Deallocate_data deallocates all pointers, allowing this object to be used repeatedly.
-    !> It is safe to call deallocate_data if no data has been allocated.
+    ! deallocate_data deallocates all pointers, allowing this object to be used repeatedly.
+    ! It is safe to call deallocate_data if no data has been allocated.
     procedure, public :: deallocate_data => clm_lake_deallocate_data
 
-    !> Write_axes writes variables to Sfc_restart, with the name of
-    !> each axis, containing the appropriate information
+    ! write_axes writes variables to Sfc_restart, with the name of
+    ! each axis, containing the appropriate information
     procedure, public :: write_axes => clm_lake_write_axes
 
-    !> Fills internal arrays with zero:
+    ! fills internal arrays with zero:
     procedure, public :: fill_data => clm_lake_fill_data
 
-    !> Copy_from_grid copies from Sfcprop to internal pointers (declared above)
+    ! copy_from_grid copies from Sfcprop to internal pointers (declared above)
     procedure, public :: copy_from_grid => clm_lake_copy_from_grid
 
-    !> Copy_from_grid copies from internal pointers (declared above) to Sfcprop
+    ! copy_from_grid copies from internal pointers (declared above) to Sfcprop
     procedure, public :: copy_to_grid => clm_lake_copy_to_grid
 
-    !> Send field bundles in restart quilt server
+    ! send field bundles in restart quilt server
     procedure, public :: bundle_fields => clm_lake_bundle_fields
 
-    !> A fortran 2003 compliant compiler will call clm_lake_final
-    !> automatically when an object of this type goes out of
-    !> scope. This will deallocate any arrays via a call to
-    !> deallocate_data. It is safe to call this routine if no data has
-    !> been allocated.
+    ! A fortran 2003 compliant compiler will call clm_lake_final
+    ! automatically when an object of this type goes out of
+    ! scope. This will deallocate any arrays via a call to
+    ! deallocate_data. It is safe to call this routine if no data has
+    ! been allocated.
     final :: clm_lake_final
   end type clm_lake_data_type
 

@@ -5,6 +5,7 @@ program test_post_nems_routines
 
   use ctlblk_mod, only : komax,hyb_sigp,d3d_on,gocart_on, &
    rdaod,nasa_on,gccpp_on,d2d_chem,modelname,submodelname, lsm
+  use post_nems_routines, only : read_postnmlt
 
   implicit none
 
@@ -26,7 +27,7 @@ program test_post_nems_routines
   if (.not.hyb_sigp) stop 7
   if (d3d_on) stop 8
   if (gocart_on) stop 9
-  if (lsm.ne.46) stop 10 ! 'lsm' is determined by 'popascal'
+  if (lsm.ne.55) stop 10 ! 'lsm' is determined by 'popascal'
   if (rdaod) stop 11
   if (nasa_on) stop 12
   if (gccpp_on) stop 13

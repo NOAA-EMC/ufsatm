@@ -81,26 +81,29 @@ module fv_moving_nest_types_mod
     real, _ALLOCATABLE                  :: delz(:,:,:)      _NULL   !< layer thickness (meters)
   end type fv_moving_nest_prog_type
 
-  ! TODO deallocate these at end of model run.  They are only allocated once, at first nest move, inside mn_static_read_hires().
-  !  Note these are only 32 bits for now; matching the precision of the input netCDF files
-  !  though the model generally handles physics variables with 64 bit precision
-  type mn_surface_grids
+
+  type mn_land_mask_grids
     real, allocatable  :: orog_grid(:,:)               _NULL  ! orography -- raw or filtered depending on namelist option, in meters
     real, allocatable  :: orog_std_grid(:,:)           _NULL  ! terrain standard deviation for gravity wave drag, in meters (?)
-    real, allocatable  :: ls_mask_grid(:,:)            _NULL  ! land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
-    real, allocatable  :: land_frac_grid(:,:)          _NULL  ! Continuous land fraction - 0.0 ocean, 0.5 half of each, 1.0 all land
+    real, allocatable  :: ls_mask_grid(:,:)            _NULL  ! land sea mask -- 0 for ocean/lakes, 1, for land.  2 for sea ice.
+    real, allocatable  :: soil_type_grid(:,:)          _NULL  ! STATSGO soil type
+    ! Land frac needs to be kind_phys because CCPP defines it that way.  Can have rounding mismatches around 0.5 if types don't match.
+    real(kind=kind_phys), allocatable  :: land_frac_grid(:,:)          _NULL  ! Continuous land fraction - 0.0 ocean, 0.5 half of each, 1.0 all land
 
-    real, allocatable  :: parent_orog_grid(:,:)        _NULL  ! parent orography -- only used for terrain_smoother=1.
     !     raw or filtered depending on namelist option,in meters
+    real(kind=kind_phys), allocatable  :: geolat_grid(:,:)          _NULL
+    real(kind=kind_phys), allocatable  :: geolon_grid(:,:)          _NULL
+  end type mn_land_mask_grids
 
+  type mn_fix_grids
     ! Soil variables
     real, allocatable  :: deep_soil_temp_grid(:,:)     _NULL  ! deep soil temperature at 5m, in degrees K
-    real, allocatable  :: soil_type_grid(:,:)          _NULL  ! STATSGO soil type
 
     ! Vegetation variables
     real, allocatable  :: veg_frac_grid(:,:)           _NULL  ! vegetation fraction
     real, allocatable  :: veg_type_grid(:,:)           _NULL  ! IGBP vegetation type
-    real, allocatable  :: veg_greenness_grid(:,:)      _NULL  ! NESDIS vegetation greenness; netCDF file has monthly values
+    ! TODO do we need veg_greenness?
+    !real, allocatable  :: veg_greenness_grid(:,:)      _NULL  ! NESDIS vegetation greenness; netCDF file has monthly values
 
     ! Orography variables
     real, allocatable  :: slope_type_grid(:,:)         _NULL  ! legacy 1 degree GFS slope type
@@ -123,12 +126,29 @@ module fv_moving_nest_types_mod
     real, allocatable  :: alvwf_grid(:,:)              _NULL  ! Visible white sky albedo; netCDF file has monthly values
     real, allocatable  :: alnsf_grid(:,:)              _NULL  ! Near IR black sky albedo; netCDF file has monthly values
     real, allocatable  :: alnwf_grid(:,:)              _NULL  ! Near IR white sky albedo; netCDF file has monthly values
+  end type mn_fix_grids
+
+  ! TODO deallocate these at end of model run.  They are only allocated once, at first nest move, inside mn_static_read_hires().
+  !  Note these are only 32 bits for now; matching the precision of the input netCDF files
+  !  though the model generally handles physics variables with 64 bit precision
+  type mn_surface_grids
+
+    type(mn_land_mask_grids)  :: parent_ls
+    type(mn_land_mask_grids)  :: fp_ls
+    type(mn_land_mask_grids)  :: nest_ls
+
+    ! type(mn_fix_grids)        :: parent_fix    ! Not needed at present
+    type(mn_fix_grids)        :: fp_fix
+    type(mn_fix_grids)        :: nest_fix
 
   end type mn_surface_grids
 
   type fv_moving_nest_physics_type
     real, _ALLOCATABLE                  :: ts(:,:)          _NULL   !< 2D skin temperature/SST
     real, _ALLOCATABLE                  :: slmsk(:,:)       _NULL   !< land sea mask -- 0 for ocean/lakes, 1, for land.  Perhaps 2 for sea ice.
+
+    logical, _ALLOCATABLE               :: leading_edge(:,:) _NULL  !< logical array -- at each nest move timestep, is this point getting interpolated values at the leading edge
+
     real (kind=kind_phys), _ALLOCATABLE :: smc (:,:,:)      _NULL   !< soil moisture content
     real (kind=kind_phys), _ALLOCATABLE :: stc (:,:,:)      _NULL   !< soil temperature
     real (kind=kind_phys), _ALLOCATABLE :: slc (:,:,:)      _NULL   !< soil liquid water content
@@ -214,6 +234,54 @@ module fv_moving_nest_types_mod
     real (kind=kind_phys), _ALLOCATABLE :: dt_cool (:,:)    _NULL   !< sub-layer cooling amount for NSSTM
     real (kind=kind_phys), _ALLOCATABLE :: qrain (:,:)      _NULL   !< sensible heat flux due to rainfall for NSSTM
 
+    ! NOAH MP LSM Variables
+    real (kind=kind_phys), _ALLOCATABLE :: soilcolor (:,:)     _NULL   !< soil color
+    real (kind=kind_phys), _ALLOCATABLE :: snowxy (:,:)     _NULL   !< number of snow layers
+    real (kind=kind_phys), _ALLOCATABLE :: tvxy (:,:)       _NULL   !< canopy temperature
+    real (kind=kind_phys), _ALLOCATABLE :: tgxy (:,:)       _NULL   !< ground temperature
+    real (kind=kind_phys), _ALLOCATABLE :: canicexy (:,:)   _NULL   !< canopy intercepted ice mass
+    real (kind=kind_phys), _ALLOCATABLE :: canliqxy (:,:)   _NULL   !< canopy intercepted liquid water
+    real (kind=kind_phys), _ALLOCATABLE :: eahxy (:,:)      _NULL   !< air vapor pressure in canopy
+    real (kind=kind_phys), _ALLOCATABLE :: tahxy (:,:)      _NULL   !< air temperature in canopy
+    real (kind=kind_phys), _ALLOCATABLE :: cmxy (:,:)       _NULL   !< bulk momentum drag coefficient [m/s]
+    real (kind=kind_phys), _ALLOCATABLE :: chxy (:,:)       _NULL   !< bulk sensible heat exchange coefficient [m/s]
+    real (kind=kind_phys), _ALLOCATABLE :: fwetxy (:,:)     _NULL   !< wetted or snowed fraction of the canopy
+    real (kind=kind_phys), _ALLOCATABLE :: sneqvoxy (:,:)   _NULL   !< snow mass at last time step[mm h2o]
+    real (kind=kind_phys), _ALLOCATABLE :: alboldxy (:,:)   _NULL   !< surface albedo assuming deep snow on previous timestep
+    real (kind=kind_phys), _ALLOCATABLE :: qsnowxy (:,:)    _NULL   !< liquid water equiv. snowfall rate
+    real (kind=kind_phys), _ALLOCATABLE :: wslakexy (:,:)   _NULL   !< lake water storage [mm]
+    real (kind=kind_phys), _ALLOCATABLE :: zwtxy (:,:)      _NULL   !< water table depth
+    real (kind=kind_phys), _ALLOCATABLE :: waxy (:,:)       _NULL   !< water storage in aquifer
+    real (kind=kind_phys), _ALLOCATABLE :: wtxy (:,:)       _NULL   !< water storage in aquifer and saturated soil
+    real (kind=kind_phys), _ALLOCATABLE :: lfmassxy (:,:)   _NULL   !< leaf mass [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: rtmassxy (:,:)   _NULL   !< mass of fine roots [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: stmassxy (:,:)   _NULL   !< stem mass [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: woodxy (:,:)     _NULL   !< mass of wood (incl. woody roots) [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: stblcpxy (:,:)   _NULL   !< stable carbon in deep soil [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: fastcpxy (:,:)   _NULL   !< short-lived carbon, shallow soil [g/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: xsaixy (:,:)     _NULL   !< stem area index [m2/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: xlaixy (:,:)     _NULL   !< leaf area index [m2/m2]
+    real (kind=kind_phys), _ALLOCATABLE :: taussxy (:,:)    _NULL   !< snow age factor [-]
+    real (kind=kind_phys), _ALLOCATABLE :: smcwtdxy (:,:)   _NULL   !< soil moisture content in the layer to the water table when deep
+    real (kind=kind_phys), _ALLOCATABLE :: deeprechxy (:,:) _NULL   !< recharge to the water table when deep
+    real (kind=kind_phys), _ALLOCATABLE :: rechxy (:,:)     _NULL   !< recharge to the water table
+
+    real (kind=kind_phys), _ALLOCATABLE :: smoiseq (:,:,:)  _NULL   !< equvi. soil moisture
+    real (kind=kind_phys), _ALLOCATABLE :: snicexy (:,:,:)  _NULL   !< liq water equiv thickness of ice in surface snow
+    real (kind=kind_phys), _ALLOCATABLE :: snliqxy (:,:,:)  _NULL   !< liq water equiv thickness of liquid water in surface snow
+    real (kind=kind_phys), _ALLOCATABLE :: snowd (:,:)      _NULL   !< surface snow thickness water equivalent over land
+    real (kind=kind_phys), _ALLOCATABLE :: tsnoxy (:,:,:)   _NULL   !< temperature in surface snow
+    real (kind=kind_phys), _ALLOCATABLE :: weasd (:,:)      _NULL   !< water equivalent accumulated snow depth over land
+    real (kind=kind_phys), _ALLOCATABLE :: zsnsoxy (:,:,:)  _NULL   !< depth from snow surface at bottom interface
+
+    ! ICEFIX Additional cryosphere variables Sept 2025
+    real (kind=kind_phys), _ALLOCATABLE :: tiice (:,:,:)    _NULL   !< sea ice internal temperature, 2 layers [K]
+    real (kind=kind_phys), _ALLOCATABLE :: tisfc (:,:)      _NULL   !< surface skin temperature over ice [K]
+    real (kind=kind_phys), _ALLOCATABLE :: sncovr (:,:)     _NULL   !< snow cover in fraction over land
+
+    real (kind=kind_phys), _ALLOCATABLE :: fice (:,:)       _NULL   !< sea ice fraction
+    real (kind=kind_phys), _ALLOCATABLE :: hice (:,:)       _NULL   !< sea ice thickness
+
   end type fv_moving_nest_physics_type
 
   type fv_moving_nest_type
@@ -251,14 +319,42 @@ module fv_moving_nest_types_mod
 
   type(fv_moving_nest_type), _ALLOCATABLE, target    :: Moving_nest(:) !< Nest object
 
+  interface mn_overwrite_with_nest_init_values
+    module procedure mn_overwrite_with_nest_init_values_r4
+    module procedure mn_overwrite_with_nest_init_values_r8
+  end interface mn_overwrite_with_nest_init_values
+
 contains
 
-  !> @brief Initialize moving nest
-  !>
-  !> @param[in] Atm Atm object
-  !> @param[in] this_grid Index of Atm
-  !>
-  !> @author
+  subroutine mn_set_leading_edge(mn_phys, isd, ied, jsd, jed, ioffset, joffset)
+    type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
+    integer, intent(in)                              :: isd, ied, jsd, jed
+    integer, intent(in)                              :: ioffset, joffset
+
+    mn_phys%leading_edge = .False.
+
+    mn_phys%leading_edge(isd:isd+2,:) = .True.
+    mn_phys%leading_edge(ied-2:ied,:) = .True.
+
+    mn_phys%leading_edge(:, jsd:jsd+2) = .True.
+    mn_phys%leading_edge(:, jed-2:jed) = .True.
+
+    if (ioffset .eq. 1) then
+      mn_phys%leading_edge(isd+3:isd+5, :) = .True.
+    endif
+    if (ioffset .eq. -1) then
+      mn_phys%leading_edge(ied-5:ied-3, :) = .True.
+    endif
+
+    if (joffset .eq. 1) then
+      mn_phys%leading_edge(: ,jsd+3:jsd+5) = .True.
+    endif
+    if (joffset .eq. -1) then
+      mn_phys%leading_edge(:, jed-5:jed-3) = .True.
+    endif
+
+  end subroutine mn_set_leading_edge
+
   subroutine fv_moving_nest_init(Atm, this_grid)
     type(fv_atmos_type), allocatable, intent(in) :: Atm(:)
     integer, intent(in)                          :: this_grid
@@ -302,9 +398,7 @@ contains
       endif
     enddo
 
-
     call read_input_nml(Atm(this_grid)%nml_filename) !re-reads into internal namelist
-
 
   end subroutine fv_moving_nest_init
 
@@ -357,18 +451,161 @@ contains
     call deallocate_fv_moving_nest_physics_type(Moving_nest(n)%mn_phys)
 
   end subroutine deallocate_fv_moving_nest
-  
-  !> @brief Allocate mn_prog%delz
-  !>
-  !> @param[in] isd i-coordinate start
-  !> @param[in] ied i-coordinate end
-  !> @param[in] jsd j-coordinate start
-  !> @param[in] jed j-coordinate end
-  !> @param[in] npz Number of levels
-  !> @param[inout] mn_prog Moving nest prognostic variables
-  !>
-  !> @author
-  subroutine  allocate_fv_moving_nest_prog_type(isd, ied, jsd, jed, npz, mn_prog)
+
+  subroutine mn_apply_lakes(land_mask_grids)
+    type(mn_land_mask_grids), intent(inout) :: land_mask_grids
+
+    integer :: i_idx, j_idx
+
+    ! Alter hires full panel ls_mask_grid to set lakes to water(sea) values
+    do i_idx = lbound(land_mask_grids%ls_mask_grid,1), ubound(land_mask_grids%ls_mask_grid,1)
+      do j_idx = lbound(land_mask_grids%ls_mask_grid,1), ubound(land_mask_grids%ls_mask_grid,2)
+        !if (land_mask_grids%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. nint(land_mask_grids%land_frac_grid(i_idx, j_idx)) == 0 ) then
+        !!if (land_mask_grids%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. land_mask_grids%land_frac_grid(i_idx, j_idx) .lt. 0.999 ) then
+
+        ! Use epsilon of 1.0e-6 on land_frac_grid, based on CCPP code in physics/physics/gcycle.F90
+        !  Fixes a bug where land mask changes with first nest move if land_frac_grid = 0.5000
+        ! TODO test wrapping these reals with int() or nint()
+        if (land_mask_grids%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. nint(land_mask_grids%land_frac_grid(i_idx, j_idx)-1.0e-6_kind_phys) .eq. 0 ) then
+          land_mask_grids%ls_mask_grid(i_idx, j_idx) = 0
+        endif
+        ! Soil type adjustments from io/fv3atm_sfc_io.F90
+        if (land_mask_grids%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. int(land_mask_grids%soil_type_grid(i_idx, j_idx)) .eq. 14 ) then
+          land_mask_grids%ls_mask_grid(i_idx, j_idx) = 0
+        endif
+        if (land_mask_grids%ls_mask_grid(i_idx, j_idx) .eq. 1 .and. land_mask_grids%soil_type_grid(i_idx, j_idx) .lt. 0.8 ) then
+          land_mask_grids%ls_mask_grid(i_idx, j_idx) = 0
+        endif
+      enddo
+    enddo
+
+  end subroutine mn_apply_lakes
+
+  subroutine mn_overwrite_with_nest_init_values_r8(tag, var_grid, nest_var_grid, refine, ioffset, joffset)
+    character(len=*)                     :: tag
+    real*8, allocatable, intent(inout)   :: var_grid(:,:)
+    real*8, allocatable, intent(in)      :: nest_var_grid(:,:)
+
+    integer, intent(in) :: refine, ioffset, joffset
+    integer :: i,j, this_pe
+
+    !    this_pe = mpp_pe()
+
+    do i = lbound(nest_var_grid,1), ubound(nest_var_grid,1)
+      do j = lbound(nest_var_grid,2), ubound(nest_var_grid,2)
+        var_grid((ioffset-1)*refine+i, (joffset-1)*refine+j) = nest_var_grid(i,j)
+      enddo
+    enddo
+
+  end subroutine mn_overwrite_with_nest_init_values_r8
+
+  subroutine mn_overwrite_with_nest_init_values_r4(tag, var_grid, nest_var_grid, refine, ioffset, joffset)
+    character(len=*)                     :: tag
+    real*4, allocatable, intent(inout)   :: var_grid(:,:)
+    real*4, allocatable, intent(in)      :: nest_var_grid(:,:)
+
+    integer, intent(in) :: refine, ioffset, joffset
+    integer :: i,j, this_pe
+
+    !    this_pe = mpp_pe()
+
+    do i = lbound(nest_var_grid,1), ubound(nest_var_grid,1)
+      do j = lbound(nest_var_grid,2), ubound(nest_var_grid,2)
+        var_grid((ioffset-1)*refine+i, (joffset-1)*refine+j) = nest_var_grid(i,j)
+      enddo
+    enddo
+
+  end subroutine mn_overwrite_with_nest_init_values_r4
+
+  subroutine deallocate_land_mask_grids(land_mask_grids)
+    type(mn_land_mask_grids), intent(inout) :: land_mask_grids
+
+    if (allocated(land_mask_grids%orog_grid))      deallocate(land_mask_grids%orog_grid)
+    if (allocated(land_mask_grids%orog_std_grid))  deallocate(land_mask_grids%orog_std_grid)
+    if (allocated(land_mask_grids%ls_mask_grid))   deallocate(land_mask_grids%ls_mask_grid)
+    if (allocated(land_mask_grids%soil_type_grid)) deallocate(land_mask_grids%soil_type_grid)
+    if (allocated(land_mask_grids%land_frac_grid)) deallocate(land_mask_grids%land_frac_grid)
+    if (allocated(land_mask_grids%geolat_grid))    deallocate(land_mask_grids%geolat_grid)
+    if (allocated(land_mask_grids%geolon_grid))    deallocate(land_mask_grids%geolon_grid)
+  end subroutine deallocate_land_mask_grids
+
+  subroutine alloc_set_facwf(fix_grids)
+    type(mn_fix_grids), intent(inout) :: fix_grids
+
+    integer :: i,j
+
+    allocate(fix_grids%facwf_grid(lbound(fix_grids%facsf_grid,1):ubound(fix_grids%facsf_grid,1),lbound(fix_grids%facsf_grid,2):ubound(fix_grids%facsf_grid,2)))
+
+    ! For land points, set facwf = 1.0 - facsf
+    ! To match initialization behavior, set any -999s to 0
+    do i=lbound(fix_grids%facsf_grid,1),ubound(fix_grids%facsf_grid,1)
+      do j=lbound(fix_grids%facsf_grid,2),ubound(fix_grids%facsf_grid,2)
+        if (fix_grids%facsf_grid(i,j) .lt. -100) then
+          fix_grids%facsf_grid(i,j) = 0
+          fix_grids%facwf_grid(i,j) = 0
+        else
+          fix_grids%facwf_grid(i,j) = 1.0 - fix_grids%facsf_grid(i,j)
+        endif
+      enddo
+    enddo
+  end subroutine alloc_set_facwf
+
+  subroutine mn_static_overwrite_ls_from_nest(fp_ls, nest_ls, refine, ioffset, joffset)
+    type(mn_land_mask_grids), intent(inout) :: fp_ls
+    type(mn_land_mask_grids), intent(in)    :: nest_ls
+    integer, intent(in)                     :: refine, ioffset, joffset
+
+    ! Update full panel with nest init values (there are a few mismatches)
+    ! TODO maybe add orog_raw/orog_filt
+    call mn_overwrite_with_nest_init_values("ls_mask", fp_ls%ls_mask_grid, nest_ls%ls_mask_grid, refine, ioffset, joffset)
+
+    !if (is_fine_pe) then
+    !  call validate_navigation_fields("INIT", Atm_block, GFS_control, GFS_sfcprop, parent_grid_num, child_grid_num)
+    !endif
+
+    call mn_overwrite_with_nest_init_values("soil_type", fp_ls%soil_type_grid, nest_ls%soil_type_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("land_frac", fp_ls%land_frac_grid, nest_ls%land_frac_grid, refine, ioffset, joffset)
+
+  end subroutine mn_static_overwrite_ls_from_nest
+
+  subroutine mn_static_overwrite_fix_from_nest(fp_fix, nest_fix, refine, ioffset, joffset)
+    type(mn_fix_grids), intent(inout) :: fp_fix
+    type(mn_fix_grids), intent(in)    :: nest_fix
+    integer, intent(in)               :: refine, ioffset, joffset
+
+    call mn_overwrite_with_nest_init_values("deep_soil_temp", fp_fix%deep_soil_temp_grid, nest_fix%deep_soil_temp_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("veg_type", fp_fix%veg_type_grid, nest_fix%veg_type_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("slope_type", fp_fix%slope_type_grid, nest_fix%slope_type_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("max_snow_alb", fp_fix%max_snow_alb_grid, nest_fix%max_snow_alb_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("facsf", fp_fix%facsf_grid, nest_fix%facsf_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("facwf", fp_fix%facwf_grid, nest_fix%facwf_grid, refine, ioffset, joffset)
+
+    call mn_overwrite_with_nest_init_values("alvsf", fp_fix%alvsf_grid, nest_fix%alvsf_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("alvwf", fp_fix%alvwf_grid, nest_fix%alvwf_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("alnsf", fp_fix%alnsf_grid, nest_fix%alnsf_grid, refine, ioffset, joffset)
+    call mn_overwrite_with_nest_init_values("alnwf", fp_fix%alnwf_grid, nest_fix%alnwf_grid, refine, ioffset, joffset)
+
+  end subroutine mn_static_overwrite_fix_from_nest
+
+  subroutine deallocate_fix_grids(fix_grids)
+    type(mn_fix_grids), intent(inout) :: fix_grids
+
+    if (allocated(fix_grids%deep_soil_temp_grid)) deallocate(fix_grids%deep_soil_temp_grid)
+    if (allocated(fix_grids%veg_frac_grid))       deallocate(fix_grids%veg_frac_grid)
+    if (allocated(fix_grids%veg_type_grid))       deallocate(fix_grids%veg_type_grid)
+    !if (allocated(fix_grids%veg_greenness_grid))  deallocate(fix_grids%veg_greenness_grid)
+    if (allocated(fix_grids%slope_type_grid))     deallocate(fix_grids%slope_type_grid)
+    if (allocated(fix_grids%max_snow_alb_grid))   deallocate(fix_grids%max_snow_alb_grid)
+    if (allocated(fix_grids%facsf_grid))          deallocate(fix_grids%facsf_grid)
+    if (allocated(fix_grids%facwf_grid))          deallocate(fix_grids%facwf_grid)
+    if (allocated(fix_grids%alvsf_grid))          deallocate(fix_grids%alvsf_grid)
+    if (allocated(fix_grids%alvwf_grid))          deallocate(fix_grids%alvwf_grid)
+    if (allocated(fix_grids%alnsf_grid))          deallocate(fix_grids%alnsf_grid)
+    if (allocated(fix_grids%alnwf_grid))          deallocate(fix_grids%alnwf_grid)
+
+  end subroutine deallocate_fix_grids
+
+  subroutine allocate_fv_moving_nest_prog_type(isd, ied, jsd, jed, npz, mn_prog)
     integer, intent(in)                           :: isd, ied, jsd, jed, npz
     type(fv_moving_nest_prog_type), intent(inout) :: mn_prog
 
@@ -377,45 +614,27 @@ contains
 
   end subroutine allocate_fv_moving_nest_prog_type
 
-  !> @brief Deallocate mn_prog%delz
-  !>
-  !> @param[inout] mn_prog Moving nest prognostic variables
-  !>
-  !> @author
-  subroutine  deallocate_fv_moving_nest_prog_type(mn_prog)
+  subroutine deallocate_fv_moving_nest_prog_type(mn_prog)
     type(fv_moving_nest_prog_type), intent(inout) :: mn_prog
 
     if (allocated(mn_prog%delz)) deallocate(mn_prog%delz)
 
   end subroutine deallocate_fv_moving_nest_prog_type
 
-  !> Allocate moving nest physics variables
-  !>
-  !> @param[in] isd i-coordinate start
-  !> @param[in] ied i-coordinate end
-  !> @param[in] jsd j-coordinate start
-  !> @param[in] jed j-coordinate end
-  !> @param[in] npz Number of levels
-  !> @param[in] move_physics Logical for moving physics
-  !> @param[in] move_nsst Logical for NSST
-  !> @param[in] lsoil Soil layers
-  !> @param[in] nmtvr Number of statistical measures of subgrid orography
-  !> @param[in] levs Number of levels
-  !> @param[in] ntot2d Allocation dimension 2d
-  !> @param[in] ntot3d Allocation dimension 3d
-  !> @param[inout] mn_phys Moving nest physics variables
-  !>
-  !> @author
-  subroutine  allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_nsst, lsoil, nmtvr, levs, ntot2d, ntot3d, mn_phys)
+  subroutine allocate_fv_moving_nest_physics_type(isd, ied, jsd, jed, npz, move_physics, move_noahmp, move_nsst, lsnow_lbound, lsnow_ubound, lsoil, nmtvr, levs, ntot2d, ntot3d, mn_phys)
     integer, intent(in)                           :: isd, ied, jsd, jed, npz
-    logical, intent(in)                           :: move_physics, move_nsst
-    integer, intent(in)                           :: lsoil, nmtvr, levs, ntot2d, ntot3d    ! From IPD_Control
+    logical, intent(in)                           :: move_physics, move_noahmp, move_nsst
+    integer, intent(in)                           :: lsnow_lbound, lsnow_ubound, lsoil, nmtvr, levs, ntot2d, ntot3d    ! From GFS_control
     type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
 
     ! The local/temporary variables need to be allocated to the larger data (compute + halos) domain so that the nest motion code has halos to use
     allocate ( mn_phys%ts(isd:ied, jsd:jed) )
 
+    !print '("[INFO] WDR allocate_fv_moving_nest_physics_type npe=",I0," lsnow_lbound=",I0," lsnow_ubound=",I0," lsoil=",I0)', mpp_pe(), lsnow_lbound, lsnow_ubound, lsoil
+
     if (move_physics) then
+      allocate ( mn_phys%leading_edge (isd:ied, jsd:jed) )
+
       allocate ( mn_phys%slmsk(isd:ied, jsd:jed) )
       allocate ( mn_phys%smc(isd:ied, jsd:jed, lsoil) )
       allocate ( mn_phys%stc(isd:ied, jsd:jed, lsoil) )
@@ -500,13 +719,64 @@ contains
       allocate ( mn_phys%qrain(isd:ied, jsd:jed) )
     end if
 
+    if (move_noahmp) then
+      allocate ( mn_phys%soilcolor(isd:ied, jsd:jed) )
+      allocate ( mn_phys%snowxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%tvxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%tgxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%canicexy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%canliqxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%eahxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%tahxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%cmxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%chxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%fwetxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%sneqvoxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%alboldxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%qsnowxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%wslakexy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%zwtxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%waxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%wtxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%lfmassxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%rtmassxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%stmassxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%woodxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%stblcpxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%fastcpxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%xsaixy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%xlaixy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%taussxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%smcwtdxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%deeprechxy(isd:ied, jsd:jed) )
+      allocate ( mn_phys%rechxy(isd:ied, jsd:jed) )
+
+      allocate ( mn_phys%snicexy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
+      allocate ( mn_phys%snliqxy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
+      allocate ( mn_phys%smoiseq(isd:ied, jsd:jed, lsoil) )
+      allocate ( mn_phys%snowd(isd:ied, jsd:jed) )
+      allocate ( mn_phys%tsnoxy(isd:ied, jsd:jed, lsnow_lbound:lsnow_ubound) )
+      allocate ( mn_phys%weasd(isd:ied, jsd:jed) )
+      allocate ( mn_phys%zsnsoxy(isd:ied, jsd:jed, lsnow_lbound:lsoil) )
+
+      ! ICEFIX
+      allocate ( mn_phys%tiice(isd:ied, jsd:jed, 2) )
+      allocate ( mn_phys%tisfc(isd:ied, jsd:jed) )
+      allocate ( mn_phys%sncovr(isd:ied, jsd:jed) )
+      allocate ( mn_phys%fice(isd:ied, jsd:jed) )
+      allocate ( mn_phys%hice(isd:ied, jsd:jed) )
+
+      !allocate ( mn_phys%ustar1(isd:ied, jsd:jed) )
+    endif
+
     mn_phys%ts = +99999.9
     if (move_physics) then
+      mn_phys%leading_edge = .false.
+
       mn_phys%slmsk = +99999.9
       mn_phys%smc = +99999.9
       mn_phys%stc = +99999.9
       mn_phys%slc = +99999.9
-
 
       mn_phys%sfalb_lnd = +99999.9
       mn_phys%emis_lnd = +99999.9
@@ -587,14 +857,59 @@ contains
       mn_phys%qrain = +99999.9
     end if
 
+    if (move_noahmp) then
+      mn_phys%soilcolor = +99999.9
+      mn_phys%snowxy = +99999.9
+      mn_phys%tvxy = +99999.9
+      mn_phys%tgxy = +99999.9
+      mn_phys%canicexy = +99999.9
+      mn_phys%canliqxy = +99999.9
+      mn_phys%eahxy = +99999.9
+      mn_phys%tahxy = +99999.9
+      mn_phys%cmxy = +99999.9
+      mn_phys%chxy = +99999.9
+      mn_phys%fwetxy = +99999.9
+      mn_phys%sneqvoxy = +99999.9
+      mn_phys%alboldxy = +99999.9
+      mn_phys%qsnowxy = +99999.9
+      mn_phys%wslakexy = +99999.9
+      mn_phys%zwtxy = +99999.9
+      mn_phys%waxy = +99999.9
+      mn_phys%wtxy = +99999.9
+      mn_phys%lfmassxy = +99999.9
+      mn_phys%rtmassxy = +99999.9
+      mn_phys%stmassxy = +99999.9
+      mn_phys%woodxy = +99999.9
+      mn_phys%stblcpxy = +99999.9
+      mn_phys%fastcpxy = +99999.9
+      mn_phys%xsaixy = +99999.9
+      mn_phys%xlaixy = +99999.9
+      mn_phys%taussxy = +99999.9
+      mn_phys%smcwtdxy = +99999.9
+      mn_phys%deeprechxy = +99999.9
+      mn_phys%rechxy = +99999.9
+
+      mn_phys%snicexy = +99999.9
+      mn_phys%snliqxy = +99999.9
+      mn_phys%smoiseq = +99999.9
+      mn_phys%snowd = +99999.9
+      mn_phys%tsnoxy = +99999.9
+      mn_phys%weasd = +99999.9
+      mn_phys%zsnsoxy = +99999.9
+
+      mn_phys%tiice = +99999.9
+      mn_phys%tisfc = +99999.9
+      mn_phys%sncovr = +99999.9
+
+      mn_phys%fice = +99999.9
+      mn_phys%hice = +99999.9
+
+      !mn_phys%ustar1 = +99999.9
+    endif
+
   end subroutine allocate_fv_moving_nest_physics_type
-  
-  !> @brief Deallocate mn_phys%ts
-  !>
-  !> @param[inout] mn_phys Moving nest physics variables
-  !>
-  !> @author
-  subroutine  deallocate_fv_moving_nest_physics_type(mn_phys)
+
+  subroutine deallocate_fv_moving_nest_physics_type(mn_phys)
     type(fv_moving_nest_physics_type), intent(inout) :: mn_phys
 
     if (allocated(mn_phys%ts)) then
@@ -606,6 +921,7 @@ contains
 
     !  if move_phys
     if (allocated(mn_phys%smc)) then
+      deallocate( mn_phys%leading_edge )
       deallocate( mn_phys%slmsk )
       deallocate( mn_phys%smc )
       deallocate( mn_phys%stc )
@@ -690,6 +1006,55 @@ contains
       deallocate( mn_phys%dt_cool )
       deallocate( mn_phys%qrain )
     end if
+
+    ! NOAH MP LSM
+    if (allocated(mn_phys%snowxy)) then
+      deallocate ( mn_phys%soilcolor )
+      deallocate ( mn_phys%snowxy )
+      deallocate ( mn_phys%tvxy )
+      deallocate ( mn_phys%tgxy )
+      deallocate ( mn_phys%canicexy )
+      deallocate ( mn_phys%canliqxy )
+      deallocate ( mn_phys%eahxy )
+      deallocate ( mn_phys%tahxy )
+      deallocate ( mn_phys%cmxy )
+      deallocate ( mn_phys%chxy )
+      deallocate ( mn_phys%fwetxy )
+      deallocate ( mn_phys%sneqvoxy )
+      deallocate ( mn_phys%alboldxy )
+      deallocate ( mn_phys%qsnowxy )
+      deallocate ( mn_phys%wslakexy )
+      deallocate ( mn_phys%zwtxy )
+      deallocate ( mn_phys%waxy )
+      deallocate ( mn_phys%wtxy )
+      deallocate ( mn_phys%lfmassxy )
+      deallocate ( mn_phys%rtmassxy )
+      deallocate ( mn_phys%stmassxy )
+      deallocate ( mn_phys%woodxy )
+      deallocate ( mn_phys%stblcpxy )
+      deallocate ( mn_phys%fastcpxy )
+      deallocate ( mn_phys%xsaixy )
+      deallocate ( mn_phys%xlaixy )
+      deallocate ( mn_phys%taussxy )
+      deallocate ( mn_phys%smcwtdxy )
+      deallocate ( mn_phys%deeprechxy )
+      deallocate ( mn_phys%rechxy )
+
+      deallocate ( mn_phys%snicexy )
+      deallocate ( mn_phys%snliqxy )
+      deallocate ( mn_phys%smoiseq )
+      deallocate ( mn_phys%snowd )
+      deallocate ( mn_phys%tsnoxy )
+      deallocate ( mn_phys%weasd )
+      deallocate ( mn_phys%zsnsoxy )
+
+      deallocate ( mn_phys%tiice )
+      deallocate ( mn_phys%tisfc )
+      deallocate ( mn_phys%sncovr )
+      deallocate ( mn_phys%fice )
+      deallocate ( mn_phys%hice )
+
+    endif
 
   end subroutine deallocate_fv_moving_nest_physics_type
 
