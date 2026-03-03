@@ -3085,7 +3085,7 @@ module GFS_typedefs
       Coupling%snow_cpl = clear_val
     endif
 
-    if (Model%cplflx .or. Model%cplchm .or. Model%cplwav) then
+    if (Model%cplflx .or. Model%cplchm .or. Model%cplwav .or. Model%cpl_fire) then
       !--- instantaneous quantities
       allocate (Coupling%u10mi_cpl (IM))
       allocate (Coupling%v10mi_cpl (IM))
