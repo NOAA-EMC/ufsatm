@@ -1,6 +1,6 @@
 !> @file
 !> @brief This module contains the fv3 Coupling Fields: export and import
-!> @author ???
+
 module module_cplfields
 
   use ESMF
@@ -166,10 +166,12 @@ module module_cplfields
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67 + 3 + 5 !< Number of import fields (IVAI: add 3 inst_tracer_diag)
-  logical,          public            :: importFieldsValid(NimportFields) !< Logicals to inidicate if field is valid
-  type(ESMF_Field), target, public    :: importFields(NimportFields) !< ESMF array for import fields
-
+  !> Number of import fields (IVAI: add 3 inst_tracer_diag)
+  integer,          public, parameter :: NimportFields = 67 + 3 + 5
+  !> Logicals to inidicate if field is valid
+  logical,          public            :: importFieldsValid(NimportFields)
+  !> ESMF array for import fields
+  type(ESMF_Field), target, public    :: importFields(NimportFields)
   !> ESMF array for export fields
   type(FieldInfo), dimension(NimportFields), public, parameter :: importFieldsInfo = [ &
     FieldInfo("inst_tracer_mass_frac                    ", "t"), &
@@ -261,7 +263,7 @@ module module_cplfields
     FieldInfo("evap_fire                                ", "s"), &
     FieldInfo("smoke_fire                               ", "s") ]
 
-  !> Fields exported exclusively for coupling with chemistry
+!> Fields exported exclusively for coupling with chemistry
   character(*), public, parameter :: chemistryFieldNames(*) = [ &
     "inst_pres_interface             ", &
     "inst_pres_levels                ", &
@@ -306,9 +308,8 @@ module module_cplfields
   public realizeConnectedCplFields
 
   contains
-
   !> @brief Search field name in export list and return index
-  !> 
+  !>
   !> @param[in] fieldname Field name
   !> @param[in] abortflag Flag to abort if field not found
   !>
@@ -647,6 +648,16 @@ module module_cplfields
   !>
   !> @author
   subroutine addFieldMetadata(field, key, values, rc)
+
+    ! This subroutine implements a preliminary method to provide metadata to
+    ! a coupled model that is accessing the field via reference sharing
+    ! (NUOPC SharedStatusField=.true.). The method sets a (key, values) pair
+    ! in the field's array ESMF_Info object to retrieve an array of strings
+    ! encoding metadata.
+    !
+    ! Such a capability should be implemented in the standard NUOPC connector
+    ! for more general applications, possibly providing access to the field's
+    ! ESMF_Info object.
 
     type(ESMF_Field)               :: field
     character(len=*),  intent(in)  :: key

@@ -92,7 +92,7 @@ module module_cap_cpl
     end subroutine diagnose_cplFields
 
     !> @brief Write fields out to NetCDF files
-    !> 
+    !>
     !> This subroutine requires ESMFv8 - for coupled FV3
     !>
     !> @param[in] state Fields to write
@@ -400,5 +400,6 @@ module module_cap_cpl
     call ESMF_LogWrite(subname//' exit', ESMF_LOGMSG_INFO)
 
   end subroutine state_diagnose
+
 
 end module module_cap_cpl

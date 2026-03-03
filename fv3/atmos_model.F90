@@ -87,8 +87,8 @@ use CCPP_data,          only: ccpp_suite, GFS_control, &
                               GFS_coupling, GFS_intdiag, &
                               GFS_interstitial
 use GFS_init,           only: GFS_initialize
-use CCPP_driver,        only: CCPP_step, non_uniform_blocks
-
+use CCPP_driver,        only: CCPP_step
+use mod_ufsatm_util,    only: get_atmos_tracer_types
 use stochastic_physics_wrapper_mod, only: stochastic_physics_wrapper,stochastic_physics_wrapper_end
 
 use fv3atm_history_io_mod,    only: fv3atm_diag_register, fv3atm_diag_output,  &
@@ -131,66 +131,65 @@ public get_atmos_model_ungridded_dim
 public atmos_model_get_nth_domain_info
 public addLsmask2grid
 public setup_exportdata
+public setup_inlinedata
 public set_fhzero_loop, InitTimeFromIAUOffset
 public get_atmos_tracer_types
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
- !> Calculate gradient on cubic sphere grid.
+!> Calculate gradient on cubic sphere grid.
  type atmos_data_type
-     !> axis indices (returned by diag_manager) for the atmospheric grid
-     !> (they correspond to the x, y, pfull, phalf axes)
-     integer                       :: axes(4)            
+     integer                       :: axes(4)            !< axis indices (returned by diag_manager) for the atmospheric grid
+                                                         !< (they correspond to the x, y, pfull, phalf axes)
      integer, pointer              :: pelist(:) =>null() !< pelist where atmosphere is running.
      integer                       :: layout(2)          !< computer task laytout
-     integer                       :: grid_type          !< ???
+     integer                       :: grid_type
      logical                       :: regional           !< true if domain is regional
      logical                       :: nested             !< true if there is a nest
      logical                       :: moving_nest_parent !< true if this grid has a moving nest child
      logical                       :: is_moving_nest     !< true if this is a moving nest grid
      logical                       :: isAtCapTime        !< true if currTime is at the cap driverClock's currTime
-     integer                       :: ngrids             !< Number of grids
-     integer                       :: mygrid             !< Current grid
-     integer                       :: mlon, mlat         !< Longitude and latitude
+     integer                       :: ngrids             !< number of grids
+     integer                       :: mygrid             !< current grid
+     integer                       :: mlon, mlat         !< longitude and latitude
      integer                       :: iau_offset         !< iau running window length
      logical                       :: pe                 !< current pe.
-     real(kind=GFS_kind_phys), pointer, dimension(:)     :: ak, bk !< Vertical level coordinates
+     real(kind=GFS_kind_phys), pointer, dimension(:)     :: ak, bk
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon_bnd  => null() !< local longitude axis grid box corners in radians.
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat_bnd  => null() !< local latitude axis grid box corners in radians.
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon      => null() !< local longitude axis grid box centers in radians.
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat      => null() !< local latitude axis grid box centers in radians.
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: dx, dy !< Grid spacing
-     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: area !< Grid point area
-     real(kind=GFS_kind_phys), pointer, dimension(:,:,:) :: layer_hgt, level_hgt !< Heights at grid point center and edges
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: dx, dy
+     real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: area
+     real(kind=GFS_kind_phys), pointer, dimension(:,:,:) :: layer_hgt, level_hgt
      type(domain2d)                :: domain             !< domain decomposition
      type(domain2d)                :: domain_for_read    !< domain decomposition
      type(time_type)               :: Time               !< current time
      type(time_type)               :: Time_step          !< atmospheric time step.
      type(time_type)               :: Time_init          !< reference time.
      type(grid_box_type)           :: grid               !< hold grid information needed for 2nd order conservative flux exchange
-     type(GFS_externaldiag_type), pointer, dimension(:) :: Diag !< Contains diagnostic data
- end type atmos_data_type                                          
+     type(GFS_externaldiag_type), pointer, dimension(:) :: Diag
+ end type atmos_data_type
 !</PUBLICTYPE >
 
-!> lon_bnd_work and lat_bnd_work are 'working' arrays, always allocated
+!> these two arrays, lon_bnd_work and lat_bnd_work are 'working' arrays, always allocated
 !> as (nlon+1, nlat+1) and are used to get the corner lat/lon values from the dycore.
 !> these values are then copied to Atmos%lon_bnd, Atmos%lat_bnd which are allocated with
 !> sizes that correspond to the corner coordinates distgrid in fcstGrid
 real(kind=GFS_kind_phys), pointer, dimension(:,:), save :: lon_bnd_work  => null()
-!> See lon_bnd_work
 real(kind=GFS_kind_phys), pointer, dimension(:,:), save :: lat_bnd_work  => null()
 integer, save :: i_bnd_size, j_bnd_size !< Boundary array size
-
-integer :: fv3Clock, getClock, updClock, setupClock, radClock, physClock !< Timing clocks
+!> Timing clocks
+integer :: fv3Clock, getClock, updClock, setupClock, radClock, physClock
 
 !-----------------------------------------------------------------------
-integer :: blocksize    = 1 !< Number of grid points in a block
+integer :: blocksize    = 1       !< Number of grid points in a block
 logical :: chksum_debug = .false. !< Logical for checksum debugging
 logical :: dycore_only  = .false. !< Logical for running only dynamical core
 logical :: debug        = .false. !< Logical for running debug mode
 !logical :: debug        = .true.
 logical :: sync         = .false. !< Logical to enable sync for timing
-real    :: avg_max_length=3600. !< Maximum length for time averaging
+real    :: avg_max_length=3600.   !< Maximum length for time averaging
 logical :: ignore_rst_cksum = .false. !< Logical to ignore restart file checksum
 namelist /atmos_model_nml/ blocksize, chksum_debug, dycore_only, debug, sync, ccpp_suite, avg_max_length, &
                            ignore_rst_cksum
@@ -217,11 +216,11 @@ type(iau_external_data_type)        :: IAU_Data !< number of blocks
 !-----------------
 !  Block container
 !-----------------
-type (block_control_type), target   :: Atm_block !< Stucture for threading
+type (block_control_type), target   :: Atm_block 
 
 !-----------------------------------------------------------------------
 
-character(len=128) :: version = '$Id$' !< Version control string
+character(len=128) :: version = '$Id$'   !< Version control string
 character(len=128) :: tagname = '$Name$' !< Version control tag string
 
 #ifdef NAM_phys
@@ -251,7 +250,6 @@ contains
 !>    and are needed to compute/exchange fluxes with other component models.  
 !>    All fields in this variable type are allocated for the global grid 
 !>    (without halo regions).
-
 subroutine update_atmos_radiation_physics (Atmos)
 !-----------------------------------------------------------------------
   implicit none
@@ -286,7 +284,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !--- execute the atmospheric setup step
       call mpp_clock_begin(setupClock)
-      call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="timestep_init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
 
       if (GFS_Control%do_sppt .or. GFS_Control%do_shum .or. GFS_Control%do_skeb .or. &
@@ -361,7 +359,7 @@ subroutine update_atmos_radiation_physics (Atmos)
       call mpp_clock_begin(radClock)
       ! Performance improvement. Only enter if it is time to call the radiation physics.
       if (GFS_control%lsswr .or. GFS_control%lslwr) then
-        call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr)
+        call CCPP_step (step="radiation", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
         if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
       endif
       call mpp_clock_end(radClock)
@@ -376,7 +374,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 !--- execute the atmospheric physics step1 subcomponent (main physics driver)
 
       call mpp_clock_begin(physClock)
-      call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="physics", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
       call mpp_clock_end(physClock)
 
@@ -393,7 +391,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 !--- execute the atmospheric physics step2 subcomponent (stochastic physics driver)
 
         call mpp_clock_begin(physClock)
-        call CCPP_step (step="stochastics", nblks=Atm_block%nblks, ierr=ierr)
+        call CCPP_step (step="stochastics", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
         if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP stochastics step failed')
         call mpp_clock_end(physClock)
 
@@ -408,7 +406,7 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !--- execute the atmospheric timestep finalize step
       call mpp_clock_begin(setupClock)
-      call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr)
+      call CCPP_step (step="timestep_finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
       if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
       call mpp_clock_end(setupClock)
 
@@ -425,8 +423,6 @@ subroutine update_atmos_radiation_physics (Atmos)
 
 !-----------------------------------------------------------------------
  end subroutine update_atmos_radiation_physics
-
-!#######################################################################
 !> @brief Calculate diagnositc information every time step
 !> @details Calculates per-timestep, domain-wide, diagnostic, information and
 !>   prints to stdout from master rank. Must be called after physics
@@ -436,7 +432,6 @@ subroutine update_atmos_radiation_physics (Atmos)
 !>   flux exchange module. These fields describe the atmospheric grid and are needed
 !>   to compute/exchange fluxes with other component models.  All fields in this
 !>   variable type are allocated for the global grid (without halo regions).
-
 subroutine atmos_timestep_diagnostics(Atmos)
   use mpi_f08
   implicit none
@@ -502,15 +497,12 @@ subroutine atmos_timestep_diagnostics(Atmos)
 
 !-----------------------------------------------------------------------
 end subroutine atmos_timestep_diagnostics
-
-!#######################################################################
 !> @brief Routine to initialize the atmospheric model
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 !> @param[in] Time_init Reference time
 !> @param[in] Time Current time
 !> @param[in] Time_step Atmospheric time step
-
 subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
 #ifdef _OPENMP
@@ -623,26 +615,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 #else
    nthrds = 1
 #endif
-
-   ! This logic deals with non-uniform block sizes for CCPP.
-   ! When non-uniform block sizes are used, it is required
-   ! that only the last block has a different (smaller)
-   ! size than all other blocks. This is the standard in
-   ! FV3. If this is the case, set non_uniform_blocks (a
-   ! variable imported from CCPP_driver) to .true. and
-   ! allocate nthreads+1 elements of the interstitial array.
-   ! The extra element will be used by the thread that
-   ! runs over the last, smaller block.
-   if (minval(Atm_block%blksz)==maxval(Atm_block%blksz)) then
-      non_uniform_blocks = .false.
-      allocate(GFS_interstitial(nthrds))
-   else if (all(minloc(Atm_block%blksz)==(/size(Atm_block%blksz)/))) then
-      non_uniform_blocks = .true.
-      allocate(GFS_interstitial(nthrds+1))
-   else
-      call mpp_error(FATAL, 'For non-uniform blocksizes, only the last element ' // &
-                            'in Atm_block%blksz can be different from the others')
-   end if
+   allocate(GFS_interstitial(nthrds+1))
 
 !--- update GFS_control%jdat(8)
    bdat(:) = 0
@@ -697,7 +670,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
    call GFS_initialize (GFS_control, GFS_Statein, GFS_Stateout, GFS_Sfcprop, &
                         GFS_Coupling, GFS_Grid, GFS_Tbd, GFS_Cldprop, GFS_Radtend, &
-                        GFS_Intdiag, GFS_interstitial, Init_parm)
+                        GFS_Intdiag, Init_parm)
 
    !--- populate/associate the Diag container elements
    call GFS_externaldiag_populate (GFS_Diag, GFS_Control, GFS_Statein, GFS_Stateout,   &
@@ -751,10 +724,10 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
     endif
 
    ! Initialize the CCPP framework
-   call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr)
+   call CCPP_step (step="init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
    ! Initialize the CCPP physics
-   call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr)
+   call CCPP_step (step="physics_init", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
    if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_init step failed')
 
    if (GFS_Control%do_sppt .or. GFS_Control%do_shum .or. GFS_Control%do_skeb .or. &
@@ -815,7 +788,6 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
 !-----------------------------------------------------------------------
 end subroutine atmos_model_init
-
 ! </SUBROUTINE>
 
   !> This will set the forecast hour based on the fhzero_array 
@@ -862,12 +834,9 @@ subroutine set_fhzero_loop(sec, sec_lastfhzerofh)
    endif
 
 end subroutine set_fhzero_loop
-
-!#######################################################################
 !> @brief Run the atmospheric dynamics to advect the properties
 !> 
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
-
 subroutine update_atmos_model_dynamics (Atmos)
 ! run the atmospheric dynamics to advect the properties
   type (atmos_data_type), intent(in) :: Atmos
@@ -894,8 +863,6 @@ subroutine update_atmos_model_dynamics (Atmos)
     call mpp_clock_end(fv3Clock)
 
 end subroutine update_atmos_model_dynamics
-
-!#######################################################################
 !> @brief Perform data exchange with coupled components in run phase 1
 !>
 !> @details This subroutine currently exports atmospheric fields and tracers
@@ -904,7 +871,6 @@ end subroutine update_atmos_model_dynamics
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 !> @param[out] rc Return code
-
 subroutine atmos_model_exchange_phase_1 (Atmos, rc)
 
   use ESMF
@@ -925,8 +891,6 @@ subroutine atmos_model_exchange_phase_1 (Atmos, rc)
     endif
 
  end subroutine atmos_model_exchange_phase_1
-
-!#######################################################################
 !> @brief Perform data exchange with coupled components in run phase 2
 !>
 !> @details This subroutine currently imports fields updated by the coupled
@@ -934,7 +898,6 @@ subroutine atmos_model_exchange_phase_1 (Atmos, rc)
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 !> @param[out] rc Return code
-
 subroutine atmos_model_exchange_phase_2 (Atmos, rc)
 
   use ESMF
@@ -955,13 +918,10 @@ subroutine atmos_model_exchange_phase_2 (Atmos, rc)
     endif
 
  end subroutine atmos_model_exchange_phase_2
-
-!#######################################################################
 !> @brief Update the model state after all concurrency is completed
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 !> @param[out] rc Return code
-
 subroutine update_atmos_model_state (Atmos, rc)
 ! to update the model state after all concurrency is completed
   use ESMF
@@ -970,6 +930,7 @@ subroutine update_atmos_model_state (Atmos, rc)
 !--- local variables
   integer :: i, localrc, sec_lastfhzerofh
   integer :: isec, seconds, isec_fhzero
+  integer :: dtatm_temp
   logical :: tmpflag_fhzero
   real(kind=GFS_kind_phys) :: time_int, time_intfull
 !
@@ -999,12 +960,15 @@ subroutine update_atmos_model_state (Atmos, rc)
     if (ANY(nint(output_fh(:)*3600.0) == seconds) .or. (GFS_control%kdt == first_kdt)) then
       if (mpp_pe() == mpp_root_pe()) write(6,*) "---isec,seconds",isec,seconds
       time_int = real(isec)
-      call InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds)
-      if (mpp_pe() == mpp_root_pe()) write(6,*) ' gfs diags time since last bucket empty: ',time_int/3600.,'hrs'
+      time_intfull = real(seconds)
+      call InitTimeFromIAUOffset(Atmos, time_int, time_intfull)
+      if (mpp_pe() == mpp_root_pe()) write(6,*) 'gfs diags time since last bucket empty: ',time_int,' time_intfull=', &
+         time_intfull,' kdt=',GFS_control%kdt
       call atmosphere_nggps_diag(Atmos%Time)
+      call get_time ( Atmos%Time_step, dtatm_temp)
       call fv3atm_diag_output(Atmos%Time, GFS_Diag, Atm_block, GFS_control%nx, GFS_control%ny, &
                             GFS_control%levs, 1, 1, 1.0_GFS_kind_phys, time_int, time_intfull, &
-                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control)
+                            GFS_control%fhswr, GFS_control%fhlwr, GFS_control, dtatm_temp)
     endif
 
     !---  find current fhzero
@@ -1034,7 +998,6 @@ subroutine update_atmos_model_state (Atmos, rc)
     endif
 
  end subroutine update_atmos_model_state
-
 ! </SUBROUTINE>
 
   !> This will calculate time if an IAU offest has been defined
@@ -1043,27 +1006,17 @@ subroutine update_atmos_model_state (Atmos, rc)
   !> @param[inout] atmos the main atmos model configurations 
   !> @param[inout] time_init model initialization time
   !> @param[inout] time_intfull model time remaining
-  !> @param seconds time since model initialization
   !>
   !> @author Daniel Sarmiento @date May 16, 2025
- subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds)
+ subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull)
 
    type (atmos_data_type),   intent(inout)  :: Atmos
    real(kind=GFS_kind_phys), intent(inout)  :: time_int, time_intfull
-   integer,                  intent(inout)  :: seconds
-   integer                                  :: isec_fhzero
 
    if(Atmos%iau_offset > zero) then
      if( time_int - Atmos%iau_offset*3600. > zero ) then
        time_int = time_int - Atmos%iau_offset*3600.
-     else if(seconds == Atmos%iau_offset*3600) then
-       call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
-       time_int = real(isec_fhzero)
-       if (mpp_pe() == mpp_root_pe()) write(6,*) "---iseczero",isec_fhzero
      endif
-   endif
-   time_intfull = real(seconds)
-   if(Atmos%iau_offset > zero) then
      if( time_intfull - Atmos%iau_offset*3600. > zero) then
        time_intfull = time_intfull - Atmos%iau_offset*3600.
      endif
@@ -1071,14 +1024,12 @@ subroutine update_atmos_model_state (Atmos, rc)
 
  end subroutine InitTimeFromIAUOffset
 
-!#######################################################################
 !> @brief Terminate routine for atmospheric model
 !> @details Call once to terminate this module and any other modules used.
 !>   This routine writes a restart file and deallocates storage
 !>   used by the derived-type variable atmos_boundary_data_type.
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
-
 subroutine atmos_model_end (Atmos)
   use get_stochy_pattern_mod, only: write_stoch_restart_atm
   use update_ca, only: write_ca_restart
@@ -1106,11 +1057,11 @@ subroutine atmos_model_end (Atmos)
 
 !   Fast physics (from dynamics) are finalized in atmosphere_end above;
 !   standard/slow physics (from CCPP) are finalized in CCPP_step 'physics_finalize'.
-    call CCPP_step (step="physics_finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="physics_finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics_finalize step failed')
 
 !   The CCPP framework for all cdata structures is finalized in CCPP_step 'finalize'.
-    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr)
+    call CCPP_step (step="finalize", nblks=Atm_block%nblks, ierr=ierr, dycore='fv3')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP finalize step failed')
 
     deallocate (Atmos%lon, Atmos%lat)
@@ -1119,7 +1070,6 @@ subroutine atmos_model_end (Atmos)
 
 end subroutine atmos_model_end
 
-!#######################################################################
 !> @brief Write out restart files registered through register_restart_file
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
@@ -1142,14 +1092,11 @@ subroutine atmos_model_restart(Atmos, timestamp)
        call write_ca_restart(timestamp)
     endif
 end subroutine atmos_model_restart
-
-!#######################################################################
 !> @brief Retrieve ungridded dimensions of atmospheric model arrays
 !>
 !> @param[out] nlev Number of atmospheric levels
 !> @param[out] nsoillev Number of soil levels
 !> @param[out] ntracers Number of atmospheric tracers
-
 subroutine get_atmos_model_ungridded_dim(nlev, nsoillev, ntracers)
 
   integer, optional, intent(out) :: nlev, nsoillev, ntracers
@@ -1168,110 +1115,6 @@ subroutine get_atmos_model_ungridded_dim(nlev, nsoillev, ntracers)
 
 end subroutine get_atmos_model_ungridded_dim
 
-!#######################################################################
-!> @brief Identify and return usage and type id of atmospheric tracers
-!> @details Ids are defined as:
-!>   0 = generic tracer
-!>   1 = chemistry - prognostic
-!>   2 = chemistry - diagnostic
-!>  Tracers are identified via the additional 'tracer_usage' keyword and
-!>  their optional 'type' qualifier. A tracer is assumed prognostic if
-!>  'type' is not provided. See examples from the field_table file below:
-!>
-!>  Prognostic tracer:
-!>  ------------------
-!>  "TRACER", "atmos_mod",    "so2"
-!>            "longname",     "so2 mixing ratio"
-!>            "units",        "ppm"
-!>            "tracer_usage", "chemistry"
-!>            "profile_type", "fixed", "surface_value=5.e-6" /
-!>
-!> Diagnostic tracer:
-!>  ------------------
-!>  "TRACER", "atmos_mod",    "pm25"
-!>            "longname",     "PM2.5"
-!>            "units",        "ug/m3"
-!>            "tracer_usage", "chemistry", "type=diagnostic"
-!>            "profile_type", "fixed", "surface_value=5.e-6" /
-!>
-!>  For atmospheric chemistry, the order of both prognostic and diagnostic
-!>  tracers is validated against the model's internal assumptions.
-!>
-!> @param[out] tracer_types Array of tracer types
- 
-subroutine get_atmos_tracer_types(tracer_types)
-
-  use field_manager_mod,  only: parse
-  use tracer_manager_mod, only: query_method
-
-  integer, intent(out) :: tracer_types(:)
-
-  !--- local variables
-  logical :: found
-  integer :: n, num_tracers, num_types
-  integer :: id_max, id_min, id_num, ip_max, ip_min, ip_num
-  character(len=32)  :: tracer_usage
-  character(len=128) :: control, tracer_type
-
-  !--- begin
-
-  !--- validate array size
-  call get_number_tracers(MODEL_ATMOS, num_tracers=num_tracers)
-
-  if (size(tracer_types) < num_tracers) &
-    call mpp_error(FATAL, 'insufficient size of tracer type array')
-
-  !--- initialize tracer indices
-  id_min = num_tracers + 1
-  id_max = -id_min
-  ip_min = id_min
-  ip_max = id_max
-  id_num = 0
-  ip_num = 0
-
-  do n = 1, num_tracers
-    tracer_types(n) = 0
-    found = query_method('tracer_usage',MODEL_ATMOS,n,tracer_usage,control)
-    if (found) then
-      if (trim(tracer_usage) == 'chemistry') then
-        !--- set default to prognostic
-        tracer_type = 'prognostic'
-        num_types = parse(control, 'type', tracer_type)
-        select case (trim(tracer_type))
-          case ('diagnostic')
-            tracer_types(n) = 2
-            id_num = id_num + 1
-            id_max = n
-            if (id_num == 1) id_min = n
-          case ('prognostic')
-            tracer_types(n) = 1
-            ip_num = ip_num + 1
-            ip_max = n
-            if (ip_num == 1) ip_min = n
-        end select
-      end if
-    end if
-  end do
-
-  if (ip_num > 0) then
-    !--- check if prognostic tracers are contiguous
-    if (ip_num > ip_max - ip_min + 1) &
-      call mpp_error(FATAL, 'prognostic chemistry tracers must be contiguous')
-  end if
-
-  if (id_num > 0) then
-    !--- check if diagnostic tracers are contiguous
-    if (id_num > id_max - id_min + 1) &
-      call mpp_error(FATAL, 'diagnostic chemistry tracers must be contiguous')
-  end if
-
-  !--- prognostic tracers must precede diagnostic ones
-  if (ip_max > id_min) &
-    call mpp_error(FATAL, 'diagnostic chemistry tracers must follow prognostic ones')
-
-end subroutine get_atmos_tracer_types
-
-!#######################################################################
 !> @brief Populate exported chemistry fields with current atmospheric state
 !> @details Update tracer concentrations for atmospheric chemistry with values 
 !>   from chemistry component (state='import'). Fields should be exported/imported 
@@ -1282,7 +1125,6 @@ end subroutine get_atmos_tracer_types
 !>
 !> @param[in] state Defines wheter field should be imported or exported
 !> @param[out] rc Return code
-
 subroutine update_atmos_chemistry(state, rc)
 
   use ESMF
@@ -1990,7 +1832,6 @@ end subroutine update_atmos_chemistry
 !>
 !> @param[in] jdat Date and time array
 !> @param[out] rc Return code
-
   subroutine assign_importdata(jdat, rc)
 
     use module_cplfields,  only: importFields, nImportFields, queryImportFields, &
@@ -3410,11 +3251,84 @@ end subroutine update_atmos_chemistry
     rc=0
 !
   end subroutine assign_importdata
+!
+  subroutine setup_inlinedata(fieldName, datar82d, logunit)
 
-!> @brief  Sets up and populates data for export to coupled components
-!>
-!> @param[out] rc Return code
+    use ESMF, only: ESMF_KIND_R8
 
+    !--- arguments
+    character(len=*), intent(in) :: fieldName
+    real(kind=ESMF_KIND_R8), dimension(:,:), target, intent(in) :: datar82d
+    integer, intent(in) :: logunit
+
+    !--- local variables
+    integer :: i, j, ix, nb, im
+    integer :: isc, iec, jsc, jec
+
+! set up local dimension
+    isc = GFS_control%isc
+    iec = GFS_control%isc+GFS_control%nx-1
+    jsc = GFS_control%jsc
+    jec = GFS_control%jsc+GFS_control%ny-1
+
+! fill variables
+    select case(trim(fieldName))
+       case ('Si_ifrac')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%fice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('Si_thick')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%hice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('So_omask')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%mask_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('So_t')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%tsfco_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case ('Si_t')
+!$omp parallel do default(shared) private(i,j,nb,ix,im)
+          do j = jsc, jec
+             do i = isc, iec
+                nb = Atm_block%blkno(i,j)
+                ix = Atm_block%ixp(i,j)
+                im = GFS_control%chunk_begin(nb)+ix-1
+                GFS_Coupling%tice_dat(im) = datar82d(i-isc+1,j-jsc+1)
+             end do
+          end do
+       case default
+          write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
+    end select
+
+  end subroutine setup_inlinedata
+!
   subroutine setup_exportdata(rc)
 
     use ESMF
@@ -3822,7 +3736,6 @@ end subroutine update_atmos_chemistry
 !>
 !> @param[in] fcstGrid Grid object
 !> @param[out] rc Return code
-
   subroutine addLsmask2grid(fcstGrid, rc)
 
     use ESMF
@@ -3886,7 +3799,7 @@ end subroutine update_atmos_chemistry
     deallocate(lsmask)
 
   end subroutine addLsmask2grid
-!------------------------------------------------------------------------------
+
 !> @brief Retrieves domain information from grid
 !>
 !> @param[in] n Grid number
@@ -3894,7 +3807,6 @@ end subroutine update_atmos_chemistry
 !> @param[out] nx Grid points in x-direction
 !> @param[out] ny Grid points in y-direction
 !> @param[out] pelist List of processor IDs
-
   subroutine atmos_model_get_nth_domain_info(n, layout, nx, ny, pelist)
    integer, intent(in)  :: n
    integer, intent(out) :: layout(2)

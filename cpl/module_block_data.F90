@@ -3,9 +3,12 @@
 !>   ESMF_KIND_R8 arrays.
 !> @details Module also includes an optional scaling factor. It can also
 !>   fill ESMF_KIND_R8 arrays with a constant value.
-!> @author ???
 
 module module_block_data
+
+  ! Copies block data containing real*4, real*8, or integer into
+  ! ESMF_KIND_R8 arrays, with an optional scaling factor. Can also
+  ! fill ESMF_KIND_R8 arrays with a constant value.
 
   use ESMF,              only: ESMF_KIND_R8, ESMF_SUCCESS, &
                                ESMF_RC_PTR_NOTALLOC, ESMF_RC_VAL_OUTOFRANGE
@@ -85,6 +88,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_1d_i4_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -133,6 +137,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_1d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -182,6 +187,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_spval_1d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, special_value, offset, rc)
 
     ! -- arguments
@@ -233,6 +239,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_1dslice_r8_to_2d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -287,6 +294,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_1dslice2_r8_to_2d_r8(destin_ptr, source_ptr, slice1, slice2, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -340,6 +348,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_2d_r8_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -390,6 +399,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_2d_r8_to_2d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -438,6 +448,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_array_copy_2d_r8_to_2d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -486,6 +497,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_3d_r8_to_3d_r8(destin_ptr, source_ptr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -536,6 +548,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_array_copy_3d_r8_to_3d_r8(destin_ptr, source_arr, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -587,6 +600,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_copy_3dslice_r8_to_3d_r8(destin_ptr, source_ptr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -642,6 +656,7 @@ contains
   !> @param[out] rc Return code
   !>
   !> @author
+
   subroutine block_array_copy_3dslice_r8_to_3d_r8(destin_ptr, source_arr, slice, block, block_index, scale_factor, offset, rc)
 
     ! -- arguments
@@ -1275,9 +1290,9 @@ contains
     if (present(rc)) rc = localrc
 
   end subroutine block_copy_2d_r4_to_2d_r8
-
+I
   !> @brief Block array data copy 2D r4 to 2D ESMF R8
-  !> 
+  !>
   !> @param[in] destin_ptr Destination pointer
   !> @param[in] source_ptr Source pointer
   !> @param[in] block Block containing grid information
@@ -1375,7 +1390,7 @@ contains
   end subroutine block_copy_3d_r4_to_3d_r8
 
   !> @brief Block array data copy 3D r4 to 3D ESMF R8
-  !> 
+  !>
   !> @param[in] destin_ptr Destination pointer
   !> @param[in] source_ptr Source pointer
   !> @param[in] block Block containing grid information
