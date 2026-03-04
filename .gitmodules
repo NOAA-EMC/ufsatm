@@ -8,8 +8,10 @@
   branch = production/RRFS.v1
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = production/RRFS.v1
+#   url = https://github.com/ufs-community/ccpp-physics
+#  branch = production/RRFS.v1
+  url = https://github.com/MatthewPyle-NOAA/ccpp-physics
+  branch = feature/smokefix
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
