@@ -622,7 +622,7 @@ module ufsatm_cap_mod
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     endif ! quilting
-!
+    !
     call ESMF_ConfigGetAttribute(config=CF, value=dt_atmos, label ='dt_atmos:',   rc=rc)
     call ESMF_ConfigGetAttribute(config=CF, value=nfhmax,   label ='nhours_fcst:',rc=rc)
     if(mype == 0) print *,'af ufs config,dt_atmos=',dt_atmos,'nfhmax=',nfhmax
@@ -1232,7 +1232,6 @@ module ufsatm_cap_mod
     endif
 !
 !-- set up output forecast time if output_fh is specified
-#ifdef FV3
     if (noutput_fh > 0 ) then
 !--- use output_fh to sepcify output forecast time
       loutput_fh = .true.
@@ -1264,7 +1263,6 @@ module ufsatm_cap_mod
       endif ! end loutput_fh
     endif
     if(mype==0) print *,'output_fh=',output_fh(1:size(output_fh)),'lflname_fulltime=',lflname_fulltime
-#endif
     if ( quilting ) then
       do i=1, write_groups
         call ESMF_InfoGetFromHost(wrtState(i), info=info, rc=rc)

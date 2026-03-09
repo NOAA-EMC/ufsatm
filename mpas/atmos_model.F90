@@ -83,7 +83,7 @@ module atmos_model_mod
        regional
 
   ! Component Timers
-  integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
+  integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock, outClock
 
   ! DJS2025: For UFS WM RTs unitl output is setup for MPAS.
   integer, parameter :: mpas_logfile_handle = 42323
@@ -130,6 +130,7 @@ contains
     physClock  = mpp_clock_id( 'Physics               ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
     mpasClock  = mpp_clock_id( 'MPAS Dycore           ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
     mpClock    = mpp_clock_id( 'Microphysics          ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
+    outClock   = mpp_clock_id( 'MPAS Output           ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
 
     ! Start timer for this procedure (init).
     call mpp_clock_begin(atmiClock)
@@ -373,9 +374,7 @@ contains
     call ufs_microphysics_to_mpas(UFSATM_stateout)
     
     ! Call MPAS dycore
-    call mpp_clock_begin(mpasClock)
-    call ufs_mpas_run()
-    call mpp_clock_end(mpasClock)
+    call ufs_mpas_run(mpasClock, outClock)
     
   end subroutine atmos_model_dynamics
 

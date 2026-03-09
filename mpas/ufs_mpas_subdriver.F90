@@ -23,7 +23,7 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
   use module_mpas_config, only : nCellsGlobal, nEdgesGlobal, nVerticesGlobal
   use module_mpas_config, only : nEdgesSolve, nVerticesSolve, nVertLevelsSolve
-  use module_mpas_config, only : dt_atmos, n_atmos
+  use module_mpas_config, only : dt_atmos, n_atmos, output_fh
   use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
   use ufs_mpas_tools
   use ufs_mpas_io
@@ -358,7 +358,7 @@ contains
     use atm_time_integration,       only : mpas_atm_dynamics_checks
     use atm_time_integration,       only : mpas_atm_dynamics_init
     use mpas_timekeeping,           only : mpas_get_clock_time, mpas_get_time, mpas_START_TIME
-    use mpas_timekeeping,           only : mpas_NOW
+    use mpas_timekeeping,           only : mpas_NOW, mpas_set_timeInterval, operator(+)
     use mpas_log,                   only : mpas_log_write
     use mpas_attlist,               only : mpas_modify_att
     use mpas_string_utils,          only : mpas_string_replace
@@ -534,7 +534,7 @@ contains
   !> Loop over dynamical time-step(s) and increment MPAS state (timelevel 1->2)
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_run()
+  subroutine ufs_mpas_run(mpasClock, outClock)
     ! MPAS
     use atm_core,             only : atm_do_timestep, atm_compute_output_diagnostics
     use mpas_domain_routines, only : mpas_pool_get_dimension
@@ -548,20 +548,26 @@ contains
     use mpas_timer,           only : mpas_timer_start, mpas_timer_stop
     use mpas_timekeeping,     only : mpas_advance_clock, mpas_get_clock_time, mpas_get_time
     use mpas_timekeeping,     only : mpas_NOW, mpas_is_clock_stop_time, mpas_dmpar_get_time
-    use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(.LT.), operator(.GT.), operator(.LE.)
+    use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(.LT.), operator(.GT.), operator(.LE.), operator(.EQ.)
     ! FMS
     use mpp_mod,              only : FATAL, mpp_error
+    use mpp_mod,              only : mpp_clock_begin, mpp_clock_end
+    ! Arguments
+    integer, intent(inout) :: mpasClock, outClock
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_run::ufs_mpas_run'
     real (kind=RKIND), pointer :: config_dt
     type (mpas_pool_type), pointer :: state, diag, mesh
     type (mpas_Time_type) :: timeNow, timeStop,timeLBCnew
     character(len=StrKIND) :: timeStamp
-    integer :: ierr, itime, itimestep
+    integer :: ierr, itime, itimestep, iout
     real (kind=R8KIND) :: integ_start_time, integ_stop_time
     logical, pointer :: config_apply_lbcs
-    type(mpas_timeinterval_type) :: mpas_time_interval
+    type(mpas_timeinterval_type) :: mpas_time_interval, mpas_output_interval
     real (kind=RKIND), dimension(:,:,:), pointer :: scalars
+
+    ! Start dynamics timer
+    call mpp_clock_begin(mpasClock)
 
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
@@ -587,6 +593,25 @@ contains
     call MPAS_set_timeInterval(mpas_time_interval, S=dt_atmos, ierr=ierr)
     if (ierr /= 0) then
        call mpp_error(FATAL,subname//'Failed to set dynamics time step')
+    endif
+
+    !
+    ! Set MPAS output file times
+    !
+    if (.not. allocated(mpas_output_times)) then
+       allocate(mpas_output_times(size(output_fh)))
+       mpas_output_times(1) = timeNow
+       do iout=2,size(output_fh)
+          call mpas_set_timeInterval(mpas_output_interval, S=int(3600.*output_fh(iout)), ierr=ierr)
+          mpas_output_times(iout) = timeNow + mpas_output_interval
+          if ( ierr /= 0 ) then
+             call mpp_error(FATAL,subname//': Failed to set output file names"')
+          end if
+       enddo
+       ! Also, write IC state to history file while we're here.
+       call ufs_mpas_write("output", timeStamp)
+       ! Start output file counter
+       out_file_index = 2
     endif
 
     !
@@ -659,6 +684,7 @@ contains
        endif
     end do
     call mpas_log_write('MPAS dynamics stop timestep')
+    call mpp_clock_end(mpasClock)
 
     !
     ! Compute diagnostic fields  (theta, rho, pres) from
@@ -672,11 +698,17 @@ contains
     !
     ! Write any output streams
     !
+    call mpp_clock_begin(outClock)
     call mpas_get_time(curr_time=timeStop, dateTimeString=timeStamp, ierr=ierr)
     if ( ierr /= 0 ) then
        call mpp_error(FATAL,subname//': Failed to get time timeStop"')
     end if
-    call ufs_mpas_write("output", timeStamp)
+
+    if (timeStop .EQ. mpas_output_times(out_file_index)) then
+       call ufs_mpas_write("output", timeStamp)
+       out_file_index = out_file_index + 1
+    end if
+    call mpp_clock_end(outClock)
 
   end subroutine ufs_mpas_run
 

@@ -24,12 +24,14 @@ module ufs_mpas_io
   use ufs_mpas_tools,      only : stringify
   implicit none
 
-  public
-
   !
   type(core_type),       pointer :: corelist   => null()
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
+
+  !
+  integer :: out_file_index
+  type (MPAS_Time_Type), allocatable :: mpas_output_times(:)
 
   !> #########################################################################################
   !>
@@ -896,7 +898,6 @@ contains
  !> ########################################################################################
  subroutine read_stream(stream, when, whence, actualWhen, nRecord, ierr)
    use mpas_io_streams,     only : MPAS_readStream, MPAS_streamTime
-   use mpas_derived_types,  only : MPAS_TimeInterval_type
    use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
 
    type(mpas_stream_type), pointer, intent(inout) :: stream
