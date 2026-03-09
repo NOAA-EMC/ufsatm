@@ -180,8 +180,6 @@ SCHEME_FILES = [
     'physics/physics/MP/TEMPO/mp_tempo_pre.F90',
     'physics/physics/MP/TEMPO/mp_tempo.F90',
     'physics/physics/MP/TEMPO/mp_tempo_post.F90',
-    'physics/physics/MP/Zhao_Carr/zhaocarr_gscond.f',
-    'physics/physics/MP/Zhao_Carr/zhaocarr_precpd.f',
     'physics/physics/PBL/HEDMF/hedmf.f',
     'physics/physics/PBL/SHOC/moninshoc.f',
     'physics/physics/PBL/SHOC/shoc.F90',
