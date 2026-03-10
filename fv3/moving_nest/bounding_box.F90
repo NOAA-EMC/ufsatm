@@ -37,8 +37,8 @@ module bounding_box_mod
   use IPD_typedefs,      only : kind_phys => IPD_kind_phys
 #endif
 
-  ! Simple aggregation of the start and end indices of a 2D grid
-  ! Makes argument lists clearer to read
+  !> Simple aggregation of the start and end indices of a 2D grid
+  !> Makes argument lists clearer to read
   type bbox
     integer :: is, ie, js, je
   end type bbox
@@ -53,7 +53,12 @@ module bounding_box_mod
   end interface fill_bbox
 
 contains
-
+  !> @brief Create 2d single precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_2d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:)
@@ -63,7 +68,12 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_2d
-
+  !> @brief Create 3d single precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_3d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:,:)
@@ -73,7 +83,12 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_3d
-
+  !> @brief Create 4d single precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r4_4d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*4, allocatable, intent(in) :: in_grid(:,:,:,:)
@@ -83,7 +98,12 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r4_4d
-
+  !> @brief Create 2d double precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_2d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*8, allocatable, intent(in) :: in_grid(:,:)
@@ -93,7 +113,12 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_2d
-
+  !> @brief Create 3d double precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_3d(out_bbox, in_grid)
     type(bbox), intent(out)         :: out_bbox
     real*8, allocatable, intent(in) :: in_grid(:,:,:)
@@ -103,7 +128,12 @@ contains
     out_bbox%js = lbound(in_grid, 2)
     out_bbox%je = ubound(in_grid, 2)
   end subroutine fill_bbox_r8_3d
-
+  !> @brief Create 4d double precision bounding box
+  !>
+  !> @param[out] out_bbox bounding box output
+  !> @param[in] in_grid bounding box input
+  !>  
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine fill_bbox_r8_4d(out_bbox, in_grid)
     type(bbox), intent(out)          :: out_bbox
     real*8, allocatable, intent(in)  :: in_grid(:,:,:,:)
@@ -116,6 +146,16 @@ contains
 
   !>@brief This subroutine returns the nest grid indices that correspond to the input nest domain, direction, and position
   !>@details  Simplifies the call signature with the bbox type rather than 4 separate integers
+  !>
+  !> Simplifies the call signature with the bbox type rather than
+  !> 4 separate integers.
+  !> @param[in] nest_domain Nested domain object
+  !> @param[out] bbox_fine Fine resolution bounding box (inner)
+  !> @param[out] bbox_coarse Coarse resolution bounding box (outer)
+  !> @param[in] direction Mapping direction
+  !> @param[in] position Location
+  !>
+  !> @author W. Ramstrom, AOML/HRD  @date 07/28/2021
   subroutine bbox_get_C2F_index(nest_domain, bbox_fine, bbox_coarse, direction,  position)
     implicit none
     type(nest_domain_type), intent(in)     :: nest_domain
