@@ -981,8 +981,6 @@ module GFS_typedefs
     integer              :: imp_physics_thompson      = 8  !< choice of Thompson microphysics scheme
     integer              :: imp_physics_tempo         = 88 !< choice of TEMPO microphysics scheme
     integer              :: imp_physics_wsm6          = 6  !< choice of WSMG     microphysics scheme
-    integer              :: imp_physics_zhao_carr     = 99 !< choice of Zhao-Carr microphysics scheme
-    integer              :: imp_physics_zhao_carr_pdf = 98 !< choice of Zhao-Carr microphysics scheme with PDF clouds
     integer              :: imp_physics_mg            = 10 !< choice of Morrison-Gettelman microphysics scheme
     integer              :: imp_physics_fer_hires     = 15 !< choice of Ferrier-Aligo microphysics scheme
     integer              :: imp_physics_nssl          = 17 !< choice of NSSL microphysics scheme with background CCN
@@ -4915,7 +4913,6 @@ module GFS_typedefs
     Model%effr_in          = effr_in
     ! turn off ICCN interpolation when MG2/3 are not used
     if (.not. Model%imp_physics==Model%imp_physics_mg) Model%iccn = 0
-!--- Zhao-Carr MP parameters
     Model%psautco          = psautco
     Model%prautco          = prautco
     Model%evpco            = evpco
@@ -6361,30 +6358,8 @@ module GFS_typedefs
     Model%nps2delt = -999
     Model%npsdelt  = -999
     Model%ncnd     = nwat - 1                   ! ncnd is the number of cloud condensate types
-    if (Model%imp_physics == Model%imp_physics_zhao_carr) then
-      Model%npdf3d   = 0
-      Model%num_p3d  = 4
-      Model%num_p2d  = 3
-      Model%shcnvcw  = .false.
-      Model%nT2delt  = 1
-      Model%nqv2delt = 2
-      Model%nTdelt   = 3
-      Model%nqvdelt  = 4
-      Model%nps2delt = 1
-      Model%npsdelt  = 2
-      if (nwat /= 2) then
-        print *,' Zhao-Carr MP requires nwat to be set to 2 - job aborted'
-        stop
-      end if
-      if (Model%me == Model%master) print *,' Using Zhao/Carr/Sundqvist Microphysics'
 
-    elseif (Model%imp_physics == Model%imp_physics_zhao_carr_pdf) then !Zhao Microphysics with PDF cloud
-      Model%npdf3d  = 3
-      Model%num_p3d = 4
-      Model%num_p2d = 3
-      if (Model%me == Model%master) print *,'Using Zhao/Carr/Sundqvist Microphysics with PDF Cloud'
-
-    else if (Model%imp_physics == Model%imp_physics_fer_hires) then     ! Ferrier-Aligo scheme
+    if (Model%imp_physics == Model%imp_physics_fer_hires) then     ! Ferrier-Aligo scheme
       Model%npdf3d  = 0
       Model%num_p3d = 3
       Model%num_p2d = 1
@@ -6633,7 +6608,7 @@ module GFS_typedefs
       Model%xr_con = xr_con
       Model%xr_exp = xr_exp
     else  ! values have not been read in from namelist and should be set according to logic in radiation_clouds.f
-      if (Model%imp_physics == Model%imp_physics_zhao_carr .or. Model%imp_physics == Model%imp_physics_mg .or. Model%imp_physics == Model%imp_physics_fer_hires) then
+      if (Model%imp_physics == Model%imp_physics_mg .or. Model%imp_physics == Model%imp_physics_fer_hires) then
         if (.not. Model%lmfshal) then
           !calls cloud_fraction_XuRandall()
           Model%xr_con = 2000.0
@@ -7052,14 +7027,6 @@ module GFS_typedefs
       print *, ' imp_physics       : ', Model%imp_physics
       print *, ' '
 
-      if (Model%imp_physics == Model%imp_physics_zhao_carr .or. Model%imp_physics == Model%imp_physics_zhao_carr_pdf) then
-        print *, ' Z-C microphysical parameters'
-        print *, ' psautco           : ', Model%psautco
-        print *, ' prautco           : ', Model%prautco
-        print *, ' evpco             : ', Model%evpco
-        print *, ' wminco            : ', Model%wminco
-        print *, ' '
-      endif
       if ((Model%imp_physics == Model%imp_physics_wsm6) .or. (Model%imp_physics == Model%imp_physics_thompson) .or. &
            (Model%imp_physics == Model%imp_physics_tempo)) then
         print *, ' Thompson microphysical parameters'
