@@ -3165,8 +3165,12 @@
 
   end subroutine ESMFproto_FieldBundleWrite
 
-  !-----------------------------------------------------------------------------
-
+  !> @brief IO component set services
+  !>
+  !> @param[in] comp ESMF grid component
+  !> @param[out] rc Return code.
+  !>
+  !> @author J. Wang/G. Theurich @date Jul, 2017  
   subroutine ioCompSS(comp, rc)
     type(ESMF_GridComp)   :: comp
     integer, intent(out)  :: rc
@@ -3180,8 +3184,15 @@
 
   end subroutine
 
-  !-----------------------------------------------------------------------------
-
+  !> @brief IO component run phase
+  !>
+  !> @param comp The ESMF grid component
+  !> @param importState Import state
+  !> @param exportState Export State
+  !> @param clock ESMF clock
+  !> @param[out] rc Return code.
+  !>
+  !> @author G. Theurich @date Jul, 2017  
   subroutine ioCompRun(comp, importState, exportState, clock, rc)
     use netcdf
 
@@ -3560,6 +3571,12 @@
 
   contains
 
+    !> @brief Write out ungridded dimension attributes
+    !>
+    !> @param[in] dimLablel Dimension label
+    !> @param[out] rc Return code.
+    !>
+    !> @author G. Theurich @date Jul, 2017 
     subroutine write_out_ungridded_dim_atts(dimLabel, rc)
       character(len=*)      :: dimLabel
       integer, intent(out)  :: rc
@@ -3720,6 +3737,13 @@
       endif
     end subroutine write_out_ungridded_dim_atts
 
+    !> @brief Write out ungridded dimension attributes from the ESMF fields
+    !>
+    !> @param[in] field ESMF field
+    !> @param[in] dimLabel Dimension label
+    !> @param[out] rc Return code.
+    !>
+    !> @author J. Wang/G. Theurich @date Jul, 2017
     subroutine write_out_ungridded_dim_atts_from_field(field, dimLabel, rc)
 
       type(ESMF_Field),intent(in) :: field
@@ -3863,8 +3887,21 @@
 
   end subroutine ioCompRun
 
-  !-----------------------------------------------------------------------------
-
+  !> @brief ESMF prototype to geta field on a single tile from a field on multitiles.
+  !> @details Take in a field on a multi-tile grid and return a field that only
+  !>  references a single tile.
+  !>  This routine only works with references, no data copies are being
+  !>  made. The single tile field that is returned points to the original
+  !>  field allocation.
+  !>  The original field passed in remains valid.
+  !>
+  !> @param[in] field ESMF field
+  !> @param[in] tile Tile number
+  !> @param[in] tileField ESMF field on the single tile
+  !> @param[in] petList PET list on the single tile
+  !> @param[out] rc Return code.
+  !>
+  !> @author G. Theurich @date Jul, 2017
   subroutine ESMFproto_FieldMakeSingleTile(field, tile, tileField, petList, rc)
     type(ESMF_Field),     intent(in)              :: field
     integer,              intent(in)              :: tile
@@ -4064,8 +4101,14 @@
 
   end subroutine ESMFproto_FieldMakeSingleTile
 #endif
-!
-!-----------------------------------------------------------------------
+
+  !> @brief Compute sine latitiude in real(4) from grid type
+  !>
+  !> @param[in] idrt Data representation type
+  !> @param[in] jmax Maximum on j-direction
+  !> @param[out] aslat SINE of latitude in real(4)
+  !>
+  !> @author J. Wang @date Jul, 2017  
   subroutine splat4(idrt,jmax,aslat)
 
       implicit none
@@ -4175,7 +4218,14 @@
       ENDIF
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      end subroutine splat4
-!----------------------------------------------------------------------
+
+     !> @brief Compute sine latitiude in real(8) from grid type
+     !>
+     !> @param[in] idrt Data representation type
+     !> @param[in] jmax Maximum on j-direction
+     !> @param[out] aslat SINE of latitude in real(8)
+     !>
+     !> @author J. Wang @date Jul, 2017 
      subroutine splat8(idrt,jmax,aslat)
 !$$$
       implicit none
@@ -4284,8 +4334,17 @@
       ENDIF
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      end subroutine splat8
-!
-!
+   
+   !> @brief Compute geographical lat/lon from rotated lat/lon grid
+   !>
+   !> @param[in] tlmd Rotated Longitude
+   !> @param[in] tphd Rotated Latitude
+   !> @param[out] almd Geographical longitude
+   !> @param[out] aphd Geographical latitude
+   !> @param[in] tlm0d Central longitude
+   !> @param[in] tph0d Central latitude
+   !>
+   !> @author D. Jovic @date Jul, 2017
    subroutine rtll(tlmd,tphd,almd,aphd,tlm0d,tph0d)
 !-------------------------------------------------------------------------------
       real(ESMF_KIND_R8), intent(in) :: tlmd, tphd
@@ -4336,9 +4395,20 @@
       return
 !
      end subroutine rtll
-!
-!-----------------------------------------------------------------------
-!
+
+     !> @brief Compute lambert comformal projection
+     !>
+     !> @param[in] stlat1 First standard parallel
+     !> @param[in] stlat2 Second standard parallel
+     !> @param[in] c_lat Central latitude
+     !> @param[in] c_lon Central longitude
+     !> @param[inout] glon Longitude
+     !> @param[inout] glat Latitude
+     !> @param[inout] x Lambert X coordinate
+     !> @param[inout] y Lambert Y coordinate
+     !> @param[in] inv Transformation indicator
+     !>
+     !> @author D. Jovic @date Jul, 2017 
      subroutine lambert(stlat1,stlat2,c_lat,c_lon,glon,glat,x,y,inv)
 
 !-------------------------------------------------------------------------------
@@ -4398,9 +4468,15 @@
 
       return
      end subroutine lambert
-!
-!-----------------------------------------------------------------------
-!
+
+     !> @brief Get output file names
+     !>
+     !> @param[in] nfl Number of fields
+     !> @param[in] filename File name specified in each fiels
+     !> @param[inout] outfile_name Output file names
+     !> @param[inout] noutfile Number of output files
+     !>
+     !> @author J. Wang @date Jul, 2017 
      subroutine get_outfile(nfl, filename, outfile_name, noutfile)
        integer, intent(in)          :: nfl
        character(*), intent(in)     :: filename(:,:)
@@ -4437,6 +4513,11 @@
 
      end subroutine get_outfile
 
+     !> @brief Trim the regridding interpolation method in a string suffix
+     !>
+     !> @param[in] string String with suffix
+     !>
+     !> @author J. Wang @date Jul, 2017 
      pure function trim_regridmethod_suffix(string) result(trimmed_string)
        character(len=*), intent(in) :: string
        character(len=:), allocatable :: trimmed_string
@@ -4449,6 +4530,12 @@
 
      end function trim_regridmethod_suffix
 
+     !> @brief Trim the suffix from a string.
+     !>
+     !> @param[in] string String with suffix
+     !> @param[in] suffix Suffix string
+     !>
+     !> @author J. Wang @date Jul, 2017 
      pure function trim_suffix(string, suffix) result(trimmed_string)
        character(len=*), intent(in) :: string, suffix
        character(len=:), allocatable :: trimmed_string
@@ -4468,10 +4555,13 @@
        endif
 
      end function trim_suffix
-!
-!-----------------------------------------------------------------------
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!-----------------------------------------------------------------------
+
+      !> @brief Print attribute list.
+      !>
+      !> @param[in] fb File Bundle
+      !> @param[out] rc Return code
+      !>
+      !> @author J. Wang @date Jul, 2017
       subroutine print_att_list(fb, rc)
       type(ESMF_FieldBundle), intent(in) :: fb
       integer, intent(out) :: rc
