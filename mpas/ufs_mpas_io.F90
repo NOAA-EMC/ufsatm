@@ -259,7 +259,7 @@ module ufs_mpas_io
        !var_info_type('relhum'                          , 'real'      , 2), &
        !var_info_type('rho'                             , 'real'      , 2), &
        var_info_type('scalars'                         , 'real'      , 3), &
-       !var_info_type('surface_pressure'                , 'real'      , 1), &
+       var_info_type('surface_pressure'                , 'real'      , 1), &
        var_info_type('theta'                           , 'real'      , 2), &
        !var_info_type('u'                               , 'real'      , 2), &
        var_info_type('uReconstructMeridional'          , 'real'      , 2), &

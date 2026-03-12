@@ -325,9 +325,13 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_radiation_physics(Atmos)
+    use atmos_coupling_mod,     only : ufs_mpas_to_physics
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
+
+    ! Populate physics inputs with MPAS data.
+    call ufs_mpas_to_physics(UFSATM_statein)
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
@@ -364,14 +368,14 @@ contains
   !> #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
     use ufs_mpas_subdriver, only : ufs_mpas_run
-    use atmos_coupling_mod, only : ufs_microphysics_to_mpas
+    use atmos_coupling_mod, only : ufs_physics_to_mpas
     use MPAS_init,          only : MPAS_initialize
     
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
     ! NOT YET IMPLEMENTED
-    call ufs_microphysics_to_mpas(UFSATM_stateout)
+    call ufs_physics_to_mpas()
     
     ! Call MPAS dycore
     call ufs_mpas_run(mpasClock, outClock)
@@ -383,7 +387,7 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_microphysics(Atmos)
-    use atmos_coupling_mod, only : ufs_mpas_to_microphysics
+    use atmos_coupling_mod, only : ufs_mpas_to_microphysics, ufs_microphysics_to_mpas
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
@@ -405,6 +409,9 @@ contains
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
     call mpp_clock_end(setupClock)
 
+    ! Prepare MPAS dycore inputs with CCPP physics outputs.
+    call ufs_microphysics_to_mpas(UFSATM_stateout)
+
   end subroutine atmos_model_microphysics
 
   !> #########################################################################################
@@ -417,5 +424,5 @@ contains
     ! Advance time
     Atmos % Time = Atmos % Time + Atmos % Time_step
   end subroutine update_atmos_model_state
-  
+
 end module atmos_model_mod
