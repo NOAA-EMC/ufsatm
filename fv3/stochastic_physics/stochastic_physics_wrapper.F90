@@ -1,3 +1,6 @@
+!> @file
+!> @brief Wrapper for stochastic physics in the FV3 model.
+!> @author Dominikus Heinzeller @date 8/6/21
 module stochastic_physics_wrapper_mod
 
   use machine, only: kind_phys
@@ -5,45 +8,94 @@ module stochastic_physics_wrapper_mod
   implicit none
 
   ! For stochastic physics pattern generation
+  !> grid latitude in radians, default to pi/2 to
+  !> -pi/2 range, otherwise adj in subr is called
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlat
+  !> grid longitude in radians, ok for both 0->2pi
+  !> or -pi -> +pi ranges
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: xlon
+  !> Array of SPPT (Stochastically Perturbed Parameterization Tendencies) weights
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sppt_wts
+  !> Allocatable 3D array to store stochastic humidity weights
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: shum_wts
+  !> Array of stochastic u wind components of the kinetic energy backscatter scheme.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebu_wts
+  !> Array of stochastic v wind components of the kinetic energy backscatter scheme.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts
+  !> Surface weights array used in stochastic physics calculations.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
+  !> Array to store stochastic physics perturbation weights.
   real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
 
-  logical, save :: is_initialized = .false.
-  integer, save :: lsoil = -999
+  logical, save :: is_initialized = .false. !< logical if initialized
+
+  integer, save :: lsoil = -999 !< number of soil layers
+
+  !> total soil moisture
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: smc
+  !> soil temperature
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: stc
+  !> liquid soil moisture
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: slc
-  !
+  !> vegetation fraction
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: vfrac
-  !albedo
+  !> maximum snow albedo, in fraciton
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: snoalb
+  !> mean nir albedo with strong cosz dependency
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnsf
+  !> mean nir albedo with weak cosz dependency
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnwf
-  !emissivity
+  !> surface lw emissivity, in fraction
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: semis
-  !roughness length for land
+  !> surface roughness length, in cm
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
 
   !real(kind=kind_phys), dimension(:,:),   allocatable, save :: stype
-  integer, dimension(:,:),   allocatable, save :: stype
+  integer, dimension(:,:),   allocatable, save :: stype !< soil type
 
   ! For cellular automata
+  !> Sea surface temperature (SST) array, allocated dynamically.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst
+  !> Land mask array for stochastic physics processes.
+  !> The array is allocatable and saved across subroutine calls.  
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk
+  !> A 2D real array to store lake data.
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: lake
+  !> Allocatable array to store the u-component of wind (zonal wind) 
+  !> with dimensions (latitude, longitude, vertical levels).
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: uwind
+  !> Allocatable array to store the v-component of wind (velocity in the y-direction).
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: vwind
+  !> Array to store the height values with physical kind precision.
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: height
+  !> 2D real array to store the stochastic perturbations.
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: dx
+  !> A 2D real array used to store 2-dim grid spacing variable
+  !> The array is allocatable and saved across subroutine calls.
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
+  !> Allocatable 2D array to store deep convection coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl
+  !> Array for storing turbulence coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_turb_cpl
+  !> Array for shallow convection coupling coefficients
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_shal_cpl
+  !> Allocatable 2D array for coupling data, saved across subroutine calls
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl
+  !> 2D array for coupling data in stochastic physics module
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca2_cpl
+  !> Allocatable 2D array for coupling data in stochastic physics
+  !> The array is allocatable and saved across subroutine calls.
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca3_cpl
 
 
 !----------------
@@ -57,6 +109,22 @@ module stochastic_physics_wrapper_mod
 !-------------------------------
 !  CCPP step
 !-------------------------------
+   !> Wrapper subroutine for stochastic physics in the FV3 model.
+   !>
+   !> This subroutine serves as a wrapper for the stochastic physics 
+   !> processes in the FV3 atmospheric model. It interfaces with various 
+   !> components of the model to apply stochastic perturbations.
+   !>
+   !> @param[in]  GFS_Control   Control structure for the GFS model.
+   !> @param[in]  GFS_Statein   Input state variables for the GFS model.
+   !> @param[in]  GFS_Grid      Grid structure for the GFS model.
+   !> @param[inout]  GFS_Sfcprop   Surface properties for the GFS model.
+   !> @param[inout]  GFS_Radtend   Radiative tendencies for the GFS model.
+   !> @param[inout]  GFS_Coupling  Coupling structure for the GFS model.
+   !> @param[inout]  Atm_block     Atmospheric block data.
+   !> @param[out] ierr          Error return code.
+   !>
+   !> @author Dominikus Heinzeller @date 8/6/21
   subroutine stochastic_physics_wrapper (GFS_Control, GFS_Statein, GFS_Grid, GFS_Sfcprop, GFS_Radtend, GFS_Coupling, Atm_block, ierr)
 
 #ifdef _OPENMP
@@ -440,6 +508,18 @@ module stochastic_physics_wrapper_mod
 
   contains
 
+    !> Transfers a 2D field to the stochastics module.
+    !>
+    !> This subroutine takes an input field and transfers it to the 
+    !> stochastics module for further processing. The input data is 
+    !> provided in `data_in` and the processed data is returned in 
+    !> `data_out`.
+    !>
+    !> @param[in] blksz    The block size of the data.
+    !> @param[in] data_in  The input 2D data field to be transferred.
+    !> @param[out] data_out The output 2D data field after processing.
+    !>
+    !> @author Dominikus Heinzeller @date 8/6/21
     subroutine transfer_field_to_stochastics(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -460,6 +540,17 @@ module stochastic_physics_wrapper_mod
 
     end subroutine transfer_field_to_stochastics
 
+    !> Transfers a 3D field to the stochastic physics module.
+    !>
+    !> This subroutine takes a 3D field as input and transfers it to the
+    !> stochastic physics module for further processing. The input data
+    !> is provided in `data_in` and the processed data is returned in `data_out`.
+    !>
+    !> @param[in] blksz The block size for the data transfer.
+    !> @param[in] data_in The input 3D field data to be transferred.
+    !> @param[out] data_out The output 3D field data after processing.
+    !>
+    !> @author Dominikus Heinzeller @date 8/6/21
     subroutine transfer_field_to_stochastics_3d(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -473,6 +564,13 @@ module stochastic_physics_wrapper_mod
 
     end subroutine transfer_field_to_stochastics_3d
 
+    !> Transfers a 3D field from the stochastic physics module.
+    !>
+    !> @param[in] blksz The block size for the data transfer.
+    !> @param[in] data_in The input 3D field data to be transferred.
+    !> @param[out] data_out The output 3D field data after processing.
+    !>  
+    !> @author Dominikus Heinzeller @date 8/6/21
     subroutine transfer_field_from_stochastics(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
@@ -495,7 +593,13 @@ module stochastic_physics_wrapper_mod
 
   end subroutine stochastic_physics_wrapper
 
-
+  !> This subroutine finalizes the stochastic physics wrapper.
+  !> It performs any necessary cleanup operations for the stochastic
+  !> physics module.
+  !>
+  !> @param GFS_Control The control structure for the GFS model.
+  !>
+  !> @author Dominikus Heinzeller @date 8/6/21
   subroutine stochastic_physics_wrapper_end (GFS_Control)
 
   use GFS_typedefs,       only: GFS_control_type

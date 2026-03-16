@@ -1,7 +1,9 @@
-!> \file fv3atm_history_io.F90
-!! This file defines routines used to output atmosphere diagnostic
-!! (history) data from the physics and surface fields, both for quilt
-!! and non-quilt output.
+!> @file 
+!> @brief Routines used to output atmosphere diagnostic (history) data
+!> from the physics and surface fields, for quilt and non-quilt
+!> output.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_history_io_mod
 
   !
@@ -82,19 +84,28 @@ module fv3atm_history_io_mod
 #endif
   end type history_type
 
-  !>@ This shared_history_data instance of history_type is shared between all calls to public module subroutines.
+  !> This shared_history_data instance of history_type is shared between all calls to public module subroutines.
   type(history_type) :: shared_history_data
 
 CONTAINS
 
-  !>@brief Registers diagnostic variables with the FMS diagnostic manager.
-  !> \section fv3atm_diag_register subroutine
-  !! Creates and populates a data type which is then used to "register"
-  !! diagnostic variables with the GFDL FMS diagnostic manager.
-  !! includes short & long names, units, conversion factors, etc.
-  !! there is no copying of data, but instead a clever use of pointers.
-  !! calls a GFDL FMS routine to register diagnositcs and compare against
-  !! the diag_table to determine what variables are to be output.
+  !> @brief Registers diagnostic variables with the FMS diagnostic manager.
+  !> @details Creates and populates a data type which is then used to "register"
+  !>  diagnostic variables with the GFDL FMS diagnostic manager.
+  !>  includes short & long names, units, conversion factors, etc.
+  !>  there is no copying of data, but instead a clever use of pointers.
+  !>  calls a GFDL FMS routine to register diagnositcs and compare against
+  !>  the diag_table to determine what variables are to be output.
+  !>
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] Time Model time.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] xlon Longitude array.
+  !> @param[in] xlat Latitude array.
+  !> @param[in] axes Axis information.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv3atm_diag_register(Diag, Time, Atm_block, Model, xlon, xlat, axes)
     use physcons,  only: con_g
     implicit none
@@ -134,11 +145,20 @@ CONTAINS
   end subroutine fv3atm_diag_output
 
 #ifdef use_WRTCOMP
-  !>@brief Sets up the ESMF bundle to use for quilt diagnostic output
-  !> \section fv_phys_bundle_setup subroutine
-  !! This part of the write component (quilt) sets up the ESMF bundles
-  !! to use for writing diagnostic output. It is only defined when the
-  !! write component is enabled at compile time.
+  !> @brief Sets up the ESMF bundle to use for quilt diagnostic output
+  !> @details This part of the write component (quilt) sets up the ESMF bundles
+  !>  to use for writing diagnostic output. It is only defined when the
+  !>  write component is enabled at compile time.
+  !>
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] axes Axis information.
+  !> @param[in] phys_bundle ESMF bundle for physics output fields.
+  !> @param[in] fcst_grid Write component ESMF grid.
+  !> @param[in] quilting Whether to use quilted output (write component).
+  !> @param[in] nbdlphys Number of variables in phys_bundle.
+  !> @param[in] rc Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine fv_phys_bundle_setup(Diag, axes, phys_bundle, fcst_grid, quilting, nbdlphys, rc)
     !
     !-------------------------------------------------------------
@@ -162,10 +182,20 @@ CONTAINS
   end subroutine fv_phys_bundle_setup
 #endif
 
-  !>@brief Private implementation of fv3atm_diag_register. Do not call directly.
-  !> \section history_type%register procedure
-  !! This is the history_type%register procedure, which provides the internal
-  !! implementation of fv3atm_diag_register. Do not call this directly.
+  !> @brief Private implementation of fv3atm_diag_register. Do not call directly.
+  !> @details This is the history_type%register procedure, which provides the internal
+  !>  implementation of fv3atm_diag_register. Do not call this directly.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] Diag Container for write component configuration.
+  !> @param[in] Time Model time.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] xlon Longitude array.
+  !> @param[in] xlat Latitude array.
+  !> @param[in] axes Axis information.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_register(hist, Diag, Time, Atm_block, Model, xlon, xlat, axes)
     use physcons,  only: con_g
     implicit none
@@ -497,10 +527,19 @@ CONTAINS
     end do history_loop
   end subroutine history_type_output
 
-  !>@brief Part of the internal implementation of history_type_output (history_type%output)
-  !> \section history_type%store_data procedure
-  !! This routine copies data from an x-y array to internal buffers for later output.
-  !! Never call this subroutine directly; call fv3atm_diag_output instead.
+  !> @brief Part of the internal implementation of history_type_output (history_type%output)
+  !> @details This routine copies data from an x-y array to internal buffers for later output.
+  !>  Never call this subroutine directly; call fv3atm_diag_output instead.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] id Variable ID.
+  !> @param[in] work Data to store.
+  !> @param[in] Time Model time.
+  !> @param[in] idx Index of the diagnostic variable.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in] fldname Field name.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data(hist,id, work, Time, idx, intpl_method, fldname)
     implicit none
     class(history_type)                 :: hist
@@ -585,10 +624,19 @@ CONTAINS
     !
   end subroutine history_type_store_data
 
-  !>@brief Part of the internal implementation of history_type_output (history_type%output)
-  !> \section history_type%store_data3D procedure
-  !! This routine copies data from an x-y-z array to internal buffers for later output.
-  !! Never call this subroutine directly; call fv3atm_diag_output instead.
+  !> @brief Part of the internal implementation of history_type_output (history_type%output)
+  !> @details This routine copies data from an x-y-z array to internal buffers for later output.
+  !> Never call this subroutine directly; call fv3atm_diag_output instead.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[inout] id Variable ID.
+  !> @param[in] work Data to store.
+  !> @param[in] Time Model time.
+  !> @param[in] idx Index of the diagnostic variable.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in] fldname Field name.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_store_data3D(hist, id, work, Time, idx, intpl_method, fldname)
     implicit none
     class(history_type)                 :: hist
@@ -695,12 +743,21 @@ CONTAINS
   end subroutine history_type_store_data3D
 
 #ifdef use_WRTCOMP
-  !>@brief Sets up the ESMF bundle to use for quilt diagnostic output
-  !> \section history_type%bundle_setup procedure
-  !! This part of the write component (quilt) sets up the ESMF bundles
-  !! to use for writing diagnostic output. It is only defined when the
-  !! write component is enabled at compile time.
-
+  !> @brief Sets up the ESMF bundle to use for quilt diagnostic output
+  !> @details This part of the write component (quilt) sets up the ESMF bundles
+  !>  to use for writing diagnostic output. It is only defined when the
+  !>  write component is enabled at compile time.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] Diag Container for write component configuration.
+  !> @param[in] axes Axis information.
+  !> @param[in] phys_bundle ESMF bundle for physics output fields.
+  !> @param[in] fcst_grid ESMF grid for the forecast model.
+  !> @param[in] quilting Whether to use quilted output (write component).
+  !> @param[in] nbdlphys Number of variables in phys_bundle.
+  !> @param[in] rc Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_bundle_setup(hist, Diag, axes, phys_bundle, fcst_grid, quilting, nbdlphys, rc)
     ! set esmf bundle for phys output fields
     use esmf
@@ -998,11 +1055,28 @@ CONTAINS
 
   end subroutine history_type_bundle_setup
 
-  !>@brief Adds one field to an ESMF field bundle for later output. Internal subroutine; do not call this directly.
-  !> \section history_type%add_field_to_phybundle procedure
-  !! This is part of the internal implementation of history_type_bundle_setup (history_type%bundle_setup).
-  !! It sets attributes for and logs information about a single ESMF field. Do not call this subroutine directly.
-  !! Call fv_phys_bundle_setup instead.
+  !> @brief Adds one field to an ESMF field bundle for later output. Internal subroutine; do not call this directly.
+  !> @details This is part of the internal implementation of history_type_bundle_setup (history_type%bundle_setup).
+  !>  It sets attributes for and logs information about a single ESMF field. Do not call this subroutine directly.
+  !>  Call fv_phys_bundle_setup instead.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] var_name Variable name.
+  !> @param[in] long_name Variable long name.
+  !> @param[in] units Units of the variable.
+  !> @param[in] cell_methods 
+  !> @param[in] axes Variable axes.
+  !> @param[in] phys_grid ESMF grid for the physics fields.
+  !> @param[in] kstt Starting index of vertical dimension.
+  !> @param[in] levo Number of vertical levels.
+  !> @param[inout] phys_bundle ESMF field bundle for physics output fields.
+  !> @param[in] output_file Full path to output write component file.
+  !> @param[in] intpl_method Interpolation method.
+  !> @param[in;optional] range Not used. Remove.
+  !> @param[in] l2dvector Whether the field is a 2D vector.
+  !> @param[out] rcd Return code.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_add_field_to_phybundle(hist,var_name,long_name,units,cell_methods, axes,phys_grid, &
        kstt,levo,phys_bundle,output_file,intpl_method,range,l2dvector,rcd)
     !
@@ -1202,14 +1276,20 @@ CONTAINS
 
   end subroutine history_type_add_field_to_phybundle
 
-  !>@brief Private subroutine to search a field list for a specific name.
-  !> \section history_type%find_output_name procedure
-  !! Searches the GFS_Diagnostic-generated field list for a
-  !! specific name and retrieves the name that should be used for
-  !! outputting the variable. This is part of the internal
-  !! implementation of history_type_bundle_setup
-  !! (history_type%bundle_setup) and should not be called
-  !! directly. Call fv_phys_bundle_setup instead.
+  !> @brief Private subroutine to search a field list for a specific name.
+  !> @details Searches the GFS_Diagnostic-generated field list for a
+  !>  specific name and retrieves the name that should be used for
+  !>  outputting the variable. This is part of the internal
+  !>  implementation of history_type_bundle_setup
+  !>  (history_type%bundle_setup) and should not be called
+  !>  directly. Call fv_phys_bundle_setup instead.
+  !>
+  !> @param hist Container for temporary data during output of diagnostic files.
+  !> @param[in] module_name Name of module containing variable.
+  !> @param[in] field_name Name of variable in model.
+  !> @param[out] output_name Name of variable to use in output file.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine history_type_find_output_name(hist,module_name,field_name,output_name)
     implicit none
     class(history_type)          :: hist
