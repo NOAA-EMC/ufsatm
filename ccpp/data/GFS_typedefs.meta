@@ -2868,7 +2868,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_chemistry_coupling .or. flag_for_ocean_wave_coupling)
+  active = (flag_for_surface_flux_coupling .or. flag_for_chemistry_coupling .or. flag_for_ocean_wave_coupling .or. do_fire_coupling)
 [v10mi_cpl]
   standard_name = y_wind_at_10m_for_coupling
   long_name = instantaneous V10m
@@ -2876,7 +2876,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. flag_for_chemistry_coupling .or. flag_for_ocean_wave_coupling)
+  active = (flag_for_surface_flux_coupling .or. flag_for_chemistry_coupling .or. flag_for_ocean_wave_coupling .or. do_fire_coupling)
 [tsfci_cpl]
   standard_name = surface_skin_temperature_for_coupling
   long_name = instantaneous sfc temperature

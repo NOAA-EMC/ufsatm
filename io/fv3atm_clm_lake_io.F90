@@ -1,12 +1,17 @@
-!> \file fv3atm_clm_lake_io.F90
-!! This code reads and writes restart files for the CLM Lake Model. The source code of
-!! that model can be found in CCPP. Only the fv3atm_restart_io.F90 should ever access
-!! these routines.
-!!
-!! The CLM Lake Model has its own restart code due to its five alternative vertical
-!! levels, which don't match the five found in the other surface fields. For the sake
-!! of code simplicity, a dedicated file was a better implementation.
+!> @file
+!> @brief Read and write restart files for the CLM Lake Model.
+!> @author Samuel Trahan @date Jun 20, 2023
 
+!> @brief Read and write restart files for the CLM Lake Model.
+!>
+!> The source code of that model can be found in CCPP. Only the
+!> fv3atm_restart_io.F90 should ever access these routines.
+!>
+!> The CLM Lake Model has its own restart code due to its five alternative vertical
+!> levels, which don't match the five found in the other surface fields. For the sake
+!> of code simplicity, a dedicated file was a better implementation.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_clm_lake_io
   use GFS_typedefs,       only: GFS_sfcprop_type, GFS_control_type, kind_phys
   use block_control_mod,  only: block_control_type
@@ -24,16 +29,13 @@ module fv3atm_clm_lake_io
        clm_lake_copy_from_grid, clm_lake_copy_to_grid, clm_lake_bundle_fields, &
        clm_lake_final, clm_lake_fill_data
 
-  !>\defgroup CLM Lake Model restart public interface
-  !>  @{
-
-  !>@ The clm_lake_data_type derived type is a class that stores
-  !!  temporary arrays used to read or write CLM Lake model restart
-  !!  and axis variables. It can safely be declared and unused, but
-  !!  you should only call these routines if the CLM Lake Model was
-  !!  (or will be) used by this execution of the FV3. It is the
-  !!  responsibility of the caller to ensure the necessary data is in
-  !!  Sfc_restart, Sfcprop, and Model.
+  !> The clm_lake_data_type derived type is a class that stores
+  !> temporary arrays used to read or write CLM Lake model restart
+  !> and axis variables. It can safely be declared and unused, but
+  !> you should only call these routines if the CLM Lake Model was
+  !> (or will be) used by this execution of the FV3. It is the
+  !> responsibility of the caller to ensure the necessary data is in
+  !> Sfc_restart, Sfcprop, and Model.
   type clm_lake_data_type
     ! All 2D variables needed for a restart
     real(kind_phys), pointer, private, dimension(:,:) :: &
@@ -93,8 +95,13 @@ module fv3atm_clm_lake_io
 
 CONTAINS
 
-  !>@ This subroutine is clm_lake%alocate_data. It deallocates all
-  !!  data, and reallocate to the size specified in Model
+  !> @brief This subroutine is clm_lake%alocate_data. 
+  !> @details It deallocates all  data, and reallocate to the size specified in Model
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param Model Model control parameters input from a nml and/or derived from others.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_allocate_data(clm_lake,Model)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -142,8 +149,14 @@ CONTAINS
     enddo
   end subroutine clm_lake_allocate_data
 
-  !>@ This is clm_lake%register_axes. It registers all five axes needed
-  !!  by CLM Lake restart data.
+  !> @brief This is clm_lake%register_axes. 
+  !> @details It registers all five axes needed by CLM Lake restart data.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_register_axes(clm_lake,Model,Sfc_restart)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -155,9 +168,15 @@ CONTAINS
     call register_axis(Sfc_restart, 'levsnowsoil1_clm_lake', dimension_length=Model%nlevsnowsoil1_clm_lake)
   end subroutine clm_lake_register_axes
 
-  !>@ This is clm_lake%write_axes. It creates variables with the name
-  !!  name as each clm_lake axis, and fills the variable with the
-  !!  appropriate indices
+  !> @brief This is clm_lake%write_axes. 
+  !> @details It creates variables with the name name as each clm_lake axis, and fills the variable with the
+  !>  appropriate indices
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_write_axes(clm_lake, Model, Sfc_restart)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -178,9 +197,17 @@ CONTAINS
     call write_data(Sfc_restart, 'levsnowsoil1_clm_lake', clm_lake%levsnowsoil1_clm_lake)
   end subroutine clm_lake_write_axes
 
-  !>@ This is clm_lake%fill_data. It fills internal arrays with zero
-  !!  Terrible things will happen if you don't call
-  !!  clm_lake%allocate_data first.
+  !> @brief This is clm_lake%fill_data. 
+  !> @details It fills internal arrays with zero
+  !>  Terrible things will happen if you don't call
+  !>  clm_lake%allocate_data first.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_fill_data(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -225,10 +252,17 @@ CONTAINS
     enddo
   end subroutine clm_lake_fill_data
 
-  !>@ This is clm_lake%copy_from_grid. It copies from Sfcprop
-  !!  variables to the corresponding data temporary variables.
-  !!  Terrible things will happen if you don't call
-  !!  clm_lake%allocate_data first.
+  !> @brief This is clm_lake%copy_from_grid. 
+  !> @details It copies from Sfcprop variables to the corresponding 
+  !> data temporary variables.  Terrible things will happen if you
+  !> don't call clm_lake%allocate_data first.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_copy_from_grid(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -273,9 +307,17 @@ CONTAINS
     enddo
   end subroutine clm_lake_copy_from_grid
 
-  !>@ This is clm_lake%copy_to_grid. It copies from data temporary
-  !!  variables to the corresponding Sfcprop variables.  Terrible
-  !!  things will happen if you don't call data%allocate_data first.
+  !> @brief This is clm_lake%copy_to_grid. 
+  !> @details It copies from data temporary variables to the corresponding 
+  !>  Sfcprop variables.  Terrible things will happen if you
+  !>  don't call data%allocate_data first.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_copy_to_grid(clm_lake, Model, Atm_block, Sfcprop)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -320,10 +362,16 @@ CONTAINS
     enddo
   end subroutine clm_lake_copy_to_grid
 
-  !>@ This is clm_lake%register_fields, and it is only used in the
-  !!  non-quilt restart. It registers all restart fields needed by the
-  !!  CLM Lake Model.  Terrible things will happen if you don't call
-  !!  clm_lake%allocate_data and clm_lake%register_axes first.
+  !> @brief This is clm_lake%register_fields
+  !> @details It is only used in the non-quilt restart. It registers 
+  !>  all restart fields needed by the CLM Lake Model.  Terrible things 
+  !>  will happen if you don't call clm_lake%allocate_data and 
+  !>  clm_lake%register_axes first.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_register_fields(clm_lake, Sfc_restart)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -389,11 +437,20 @@ CONTAINS
          'levlake_clm_lake     ', 'Time                 '/), chunksizes=chunksizes3d, is_optional=.true.)
   end subroutine clm_lake_register_fields
 
-  !>@ This is clm_lake%bundle_fields, and it is only used in the
-  !!  quilt restart. It bundles all fields needed by the CLM Lake
-  !!  Model, which makes them available to ESMF for restart I/O.
-  !!  Terrible things will happen if you don't call
-  !!  clm_lake%allocate_data and clm_lake%register_axes first.
+  !> @brief This is clm_lake%bundle_fields
+  !> @details It is only used in the quilt restart. 
+  !>  It bundles all fields needed by the CLM Lake Model, 
+  !>  which makes them available to ESMF for restart I/O.
+  !>  Terrible things will happen if you don't call
+  !>  clm_lake%allocate_data and clm_lake%register_axes first.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !> @param[inout] bundle ESMF field bundle containing fields for writing CLM Lake Model restarts.
+  !> @param[inout] grid ESMF output grid for writing CLM Lake Model restarts.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] outputfile Full path to the output restart file.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_bundle_fields(clm_lake, bundle, grid, Model, outputfile)
     use esmf
     use GFS_typedefs, only: GFS_control_type
@@ -442,19 +499,27 @@ CONTAINS
 
   end subroutine Clm_lake_bundle_fields
 
-  !>@ Final routine (destructor) for the clm_lake_data_type, called
-  !!  automatically when an object of that type goes out of scope.  This
-  !!  is simply a wrapper around clm_lake%deallocate_data().
+  !> @brief Final routine (destructor) for the clm_lake_data_type.
+  !> @details Called automatically when an object of that type goes out 
+  !>  of scope. This is simply a wrapper around clm_lake%deallocate_data().
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_final(clm_lake)
     implicit none
     type(clm_lake_data_type) :: clm_lake
     call clm_lake_deallocate_data(clm_lake)
   end subroutine clm_lake_final
 
-  !>@ This is clm_lake%deallocate_data. It deallocates all data used,
-  !!  and nullifies the pointers. The clm_lake object can safely be
-  !!  used again after this call. This is also the implementation of
-  !!  the clm_lake_data_type final routine.
+  !> @brief This is clm_lake%deallocate_data. 
+  !> @details It deallocates all data used, and nullifies the pointers. 
+  !> The clm_lake object can safely be used again after this call. This 
+  !> is also the implementation of the clm_lake_data_type final routine.
+  !>
+  !> @param clm_lake Temporary storage for CLM Lake restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine clm_lake_deallocate_data(clm_lake)
     implicit none
     class(clm_lake_data_type) :: clm_lake
@@ -493,4 +558,3 @@ CONTAINS
   end subroutine clm_lake_deallocate_data
 
 end module fv3atm_clm_lake_io
-!> @}
