@@ -1,8 +1,11 @@
-!> \file fv3atm_sfc_io.F90
-!! This file contains a derived type and subroutines to read and write restart files for
-!! most FV3ATM surface fields. It works both for quilt (via ESMF) and non-quilt (via FMS)
-!! restarts. Certain fields are handled by other files: fv3atm_oro_io.F90, fv3atm_rrfs_sd_io.F90,
-!! and fv3atm_clm_lake_io.F90.
+!> @file
+!> @brief Derived type and subroutines to read and write restart files
+!>  for most FV3ATM surface fields.
+!> @details This module works both for quilt (via ESMF) and non-quilt (via FMS)
+!>  restarts. Certain fields are handled by other files: fv3atm_oro_io.F90, 
+!> fv3atm_rrfs_sd_io.F90, and fv3atm_clm_lake_io.F90.
+!>
+!> @author Samuel Trahan @date Jun 20, 2023
 module fv3atm_sfc_io
 
   use block_control_mod,  only: block_control_type
@@ -97,11 +100,19 @@ module fv3atm_sfc_io
 
 contains
 
-  !>@brief Calculates all nvar indices in the Sfc_io_data_type
-  !> \section Sfc_io_data_type%calculate_indices() procedure
-  !! Calculates all nvar counts, which record the number of fields
-  !! of various types. These determine array sizes.
-  !! Returns .true. if any nvar counts changed, or .false. otherwise.
+  !> @brief Calculates all nvar indices in the Sfc_io_data_type
+  !> @details Calculates all nvar counts, which record the number of fields
+  !>  of various types. These determine array sizes.
+  !>  Returns .true. if any nvar counts changed, or .false. otherwise.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] warm_start logical, is this a warm start?
+  !>
+  !> @return .true. if any nvar counts changed, or .false. otherwise.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   function Sfc_io_calculate_indices(sfc, Model, reading, warm_start)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -179,12 +190,21 @@ contains
 
   end function Sfc_io_calculate_indices
 
-  !>@brief Allocates internal Sfc_io_data_type arrays if array sizes should change.
-  !> \section Sfc_io_data_type%allocate_arrays() procedure
-  !! Calls calculate_arrays() to determine if any nvar counts have changed, based
-  !! on the new arguments. If they have changed, then arrays are reallocated.
-  !! The arrays will need to be filled with new data at that point, as the contents
-  !! will be unknown. Returns .true. if arrays were reallocated, and .false. otherwise.
+  !> @brief Allocates internal Sfc_io_data_type arrays if array sizes should change.
+  !> @details Calls calculate_arrays() to determine if any nvar counts have changed, based
+  !>  on the new arguments. If they have changed, then arrays are reallocated.
+  !>  The arrays will need to be filled with new data at that point, as the contents
+  !>  will be unknown. Returns .true. if arrays were reallocated, and .false. otherwise.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] warm_start logical, is this a warm start?
+  !>
+  !> @return  .true. if arrays were reallocated, and .false. otherwise.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   function Sfc_io_allocate_arrays(sfc, Model, Atm_block, reading, warm_start)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -246,7 +266,15 @@ contains
     endif
   end function Sfc_io_allocate_arrays
 
-  !>@ Registers all axes for reading or writing restarts using FMS (non-quilt)
+  !> @brief Registers all axes for reading or writing restarts using FMS (non-quilt)
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] warm_start Is this a warm start run?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_register_axes(sfc, Model, Sfc_restart, reading, warm_start)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -302,7 +330,13 @@ contains
     endif
   end subroutine Sfc_io_register_axes
 
-  !>@ Writes axis index variables and related metadata for all axes when writing FMS (non-quilt) restarts
+  !> @brief Writes axis index variables and related metadata for all axes when writing FMS (non-quilt) restarts
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_write_axes(sfc, Model, Sfc_restart)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -405,7 +439,13 @@ contains
     sfc%name3(0) = 'tiice'
   end subroutine Sfc_io_fill_3d_names
 
-  !>@ Fills the name2d array with all surface 2D field names. Updates nvar2m if needed.
+  !> @brief Fills the name2d array with all surface 2D field names. Updates nvar2m if needed.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] warm_start Is this a warm start run?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_fill_2d_names(sfc,Model,warm_start)
     implicit none
     class(Sfc_io_data_type)           :: sfc
@@ -566,8 +606,14 @@ contains
     endif
   end subroutine Sfc_io_fill_2d_names
 
-  !>@ Fills the name2d array with all surface 2D field names. Updates nvar2m if needed.
-  !!  This routine is for v2 coldstart files.
+  !> @brief Fills the name2d array with all surface 2D field names. Updates nvar2m if needed.
+  !> @details This routine is for v2 coldstart files.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] warm_start Is this a warm start run?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_fill_2d_names_v2(sfc,Model,warm_start)
     implicit none
     class(Sfc_io_data_type)           :: sfc
@@ -734,7 +780,15 @@ contains
     endif
   end subroutine Sfc_io_fill_2d_names_v2
 
-  !>@ Registers 2D fields with FMS for reading or writing non-quilt restart files
+  !> @brief Registers 2D fields with FMS for reading or writing non-quilt restart files
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Sfc_restart FMS NetCDF object containing surface restart data.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] warm_start Is this a warm start run?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_register_2d_fields(sfc,Model,Sfc_restart,reading,warm_start)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -876,7 +930,15 @@ contains
 
   end subroutine Sfc_io_register_2d_fields
 
-  !>@ Registers 3D fields with FMS for reading or writing non-quilt restart files
+  !> @brief Registers 3D fields with FMS for reading or writing non-quilt restart files
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param Sfc_restart FMS NetCDF object containing surface restart data.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] warm_start Is this a warm start run?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_register_3d_fields(sfc,Model,Sfc_restart,reading,warm_start)
     implicit none
     class(Sfc_io_data_type)             :: sfc
@@ -958,7 +1020,12 @@ contains
 
   end subroutine Sfc_io_register_3d_fields
 
-  !>@ Initializes some surface fields with reasonable defaults
+  !> @brief Initializes some surface fields with reasonable defaults
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_init_fields(sfc,Model)
     implicit none
     class(Sfc_io_data_type)           :: sfc
@@ -972,14 +1039,22 @@ contains
     endif
   end subroutine Sfc_io_init_fields
 
-  !>@ Copies data to the model grid (reading=true) or from the model grid (reading=false)
-  !> \section Sfc_io_data_type%transfer
-  !! Called to transfer data between the model grid and Sfc_io_data_type temporary arrays.
-  !! The FMS and ESMF restarts use the temporary arrays, not the model grid arrays. This
-  !! transfer routine copies to the model grid if reading=.true. or from the model grid
-  !! if reading=.false. This is mostly loops around GFS_data_transfer() interface calls.
-  !!
-  !! In addition, if override_frac_grid is provided, it will be set to Model%frac_grid.
+  !> @brief Copies data to the model grid (reading=true) or from the model grid (reading=false)
+  !> @details Called to transfer data between the model grid and Sfc_io_data_type temporary arrays.
+  !>  The FMS and ESMF restarts use the temporary arrays, not the model grid arrays. This
+  !>  transfer routine copies to the model grid if reading=.true. or from the model grid
+  !>  if reading=.false. This is mostly loops around GFS_data_transfer() interface calls.
+  !>  In addition, if override_frac_grid is provided, it will be set to Model%frac_grid.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] reading Is the subroutine is reading (true) restart files or writing restart files?
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param[in] warm_start Is this a warm start run?
+  !> @param[in] override_frac_grid Override fractional grid choice with Model%frac_grid ?
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_transfer(sfc, reading, Model, Atm_block, Sfcprop, warm_start, override_frac_grid)
     !--- interface variable definitions
     implicit none
@@ -1454,7 +1529,16 @@ contains
     end do block_loop
   end subroutine Sfc_io_transfer
 
-  !>@ Copies from Sfc_io_data_type internal arrays to the model grid by calling transfer() with reading=.true.
+  !> @brief Copies from Sfc_io_data_type internal arrays to the model grid by calling transfer() with reading=.true.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations .
+  !> @param[in] warm_start Is this a warm start run?
+  !> @param[in] override_frac_grid Output file ESMF grid object.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_copy_to_grid(sfc, Model, Atm_block, Sfcprop, warm_start, override_frac_grid)
     !--- interface variable definitions
     implicit none
@@ -1470,7 +1554,14 @@ contains
 
   end subroutine Sfc_io_copy_to_grid
 
-  !>@ Copies from the model grid to Sfc_io_data_type internal arrays by calling transfer() with reading=.false.
+  !> @brief Copies from the model grid to Sfc_io_data_type internal arrays by calling transfer() with reading=.false.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations 
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_copy_from_grid(sfc, Model, Atm_block, Sfcprop)
     !--- interface variable definitions
     implicit none
@@ -1484,7 +1575,14 @@ contains
 
   end subroutine Sfc_io_copy_from_grid
 
-  !>@ Calculates values and applies safeguards after reading restart data.
+  !> @brief Calculates values and applies safeguards after reading restart data.
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] Atm_block Physics block layout information.
+  !> @param[in] Sfcprop Surface properties that may be read in and/or updated by climatology or observations 
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_apply_safeguards(sfc, Model, Atm_block, Sfcprop)
     !--- interface variable definitions
     implicit none
@@ -1909,7 +2007,11 @@ contains
 
   end subroutine Sfc_io_apply_safeguards
 
-  !>@ destructor for Sfc_io_data_type
+  !> @brief destructor for Sfc_io_data_type
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_final(sfc)
     implicit none
     type(Sfc_io_data_type)             :: sfc
@@ -1925,7 +2027,7 @@ contains
     sfc%nvar_before_lake=0
     sfc%is_lsoil=.false.
 
-    ! This #define reduces code length by a lot
+    !> This #define reduces code length by a lot
 #define IF_ASSOC_DEALLOC_NULL(var) \
     if(associated(sfc%var)) then ; \
       deallocate(sfc%var) ; \
@@ -1945,7 +2047,15 @@ contains
 
   end subroutine Sfc_io_final
 
-  !>@ Creates ESMF bundles for 2D fields, for writing surface restart files using the write component (quilt)
+  !> @brief Creates ESMF bundles for 2D fields, for writing surface restart files using the write component (quilt)
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[inout] bundle ESMF_FieldBundle containing 2d fields for output.
+  !> @param[inout] grid Output file ESMF grid object.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] outputfile Full path to target output file.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_bundle_2d_fields(sfc, bundle, grid, Model, outputfile)
     use esmf
     use GFS_typedefs, only: GFS_control_type
@@ -1993,7 +2103,15 @@ contains
     endif
   end subroutine Sfc_io_bundle_2d_fields
 
-  !>@ Creates ESMF bundles for 3D fields, for writing surface restart files using the write component (quilt)
+  !> @brief Creates ESMF bundles for 3D fields, for writing surface restart files using the write component (quilt)
+  !>
+  !> @param sfc Internal data storage type for reading and writing surface restart files.
+  !> @param[inout] bundle ESMF_FieldBundle containing 3d fields for output.
+  !> @param[inout] grid Output file ESMF grid object.
+  !> @param[in] Model Model control parameters input from a nml and/or derived from others.
+  !> @param[in] outputfile Full path to target output file.
+  !>
+  !> @author Samuel Trahan @date Jun 20, 2023
   subroutine Sfc_io_bundle_3d_fields(sfc, bundle, grid, Model, outputfile)
     use esmf
     use GFS_typedefs, only: GFS_control_type
@@ -2058,4 +2176,3 @@ contains
 
   end subroutine Sfc_io_bundle_3d_fields
 end module fv3atm_sfc_io
-!> @}

@@ -1,3 +1,7 @@
+!> @file
+!> @brief Provides subroutines to enable moving nest functionality in FV3 dynamic core.
+!> @author W. Ramstrom (William.Ramstrom@noaa.gov), AOML/HRD @date 01/15/2021
+
 !***********************************************************************
 !*                   GNU General Public License                        *
 !* This file is a part of fvGFS.                                       *
@@ -17,13 +21,6 @@
 !*           675 Mass Ave, Cambridge, MA 02139, USA.                   *
 !* or see:   http://www.gnu.org/licenses/gpl.html                      *
 !***********************************************************************
-
-!***********************************************************************
-!> @file
-!! @brief   Provides subroutines to enable moving nest functionality in FV3 dynamic core.
-!! @author W. Ramstrom, AOML/HRD   01/15/2021
-!! @email William.Ramstrom@noaa.gov
-! =======================================================================!
 
 module fv_moving_nest_utils_mod
 
@@ -85,10 +82,10 @@ module fv_moving_nest_utils_mod
   implicit none
 
 #ifdef NO_QUAD_PRECISION
-  ! 64-bit precision (kind=8)
+  !> 64-bit precision (kind=8)
   integer, parameter:: f_p = selected_real_kind(15)
 #else
-  ! Higher precision (kind=16) for grid geometrical factors:
+  !> Higher precision (kind=16) for grid geometrical factors:
   integer, parameter:: f_p = selected_real_kind(20)
 #endif
 
@@ -101,7 +98,7 @@ module fv_moving_nest_utils_mod
   integer, parameter :: UWIND = 1
   integer, parameter :: VWIND = 2
 
-  logical :: debug_log = .false.
+  logical :: debug_log = .false. !< Enable logging output
 
 #include <fms_platform.h>
 
@@ -209,6 +206,14 @@ contains
   !                                             S (i-1,j+1) +
   !                                             S (i-1,j-1) )
 
+  !> @brief GEMPACK 5-point smoother
+  !>
+  !> @param[in] data_var Data array
+  !> @param[in] i i index
+  !> @param[in] j j index
+  !> @param[out] val Smoothed result
+  !>
+  !> @author
   subroutine smooth_5_point(data_var, i, j, val)
     real, allocatable, intent(in)               :: data_var(:,:)
     integer                                     :: i,j
@@ -224,6 +229,14 @@ contains
 
   end subroutine smooth_5_point
 
+  !> @brief GEMPACK 9-point smoother
+  !>
+  !> @param[in] data_var Data array
+  !> @param[in] i i index
+  !> @param[in] j j index
+  !> @param[out] val Smoothed result
+  !>
+  !> @author
   subroutine smooth_9_point(data_var, i, j, val)
     real, allocatable, intent(in)               :: data_var(:,:)
     integer                                     :: i,j
@@ -240,9 +253,20 @@ contains
 
   end subroutine smooth_9_point
 
-  ! blend_size is 5 for static nests.  We may increase it for moving nests.
-  !  This is only called for fine PEs.
-  !  Blends a few points into the nest.  Calls zs filtering if enabled in namelist.
+  !> @brief Set bleneded terrain
+  !> @details blend_size is 5 for static nests.  We may increase it for moving nests.
+  !>   This is only called for fine PEs. 
+  !>   Blends a few points into the nest.  Calls zs filtering if enabled in namelist.
+  !>
+  !> @param[inout] Atm Atm data array
+  !> @param[in] parent_orog_grid Coarse grid orography
+  !> @param[in] nest_orog_grid Orography for the full panel of the parent, at high-resolution
+  !> @param[in] refine Refinement ratio
+  !> @param[in] halo_size Size of halo around grid point
+  !> @param[in] blend_size Size of blended area around grid point
+  !> @param[in] a_step Time step
+  !>
+  !> @author
   subroutine set_blended_terrain(Atm, parent_orog_grid, nest_orog_grid, refine, halo_size, blend_size, a_step)
     type(fv_atmos_type), intent(inout), target :: Atm
     real, allocatable, intent(in)              :: parent_orog_grid(:,:)   ! Coarse grid orography
@@ -324,6 +348,16 @@ contains
 
   end subroutine set_blended_terrain
 
+  !> @brief Set nest smoothed terrain
+  !>
+  !> @param[inout] Atm Allocatable array of fv_atmos_type type
+  !> @param[in] fp_orog Orography for the full panel of the parent, at high-resolution
+  !> @param[in] refine Refinement ratio
+  !> @param[in] num_points Number of points
+  !> @param[in] halo_size Size of halo around grid point
+  !> @param[in] blend_size Size of blending area around grid point
+  !>
+  !> @author
   subroutine set_smooth_nest_terrain(Atm, fp_orog, refine, num_points, halo_size, blend_size)
     type(fv_atmos_type), intent(inout) :: Atm
     real, allocatable, intent(in)      :: fp_orog(:,:)   ! orography for the full panel of the parent, at high-resolution
@@ -389,12 +423,20 @@ contains
 
   end subroutine set_smooth_nest_terrain
 
-  !==================================================================================================
-  !
-  !  Fill Nest Halos from Parent
-  !
-  !==================================================================================================
-
+  !> @brief Fill nest halos from parent for 2d single precision data
+  !>
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r4_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
     character(len=*), intent(in)                :: var_name
     real*4, allocatable, intent(inout)          :: data_var(:,:)
@@ -452,6 +494,20 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_2d
 
+  !> @brief Fill nest halos from parent for 2d double precision data
+  !>
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !>
+  !> @author
   subroutine fill_nest_halos_from_parent_r8_2d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:)
@@ -984,6 +1040,22 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r4_4d
 
+  !> @brief Fill nest halos from parent for 4d double precision data
+  !>
+  !> @param[in] var_name Variable name for logging
+  !> @param[inout] data_var Data
+  !> @param[in] interp_type Interpolation option
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Indices for mapping
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] is_fine_pe Logical if PE is in nested grid
+  !> @param[inout] nest_domain Nest domain data
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Number of vertical levels
+  !>
+  !> @author
+  
   subroutine fill_nest_halos_from_parent_r8_4d(var_name, data_var, interp_type, wt, ind, x_refine, y_refine, is_fine_pe, nest_domain, position, nz)
     character(len=*), intent(in)                :: var_name
     real*8, allocatable, intent(inout)          :: data_var(:,:,:,:)
@@ -1048,12 +1120,18 @@ contains
 
   end subroutine fill_nest_halos_from_parent_r8_4d
 
-  !==================================================================================================
-  !
-  !  Allocate halo buffers
-  !
-  !==================================================================================================
 
+  !> @brief Allocate 2d double precision halo buffers
+  !>
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nest_domain Nested domain structure
+  !> @param[in] direction Boundary direction identifier
+  !> @param[in] position Grid stagger position 
+  !>
+  !> @author
+  
   subroutine alloc_halo_buffer_r8_2d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position)
     real*8, dimension(:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                          :: bbox_fine, bbox_coarse
@@ -1073,6 +1151,17 @@ contains
 
   end subroutine alloc_halo_buffer_r8_2d
 
+  !> @brief Allocate 2d single precision halo buffers
+  !>
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nest_domain Nested domain structure
+  !> @param[in] direction Boundary direction identifier
+  !> @param[in] position Grid stagger position
+  !>
+  !> @author
+  
   subroutine alloc_halo_buffer_r4_2d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position)
     real*4, dimension(:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                          :: bbox_fine, bbox_coarse
@@ -1169,6 +1258,18 @@ contains
 
   end subroutine alloc_halo_buffer_r4_4d
 
+  !> @brief Allocate 4d double precision halo buffers
+  !>
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nest_domain Nested domain structure
+  !> @param[in] direction Boundary direction identifier
+  !> @param[in] position Grid stagger position
+  !> @param[in] nz Vertical levels
+  !> @param[in] n4d 4th dim levels
+  !>
+  !> @author
   subroutine alloc_halo_buffer_r8_4d(buffer, bbox_fine, bbox_coarse, nest_domain, direction, position, nz, n4d)
     real*8, dimension(:,:,:,:), allocatable, intent(out) :: buffer
     type(bbox), intent(out)                              :: bbox_fine, bbox_coarse
@@ -1188,16 +1289,24 @@ contains
 
   end subroutine alloc_halo_buffer_r8_4d
 
-  !==================================================================================================
-  !
-  !  Load static data from netCDF files
-  !
-  !==================================================================================================
-
-  ! Load the full panel nest latlons from netCDF file
-  ! character(*), parameter      :: nc_filename = '/scratch2/NAGAPE/aoml-hafs1/William.Ramstrom/static_grids/C384_grid.tile6.nc'
-  ! Read in the lat/lon in degrees, convert to radians
-
+  !> @brief  Load static data from netCDF files
+  !> @details Load the full panel nest latlons from netCDF file
+  !> character(*), parameter      :: nc_filename = '/scratch2/NAGAPE/aoml-hafs1/William.Ramstrom/static_grids/C384_grid.tile6.nc'
+  !> Read in the lat/lon in degrees, convert to radians
+  !>
+  !> @param[in] nc_filename NetCDF filename
+  !> @param[in] nxp Grid points in x-direction
+  !> @param[in] nyp Grid points in y-direction
+  !> @param[in] nzp Grid points in z-direction
+  !> @param[in] refine Refinement ratio
+  !> @param[in] pelist List of processor IDs
+  !> @param[inout] fp_tile_geo Tile geometry structure
+  !> @param[out] fp_istart_fine i-coordinate start
+  !> @param[out]] fp_iend_fine i-coordinate end
+  !> @param[out] fp_jstart_fine j-coordinate start
+  !> @param[out] fp_jend_fine j-coordinate end
+  !>
+  !> @author
   subroutine load_nest_latlons_from_nc(nc_filename, nxp, nyp, refine, pelist, &
       fp_tile_geo, fp_istart_fine, fp_iend_fine, fp_jstart_fine, fp_jend_fine)
     implicit none
@@ -1299,6 +1408,17 @@ contains
   end subroutine load_nest_latlons_from_nc
 
 #ifdef OVERLOAD_R8
+  !> @brief Allocate and read 2d single precision from NetCDF file
+  !>
+  !> @param[in] nc_filename NetCDF filename
+  !> @param[in] var_name Variable name
+  !> @param[in] x_size Size in x-direction
+  !> @param[in] y_size Size in y-direction
+  !> @param[inout] data_array Data array
+  !> @param[in] pes Processor list
+  !> @param[in] time Time index for file reading
+  !>
+  !> @author
   subroutine alloc_read_data_r4_2d(nc_filename, var_name, x_size, y_size, data_array, pes, time)
     character(len=*), intent(in)           :: nc_filename, var_name
     integer, intent(in)                    :: x_size, y_size
@@ -1338,7 +1458,17 @@ contains
 
   end subroutine alloc_read_data_r4_2d
 #endif
-
+  !> @brief Allocate and read 2d double precision from NetCDF file
+  !>
+  !> @param[in] nc_filename NetCDF filename
+  !> @param[in] var_name Variable name
+  !> @param[in] x_size Size in x-direction
+  !> @param[in] y_size Size in y-direction
+  !> @param[inout] data_array Data array
+  !> @param[in] pes Processor list
+  !> @param[in] time Time index for file reading
+  !>
+  !> @author
   subroutine alloc_read_data_r8_2d(nc_filename, var_name, x_size, y_size, data_array, pes, time)
     character(len=*), intent(in)           :: nc_filename, var_name
     integer, intent(in)                    :: x_size, y_size
@@ -1383,7 +1513,22 @@ contains
   !  NetCDF Function Section
   !
   !==================================================================================================
-
+  !> @brief Write 3d grid to NetCDF file
+  !>
+  !> @param[in] flag (Unused)
+  !> @param[in] istart i-coordinate start
+  !> @param[in] iend i-coordinate end
+  !> @param[in] jstart j-coordinate start
+  !> @param[in] jend j-coordinate end
+  !> @param[in] k Vertical levels
+  !> @param[in] grid Data array
+  !> @param[in] file_str Filename
+  !> @param[in] var_name Variable name
+  !> @param[in] time_step Time step
+  !> @param[in] dom Domain decomp structure
+  !> @param[in] pos Grid position
+  !>
+  !> @author
   subroutine output_grid_to_nc_3d(flag, istart, iend, jstart, jend, k, grid, file_str, var_name, time_step, dom, pos)
     implicit none
 
@@ -1453,6 +1598,22 @@ contains
 
   end subroutine output_grid_to_nc_3d
 
+  !> @brief Write 2d grid to NetCDF file
+  !>
+  !> @param[in] flag (Unused)
+  !> @param[in] istart i-coordinate start
+  !> @param[in] iend i-coordinate end
+  !> @param[in] jstart j-coordinate start
+  !> @param[in] jend j-coordinate end
+  !> @param[in] k Vertical levels
+  !> @param[in] grid Data array
+  !> @param[in] file_str Filename
+  !> @param[in] var_name Variable name
+  !> @param[in] time_step Time step
+  !> @param[in] dom Domain decomp structure
+  !> @param[in] pos Grid position
+  !>
+  !> @author
   subroutine output_grid_to_nc_2d(flag, istart, iend, jstart, jend, grid, file_str, var_name, time_step, dom, pos)
     implicit none
 
@@ -1512,7 +1673,17 @@ contains
   !  Fill Section
   !
   !==================================================================================================
-
+  !> @brief Fill single precision grid coordinates from high-resolution 3d grid
+  !>
+  !> @param[inout] in_grid Input grid
+  !> @param[in] stagger_type Grid staggering
+  !> @param[in] fp_super_tile_geo Panel grid geometry
+  !> @param[in] ioffset i-coordinate offset
+  !> @param[in] joffset j-coordinate offset
+  !> @param[in] x_refine Refinement ratio x-direction
+  !> @param[in] y_refine Refinement ratio y-direction
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r4_3d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*4, allocatable, intent(inout)  :: in_grid(:,:,:)
@@ -1578,6 +1749,17 @@ contains
 
   end subroutine fill_grid_from_supergrid_r4_3d
 
+  !> @brief Fill double precision grid coordinates from high-resolution 3d grid
+  !>
+  !> @param[inout] in_grid Input grid
+  !> @param[in] stagger_type Grid staggering
+  !> @param[in] fp_super_tile_geo Panel grid geometry
+  !> @param[in] ioffset i-coordinate offset
+  !> @param[in] joffset j-coordinate offset
+  !> @param[in] x_refine Refinement ratio x-direction
+  !> @param[in] y_refine Refinement ratio y-direction
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r8_3d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*8, allocatable, intent(inout)  :: in_grid(:,:,:)
@@ -1643,6 +1825,17 @@ contains
 
   end subroutine fill_grid_from_supergrid_r8_3d
 
+  !> @brief Fill double precision grid coordinates from high-resolution 4d grid
+  !>
+  !> @param[inout] in_grid Input grid
+  !> @param[in] stagger_type Grid staggering
+  !> @param[in] fp_super_tile_geo Panel grid geometry
+  !> @param[in] ioffset i-coordinate offset
+  !> @param[in] joffset j-coordinate offset
+  !> @param[in] x_refine Refinement ratio x-direction
+  !> @param[in] y_refine Refinement ratio y-direction
+  !>
+  !> @author
   subroutine fill_grid_from_supergrid_r8_4d(in_grid, stagger_type, fp_super_tile_geo, ioffset, joffset, x_refine, y_refine)
     implicit none
     real*8, allocatable, intent(inout)  :: in_grid(:,:,:,:)
@@ -1710,7 +1903,19 @@ contains
 
   !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
   !>@details  Applicable to any interpolation type
-
+  !>
+  !> @param[in] interp_type Interpolation method identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r4_2d(interp_type, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -1743,7 +1948,19 @@ contains
 
   !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
   !>@details  Applicable to any interpolation type
-
+  !>
+  !> @param[in] interp_type Interpolation method identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r8_2d(interp_type, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
 
@@ -2020,9 +2237,22 @@ contains
 
   end subroutine fill_nest_from_buffer_r8_3d_lowhighz
 
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.
-  !>@details  Applicable to any interpolation type
-
+  !> @brief Fills the nest halo data from the coarse grid data (4d single precision)
+  !> @details  Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type Interpolation method identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nz Number vertical levels
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r4_4d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     integer, intent(in)                         :: interp_type
@@ -2053,6 +2283,22 @@ contains
 
   end subroutine fill_nest_from_buffer_r4_4d
 
+  !> @brief Fills the nest halo data from the coarse grid data (4d double precision)
+  !> @details  Applicable to any interpolation type
+  !>
+  !> @param[in] interp_type Interpolation method identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nz Number vertical levels
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_r8_4d(interp_type, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     integer, intent(in)                         :: interp_type
@@ -2083,9 +2329,23 @@ contains
 
   end subroutine fill_nest_from_buffer_r8_4d
 
-  !>@brief  This subroutine fills the nest halo data from the coarse grid data by downscaling.  It can accommodate all grid staggers, using the stagger variable.  [The routine needs to be renamed since "_from_cell_center" has become incorrect.)
-  !>@details  Applicable to any interpolation type
 
+  !> @brief  This subroutine fills the nest halo data from the coarse grid data (2d single precision)
+  !> @details It can accommodate all grid staggers, using the stagger variable.  [The routine needs to be renamed since "_from_cell_center" has become incorrect.)
+  !>   Applicable to any interpolation type
+  !>
+  !> @param[in] stagger Grid stagger identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r4_2d(stagger, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -2131,7 +2391,21 @@ contains
     endif
 
   end subroutine fill_nest_from_buffer_cell_center_r4_2d
-
+  
+  !> @brief  This subroutine fills the nest halo data from the coarse grid data (2d double precision)
+  !>
+  !> @param[in] stagger Grid stagger identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r8_2d(stagger, x, buffer, bbox_fine, bbox_coarse, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -2838,6 +3112,21 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r4_4d
 
+  !> @brief  This subroutine fills the nest halo data from the coarse grid data (4d double precision)
+  !>
+  !> @param[in] stagger Grid stagger identifier
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nz Number of vertical levels
+  !> @param[in] dir Direction identifier
+  !> @param[in] x_refine Refinement ratio
+  !> @param[in] y_refine Refinement ratio
+  !> @param[in] wt Interpolation weights
+  !> @param[in] ind Index mapping
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_cell_center_r8_4d(stagger, x, buffer, bbox_fine, bbox_coarse, nz, dir, x_refine, y_refine, wt, ind)
     implicit none
     character ( len = 1 ), intent(in)             :: stagger
@@ -2886,6 +3175,17 @@ contains
 
   end subroutine fill_nest_from_buffer_cell_center_r8_4d
 
+  !> @brief  This subroutine fills the nest halo data from the coarse grid data (nearest neighbor)
+  !>
+  !> @param[inout] x Data array
+  !> @param[out] buffer Data storage array
+  !> @param[out] bbox_fine Nested domain bounding box
+  !> @param[out] bbox_coarse Parent domain bounding box
+  !> @param[in] nz Number of vertical levels
+  !> @param[in] dir Direction identifier
+  !> @param[in] wt Interpolation weights
+  !>
+  !> @author
   subroutine fill_nest_from_buffer_nearest_neighbor(x, buffer, bbox_fine, bbox_coarse, nz, dir, wt)
     implicit none
 
@@ -2948,6 +3248,12 @@ contains
 
   end subroutine fill_nest_from_buffer_nearest_neighbor
 
+  !> @brief Copy interpolation weights from one array to another
+  !>
+  !> @param[inout] atm_wt Atmosphere interpolation weights to be updated
+  !> @param[in] new_wt New interpolation weights to copy
+  !>
+  !> @author
   subroutine fill_weight_grid(atm_wt, new_wt)
     real, allocatable, intent(inout) :: atm_wt(:,:,:)
     real, allocatable, intent(in) :: new_wt(:,:,:)

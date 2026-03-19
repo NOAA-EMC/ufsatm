@@ -1045,7 +1045,15 @@ contains
 
   end subroutine get_grid_attr
 
-!----------------------------------------------------------------------------------------
+  !> @brief Get dimlen if it exists.
+  !>
+  !> @param[in] ncid NetCDF file ID.
+  !> @param[in] dim_name Dimension name.
+  !> @param[in] grid ESMF output grid.
+  !> @param[in] dim_len dimension length.
+  !> @param[out] rc Return code - 0 for success, ESMF error code otherwise.
+  !>
+  !> @author Dusan Jovic @date Nov 1, 2017
   subroutine get_dimlen_if_exists(ncid, dim_name, grid, dim_len, rc)
 
     integer, intent(in)             :: ncid
@@ -1178,5 +1186,4 @@ contains
 
   end subroutine write_dim
 
-!----------------------------------------------------------------------------------------
 end module module_write_netcdf
