@@ -8,8 +8,8 @@
   branch = develop
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ClaraDraper-NOAA/ccpp-physics.git
-  branch = fix/stc_check
+  url = https://github.com/ufs-community/ccpp-physics
+  branch = ufs/dev
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
