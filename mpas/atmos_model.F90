@@ -28,8 +28,6 @@ module atmos_model_mod
   use time_manager_mod,      only : time_type, get_time, get_date, operator(+), operator(-)
   use field_manager_mod,     only : MODEL_ATMOS
   use tracer_manager_mod,    only : get_number_tracers, get_tracer_names, get_tracer_index
-  use fms_mod,               only : check_nml_error
-  use fms2_io_mod,           only : file_exists
   use mpp_mod,               only : input_nml_file, mpp_error, FATAL
   use mpp_mod,               only : mpp_pe, mpp_root_pe, mpp_clock_id, mpp_clock_begin
   use mpp_mod,               only : mpp_clock_end, CLOCK_COMPONENT, MPP_CLOCK_SYNC
@@ -122,6 +120,7 @@ contains
     integer :: i, io, ierr, nConstituents, sec, iCol
     type(MPAS_control_type) :: Cfg
     integer :: times(6), timee(6), ttime, logUnits(2), nthrds
+    logical :: file_exists
     
     ! Set up timers
     setupClock = mpp_clock_id( 'Time-Step Setup       ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
@@ -155,9 +154,10 @@ contains
     Cfg%mpi_comm  = mpicomm
     
     ! Read in ATMosphere namelist.
-    if (file_exists('input.nml')) then
-       read(input_nml_file, nml=atmos_model_nml, iostat=io)
-       ierr = check_nml_error(io, 'atmos_model_nml')
+    inquire(file = 'input.nml', exist=file_exists)
+    if (file_exists) then
+       read(input_nml_file, nml=atmos_model_nml, iostat=ierr)
+       if (ierr/=0)  call mpp_error(FATAL, 'ERROR When Reading in ATM Namelist')
     endif
 
     !
