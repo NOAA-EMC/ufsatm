@@ -1,3 +1,6 @@
+!> @file
+!> @brief FV3 Post processing
+!> @author J. Wang  @date July 2019
 module post_fv3
 
   use mpi_f08
@@ -14,31 +17,48 @@ module post_fv3
 
   contains
 
+    !> @brief Run inline post-processing for FV3 model output
+    !>
+    !> @details This subroutine handles post-processing of FV3 model output fields, including:
+    !> - Setting up dimensions and grid information
+    !> - Reading post control files and namelist settings  
+    !> - Allocating post variables
+    !> - Processing and writing output fields
+    !>
+    !> @param[inout] wrt_int_state Internal state for writing output
+    !> @param[in] grid_id Grid identifier
+    !> @param[in] mype MPI rank
+    !> @param[in] mpicomp MPI communicator
+    !> @param[in] lead_write Lead write task flag
+    !> @param[in] itasks Number of I tasks
+    !> @param[in] jtasks Number of J tasks  
+    !> @param[in] mynfhr Forecast hour
+    !> @param[in] mynfmin Forecast minutes
+    !> @param[in] mynfsec Forecast seconds
+    !>
+    !> Revision History:
+    !> | Date | Author | Change |
+    !> |------|--------|--------|
+    !> | Jul 2019 | J. Wang | Created interface for FV3 inline post |
+    !> | Sep 2020 | J. Dong/J. Wang | Added FV3-LAM interface |
+    !> | Apr 2021 | R. Sun | Added Thompson MP variables |
+    !> | Apr 2022 | W. Meng | 1) Unified global/regional interfaces |
+    !> |          |         | 2) Add bug fix for dx/dy computation |
+    !> |          |         | 3) Add reading pwat from FV3 |
+    !> |          |         | 4) Remove some variable initializations |
+    !> |          |         | 5) Read max/min 2m T from tmax_max2m/tmin_min2m for GFS, |
+    !> |          |         |    and from t02max/min for RRFS and HAFS |
+    !> |          |         | 6) Read 3D cloud fraction from cld_amt for GFDL MP, |
+    !> |          |         |    and from cldfra for other MPs |
+    !> | Jun 2022 | J. Meng | 2D decomposition |
+    !> | Jul 2022 | W. Meng | 1) Output lat/lon of four corner point for rotated lat-lon grid |
+    !> |          |         | 2) Read instant model top logwave |
+    !>
+    !> @author J. Wang
+    !> @date July 2019
     subroutine post_run_fv3(wrt_int_state,grid_id,mype,mpicomp,lead_write, &
                             itasks,jtasks,mynfhr,mynfmin,mynfsec)
-!
-!  revision history:
-!     Jul 2019    J. Wang             create interface to run inline post for FV3
-!     Sep 2020    J. Dong/J. Wang     create interface to run inline post for FV3-LAM
-!     Apr 2021    R. Sun              Added variables for Thomspon MP
-!     Apr 2022    W. Meng             1)unify global and regional inline post interfaces
-!                                     2)add bug fix for dx/dy computation
-!                                     3)add reading pwat from FV3
-!                                     4)remove some variable initializations
-!                                     5)read max/min 2m T from tmax_max2m/tmin_min2m
-!                                       for GFS, and from t02max/min for RRFS
-!                                       and  HAFS.
-!                                     6)read 3D cloud fraction from cld_amt for GFDL MP,
-!                                       and from cldfra for other MPs.
-!     Jun 2022    J. Meng             2D decomposition
-!     Jul 2022    W. Meng             1)output lat/lon of four corner point for rotated
-!                                       lat-lon grid.
-!                                     2)read instant model top logwave
-!
-!-----------------------------------------------------------------------
-!*** run post on write grid comp
-!-----------------------------------------------------------------------
-!
+
       use ctlblk_mod, only : komax,ifhr,ifmin,modelname,datapd,fld_info, &
                              npset,grib,jsta,  &
                              jend,ista,iend, im, nsoil, filenameflat,numx
@@ -209,9 +229,19 @@ module post_fv3
       call post_finalize('grib2')
 
     end subroutine post_run_fv3
-!
-!-----------------------------------------------------------------------
-!
+    
+    !> @brief Get attributes and grid information for FV3 post-processing
+    !> @details This subroutine retrieves and sets up essential grid and model attributes including:
+    !> - Grid specifications (map type, grid type, dimensions)
+    !> - Geographic parameters (latitudes, longitudes, grid spacing)
+    !> - Model configuration parameters (physics options, soil layers)
+    !> - Field attributes from field bundles
+    !>
+    !> @param[inout] wrt_int_state Internal state containing write information
+    !> @param[in] grid_id Identifier for the grid being processed
+    !>
+    !> @author J. Wang
+    !> @date July 2019
     subroutine post_getattr_fv3(wrt_int_state,grid_id)
 !
       use esmf
@@ -480,23 +510,32 @@ module post_fv3
       enddo !end nfb
 !
     end subroutine post_getattr_fv3
-!
-!-----------------------------------------------------------------------
-!
+
+    !> @brief Set up post-processing variables from FV3 model output
+    !>
+    !> @details This subroutine sets up and initializes post-processing variables using FV3 model output, including:
+    !> - Reading field bundles and extracting field data
+    !> - Setting up grid dimensions and specifications
+    !> - Initializing post-processing variables with model data
+    !> - Handling special fields like land-sea mask and ice fraction
+    !>
+    !> @param[inout] wrt_int_state Internal state containing write information
+    !> @param[in] grid_id Identifier for the grid being processed
+    !> @param[in] mype MPI rank
+    !> @param[in] mpicomp MPI communicator
+    !>
+    !> Revision History:
+    !> | Date | Author | Change |
+    !> |------|--------|--------|
+    !> | Jul 2019 | J. Wang | Initial code |
+    !> | Apr 2022 | W. Meng | Unified set_postvars_gfs and set_postvars_regional to set_postvars_fv3 |
+    !> | Apr 2023 | W. Meng | Synced RRFS and GFS changes from off-line post |
+    !> | Jun 2023 | W. Meng | 1) Removed duplicate initialization |
+    !> |          |         | 2) Relocated computation of aerosol fields |
+    !>
+    !> @author J. Wang
+    !> @date July 2019
     subroutine set_postvars_fv3(wrt_int_state,grid_id,mype,mpicomp)
-!
-!  revision history:
-!     Jul 2019    J. Wang      Initial code
-!     Apr 2022    W. Meng      Unify set_postvars_gfs and
-!                               set_postvars_regional to set_postvars_fv3
-!     Apr 2023    W. Meng      Sync RRFS and GFS changes from off-line post
-!     Jun 2023    W. Meng      Remove duplicate initialization;
-!                              relocate computation of aerosol fields
-!
-!-----------------------------------------------------------------------
-!*** set up post fields from nmint_state
-!-----------------------------------------------------------------------
-!
       use esmf
       use vrbls4d,     only: dust, smoke, fv3dust, coarsepm, SALT, SUSO, SOOT, &
                              WASO,no3,nh4, PP25, PP10, ebb
