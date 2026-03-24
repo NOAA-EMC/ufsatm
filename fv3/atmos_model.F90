@@ -956,7 +956,9 @@ subroutine update_atmos_model_state (Atmos, rc)
 
     call get_time (Atmos%Time - diag_time, isec)
     call get_time (Atmos%Time - Atmos%Time_init, seconds)
-    call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
+    if(Atmos%iau_offset > zero) then
+      call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
+    endif
     call atmosphere_nggps_diag(Atmos%Time,ltavg=.true.,avg_max_length=avg_max_length)
     if (ANY(nint(output_fh(:)*3600.0) == seconds) .or. (GFS_control%kdt == first_kdt)) then
       if (mpp_pe() == mpp_root_pe()) write(6,*) "---isec,seconds",isec,seconds
