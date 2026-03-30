@@ -2,7 +2,7 @@
 #
 # Alex Richert, Jan 2024
 #
-# Add More unit tests 
+# Add More unit tests
 # Daniel Sarmiento, Jun 2025
 
 find_package(PIO REQUIRED COMPONENTS C Fortran)
@@ -25,7 +25,7 @@ function(add_fv3atm_serial_test TESTNAME)
   add_test(${TESTNAME} ${CMAKE_CURRENT_BINARY_DIR}/${TESTNAME})
 endfunction()
 
-foreach(testname test_atmos_model test_fv3_cap test_module_wrt_grid_comp)
+foreach(testname test_atmos_model test_fv3_cap test_module_wrt_grid_comp test_module_copy2block)
   add_fv3atm_mpi_test(${testname})
 endforeach()
 
