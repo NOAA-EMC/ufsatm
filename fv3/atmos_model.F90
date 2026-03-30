@@ -135,6 +135,7 @@ public setup_inlinedata
 public set_fhzero_loop, InitTimeFromIAUOffset
 public get_atmos_tracer_types
 public copy2block
+public atmos_model_set_copy2block_test_state
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
@@ -509,7 +510,9 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 #ifdef _OPENMP
   use omp_lib
 #endif
+#ifdef STOCH_PHYS
   use update_ca, only: read_ca_restart
+#endif
 
   type (atmos_data_type), intent(inout) :: Atmos
   type (time_type), intent(in) :: Time_init, Time, Time_step
@@ -707,9 +710,11 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    endif
    call fv3atm_restart_read (GFS_sfcprop, GFS_restart_var, Atm_block, GFS_control, Atmos%domain_for_read, &
                              Atm(mygrid)%flagstruct%warm_start, ignore_rst_cksum)
-   if(GFS_control%do_ca .and. Atm(mygrid)%flagstruct%warm_start)then
-      call read_ca_restart (Atmos%domain,3,GFS_control%ncells,GFS_control%nca,GFS_control%ncells_g,GFS_control%nca_g)
-   endif
+#ifdef STOCH_PHYS
+  if(GFS_control%do_ca .and. Atm(mygrid)%flagstruct%warm_start)then
+    call read_ca_restart (Atmos%domain,3,GFS_control%ncells,GFS_control%nca,GFS_control%ncells_g,GFS_control%nca_g)
+  endif
+#endif
    ! Populate the GFS_Statein container with the prognostic state
    ! in Atm_block, which contains the initial conditions/restart data.
    ! SA-3D-TKE added GFS_Tbd (kyf)
@@ -1032,8 +1037,10 @@ subroutine update_atmos_model_state (Atmos, rc)
 !>
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 subroutine atmos_model_end (Atmos)
+#ifdef STOCH_PHYS
   use get_stochy_pattern_mod, only: write_stoch_restart_atm
   use update_ca, only: write_ca_restart
+#endif
   type (atmos_data_type), intent(inout) :: Atmos
 !---local variables
   integer :: ierr
@@ -1076,7 +1083,9 @@ end subroutine atmos_model_end
 !> @param[inout] Atmos Derived-type variable describing atmospheric grid
 !> @param[in] timestamp Model timestamp
 subroutine atmos_model_restart(Atmos, timestamp)
+#ifdef STOCH_PHYS
   use update_ca, only: write_ca_restart
+#endif
   type (atmos_data_type),   intent(inout) :: Atmos
   character(len=*),  intent(in)           :: timestamp
 
@@ -1089,9 +1098,11 @@ subroutine atmos_model_restart(Atmos, timestamp)
        call fv3atm_restart_write (GFS_sfcprop, GFS_restart_var, Atm_block, &
                                   GFS_control, Atmos%domain, timestamp)
     endif
+#ifdef STOCH_PHYS
     if(GFS_control%do_ca)then
        call write_ca_restart(timestamp)
     endif
+#endif
 end subroutine atmos_model_restart
 !> @brief Retrieve ungridded dimensions of atmospheric model arrays
 !>
@@ -3443,6 +3454,12 @@ end subroutine update_atmos_chemistry
    call get_nth_domain_info(n, layout, nx, ny, pelist)
 
   end subroutine atmos_model_get_nth_domain_info
+
+  subroutine atmos_model_set_copy2block_test_state(block)
+    type(block_control_type), intent(in) :: block
+
+    Atm_block = block
+  end subroutine atmos_model_set_copy2block_test_state
 
 
   subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, factor, rc)

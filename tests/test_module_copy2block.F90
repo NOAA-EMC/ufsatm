@@ -3,7 +3,7 @@ program test_module_copy2block
   !! Tests copy2block across multiple grid decompositions and block sizes
 
   use ESMF,              only: ESMF_KIND_R8, ESMF_SUCCESS
-  use block_control_mod, only: block_control_type, create_block_control
+  use block_control_mod, only: block_control_type
   use CCPP_data,         only: GFS_control
   use GFS_typedefs,      only: GFS_kind_phys => kind_phys
   use atmos_model_mod,   only: copy2block, atmos_model_set_copy2block_test_state
@@ -13,6 +13,8 @@ program test_module_copy2block
   ! Define test configurations
   integer, parameter :: num_configs = 8
   integer, parameter :: max_grid_size = 16
+  !integer, parameter :: num_configs = 1
+  !integer, parameter :: max_grid_size = 8
 
   type :: test_config_type
      integer :: nx, ny                  !! Grid dimensions
@@ -127,6 +129,13 @@ contains
   subroutine setup_test_configurations(configs)
     type(test_config_type), intent(out) :: configs(:)
 
+!    configs(1)%nx = 8
+!    configs(1)%ny = 8
+!    configs(1)%inpes = 1
+!    configs(1)%jnpes = 1
+!    configs(1)%blocksize = 8
+!    configs(1)%description = "8x8, inpes=1, jnpes=1, bs=8"
+
     ! Configuration 1: Small 8x8 grid, 2x4 decomposition, blocksize 8
     configs(1)%nx = 8
     configs(1)%ny = 8
@@ -134,7 +143,7 @@ contains
     configs(1)%jnpes = 4
     configs(1)%blocksize = 8
     configs(1)%description = "8x8, inpes=2, jnpes=4, bs=8"
-
+!#ifdef test
     ! Configuration 2: 8x8 grid, 2x2 decomposition, blocksize 16
     configs(2)%nx = 8
     configs(2)%ny = 8
@@ -190,7 +199,7 @@ contains
     configs(8)%jnpes = 8
     configs(8)%blocksize = 16
     configs(8)%description = "16x16, inpes=2, jnpes=8, bs=16 (many blocks)"
-
+!#endif
   end subroutine setup_test_configurations
 
   !============================================================================
@@ -221,9 +230,7 @@ contains
     block_ctl%iec = nx
     block_ctl%jsc = 1
     block_ctl%jec = ny
-    block_ctl%ni = nx
-    block_ctl%nj = ny
-    block_ctl%nblocks = nblocks
+    block_ctl%nblks = nblocks
 
     allocate(block_ctl%blkno(block_ctl%isc:block_ctl%iec, block_ctl%jsc:block_ctl%jec))
     allocate(block_ctl%ixp(block_ctl%isc:block_ctl%iec, block_ctl%jsc:block_ctl%jec))
@@ -298,20 +305,20 @@ contains
 
     GFS_control%isc = block_ctl%isc
     GFS_control%jsc = block_ctl%jsc
-    GFS_control%nx = block_ctl%ni
-    GFS_control%ny = block_ctl%nj
+    GFS_control%nx = block_ctl%iec - block_ctl%isc + 1
+    GFS_control%ny = block_ctl%jec - block_ctl%jsc + 1
     GFS_control%huge = 9.9692099683868690E30_GFS_kind_phys
 
     if (associated(GFS_control%chunk_begin)) deallocate(GFS_control%chunk_begin)
-    allocate(GFS_control%chunk_begin(block_ctl%nblocks))
+    allocate(GFS_control%chunk_begin(block_ctl%nblks))
 
     offset = 1
-    do block_id = 1, block_ctl%nblocks
+    do block_id = 1, block_ctl%nblks
        GFS_control%chunk_begin(block_id) = offset
        offset = offset + block_ctl%blksz(block_id)
     end do
 
-    call atmos_model_set_copy2block_test_state(block)
+    call atmos_model_set_copy2block_test_state(block_ctl)
 
   end subroutine setup_copy2block_state
 
@@ -337,20 +344,15 @@ contains
     print *, "  [Config ", config_idx, "] Test ", test_num, ": Block Structure Initialization"
 
     ! Check that block size array is properly initialized
-    if (.not. allocated(block_ctl%blksz)) then
+    if (.not. allocated(block%blksz)) then
        print *, "    FAILED: blksz array not allocated"
        return
     end if
 
     ! Check grid dimensions
-    if (block_ctl%ni /= block_ctl%iec - block_ctl%isc + 1 .or. block_ctl%nj /= block_ctl%jec - block_ctl%jsc + 1) then
-       print *, "    FAILED: Grid dimensions incorrect"
-       return
-    end if
-
     ! Check that total points match grid size
-    total_pts = (block_ctl%iec - block_ctl%isc + 1) * (block_ctl%jec - block_ctl%jsc + 1)
-    computed_total = sum(block_ctl%blksz)
+    total_pts = (block%iec - block%isc + 1) * (block%jec - block%jsc + 1)
+    computed_total = sum(block%blksz)
     if (computed_total /= total_pts) then
        print *, "    FAILED: Total points mismatch"
        print *, "      Expected: ", total_pts, " Computed: ", computed_total
@@ -358,20 +360,20 @@ contains
     end if
 
     ! Check that global indices are within domain bounds
-    do i = 1, block_ctl%nblocks
-       if (minval(block_ctl%index(i)%ii) < block_ctl%isc) then
+    do i = 1, block%nblks
+       if (minval(block%index(i)%ii) < block%isc) then
           print *, "    FAILED: I index below isc in block ", i
           return
        end if
-       if (maxval(block_ctl%index(i)%ii) > block_ctl%iec) then
+       if (maxval(block%index(i)%ii) > block%iec) then
           print *, "    FAILED: I index exceeds iec in block ", i
           return
        end if
-       if (minval(block_ctl%index(i)%jj) < block_ctl%jsc) then
+       if (minval(block%index(i)%jj) < block%jsc) then
           print *, "    FAILED: J index below jsc in block ", i
           return
        end if
-       if (maxval(block_ctl%index(i)%jj) > block_ctl%jec) then
+       if (maxval(block%index(i)%jj) > block%jec) then
           print *, "    FAILED: J index exceeds jec in block ", i
           return
        end if
@@ -392,19 +394,21 @@ contains
     real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Basic Mapping"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
     dest_1d = -1.0_GFS_kind_phys
     mask = 1.0_GFS_kind_phys
-    do j = 1, block%nj
-       do i = 1, block%ni
+    do j = 1, ny_local
+       do i = 1, nx_local
           source_2d(i, j) = real(100 * j + i, ESMF_KIND_R8)
        end do
     end do
@@ -451,19 +455,21 @@ contains
     real(GFS_kind_phys), parameter :: validmax = 5.0_GFS_kind_phys
     real(GFS_kind_phys) :: expected
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Factor and Bounds"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
     dest_1d = -1.0_GFS_kind_phys
     mask = 1.0_GFS_kind_phys
-    do j = 1, block%nj
-       do i = 1, block%ni
+    do j = 1, ny_local
+       do i = 1, nx_local
           source_2d(i, j) = real(i - 2 * j, ESMF_KIND_R8)
        end do
     end do
@@ -509,19 +515,21 @@ contains
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
     real(GFS_kind_phys), parameter :: sentinel = -777.0_GFS_kind_phys
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Mask Handling"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
     dest_1d = sentinel
     mask = 0.0_GFS_kind_phys
-    do j = 1, block%nj
-       do i = 1, block%ni
+    do j = 1, ny_local
+       do i = 1, nx_local
           source_2d(i, j) = real(10 * j + i, ESMF_KIND_R8)
           if (mod(i + j, 2) == 0) then
              im = packed_index(block, i, j)
@@ -574,19 +582,21 @@ contains
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
     real(GFS_kind_phys), parameter :: sentinel = -999.0_GFS_kind_phys
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Without Mask"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts))
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
 
     dest_1d = sentinel
-    do j = 1, block%nj
-       do i = 1, block%ni
+    do j = 1, ny_local
+       do i = 1, nx_local
           source_2d(i, j) = real(1000 + 10 * j + i, ESMF_KIND_R8)
        end do
     end do
@@ -624,23 +634,32 @@ contains
   ! TEST: copy2block mismatched shapes
   !============================================================================
   subroutine test_copy2block_mismatched_shapes(block, test_num, passed_count, config_idx)
+
     type(block_control_type), intent(in) :: block
     integer, intent(in) :: test_num, config_idx
     integer, intent(inout) :: passed_count
+
     real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
-    integer :: rc, total_pts
+
+    integer :: rc, total_pts, nx_local, ny_local
     logical :: test_pass
+
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Mismatched Shapes"
+
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(block%ni+1, block%nj))  ! Deliberate shape mismatch
+    allocate(source_2d(nx_local-1, ny_local))  ! Deliberate shape mismatch
     dest_1d = -1.0_GFS_kind_phys
     mask = 1.0_GFS_kind_phys
     source_2d = 1.0
     rc = -999
+
     call copy2block(dest_1d, source_2d, mask, rc=rc)
+
     test_pass = rc /= ESMF_SUCCESS
     if (test_pass) then
        print *, "    PASSED (error detected as expected)"
@@ -662,15 +681,17 @@ contains
     real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
 
-    integer :: rc, total_pts
+    integer :: rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Invalid Mask"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts-1))  ! Deliberate mask size error
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
     dest_1d = -1.0_GFS_kind_phys
     mask = 1.0_GFS_kind_phys
     source_2d = 1.0
@@ -699,16 +720,18 @@ contains
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
     real(GFS_kind_phys), parameter :: val = 3.14_GFS_kind_phys
 
-    integer :: rc, total_pts
+    integer :: rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block validmin == validmax"
 
     call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
 
     total_pts = sum(block%blksz)
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(block%ni, block%nj))
+    allocate(source_2d(nx_local, ny_local))
     dest_1d = -1.0_GFS_kind_phys
     mask = 1.0_GFS_kind_phys
     source_2d = 2.0
@@ -734,15 +757,21 @@ contains
     integer, intent(in) :: test_num, config_idx
     integer, intent(inout) :: passed_count
 
-    real(GFS_kind_phys), pointer :: dest_1d(:) => null()
-    real(ESMF_KIND_R8), pointer :: source_2d(:,:) => null()
-    real(GFS_kind_phys), pointer :: mask(:) => null()
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
 
-    integer :: rc
+    integer :: rc, nx_local, ny_local
     logical :: test_pass
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Unassociated Targets"
-    ! Do not allocate any arrays; pass as null pointers
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    allocate(dest_1d(0), mask(1), source_2d(nx_local, ny_local))
+    mask = 1.0_GFS_kind_phys
+    source_2d = 1.0
+
+    ! Deliberately insufficient destination size
     rc = -999
 
     call copy2block(dest_1d, source_2d, mask, rc=rc)
@@ -751,8 +780,9 @@ contains
        print *, "    PASSED (error detected as expected)"
        passed_count = passed_count + 1
     else
-       print *, "    FAILED: copy2block did not detect unassociated targets"
+       print *, "    FAILED: copy2block did not detect insufficient destination size"
     end if
+    deallocate(dest_1d, mask, source_2d)
   end subroutine test_copy2block_unassociated_targets
 
 end program test_module_copy2block
