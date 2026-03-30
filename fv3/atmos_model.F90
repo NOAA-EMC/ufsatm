@@ -1975,7 +1975,7 @@ end subroutine update_atmos_chemistry
           fldname = 'sea_ice_surface_temperature'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Sfcprop%tisfc, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0, rc=rc)
+              call copy2block(GFS_Sfcprop%tisfc, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
             endif
           endif
 
