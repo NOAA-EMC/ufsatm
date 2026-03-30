@@ -3449,9 +3449,9 @@ end subroutine update_atmos_chemistry
 
    use ESMF
 
-   real(kind=GFS_kind_phys), intent(out), target  :: destin_ptr(:)
-   real(ESMF_KIND_R8),       intent(in),  target  :: source_ptr(:,:)
-  real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
+  real(kind=GFS_kind_phys), intent(out), target            :: destin_ptr(:)
+  real(ESMF_KIND_R8),       intent(in),  target            :: source_ptr(:,:)
+  real(kind=GFS_kind_phys), intent(in),  target, optional  :: mask(:)
    real(kind=GFS_kind_phys), intent(in), optional :: validmin
    real(kind=GFS_kind_phys), intent(in), optional :: validmax
    real(kind=GFS_kind_phys), intent(in), optional :: factor
@@ -3459,24 +3459,45 @@ end subroutine update_atmos_chemistry
 
    integer :: isc, jsc, iec, jec
    integer :: i, j, nb, ix, im
+  integer :: nx_local, ny_local, required_size
 
    real(kind=GFS_kind_phys) :: fval, spval
    real(kind=GFS_kind_phys) :: lvmin, lvmax, lfactor
 
    rc = ESMF_SUCCESS
 
-   if (.not. associated(destin_ptr)) then
-     rc = ESMF_FAILURE
-     return
-   end if
-   if (.not. associated(source_ptr)) then
-     rc = ESMF_FAILURE
-     return
-   end if
    isc = GFS_control%isc
    iec = GFS_control%isc + GFS_control%nx - 1
    jsc = GFS_control%jsc
    jec = GFS_control%jsc + GFS_control%ny - 1
+   nx_local = iec - isc + 1
+   ny_local = jec - jsc + 1
+
+   if (size(source_ptr,1) < nx_local .or. size(source_ptr,2) < ny_local) then
+     rc = ESMF_FAILURE
+     return
+   end if
+
+   required_size = 0
+   do j = jsc, jec
+     do i = isc, iec
+       nb = Atm_block%blkno(i,j)
+       ix = Atm_block%ixp(i,j)
+       im = GFS_control%chunk_begin(nb) + ix - 1
+       required_size = max(required_size, im)
+     end do
+   end do
+
+   if (size(destin_ptr) < required_size) then
+     rc = ESMF_FAILURE
+     return
+   end if
+   if (present(mask)) then
+     if (size(mask) < required_size) then
+       rc = ESMF_FAILURE
+       return
+     end if
+   end if
 
    spval  = GFS_control%huge
 
