@@ -746,6 +746,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
 
    !--- set the initial diagnostic timestamp
    diag_time = Time
+   diag_time_fhzero = Atmos%Time_init
    call get_time (Atmos%Time - Atmos%Time_init, sec)
    call set_fhzero_loop(sec, sec_lastfhzerofh)
    if (mpp_pe() == mpp_root_pe()) print *,'in atmos_model, fhzero=',GFS_Control%fhzero, 'fhour=',sec/3600.,sec_lastfhzerofh/3600
@@ -961,12 +962,13 @@ subroutine update_atmos_model_state (Atmos, rc)
 
     call get_time (Atmos%Time - diag_time, isec)
     call get_time (Atmos%Time - Atmos%Time_init, seconds)
+    call get_time (Atmos%Time - diag_time_fhzero, isec_fhzero)
     call atmosphere_nggps_diag(Atmos%Time,ltavg=.true.,avg_max_length=avg_max_length)
     if (ANY(nint(output_fh(:)*3600.0) == seconds) .or. (GFS_control%kdt == first_kdt)) then
       if (mpp_pe() == mpp_root_pe()) write(6,*) "---isec,seconds",isec,seconds
       time_int = real(isec)
       time_intfull = real(seconds)
-      call InitTimeFromIAUOffset(Atmos, time_int, time_intfull)
+      call InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds, isec_fhzero)
       if (mpp_pe() == mpp_root_pe()) write(6,*) 'gfs diags time since last bucket empty: ',time_int,' time_intfull=', &
          time_intfull,' kdt=',GFS_control%kdt
       call atmosphere_nggps_diag(Atmos%Time)
@@ -1011,16 +1013,22 @@ subroutine update_atmos_model_state (Atmos, rc)
   !> @param[inout] atmos the main atmos model configurations
   !> @param[inout] time_init model initialization time
   !> @param[inout] time_intfull model time remaining
+  !> @param[in]    seconds runtime from model initialization
+  !> @param[in]    isec_fhzero model time delta from init to forecast hour 00
   !>
   !> @author Daniel Sarmiento @date May 16, 2025
- subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull)
+  !> @date Mar 24, 2026 :: Fix average fields at f000 when using IAU
+ subroutine InitTimeFromIAUOffset(Atmos, time_int, time_intfull, seconds, isec_fhzero)
 
    type (atmos_data_type),   intent(inout)  :: Atmos
    real(kind=GFS_kind_phys), intent(inout)  :: time_int, time_intfull
+   integer,                  intent(in)     :: seconds, isec_fhzero
 
    if(Atmos%iau_offset > zero) then
      if( time_int - Atmos%iau_offset*3600. > zero ) then
        time_int = time_int - Atmos%iau_offset*3600.
+     else if (seconds == nint(Atmos%iau_offset*3600.)) then
+       time_int = real(isec_fhzero)
      endif
      if( time_intfull - Atmos%iau_offset*3600. > zero) then
        time_intfull = time_intfull - Atmos%iau_offset*3600.
