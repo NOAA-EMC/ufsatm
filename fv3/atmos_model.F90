@@ -2014,84 +2014,38 @@ end subroutine update_atmos_chemistry
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
 
                 if (GFS_control%cpl_imp_mrg) then
-                  !subroutine merge_importfields(destin_ptr, source_ptr, mergflg, source_ptr2d, mask, block, rc)
                   call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
                 end if
               endif
             end if
-! !$omp parallel do default(shared) private(i,j,nb,ix,im)
-!                 do j=jsc,jec
-!                   do i=isc,iec
-!                     nb = Atm_block%blkno(i,j)
-!                     ix = Atm_block%ixp(i,j)
-!                     im = GFS_control%chunk_begin(nb)+ix-1
-!                     if (GFS_Sfcprop%oceanfrac(im) > zero .and. datar8(i,j) > 150.0) then
-!                       if(mergeflg(i,j)) then
-!                         GFS_Sfcprop%tsfco(im) = GFS_Sfcprop%tsfc(im)
-!                         datar8(i,j) = GFS_Sfcprop%tsfc(im)
-!                       else
-!                         GFS_Sfcprop%tsfco(im)       = datar8(i,j)
-!                       endif
-!                     endif
-!                   enddo
-!                 enddo
-!                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
-!               endif
-!             endif
 
 ! get zonal ocean current:
 !--------------------------------------------------------------------------
             fldname = 'ocn_current_zonal'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-
-                !subroutine merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-                do j=jsc,jec
-                  do i=isc,iec
-                    nb = Atm_block%blkno(i,j)
-                    ix = Atm_block%ixp(i,j)
-                    im = GFS_control%chunk_begin(nb)+ix-1
-                    GFS_Sfcprop%usfco(im) = zero
-                    if (GFS_Sfcprop%oceanfrac(im) > zero) then  ! ocean points
-                      if(mergeflg(i,j)) then
-                        GFS_Sfcprop%usfco(im)       =  zero
-                        datar8(i,j) = zero
-                      else
-                        GFS_Sfcprop%usfco(im)       = datar8(i,j)
-                      endif
-                    endif
-                  enddo
-                enddo
+                call copy2block(GFS_Sfcprop%usfco, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get usfco from mediator'
-              endif
-            endif
+
+                if (GFS_control%cpl_imp_mrg) then
+                  call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                end if
+              end if
+            end if
 
 ! get meridional ocean current:
 !--------------------------------------------------------------------------
             fldname = 'ocn_current_merid'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-                do j=jsc,jec
-                  do i=isc,iec
-                    nb = Atm_block%blkno(i,j)
-                    ix = Atm_block%ixp(i,j)
-                    im = GFS_control%chunk_begin(nb)+ix-1
-                    GFS_Sfcprop%vsfco(im) = zero
-                    if (GFS_Sfcprop%oceanfrac(im) > zero) then  ! ocean points
-                      if(mergeflg(i,j)) then
-                        GFS_Sfcprop%vsfco(im)       =  zero
-                        datar8(i,j) = zero
-                      else
-                        GFS_Sfcprop%vsfco(im)       = datar8(i,j)
-                      endif
-                    endif
-                  enddo
-                enddo
+                call copy2block(GFS_Sfcprop%vsfco, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get vsfco from mediator'
-              endif
-            endif
+
+                if (GFS_control%cpl_imp_mrg) then
+                  call merge_importfield(GFS_Sfcprop%vsfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                end if
+              end if
+            end if
           end if ! GFS_control%cplocn2atm
 
 ! get sea ice fraction:  fice or sea ice concentration from the mediator
@@ -3695,7 +3649,7 @@ end subroutine update_atmos_chemistry
         end if
         if (mergeflg(i,j)) then
           destin_ptr(im) = scalarfill
-          source_ptr2d(i,j) = source_ptr(im)
+          source_ptr2d(i,j) = scalarfill
         end if
       end do
     end do
