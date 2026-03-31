@@ -135,6 +135,13 @@ public setup_inlinedata
 public set_fhzero_loop, InitTimeFromIAUOffset
 public get_atmos_tracer_types
 public copy2block
+
+interface merge_importfield
+  module procedure merge_importfield_with_field
+  module procedure merge_importfield_with_scalar
+end interface merge_importfield
+
+public merge_importfield
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
@@ -2003,31 +2010,42 @@ end subroutine update_atmos_chemistry
             fldname = 'sea_surface_temperature'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-                do j=jsc,jec
-                  do i=isc,iec
-                    nb = Atm_block%blkno(i,j)
-                    ix = Atm_block%ixp(i,j)
-                    im = GFS_control%chunk_begin(nb)+ix-1
-                    if (GFS_Sfcprop%oceanfrac(im) > zero .and. datar8(i,j) > 150.0) then
-                      if(mergeflg(i,j)) then
-                        GFS_Sfcprop%tsfco(im) = GFS_Sfcprop%tsfc(im)
-                        datar8(i,j) = GFS_Sfcprop%tsfc(im)
-                      else
-                        GFS_Sfcprop%tsfco(im)       = datar8(i,j)
-                      endif
-                    endif
-                  enddo
-                enddo
+                call copy2block(GFS_Sfcprop%tsfco, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
+
+                if (GFS_control%cpl_imp_mrg) then
+                  !subroutine merge_importfields(destin_ptr, source_ptr, mergflg, source_ptr2d, mask, block, rc)
+                  call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                end if
               endif
-            endif
+            end if
+! !$omp parallel do default(shared) private(i,j,nb,ix,im)
+!                 do j=jsc,jec
+!                   do i=isc,iec
+!                     nb = Atm_block%blkno(i,j)
+!                     ix = Atm_block%ixp(i,j)
+!                     im = GFS_control%chunk_begin(nb)+ix-1
+!                     if (GFS_Sfcprop%oceanfrac(im) > zero .and. datar8(i,j) > 150.0) then
+!                       if(mergeflg(i,j)) then
+!                         GFS_Sfcprop%tsfco(im) = GFS_Sfcprop%tsfc(im)
+!                         datar8(i,j) = GFS_Sfcprop%tsfc(im)
+!                       else
+!                         GFS_Sfcprop%tsfco(im)       = datar8(i,j)
+!                       endif
+!                     endif
+!                   enddo
+!                 enddo
+!                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
+!               endif
+!             endif
 
 ! get zonal ocean current:
 !--------------------------------------------------------------------------
             fldname = 'ocn_current_zonal'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
+
+                !subroutine merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
 !$omp parallel do default(shared) private(i,j,nb,ix,im)
                 do j=jsc,jec
                   do i=isc,iec
@@ -2844,6 +2862,8 @@ end subroutine update_atmos_chemistry
     deallocate(mergeflg)
     deallocate(datar8)
 
+
+
 ! update sea ice related fields:
     if( lcpl_fice ) then
 !$omp parallel do default(shared) private(i,j,nb,ix,tem,im)
@@ -3464,12 +3484,12 @@ end subroutine update_atmos_chemistry
 
   subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, factor, block, rc)
 
-    use ESMF
+    use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
-    real(kind=GFS_kind_phys), intent(out), target            :: destin_ptr(:)
-    real(ESMF_KIND_R8),       intent(in),  target            :: source_ptr(:,:)
-    real(kind=GFS_kind_phys), intent(in),  target, optional  :: mask(:)
-    type(block_control_type), intent(in),  target, optional  :: block
+    real(kind=GFS_kind_phys), intent(out), target :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(in),  target :: source_ptr(:,:)
+    real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
+    type(block_control_type), intent(in),  target, optional :: block
     real(kind=GFS_kind_phys), intent(in), optional :: validmin
     real(kind=GFS_kind_phys), intent(in), optional :: validmax
     real(kind=GFS_kind_phys), intent(in), optional :: factor
@@ -3562,4 +3582,124 @@ end subroutine update_atmos_chemistry
       end do
     end do
   end subroutine copy2block
+
+  subroutine merge_importfield_with_field(destin_ptr, source_ptr, mergeflg, source_ptr2d, mask, block, rc)
+
+    use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
+
+    real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:)
+    logical,                  intent(in),    target :: mergeflg(:,:)
+    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(inout), target :: source_ptr2d(:,:)
+    real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
+    type(block_control_type), intent(in),    target, optional :: block
+    integer,                  intent(out)           :: rc
+
+    real(kind=GFS_kind_phys) :: fval
+
+    integer :: isc, jsc, iec, jec
+    integer :: i, j, nb, ix, im
+    integer :: nx_local, ny_local, required_size
+    type(block_control_type), pointer :: active_block
+
+    rc = ESMF_SUCCESS
+
+    if (present(block)) then
+      active_block => block
+    else
+      active_block => Atm_block
+    end if
+
+    isc = GFS_control%isc
+    iec = GFS_control%isc + GFS_control%nx - 1
+    jsc = GFS_control%jsc
+    jec = GFS_control%jsc + GFS_control%ny - 1
+    nx_local = iec - isc + 1
+    ny_local = jec - jsc + 1
+
+    if (present(mask)) then
+      if (size(mask) < required_size) then
+        rc = ESMF_FAILURE
+        return
+      end if
+    end if
+
+    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+    do j = jsc, jec
+      do i = isc, iec
+        nb = active_block%blkno(i,j)
+        ix = active_block%ixp(i,j)
+        im = GFS_control%chunk_begin(nb) + ix - 1
+        fval = source_ptr(im)
+        if (present(mask)) then
+          if (mask(im) <= zero) cycle
+        end if
+        if (mergeflg(i,j)) then
+          destin_ptr(im) = source_ptr(im)
+          source_ptr2d(i,j) = source_ptr(im)
+        end if
+      end do
+    end do
+
+  end subroutine merge_importfield_with_field
+
+  subroutine merge_importfield_with_scalar(destin_ptr, scalarfill, mergeflg, source_ptr2d, mask, block, rc)
+
+    use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
+
+    real(kind=GFS_kind_phys), intent(in) :: scalarfill
+    logical,                  intent(in),    target :: mergeflg(:,:)
+    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(inout), target :: source_ptr2d(:,:)
+    real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
+    type(block_control_type), intent(in),    target, optional :: block
+    integer,                  intent(out) :: rc
+
+    real(kind=GFS_kind_phys) :: fval
+
+    integer :: isc, jsc, iec, jec
+    integer :: i, j, nb, ix, im
+    integer :: nx_local, ny_local, required_size
+    type(block_control_type), pointer :: active_block
+
+    rc = ESMF_SUCCESS
+
+    if (present(block)) then
+      active_block => block
+    else
+      active_block => Atm_block
+    end if
+
+    isc = GFS_control%isc
+    iec = GFS_control%isc + GFS_control%nx - 1
+    jsc = GFS_control%jsc
+    jec = GFS_control%jsc + GFS_control%ny - 1
+    nx_local = iec - isc + 1
+    ny_local = jec - jsc + 1
+
+    if (present(mask)) then
+      if (size(mask) < required_size) then
+        rc = ESMF_FAILURE
+        return
+      end if
+    end if
+
+    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+    do j = jsc, jec
+      do i = isc, iec
+        nb = active_block%blkno(i,j)
+        ix = active_block%ixp(i,j)
+        im = GFS_control%chunk_begin(nb) + ix - 1
+        if (present(mask)) then
+          if (mask(im) <= zero) cycle
+        end if
+        if (mergeflg(i,j)) then
+          destin_ptr(im) = scalarfill
+          source_ptr2d(i,j) = source_ptr(im)
+        end if
+      end do
+    end do
+  end subroutine merge_importfield_with_scalar
+
+
 end module atmos_model_mod
