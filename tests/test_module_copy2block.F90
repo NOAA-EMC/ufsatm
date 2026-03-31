@@ -6,15 +6,13 @@ program test_module_copy2block
   use block_control_mod, only: block_control_type
   use CCPP_data,         only: GFS_control
   use GFS_typedefs,      only: GFS_kind_phys => kind_phys
-  use atmos_model_mod,   only: copy2block, atmos_model_set_copy2block_test_state
+  use atmos_model_mod,   only: copy2block
 
   implicit none
 
   ! Define test configurations
   integer, parameter :: num_configs = 8
   integer, parameter :: max_grid_size = 16
-  !integer, parameter :: num_configs = 1
-  !integer, parameter :: max_grid_size = 8
 
   type :: test_config_type
      integer :: nx, ny                  !! Grid dimensions
@@ -90,9 +88,45 @@ program test_module_copy2block
      current_test_count = current_test_count + 1
      call test_copy2block_unassociated_targets(block_control, current_test_count, current_test_passed, config_idx)
 
-     ! Test 7: copy2block validmin == validmax
+     ! Test 7: copy2block mismatched source shape
      current_test_count = current_test_count + 1
-     call test_copy2block_validmin_eq_validmax(block_control, current_test_count, current_test_passed, config_idx)
+     call test_copy2block_mismatched_shapes(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 8: copy2block invalid mask size
+     current_test_count = current_test_count + 1
+     call test_copy2block_invalid_mask(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 9: copy2block validmin only
+     current_test_count = current_test_count + 1
+     call test_copy2block_validmin_only(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 10: copy2block validmax only
+     current_test_count = current_test_count + 1
+     call test_copy2block_validmax_only(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 11: copy2block factor only
+     current_test_count = current_test_count + 1
+     call test_copy2block_factor_only(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 12: copy2block default factor path
+     current_test_count = current_test_count + 1
+     call test_copy2block_default_factor(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 13: copy2block negative mask values
+     current_test_count = current_test_count + 1
+     call test_copy2block_negative_mask_values(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 14: copy2block required_size boundary checks
+     current_test_count = current_test_count + 1
+     call test_copy2block_required_size_boundaries(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 15: copy2block mismatched source Y shape
+     current_test_count = current_test_count + 1
+     call test_copy2block_mismatched_shapes_y(block_control, current_test_count, current_test_passed, config_idx)
+
+     ! Test 16: copy2block oversized source/mask acceptance
+     current_test_count = current_test_count + 1
+     call test_copy2block_oversized_inputs(block_control, current_test_count, current_test_passed, config_idx)
 
      ! Accumulate counts
      test_count = test_count + current_test_count
@@ -129,13 +163,6 @@ contains
   subroutine setup_test_configurations(configs)
     type(test_config_type), intent(out) :: configs(:)
 
-!    configs(1)%nx = 8
-!    configs(1)%ny = 8
-!    configs(1)%inpes = 1
-!    configs(1)%jnpes = 1
-!    configs(1)%blocksize = 8
-!    configs(1)%description = "8x8, inpes=1, jnpes=1, bs=8"
-
     ! Configuration 1: Small 8x8 grid, 2x4 decomposition, blocksize 8
     configs(1)%nx = 8
     configs(1)%ny = 8
@@ -143,7 +170,7 @@ contains
     configs(1)%jnpes = 4
     configs(1)%blocksize = 8
     configs(1)%description = "8x8, inpes=2, jnpes=4, bs=8"
-!#ifdef test
+
     ! Configuration 2: 8x8 grid, 2x2 decomposition, blocksize 16
     configs(2)%nx = 8
     configs(2)%ny = 8
@@ -199,7 +226,7 @@ contains
     configs(8)%jnpes = 8
     configs(8)%blocksize = 16
     configs(8)%description = "16x16, inpes=2, jnpes=8, bs=16 (many blocks)"
-!#endif
+
   end subroutine setup_test_configurations
 
   !============================================================================
@@ -298,10 +325,17 @@ contains
 
   end subroutine cleanup_block_control
 
-  subroutine setup_copy2block_state(block_ctl)
+  subroutine setup_copy2block_state(block_ctl, gap_size)
     type(block_control_type), intent(in) :: block_ctl
+    integer, intent(in), optional :: gap_size
 
-    integer :: block_id, offset
+    integer :: block_id, offset, lgap
+
+    if (present(gap_size)) then
+       lgap = max(0, gap_size)
+    else
+       lgap = 0
+    end if
 
     GFS_control%isc = block_ctl%isc
     GFS_control%jsc = block_ctl%jsc
@@ -315,12 +349,27 @@ contains
     offset = 1
     do block_id = 1, block_ctl%nblks
        GFS_control%chunk_begin(block_id) = offset
-       offset = offset + block_ctl%blksz(block_id)
+       offset = offset + block_ctl%blksz(block_id) + lgap
     end do
 
-    call atmos_model_set_copy2block_test_state(block_ctl)
-
   end subroutine setup_copy2block_state
+
+  integer function compute_required_size(block_ctl)
+    type(block_control_type), intent(in) :: block_ctl
+
+    integer :: i, j, nb, ix, im
+
+    compute_required_size = 0
+    do j = block_ctl%jsc, block_ctl%jec
+       do i = block_ctl%isc, block_ctl%iec
+          nb = block_ctl%blkno(i, j)
+          ix = block_ctl%ixp(i, j)
+          im = GFS_control%chunk_begin(nb) + ix - 1
+          compute_required_size = max(compute_required_size, im)
+       end do
+    end do
+
+  end function compute_required_size
 
   integer function packed_index(block_ctl, i, j)
     type(block_control_type), intent(in) :: block_ctl
@@ -413,7 +462,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, mask, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -474,7 +523,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, mask, validmin=validmin, validmax=validmax, factor=factor, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, validmin=validmin, validmax=validmax, factor=factor, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -538,7 +587,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, mask, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -601,7 +650,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, rc=rc)
+    call copy2block(dest_1d, source_2d, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -631,6 +680,506 @@ contains
   end subroutine test_copy2block_no_mask
 
   !============================================================================
+  ! TEST: copy2block validmin only
+  !============================================================================
+  subroutine test_copy2block_validmin_only(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys), parameter :: validmin = -5.0_GFS_kind_phys
+    real(GFS_kind_phys) :: expected
+
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block validmin only"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(i - 3 * j, ESMF_KIND_R8)
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, validmin=validmin, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
+             expected = max(validmin, expected)
+             if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: validmin-only mismatch at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block validmin-only verification failed"
+    end if
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_validmin_only
+
+  !============================================================================
+  ! TEST: copy2block validmax only
+  !============================================================================
+  subroutine test_copy2block_validmax_only(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys), parameter :: validmax = 2.5_GFS_kind_phys
+    real(GFS_kind_phys) :: expected
+
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block validmax only"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(2 * i + j, ESMF_KIND_R8)
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, validmax=validmax, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
+             expected = min(validmax, expected)
+             if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: validmax-only mismatch at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block validmax-only verification failed"
+    end if
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_validmax_only
+
+  !============================================================================
+  ! TEST: copy2block factor only
+  !============================================================================
+  subroutine test_copy2block_factor_only(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys), parameter :: factor = -0.25_GFS_kind_phys
+    real(GFS_kind_phys) :: expected
+
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block factor only"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(7 * i - j, ESMF_KIND_R8)
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, factor=factor, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys) * factor
+             if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: factor-only mismatch at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block factor-only verification failed"
+    end if
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_factor_only
+
+  !============================================================================
+  ! TEST: copy2block default factor path
+  !============================================================================
+  subroutine test_copy2block_default_factor(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys) :: expected
+
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block default factor path"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(i, ESMF_KIND_R8) / 10.0_ESMF_KIND_R8 - real(j, ESMF_KIND_R8) / 7.0_ESMF_KIND_R8
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
+             if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: default-factor mismatch at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block default-factor verification failed"
+    end if
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_default_factor
+
+  !============================================================================
+  ! TEST: copy2block negative mask values (<= 0 must be skipped)
+  !============================================================================
+  subroutine test_copy2block_negative_mask_values(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys), parameter :: sentinel = -456.0_GFS_kind_phys
+
+    integer :: i, j, im, rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Negative Mask Values"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local))
+    dest_1d = sentinel
+    mask = 0.0_GFS_kind_phys
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(20 * j + i, ESMF_KIND_R8)
+          im = packed_index(block, i, j)
+          select case (mod(i + j, 3))
+          case (0)
+             mask(im) = 1.0_GFS_kind_phys
+          case (1)
+             mask(im) = 0.0_GFS_kind_phys
+          case default
+             mask(im) = -1.0_GFS_kind_phys
+          end select
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             if (mask(im) > 0.0_GFS_kind_phys) then
+                if (abs(dest_1d(im) - real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
+                   print *, "    FAILED: Positive-mask point not copied at i=", i, " j=", j
+                   test_pass = .false.
+                   exit
+                end if
+             else if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: Non-positive-mask point was modified at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block negative-mask verification failed"
+    end if
+
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_negative_mask_values
+
+  !============================================================================
+  ! TEST: copy2block required_size boundaries
+  !============================================================================
+  subroutine test_copy2block_required_size_boundaries(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+
+    integer :: i, j, im, rc, nx_local, ny_local, req
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block required_size boundaries"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    req = compute_required_size(block)
+
+    allocate(source_2d(nx_local, ny_local))
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(100 + 3 * i + 5 * j, ESMF_KIND_R8)
+       end do
+    end do
+
+    test_pass = .true.
+
+    ! Case A: exact required_size should pass.
+    allocate(dest_1d(req), mask(req))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+    if (rc /= ESMF_SUCCESS) then
+       print *, "    FAILED: exact required_size case returned rc=", rc
+       test_pass = .false.
+    end if
+    deallocate(dest_1d, mask)
+
+    ! Case B: destination size req-1 should fail.
+    allocate(dest_1d(req-1), mask(req))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+    if (rc == ESMF_SUCCESS) then
+       print *, "    FAILED: destination req-1 case unexpectedly succeeded"
+       test_pass = .false.
+    end if
+    deallocate(dest_1d, mask)
+
+    ! Case C: mask size req-1 should fail.
+    allocate(dest_1d(req), mask(req-1))
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+    if (rc == ESMF_SUCCESS) then
+       print *, "    FAILED: mask req-1 case unexpectedly succeeded"
+       test_pass = .false.
+    end if
+    deallocate(dest_1d, mask)
+
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block required_size boundary verification failed"
+    end if
+
+    deallocate(source_2d)
+  end subroutine test_copy2block_required_size_boundaries
+
+  !============================================================================
+  ! TEST: copy2block mismatched source Y dimension
+  !============================================================================
+  subroutine test_copy2block_mismatched_shapes_y(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+
+    integer :: rc, total_pts, nx_local, ny_local
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Mismatched Source Y"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    total_pts = sum(block%blksz)
+    allocate(dest_1d(total_pts), mask(total_pts))
+    allocate(source_2d(nx_local, ny_local-1))  ! Deliberate Y mismatch
+    dest_1d = -1.0_GFS_kind_phys
+    mask = 1.0_GFS_kind_phys
+    source_2d = 1.0
+    rc = -999
+
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+
+    test_pass = rc /= ESMF_SUCCESS
+    if (test_pass) then
+       print *, "    PASSED (error detected as expected)"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block did not detect source Y mismatch"
+    end if
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_mismatched_shapes_y
+
+  !============================================================================
+  ! TEST: copy2block oversized inputs should be accepted
+  !============================================================================
+  subroutine test_copy2block_oversized_inputs(block, test_num, passed_count, config_idx)
+    type(block_control_type), intent(in) :: block
+    integer, intent(in) :: test_num, config_idx
+    integer, intent(inout) :: passed_count
+
+    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
+    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
+    real(GFS_kind_phys), parameter :: sentinel = -321.0_GFS_kind_phys
+
+    integer :: i, j, im, rc, nx_local, ny_local, req
+    logical :: test_pass
+
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Oversized Inputs"
+
+    call setup_copy2block_state(block)
+    nx_local = block%iec - block%isc + 1
+    ny_local = block%jec - block%jsc + 1
+    req = compute_required_size(block)
+
+    allocate(dest_1d(req + 5), mask(req + 7), source_2d(nx_local + 2, ny_local + 3))
+    dest_1d = sentinel
+    mask = 1.0_GFS_kind_phys
+    source_2d = -999.0_ESMF_KIND_R8
+
+    do j = 1, ny_local
+       do i = 1, nx_local
+          source_2d(i, j) = real(3 * i + 11 * j, ESMF_KIND_R8)
+       end do
+    end do
+
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
+
+    test_pass = rc == ESMF_SUCCESS
+    if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
+    if (test_pass) then
+       do j = block%jsc, block%jec
+          do i = block%isc, block%iec
+             im = packed_index(block, i, j)
+             if (abs(dest_1d(im) - real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
+                print *, "    FAILED: Oversized-input mapping mismatch at i=", i, " j=", j
+                test_pass = .false.
+                exit
+             end if
+          end do
+          if (.not. test_pass) exit
+       end do
+    end if
+
+    if (test_pass) then
+       do im = req + 1, size(dest_1d)
+          if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
+             print *, "    FAILED: Dest tail value unexpectedly modified at im=", im
+             test_pass = .false.
+             exit
+          end if
+       end do
+    end if
+
+    if (test_pass) then
+       print *, "    PASSED"
+       passed_count = passed_count + 1
+    else
+       print *, "    FAILED: copy2block oversized-input verification failed"
+    end if
+
+    deallocate(dest_1d, mask, source_2d)
+  end subroutine test_copy2block_oversized_inputs
+
+  !============================================================================
   ! TEST: copy2block mismatched shapes
   !============================================================================
   subroutine test_copy2block_mismatched_shapes(block, test_num, passed_count, config_idx)
@@ -658,7 +1207,7 @@ contains
     source_2d = 1.0
     rc = -999
 
-    call copy2block(dest_1d, source_2d, mask, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
 
     test_pass = rc /= ESMF_SUCCESS
     if (test_pass) then
@@ -697,7 +1246,7 @@ contains
     source_2d = 1.0
     rc = -999
 
-    call copy2block(dest_1d, source_2d, mask, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
     test_pass = rc /= ESMF_SUCCESS
     if (test_pass) then
        print *, "    PASSED (error detected as expected)"
@@ -708,46 +1257,6 @@ contains
     deallocate(dest_1d, mask, source_2d)
   end subroutine test_copy2block_invalid_mask
 
-  !============================================================================
-  ! TEST: copy2block validmin == validmax
-  !============================================================================
-  subroutine test_copy2block_validmin_eq_validmax(block, test_num, passed_count, config_idx)
-    type(block_control_type), intent(in) :: block
-    integer, intent(in) :: test_num, config_idx
-    integer, intent(inout) :: passed_count
-
-    real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
-    real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
-    real(GFS_kind_phys), parameter :: val = 3.14_GFS_kind_phys
-
-    integer :: rc, total_pts, nx_local, ny_local
-    logical :: test_pass
-
-    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block validmin == validmax"
-
-    call setup_copy2block_state(block)
-    nx_local = block%iec - block%isc + 1
-    ny_local = block%jec - block%jsc + 1
-
-    total_pts = sum(block%blksz)
-    allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(source_2d(nx_local, ny_local))
-    dest_1d = -1.0_GFS_kind_phys
-    mask = 1.0_GFS_kind_phys
-    source_2d = 2.0
-    rc = -999
-
-    call copy2block(dest_1d, source_2d, mask, validmin=val, validmax=val, rc=rc)
-
-    test_pass = rc /= ESMF_SUCCESS
-    if (test_pass) then
-       print *, "    PASSED (error detected as expected)"
-       passed_count = passed_count + 1
-    else
-       print *, "    FAILED: copy2block did not detect validmin == validmax"
-    end if
-    deallocate(dest_1d, mask, source_2d)
-  end subroutine test_copy2block_validmin_eq_validmax
 
   !============================================================================
   ! TEST: copy2block unassociated targets
@@ -774,7 +1283,7 @@ contains
     ! Deliberately insufficient destination size
     rc = -999
 
-    call copy2block(dest_1d, source_2d, mask, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, block=block, rc=rc)
     test_pass = rc /= ESMF_SUCCESS
     if (test_pass) then
        print *, "    PASSED (error detected as expected)"

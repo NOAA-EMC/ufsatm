@@ -135,7 +135,6 @@ public setup_inlinedata
 public set_fhzero_loop, InitTimeFromIAUOffset
 public get_atmos_tracer_types
 public copy2block
-public atmos_model_set_copy2block_test_state
 !-----------------------------------------------------------------------
 
 !<PUBLICTYPE >
@@ -3455,109 +3454,104 @@ end subroutine update_atmos_chemistry
 
   end subroutine atmos_model_get_nth_domain_info
 
-  subroutine atmos_model_set_copy2block_test_state(block)
-    type(block_control_type), intent(in) :: block
+  subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, factor, block, rc)
 
-    Atm_block = block
-  end subroutine atmos_model_set_copy2block_test_state
+    use ESMF
 
+    real(kind=GFS_kind_phys), intent(out), target            :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(in),  target            :: source_ptr(:,:)
+    real(kind=GFS_kind_phys), intent(in),  target, optional  :: mask(:)
+    type(block_control_type), intent(in),  target, optional  :: block
+    real(kind=GFS_kind_phys), intent(in), optional :: validmin
+    real(kind=GFS_kind_phys), intent(in), optional :: validmax
+    real(kind=GFS_kind_phys), intent(in), optional :: factor
+    integer,                  intent(out)          :: rc
 
-  subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, factor, rc)
+    integer :: isc, jsc, iec, jec
+    integer :: i, j, nb, ix, im
+    integer :: nx_local, ny_local, required_size
+    type(block_control_type), pointer :: active_block
 
-   use ESMF
+    real(kind=GFS_kind_phys) :: fval, spval
+    real(kind=GFS_kind_phys) :: lvmin, lvmax, lfactor
 
-  real(kind=GFS_kind_phys), intent(out), target            :: destin_ptr(:)
-  real(ESMF_KIND_R8),       intent(in),  target            :: source_ptr(:,:)
-  real(kind=GFS_kind_phys), intent(in),  target, optional  :: mask(:)
-   real(kind=GFS_kind_phys), intent(in), optional :: validmin
-   real(kind=GFS_kind_phys), intent(in), optional :: validmax
-   real(kind=GFS_kind_phys), intent(in), optional :: factor
-   integer,                  intent(out)          :: rc
+    rc = ESMF_SUCCESS
 
-   integer :: isc, jsc, iec, jec
-   integer :: i, j, nb, ix, im
-  integer :: nx_local, ny_local, required_size
+    if (present(block)) then
+      active_block => block
+    else
+      active_block => Atm_block
+    end if
 
-   real(kind=GFS_kind_phys) :: fval, spval
-   real(kind=GFS_kind_phys) :: lvmin, lvmax, lfactor
+    isc = GFS_control%isc
+    iec = GFS_control%isc + GFS_control%nx - 1
+    jsc = GFS_control%jsc
+    jec = GFS_control%jsc + GFS_control%ny - 1
+    nx_local = iec - isc + 1
+    ny_local = jec - jsc + 1
 
-   rc = ESMF_SUCCESS
+    if (size(source_ptr,1) < nx_local .or. size(source_ptr,2) < ny_local) then
+      rc = ESMF_FAILURE
+      return
+    end if
 
-   isc = GFS_control%isc
-   iec = GFS_control%isc + GFS_control%nx - 1
-   jsc = GFS_control%jsc
-   jec = GFS_control%jsc + GFS_control%ny - 1
-   nx_local = iec - isc + 1
-   ny_local = jec - jsc + 1
+    required_size = 0
+    do j = jsc, jec
+      do i = isc, iec
+        nb = active_block%blkno(i,j)
+        ix = active_block%ixp(i,j)
+        im = GFS_control%chunk_begin(nb) + ix - 1
+        required_size = max(required_size, im)
+      end do
+    end do
 
-   if (size(source_ptr,1) < nx_local .or. size(source_ptr,2) < ny_local) then
-     rc = ESMF_FAILURE
-     return
-   end if
+    if (size(destin_ptr) < required_size) then
+      rc = ESMF_FAILURE
+      return
+    end if
+    if (present(mask)) then
+      if (size(mask) < required_size) then
+        rc = ESMF_FAILURE
+        return
+      end if
+    end if
 
-   required_size = 0
-   do j = jsc, jec
-     do i = isc, iec
-       nb = Atm_block%blkno(i,j)
-       ix = Atm_block%ixp(i,j)
-       im = GFS_control%chunk_begin(nb) + ix - 1
-       required_size = max(required_size, im)
-     end do
-   end do
+    spval  = GFS_control%huge
 
-   if (size(destin_ptr) < required_size) then
-     rc = ESMF_FAILURE
-     return
-   end if
-   if (present(mask)) then
-     if (size(mask) < required_size) then
-       rc = ESMF_FAILURE
-       return
-     end if
-   end if
+    if(present(validmin)) then
+      lvmin = validmin
+    else
+      lvmin = -spval
+    end if
+    if(present(validmax)) then
+      lvmax = validmax
+    else
+      lvmax = spval
+    end if
+    if(present(factor)) then
+      lfactor = factor
+    else
+      lfactor = one
+    end if
 
-   spval  = GFS_control%huge
+    !NOTE: initializing destin_ptr
+    !destin_ptr = -spval fails in sfc_diff LN 568
+    !destin_ptr = spval fails in module_nst_model LN 868
 
-   if(present(validmin)) then
-     lvmin = validmin
-   else
-     lvmin = -spval
-   end if
-   if(present(validmax)) then
-     lvmax = validmax
-   else
-     lvmax = spval
-   end if
-   if(present(validmin) .and. present(validmax)) then
-     if (lvmin == lvmax) then
-       rc = ESMF_FAILURE
-       return
-     end if
-   end if
-   if(present(factor)) then
-     lfactor = factor
-   else
-     lfactor = one
-   end if
-
-   !NOTE: initializing destin_ptr
-   !destin_ptr = -spval fails in sfc_diff LN 568
-   !destin_ptr = spval fails in module_nst_model LN 868
-
-   !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
-   do j = jsc, jec
-     do i = isc, iec
-       nb = Atm_block%blkno(i,j)
-       ix = Atm_block%ixp(i,j)
-       im = GFS_control%chunk_begin(nb) + ix - 1
-       if (present(mask)) then
-         if (mask(im) <= zero) cycle
-       end if
-       fval = source_ptr(i-isc+1, j-jsc+1) * lfactor
-       if (lvmin .ne. -spval) fval = max(lvmin, fval)
-       if (lvmax .ne.  spval) fval = min(lvmax, fval)
-       destin_ptr(im) = fval
-     end do
-   end do
- end subroutine copy2block
+    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+    do j = jsc, jec
+      do i = isc, iec
+        nb = active_block%blkno(i,j)
+        ix = active_block%ixp(i,j)
+        im = GFS_control%chunk_begin(nb) + ix - 1
+        if (present(mask)) then
+          if (mask(im) <= zero) cycle
+        end if
+        fval = source_ptr(i-isc+1, j-jsc+1)
+        if (lvmin .ne. -spval) fval = max(lvmin, fval)
+        if (lvmax .ne.  spval) fval = min(lvmax, fval)
+        destin_ptr(im) = fval * lfactor
+      end do
+    end do
+  end subroutine copy2block
 end module atmos_model_mod
