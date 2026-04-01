@@ -31,7 +31,7 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 96 !< Total number of export fields
+  integer,          public, parameter :: NexportFields = 98 !< Total number of export fields
   type(ESMF_Field), target, public    :: exportFields(NexportFields) !< ESMF array for export fields
 
   !> ESMF array for export fields
@@ -133,6 +133,8 @@ module module_cplfields
     FieldInfo("surface_friction_velocity                ", "s"), &
     ! FieldInfo("fraction_of_vegetation_category          ", "s"), &
     ! FieldInfo("number_of_vegetation_categories          ", "s"), &
+    FieldInfo("vtype                                    ", "s"), &
+    FieldInfo("zorl                                     ", "s"), &
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------

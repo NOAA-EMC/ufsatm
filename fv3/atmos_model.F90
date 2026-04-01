@@ -3239,6 +3239,10 @@ end subroutine update_atmos_chemistry
             ! bottom layer height (z)
             case('inst_height_lowest')
               call block_data_copy_or_fill(datar82d, DYCORE_data(nb)%coupling%z_bot, zeror8, Atm_block, nb, offset=1, rc=localrc)
+            case ('vfrac')
+              call block_data_copy(datar82d, GFS_Sfcprop%vfrac, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
+            case ('zorl')
+              call block_data_copy(datar82d, GFS_Sfcprop%zorl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
             case default
               localrc = ESMF_RC_NOT_FOUND
           end select
