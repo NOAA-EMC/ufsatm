@@ -3452,7 +3452,7 @@ end subroutine update_atmos_chemistry
 
     integer :: isc, jsc, iec, jec
     integer :: i, j, nb, ix, im
-    integer :: nx_local, ny_local, required_size
+    integer :: nx_local, ny_local
     type(block_control_type), pointer :: active_block
 
     real(kind=GFS_kind_phys) :: fval, spval
@@ -3477,27 +3477,8 @@ end subroutine update_atmos_chemistry
     if (size(source_ptr,1) < nx_local .or. size(source_ptr,2) < ny_local) then
       rc = ESMF_FAILURE
       return
-    end if
 
-    required_size = 0
-    do j = jsc, jec
-      do i = isc, iec
-        nb = active_block%blkno(i,j)
-        ix = active_block%ixp(i,j)
-        im = GFS_control%chunk_begin(nb) + ix - 1
-        required_size = max(required_size, im)
-      end do
-    end do
 
-    if (size(destin_ptr) < required_size) then
-      rc = ESMF_FAILURE
-      return
-    end if
-    if (present(mask)) then
-      if (size(mask) < required_size) then
-        rc = ESMF_FAILURE
-        return
-      end if
     end if
 
     spval  = GFS_control%huge
@@ -3560,7 +3541,7 @@ end subroutine update_atmos_chemistry
 
     integer :: isc, jsc, iec, jec
     integer :: i, j, nb, ix, im
-    integer :: nx_local, ny_local, required_size
+    integer :: nx_local, ny_local
     type(block_control_type), pointer :: active_block
 
     rc = ESMF_SUCCESS
@@ -3578,12 +3559,6 @@ end subroutine update_atmos_chemistry
     nx_local = iec - isc + 1
     ny_local = jec - jsc + 1
 
-    if (present(mask)) then
-      if (size(mask) < required_size) then
-        rc = ESMF_FAILURE
-        return
-      end if
-    end if
 
     !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
     do j = jsc, jec
@@ -3619,7 +3594,7 @@ end subroutine update_atmos_chemistry
 
     integer :: isc, jsc, iec, jec
     integer :: i, j, nb, ix, im
-    integer :: nx_local, ny_local, required_size
+    integer :: nx_local, ny_local
     type(block_control_type), pointer :: active_block
 
     rc = ESMF_SUCCESS
@@ -3637,12 +3612,6 @@ end subroutine update_atmos_chemistry
     nx_local = iec - isc + 1
     ny_local = jec - jsc + 1
 
-    if (present(mask)) then
-      if (size(mask) < required_size) then
-        rc = ESMF_FAILURE
-        return
-      end if
-    end if
 
     !$omp parallel do default(shared) private(i,j,nb,ix,im)
     do j = jsc, jec
