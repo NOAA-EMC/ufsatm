@@ -133,7 +133,7 @@ module module_cplfields
     FieldInfo("surface_friction_velocity                ", "s"), &
     ! FieldInfo("fraction_of_vegetation_category          ", "s"), &
     ! FieldInfo("number_of_vegetation_categories          ", "s"), &
-    FieldInfo("vtype                                    ", "s"), &
+    FieldInfo("vfrac                                    ", "s"), &
     FieldInfo("zorl                                     ", "s"), &
     FieldInfo("cpl_scalars                              ", "s")]
 
