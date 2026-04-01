@@ -2001,6 +2001,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Sfcprop%tisfc, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             endif
           endif
 
@@ -2011,10 +2012,12 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%tsfco, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
 
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 end if
               endif
             end if
@@ -2025,10 +2028,12 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%usfco, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get usfco from mediator'
 
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 end if
               end if
             end if
@@ -2039,10 +2044,12 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%vsfco, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get vsfco from mediator'
 
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%vsfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 end if
               end if
             end if
@@ -2088,6 +2095,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%ulwsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx from mediator'
             endif
           endif
@@ -2098,6 +2106,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dqsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat from mediator'
             endif
           endif
@@ -2108,6 +2117,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dtsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat from mediator'
             endif
           endif
@@ -2118,6 +2128,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dusfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx from mediator'
             endif
           endif
@@ -2128,6 +2139,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dvsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx from mediator'
             endif
           endif
@@ -2138,6 +2150,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Sfcprop%hice, datar8, mask=GFS_Sfcprop%oceanfrac, validmax=himax, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug) print *,'fv3 assign_import: get ice_volume from mediator'
             endif
           endif
@@ -2148,6 +2161,7 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%hsnoin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get snow_volume from mediator'
             endif
           endif
@@ -2159,6 +2173,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdifnir_ice, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_nir_dif_cpl from mediator'
               endif
             endif
@@ -2169,6 +2184,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdirnir_ice, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_nir_dir_cpl from mediator'
               endif
             endif
@@ -2179,6 +2195,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdifvis_ice, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_vis_dif_cpl from mediator'
               endif
             endif
@@ -2189,6 +2206,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdirvis_ice, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get inst_ice_vis_dir_albedo from mediator'
               endif
             endif
@@ -2201,6 +2219,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%ulwsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx for open ocean from mediator'
               endif
             endif
@@ -2211,6 +2230,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dqsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat for open ocean from mediator'
               endif
             endif
@@ -2221,6 +2241,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dtsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat for open ocean from mediator'
               endif
             endif
@@ -2231,6 +2252,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dusfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx for open ocean from mediator'
               endif
             endif
@@ -2241,6 +2263,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dvsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx for open ocean from mediator'
               endif
             endif
@@ -2253,6 +2276,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%sncovr1_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get snow area fraction from land'
               endif
             endif
@@ -2263,6 +2287,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%evap_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get latent heat flux from land'
               endif
             endif
@@ -2273,6 +2298,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%hflx_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensible heat flux from land'
               endif
             endif
@@ -2283,6 +2309,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%ep_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get potential latent heat flux from land'
               endif
             endif
@@ -2293,6 +2320,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%t2mmp_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get temperature at 2m from land'
               endif
             endif
@@ -2303,6 +2331,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%q2mp_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get specific humidity at 2m from land'
               endif
             endif
@@ -2313,6 +2342,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%qsurf_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get specific humidity from land'
               endif
             endif
@@ -2323,6 +2353,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%gflux_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get upward heat flux from land'
               endif
             endif
@@ -2333,6 +2364,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%runoff_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get surface runoff from land'
               endif
             endif
@@ -2343,6 +2375,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%drain_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get subsurface runoff from land'
               endif
             endif
@@ -2353,6 +2386,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%cmm_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get drag wind speed for momentum from land'
               endif
             endif
@@ -2363,6 +2397,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%chh_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get thermal exchange coefficient form land'
               endif
             endif
@@ -2373,6 +2408,7 @@ end subroutine update_atmos_chemistry
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%zvfun_lnd, datar8, mask=GFS_Sfcprop%landfrac, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get func. of roughness length and vfrac form land'
               endif
             endif
