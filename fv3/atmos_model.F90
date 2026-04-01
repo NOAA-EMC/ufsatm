@@ -3595,9 +3595,9 @@ end subroutine update_atmos_chemistry
         if (present(mask)) then
           if (mask(im) <= zero) cycle
         end if
-        if (mergeflg(i,j)) then
-          destin_ptr(im) = source_ptr(im)
-          source_ptr2d(i,j) = source_ptr(im)
+        if (mergeflg(i-isc+1, j-jsc+1)) then
+          destin_ptr(im) = fval
+          source_ptr2d(i-isc+1, j-jsc+1) = fval
         end if
       end do
     end do
@@ -3616,8 +3616,6 @@ end subroutine update_atmos_chemistry
     real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
     type(block_control_type), intent(in),    target, optional :: block
     integer,                  intent(out) :: rc
-
-    real(kind=GFS_kind_phys) :: fval
 
     integer :: isc, jsc, iec, jec
     integer :: i, j, nb, ix, im
@@ -3646,7 +3644,7 @@ end subroutine update_atmos_chemistry
       end if
     end if
 
-    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+    !$omp parallel do default(shared) private(i,j,nb,ix,im)
     do j = jsc, jec
       do i = isc, iec
         nb = active_block%blkno(i,j)
@@ -3655,9 +3653,9 @@ end subroutine update_atmos_chemistry
         if (present(mask)) then
           if (mask(im) <= zero) cycle
         end if
-        if (mergeflg(i,j)) then
+        if (mergeflg(i-isc+1, j-jsc+1)) then
           destin_ptr(im) = scalarfill
-          source_ptr2d(i,j) = scalarfill
+          source_ptr2d(i-isc+1, j-jsc+1) = scalarfill
         end if
       end do
     end do
