@@ -72,9 +72,9 @@ program test_module_copy2block
      current_test_count = current_test_count + 1
      call test_copy2block_basic(block_control, current_test_count, current_test_passed, config_idx)
 
-     ! Test 3: copy2block factor and bounds
+     ! Test 3: copy2block flip and bounds
      current_test_count = current_test_count + 1
-     call test_copy2block_factor_and_bounds(block_control, current_test_count, current_test_passed, config_idx)
+     call test_copy2block_flip_and_bounds(block_control, current_test_count, current_test_passed, config_idx)
 
      ! Test 4: copy2block mask handling
      current_test_count = current_test_count + 1
@@ -104,13 +104,13 @@ program test_module_copy2block
      current_test_count = current_test_count + 1
      call test_copy2block_validmax_only(block_control, current_test_count, current_test_passed, config_idx)
 
-     ! Test 11: copy2block factor only
+     ! Test 11: copy2block flip only
      current_test_count = current_test_count + 1
-     call test_copy2block_factor_only(block_control, current_test_count, current_test_passed, config_idx)
+     call test_copy2block_flip_only(block_control, current_test_count, current_test_passed, config_idx)
 
-     ! Test 12: copy2block default factor path
+     ! Test 12: copy2block default flip
      current_test_count = current_test_count + 1
-     call test_copy2block_default_factor(block_control, current_test_count, current_test_passed, config_idx)
+     call test_copy2block_default_flip(block_control, current_test_count, current_test_passed, config_idx)
 
      ! Test 13: copy2block negative mask values
      current_test_count = current_test_count + 1
@@ -489,9 +489,9 @@ contains
   end subroutine test_copy2block_basic
 
   !============================================================================
-  ! TEST: copy2block factor and bounds
+  ! TEST: copy2block flip and bounds
   !============================================================================
-  subroutine test_copy2block_factor_and_bounds(block, test_num, passed_count, config_idx)
+  subroutine test_copy2block_flip_and_bounds(block, test_num, passed_count, config_idx)
     type(block_control_type), intent(in) :: block
     integer, intent(in) :: test_num, config_idx
     integer, intent(inout) :: passed_count
@@ -499,7 +499,7 @@ contains
     real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
 
-    real(GFS_kind_phys), parameter :: factor = -2.0_GFS_kind_phys
+    logical, parameter :: flip = .true.
     real(GFS_kind_phys), parameter :: validmin = 1.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: validmax = 5.0_GFS_kind_phys
     real(GFS_kind_phys) :: expected
@@ -507,7 +507,7 @@ contains
     integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
-    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Factor and Bounds"
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block Flip and Bounds"
 
     call setup_copy2block_state(block)
     nx_local = block%iec - block%isc + 1
@@ -523,7 +523,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, mask, validmin=validmin, validmax=validmax, factor=factor, block=block, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, validmin=validmin, validmax=validmax, flipsign=flip, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -531,11 +531,12 @@ contains
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
              im = packed_index(block, i, j)
-             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys) * factor
+             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
              expected = max(validmin, expected)
              expected = min(validmax, expected)
+             expected = -expected
              if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
-                print *, "    FAILED: Factor/bounds mismatch at i=", i, " j=", j
+                print *, "    FAILED: Flip/bounds mismatch at i=", i, " j=", j
                 test_pass = .false.
                 exit
              end if
@@ -547,10 +548,10 @@ contains
        print *, "    PASSED"
        passed_count = passed_count + 1
     else
-       print *, "    FAILED: copy2block factor/bounds verification failed"
+       print *, "    FAILED: copy2block flip/bounds verification failed"
     end if
     deallocate(dest_1d, mask, source_2d)
-  end subroutine test_copy2block_factor_and_bounds
+  end subroutine test_copy2block_flip_and_bounds
 
   !============================================================================
   ! TEST: copy2block mask handling
@@ -802,22 +803,22 @@ contains
   end subroutine test_copy2block_validmax_only
 
   !============================================================================
-  ! TEST: copy2block factor only
+  ! TEST: copy2block flip only
   !============================================================================
-  subroutine test_copy2block_factor_only(block, test_num, passed_count, config_idx)
+  subroutine test_copy2block_flip_only(block, test_num, passed_count, config_idx)
     type(block_control_type), intent(in) :: block
     integer, intent(in) :: test_num, config_idx
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:), mask(:)
     real(ESMF_KIND_R8), allocatable :: source_2d(:,:)
-    real(GFS_kind_phys), parameter :: factor = -0.25_GFS_kind_phys
+    logical, parameter :: flip = .true.
     real(GFS_kind_phys) :: expected
 
     integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
-    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block factor only"
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block flip only"
 
     call setup_copy2block_state(block)
     nx_local = block%iec - block%isc + 1
@@ -834,7 +835,7 @@ contains
        end do
     end do
 
-    call copy2block(dest_1d, source_2d, mask, factor=factor, block=block, rc=rc)
+    call copy2block(dest_1d, source_2d, mask, flipsign=flip, block=block, rc=rc)
 
     test_pass = rc == ESMF_SUCCESS
     if (.not. test_pass) print *, "    FAILED: copy2block returned rc=", rc
@@ -842,9 +843,9 @@ contains
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
              im = packed_index(block, i, j)
-             expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys) * factor
+             expected = -real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
              if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
-                print *, "    FAILED: factor-only mismatch at i=", i, " j=", j
+                print *, "    FAILED: flip-only mismatch at i=", i, " j=", j
                 test_pass = .false.
                 exit
              end if
@@ -856,15 +857,15 @@ contains
        print *, "    PASSED"
        passed_count = passed_count + 1
     else
-       print *, "    FAILED: copy2block factor-only verification failed"
+       print *, "    FAILED: copy2block flip-only verification failed"
     end if
     deallocate(dest_1d, mask, source_2d)
-  end subroutine test_copy2block_factor_only
+  end subroutine test_copy2block_flip_only
 
   !============================================================================
-  ! TEST: copy2block default factor path
+  ! TEST: copy2block default flip path
   !============================================================================
-  subroutine test_copy2block_default_factor(block, test_num, passed_count, config_idx)
+  subroutine test_copy2block_default_flip(block, test_num, passed_count, config_idx)
     type(block_control_type), intent(in) :: block
     integer, intent(in) :: test_num, config_idx
     integer, intent(inout) :: passed_count
@@ -876,7 +877,7 @@ contains
     integer :: i, j, im, rc, total_pts, nx_local, ny_local
     logical :: test_pass
 
-    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block default factor path"
+    print *, "  [Config ", config_idx, "] Test ", test_num, ": copy2block default flip path"
 
     call setup_copy2block_state(block)
     nx_local = block%iec - block%isc + 1
@@ -903,7 +904,7 @@ contains
              im = packed_index(block, i, j)
              expected = real(source_2d(i - block%isc + 1, j - block%jsc + 1), GFS_kind_phys)
              if (abs(dest_1d(im) - expected) > 1.0e-10_GFS_kind_phys) then
-                print *, "    FAILED: default-factor mismatch at i=", i, " j=", j
+                print *, "    FAILED: default-flip mismatch at i=", i, " j=", j
                 test_pass = .false.
                 exit
              end if
@@ -915,10 +916,10 @@ contains
        print *, "    PASSED"
        passed_count = passed_count + 1
     else
-       print *, "    FAILED: copy2block default-factor verification failed"
+       print *, "    FAILED: copy2block default-flip verification failed"
     end if
     deallocate(dest_1d, mask, source_2d)
-  end subroutine test_copy2block_default_factor
+  end subroutine test_copy2block_default_flip
 
   !============================================================================
   ! TEST: copy2block negative mask values (<= 0 must be skipped)

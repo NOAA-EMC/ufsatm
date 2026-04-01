@@ -2087,7 +2087,7 @@ end subroutine update_atmos_chemistry
           fldname = 'lwup_flx_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Coupling%ulwsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+              call copy2block(GFS_Coupling%ulwsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx from mediator'
             endif
           endif
@@ -2097,7 +2097,7 @@ end subroutine update_atmos_chemistry
           fldname = 'laten_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Coupling%dqsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+              call copy2block(GFS_Coupling%dqsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat from mediator'
             endif
           endif
@@ -2107,7 +2107,7 @@ end subroutine update_atmos_chemistry
           fldname = 'sensi_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Coupling%dtsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+              call copy2block(GFS_Coupling%dtsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat from mediator'
             endif
           endif
@@ -2117,7 +2117,7 @@ end subroutine update_atmos_chemistry
           fldname = 'stress_on_air_ice_zonal'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Coupling%dusfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+              call copy2block(GFS_Coupling%dusfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx from mediator'
             endif
           endif
@@ -2127,7 +2127,7 @@ end subroutine update_atmos_chemistry
           fldname = 'stress_on_air_ice_merid'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Coupling%dvsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+              call copy2block(GFS_Coupling%dvsfcin_cpl, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx from mediator'
             endif
           endif
@@ -2200,7 +2200,7 @@ end subroutine update_atmos_chemistry
             fldname = 'lwup_flx_ocn'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Coupling%ulwsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+                call copy2block(GFS_Coupling%ulwsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx for open ocean from mediator'
               endif
             endif
@@ -2210,7 +2210,7 @@ end subroutine update_atmos_chemistry
             fldname = 'laten_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Coupling%dqsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+                call copy2block(GFS_Coupling%dqsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat for open ocean from mediator'
               endif
             endif
@@ -2220,7 +2220,7 @@ end subroutine update_atmos_chemistry
             fldname = 'sensi_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Coupling%dtsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+                call copy2block(GFS_Coupling%dtsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat for open ocean from mediator'
               endif
             endif
@@ -2230,7 +2230,7 @@ end subroutine update_atmos_chemistry
             fldname = 'stress_on_air_ocn_zonal'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Coupling%dusfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+                call copy2block(GFS_Coupling%dusfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx for open ocean from mediator'
               endif
             endif
@@ -2240,7 +2240,7 @@ end subroutine update_atmos_chemistry
             fldname = 'stress_on_air_ocn_merid'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Coupling%dvsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, factor=-one, rc=rc)
+                call copy2block(GFS_Coupling%dvsfcin_med, datar8, mask=GFS_Sfcprop%oceanfrac, flipsign=.true., rc=rc)
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx for open ocean from mediator'
               endif
             endif
@@ -3436,7 +3436,7 @@ end subroutine update_atmos_chemistry
 
   end subroutine atmos_model_get_nth_domain_info
 
-  subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, factor, block, rc)
+  subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, flipsign, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
@@ -3446,7 +3446,7 @@ end subroutine update_atmos_chemistry
     type(block_control_type), intent(in),  target, optional :: block
     real(kind=GFS_kind_phys), intent(in), optional :: validmin
     real(kind=GFS_kind_phys), intent(in), optional :: validmax
-    real(kind=GFS_kind_phys), intent(in), optional :: factor
+    logical,                  intent(in), optional :: flipsign
     integer,                  intent(out)          :: rc
 
     integer :: isc, jsc, iec, jec
@@ -3455,7 +3455,8 @@ end subroutine update_atmos_chemistry
     type(block_control_type), pointer :: active_block
 
     real(kind=GFS_kind_phys) :: fval, spval
-    real(kind=GFS_kind_phys) :: lvmin, lvmax, lfactor
+    real(kind=GFS_kind_phys) :: lvmin, lvmax
+    logical :: lflip
 
     rc = ESMF_SUCCESS
 
@@ -3510,10 +3511,10 @@ end subroutine update_atmos_chemistry
     else
       lvmax = spval
     end if
-    if(present(factor)) then
-      lfactor = factor
+    if(present(flipsign)) then
+      lflip = flipsign
     else
-      lfactor = one
+      lflip = .false.
     end if
 
     !NOTE: initializing destin_ptr
@@ -3532,18 +3533,23 @@ end subroutine update_atmos_chemistry
         fval = source_ptr(i-isc+1, j-jsc+1)
         if (lvmin .ne. -spval) fval = max(lvmin, fval)
         if (lvmax .ne.  spval) fval = min(lvmax, fval)
-        destin_ptr(im) = fval * lfactor
+        if (lflip) then
+          destin_ptr(im) = -fval
+        else
+          destin_ptr(im) = fval
+        end if
       end do
     end do
   end subroutine copy2block
 
+  !call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, datar8, mask=GFS_Sfcprop%o
   subroutine merge_importfield_with_field(destin_ptr, source_ptr, mergeflg, source_ptr2d, mask, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
+    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
     real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:)
     logical,                  intent(in),    target :: mergeflg(:,:)
-    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
     real(ESMF_KIND_R8),       intent(inout), target :: source_ptr2d(:,:)
     real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
     type(block_control_type), intent(in),    target, optional :: block
@@ -3597,13 +3603,14 @@ end subroutine update_atmos_chemistry
 
   end subroutine merge_importfield_with_field
 
+  !call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc
   subroutine merge_importfield_with_scalar(destin_ptr, scalarfill, mergeflg, source_ptr2d, mask, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
-    real(kind=GFS_kind_phys), intent(in) :: scalarfill
-    logical,                  intent(in),    target :: mergeflg(:,:)
     real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+    real(kind=GFS_kind_phys), intent(in)            :: scalarfill
+    logical,                  intent(in),    target :: mergeflg(:,:)
     real(ESMF_KIND_R8),       intent(inout), target :: source_ptr2d(:,:)
     real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
     type(block_control_type), intent(in),    target, optional :: block
@@ -3654,6 +3661,5 @@ end subroutine update_atmos_chemistry
       end do
     end do
   end subroutine merge_importfield_with_scalar
-
 
 end module atmos_model_mod
