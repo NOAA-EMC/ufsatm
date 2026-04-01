@@ -2909,7 +2909,7 @@ end subroutine update_atmos_chemistry
 !
   subroutine setup_inlinedata(fieldName, datar82d, logunit)
 
-    use ESMF, only: ESMF_KIND_R8
+    use ESMF, only: ESMF_KIND_R8, ESMF_LogFoundError, ESMF_LOGERR_PASSTHRU
 
     !--- arguments
     character(len=*), intent(in) :: fieldName
@@ -2917,7 +2917,7 @@ end subroutine update_atmos_chemistry
     integer, intent(in) :: logunit
 
     !--- local variables
-    integer :: i, j, ix, nb, im
+    integer :: i, j, ix, nb, im, rc
     integer :: isc, iec, jsc, jec
 
 ! set up local dimension
@@ -2928,58 +2928,23 @@ end subroutine update_atmos_chemistry
 
 ! fill variables
     select case(trim(fieldName))
-       case ('Si_ifrac')
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-          do j = jsc, jec
-             do i = isc, iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_Coupling%fice_dat(im) = datar82d(i-isc+1,j-jsc+1)
-             end do
-          end do
-       case ('Si_thick')
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-          do j = jsc, jec
-             do i = isc, iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_Coupling%hice_dat(im) = datar82d(i-isc+1,j-jsc+1)
-             end do
-          end do
-       case ('So_omask')
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-          do j = jsc, jec
-             do i = isc, iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_Coupling%mask_dat(im) = datar82d(i-isc+1,j-jsc+1)
-             end do
-          end do
-       case ('So_t')
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-          do j = jsc, jec
-             do i = isc, iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_Coupling%tsfco_dat(im) = datar82d(i-isc+1,j-jsc+1)
-             end do
-          end do
-       case ('Si_t')
-!$omp parallel do default(shared) private(i,j,nb,ix,im)
-          do j = jsc, jec
-             do i = isc, iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_Coupling%tice_dat(im) = datar82d(i-isc+1,j-jsc+1)
-             end do
-          end do
-       case default
-          write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
+    case ('Si_ifrac')
+      call copy2block(GFS_Coupling%fice_dat, datar82d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    case ('Si_thick')
+      call copy2block(GFS_Coupling%hice_dat, datar82d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    case ('So_omask')
+      call copy2block(GFS_Coupling%mask_dat, datar82d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    case ('So_t')
+      call copy2block(GFS_Coupling%tsfco_dat, datar82d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    case ('Si_t')
+      call copy2block(GFS_Coupling%tice_dat, datar82d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    case default
+      write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
     end select
 
   end subroutine setup_inlinedata
