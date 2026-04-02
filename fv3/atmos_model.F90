@@ -3431,8 +3431,8 @@ end subroutine update_atmos_chemistry
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
-    real(kind=GFS_kind_phys), intent(out), target :: destin_ptr(:)
-    real(ESMF_KIND_R8),       intent(in),  target :: source_ptr(:,:)
+    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(in),   target :: source_ptr(:,:)
     real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
     type(block_control_type), intent(in),  target, optional :: block
     real(kind=GFS_kind_phys), intent(in), optional :: validmin
@@ -3503,8 +3503,8 @@ end subroutine update_atmos_chemistry
           if (mask(im) <= zero) cycle
         end if
         fval = source_ptr(i-isc+1, j-jsc+1)
-        if (lvmin .ne. -spval) fval = max(lvmin, fval)
-        if (lvmax .ne.  spval) fval = min(lvmax, fval)
+        if (lvmin /= -spval .and. fval <= lvmin) cycle
+        if (lvmax /=  spval .and. fval >  lvmax) cycle
         if (lflip) then
           destin_ptr(im) = -fval
         else
