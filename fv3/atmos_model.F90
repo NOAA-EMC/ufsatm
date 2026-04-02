@@ -3432,7 +3432,7 @@ end subroutine update_atmos_chemistry
   !> @param[in]    source_ptr 2D source array in local coordinates
   !> @param[in]    mask       Optional 1D mask array; elements with mask <= 0 are skipped
   !> @param[in]    validmin   Optional minimum acceptable value; values <= validmin are rejected
-  !> @param[in]    validmax   Optional maximum acceptable value; values > validmax are rejected
+  !> @param[in]    validmax   Optional maximum acceptable value; values >= validmax are rejected
   !> @param[in]    flipsign   Optional flag to negate values before assignment
   !> @param[in]    block      Optional block control structure; uses Atm_block if not provided
   !> @param[out]   rc         Return code
@@ -3503,7 +3503,7 @@ end subroutine update_atmos_chemistry
         end if
         fval = source_ptr(i-isc+1, j-jsc+1)
         if (lvmin /= -spval .and. fval <= lvmin) cycle
-        if (lvmax /=  spval .and. fval >  lvmax) cycle
+        if (lvmax /=  spval .and. fval >= lvmax) cycle
         if (lflip) then
           destin_ptr(im) = -fval
         else
