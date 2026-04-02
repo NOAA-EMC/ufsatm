@@ -1867,9 +1867,6 @@ end subroutine update_atmos_chemistry
     real (kind=GFS_kind_phys), parameter :: z0ice=1.0    !  (in cm)
 
 !
-!     real(kind=GFS_kind_phys), parameter :: himax = 8.0      !< maximum ice thickness allowed
-!     real(kind=GFS_kind_phys), parameter :: himin = 0.1      !< minimum ice thickness required
-!     real(kind=GFS_kind_phys), parameter :: hsmax = 100.0    !< maximum snow depth (m) allowed
       real(kind=GFS_kind_phys), parameter :: himax = 1.0e12   !< maximum ice thickness allowed
       real(kind=GFS_kind_phys), parameter :: hsmax = 1.0e12   !< maximum snow depth (m) allowed
       real(kind=GFS_kind_phys), parameter :: con_sbc = 5.670400e-8_GFS_kind_phys !< stefan-boltzmann
@@ -1888,11 +1885,6 @@ end subroutine update_atmos_chemistry
 
     allocate(datar8(isc:iec,jsc:jec))
     allocate(mergeflg(isc:iec,jsc:jec))
-
-!   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,dim=',isc,iec,jsc,jec
-!   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,GFS_data, size', size(GFS_data)
-!   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,tsfc, size', size(GFS_data(1)%sfcprop%tsfc)
-!   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,tsfc, min_seaice', GFS_control%min_seaice
 
     do n=1,nImportFields ! Each import field is only available if it was connected in the import state.
 
@@ -1934,23 +1926,6 @@ end subroutine update_atmos_chemistry
          if (datar8(isc,jsc) > -99998.0) then
 !
         ! get sea land mask: in order to update the coupling fields over the ocean/ice
-!        fldname = 'land_mask'
-!        if (trim(impfield_name) == trim(fldname)) then
-!          findex = queryImportFields(fldname)
-!          if (importFieldsValid(findex)) then
-!!$omp parallel do default(shared) private(i,j,nb,ix)
-!            do j=jsc,jec
-!              do i=isc,iec
-!                nb = Atm_block%blkno(i,j)
-!                ix = Atm_block%ixp(i,j)
-!                GFS_data(nb)%Coupling%slimskin_cpl(ix) = datar8(i,j)
-!              enddo
-!            enddo
-!            if( mpp_pe()==mpp_root_pe()) print *,'get land mask from mediator'
-!          endif
-!        endif
-
-
 ! get sea-state dependent surface roughness (if cplwav2atm=true)
 !----------------------------
           fldname = 'wave_z0_roughness_length'
@@ -1965,7 +1940,6 @@ end subroutine update_atmos_chemistry
                   im = GFS_control%chunk_begin(nb)+ix-1
                   if (GFS_Sfcprop%oceanfrac(im) > zero .and.  datar8(i,j) > zorlmin) then
                     tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, datar8(i,j))
-!                   GFS_Coupling%zorlwav_cpl(im) = tem
                     GFS_Sfcprop%zorlwav(im)      = tem
                     GFS_Sfcprop%zorlw(im)        = tem
                   else
@@ -1989,7 +1963,6 @@ end subroutine update_atmos_chemistry
                   ix = Atm_block%ixp(i,j)
                   im = GFS_control%chunk_begin(nb)+ix-1
                   if (GFS_Sfcprop%oceanfrac(im) > zero .and.  datar8(i,j) > 150.0) then
-!                   GFS_Coupling%tisfcin_cpl(im) = datar8(i,j)
                     GFS_Sfcprop%tisfc(im)       = datar8(i,j)
                   endif
                 enddo
@@ -2011,11 +1984,9 @@ end subroutine update_atmos_chemistry
                   im = GFS_control%chunk_begin(nb)+ix-1
                   if (GFS_Sfcprop%oceanfrac(im) > zero .and. datar8(i,j) > 150.0) then
                     if(mergeflg(i,j)) then
-!                     GFS_Coupling%tseain_cpl(im) = GFS_Sfcprop%tsfc(im)
                       GFS_Sfcprop%tsfco(im) = GFS_Sfcprop%tsfc(im)
                       datar8(i,j) = GFS_Sfcprop%tsfc(im)
                     else
-!                     GFS_Coupling%tseain_cpl(im) = datar8(i,j)
                       GFS_Sfcprop%tsfco(im)       = datar8(i,j)
                     endif
                   endif
@@ -2099,7 +2070,6 @@ end subroutine update_atmos_chemistry
                     if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
                       if (GFS_Sfcprop%fice(im) > one-epsln) GFS_Sfcprop%fice(im) = one
                       if (abs(one-ofrac) < epsln) GFS_Sfcprop%slmsk(im) = 2.0_GFS_kind_phys !slmsk=2 crashes in gcycle on partial land points
-!                     GFS_Sfcprop%slmsk(im)         = 2.0_GFS_kind_phys
                       GFS_Coupling%slimskin_cpl(im) = 4.0_GFS_kind_phys
                     else
                       GFS_Sfcprop%fice(im) = zero
@@ -2123,13 +2093,6 @@ end subroutine update_atmos_chemistry
             if (importFieldsValid(findex)) then
 !$omp parallel do default(shared) private(i,j,nb,ix,im)
               do j=jsc,jec
-!               do i=isc,iec
-!                 nb = Atm_block%blkno(i,j)
-!                 ix = Atm_block%ixp(i,j)
-!                if (GFS_Sfcprop%slmsk(im) < 0.1 .or. GFS_Sfcprop%slmsk(im) > 1.9) then
-!                   GFS_Coupling%ulwsfcin_cpl(im) = -datar8(i,j)
-!                 endif
-!               enddo
                 do i=isc,iec
                   nb = Atm_block%blkno(i,j)
                   ix = Atm_block%ixp(i,j)
@@ -2240,7 +2203,6 @@ end subroutine update_atmos_chemistry
                   ix = Atm_block%ixp(i,j)
                   im = GFS_control%chunk_begin(nb)+ix-1
                   if (GFS_Sfcprop%oceanfrac(im) > zero) then
-!                   GFS_Coupling%hicein_cpl(im) = datar8(i,j)
                     GFS_Sfcprop%hice(im)        = min(datar8(i,j), himax)
                   endif
                 enddo
@@ -2285,7 +2247,6 @@ end subroutine update_atmos_chemistry
                     ix = Atm_block%ixp(i,j)
                     im = GFS_control%chunk_begin(nb)+ix-1
                     if (GFS_Sfcprop%oceanfrac(im) > zero) then
-!                     GFS_Coupling%sfc_alb_nir_dif_cpl(im) = datar8(i,j)
                       GFS_Sfcprop%albdifnir_ice(im) = datar8(i,j)
                     endif
                   enddo
@@ -2307,7 +2268,6 @@ end subroutine update_atmos_chemistry
                     ix = Atm_block%ixp(i,j)
                     im = GFS_control%chunk_begin(nb)+ix-1
                     if (GFS_Sfcprop%oceanfrac(im) > zero) then
-!                     GFS_Coupling%sfc_alb_nir_dir_cpl(im) = datar8(i,j)
                       GFS_Sfcprop%albdirnir_ice(im) = datar8(i,j)
                     endif
                   enddo
@@ -2329,7 +2289,6 @@ end subroutine update_atmos_chemistry
                     ix = Atm_block%ixp(i,j)
                     im = GFS_control%chunk_begin(nb)+ix-1
                     if (GFS_Sfcprop%oceanfrac(im) > zero) then
-!                     GFS_Coupling%sfc_alb_vis_dif_cpl(im) = datar8(i,j)
                       GFS_Sfcprop%albdifvis_ice(im) = datar8(i,j)
                     endif
                   enddo
@@ -2352,7 +2311,6 @@ end subroutine update_atmos_chemistry
                     ix = Atm_block%ixp(i,j)
                     im = GFS_control%chunk_begin(nb)+ix-1
                     if (GFS_Sfcprop%oceanfrac(im) > zero) then
-!                     GFS_Coupling%sfc_alb_vis_dir_cpl(im) = datar8(i,j)
                       GFS_Sfcprop%albdirvis_ice(im) = datar8(i,j)
                     endif
                   enddo
@@ -2852,10 +2810,6 @@ end subroutine update_atmos_chemistry
               GFS_Coupling%dvsfcin_cpl(im)  = -99999.0 !                 ,,
               GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 !                 ,,
               GFS_Coupling%ulwsfcin_cpl(im) = -99999.0 !                 ,,
-!             GFS_Sfcprop%albdirvis_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdirnir_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdifvis_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdifnir_ice(im) = -9999.0  !                 ,,
               if (abs(one-GFS_Sfcprop%oceanfrac(im)) < epsln) then !  100% open water
                 GFS_Coupling%slimskin_cpl(im) = zero
                 GFS_Sfcprop%slmsk(im)         = zero
