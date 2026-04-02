@@ -3436,13 +3436,24 @@ end subroutine update_atmos_chemistry
    call get_nth_domain_info(n, layout, nx, ny, pelist)
 
   end subroutine atmos_model_get_nth_domain_info
-
+  !> @brief Copy data from a 2D source array to a 1D block-distributed destination array.
+  !>
+  !> @param[inout] destin_ptr 1D destination array distributed by block
+  !> @param[in]    source_ptr 2D source array in local coordinates
+  !> @param[in]    mask       Optional 1D mask array; elements with mask <= 0 are skipped
+  !> @param[in]    validmin   Optional minimum acceptable value; values <= validmin are rejected
+  !> @param[in]    validmax   Optional maximum acceptable value; values >= validmax are rejected
+  !> @param[in]    flipsign   Optional flag to negate values before assignment
+  !> @param[in]    block      Optional block control structure; uses Atm_block if not provided
+  !> @param[out]   rc         Return code
+  !>
+  !> @author Denise.Worthen@noaa.gov
   subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, flipsign, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
 
-    real(kind=GFS_kind_phys), intent(out), target :: destin_ptr(:)
-    real(ESMF_KIND_R8),       intent(in),  target :: source_ptr(:,:)
+    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+    real(ESMF_KIND_R8),       intent(in),    target :: source_ptr(:,:)
     real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
     type(block_control_type), intent(in),  target, optional :: block
     real(kind=GFS_kind_phys), intent(in), optional :: validmin
@@ -3477,27 +3488,15 @@ end subroutine update_atmos_chemistry
     if (size(source_ptr,1) < nx_local .or. size(source_ptr,2) < ny_local) then
       rc = ESMF_FAILURE
       return
-
-
     end if
 
-    spval  = GFS_control%huge
-
-    if(present(validmin)) then
-      lvmin = validmin
-    else
-      lvmin = -spval
-    end if
-    if(present(validmax)) then
-      lvmax = validmax
-    else
-      lvmax = spval
-    end if
-    if(present(flipsign)) then
-      lflip = flipsign
-    else
-      lflip = .false.
-    end if
+    spval = GFS_control%huge
+    lvmin = -spval
+    lvmax = spval
+    lflip = .false.
+    if(present(validmin)) lvmin = validmin
+    if(present(validmax)) lvmax = validmax
+    if(present(flipsign)) lflip = flipsign
 
     !NOTE: initializing destin_ptr
     !destin_ptr = -spval fails in sfc_diff LN 568
@@ -3513,8 +3512,8 @@ end subroutine update_atmos_chemistry
           if (mask(im) <= zero) cycle
         end if
         fval = source_ptr(i-isc+1, j-jsc+1)
-        if (lvmin .ne. -spval) fval = max(lvmin, fval)
-        if (lvmax .ne.  spval) fval = min(lvmax, fval)
+        if (lvmin /= -spval .and. fval <= lvmin) cycle
+        if (lvmax /=  spval .and. fval >= lvmax) cycle
         if (lflip) then
           destin_ptr(im) = -fval
         else
@@ -3523,8 +3522,17 @@ end subroutine update_atmos_chemistry
       end do
     end do
   end subroutine copy2block
-
-  !call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, datar8, mask=GFS_Sfcprop%o
+  !> @brief Merge values from a source field into a destination array based on a merge flag.
+  !>
+  !> @param[inout] destin_ptr   1D destination array distributed by block
+  !> @param[in]    source_ptr   1D source array distributed by block
+  !> @param[in]    mergeflg     2D logical merge flag array in local coordinates
+  !> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
+  !> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
+  !> @param[in]    block        Optional block control structure; uses Atm_block if not provided
+  !> @param[out]   rc           Return code
+  !>
+  !> @author Denise.Worthen@noaa.gov
   subroutine merge_importfield_with_field(destin_ptr, source_ptr, mergeflg, source_ptr2d, mask, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
@@ -3559,7 +3567,6 @@ end subroutine update_atmos_chemistry
     nx_local = iec - isc + 1
     ny_local = jec - jsc + 1
 
-
     !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
     do j = jsc, jec
       do i = isc, iec
@@ -3576,10 +3583,18 @@ end subroutine update_atmos_chemistry
         end if
       end do
     end do
-
   end subroutine merge_importfield_with_field
-
-  !call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, datar8, mask=GFS_Sfcprop%oceanfrac, rc
+  !> @brief Merge scalar values into a destination array and 2D field based on a merge flag.
+  !>
+  !> @param[inout] destin_ptr   1D destination array distributed by block
+  !> @param[in]    scalarfill   Scalar value to assign where merge flag is true
+  !> @param[in]    mergeflg     2D logical merge flag array in local coordinates
+  !> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
+  !> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
+  !> @param[in]    block        Optional block control structure; uses Atm_block if not provided
+  !> @param[out]   rc           Return code
+  !>
+  !> @author Denise.Worthen@noaa.gov
   subroutine merge_importfield_with_scalar(destin_ptr, scalarfill, mergeflg, source_ptr2d, mask, block, rc)
 
     use ESMF, only : ESMF_KIND_R8, ESMF_SUCCESS, ESMF_FAILURE
@@ -3611,7 +3626,6 @@ end subroutine update_atmos_chemistry
     jec = GFS_control%jsc + GFS_control%ny - 1
     nx_local = iec - isc + 1
     ny_local = jec - jsc + 1
-
 
     !$omp parallel do default(shared) private(i,j,nb,ix,im)
     do j = jsc, jec
