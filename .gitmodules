@@ -1,19 +1,25 @@
 [submodule "fv3/atmos_cubed_sphere"]
   path = fv3/atmos_cubed_sphere
-  url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
-  branch = dev/emc
+  #url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
+  #branch = dev/emc
+  url = https://github.com/gspetro-NOAA/atmos_cubed_sphere
+  branch = feature/ss2.x
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
   branch = develop
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  #url = https://github.com/ufs-community/ccpp-physics
+  #branch = ufs/dev
+  url = https://github.com/gspetro-NOAA/ccpp-physics.git
+  branch = feature/ss2.x
 [submodule "upp"]
   path = upp
-  url = https://github.com/NOAA-EMC/UPP
-  branch = develop
+  #url = https://github.com/NOAA-EMC/UPP
+  #branch = develop
+  url = https://github.com/gspetro-NOAA/UPP
+  branch = feature/ss2.x
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
   url = https://github.com/ufs-community/MPAS-Model.git
