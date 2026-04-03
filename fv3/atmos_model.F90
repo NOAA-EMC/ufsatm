@@ -1960,37 +1960,25 @@ end subroutine update_atmos_chemistry
 !        endif
 
 
+           if(GFS_control%cplwav2atm) then
 ! get sea-state dependent surface roughness (if cplwav2atm=true)
 !----------------------------
-          fldname = 'wave_z0_roughness_length'
-          if (trim(impfield_name) == trim(fldname)) then
-            findex = queryImportFields(fldname)
-            if (importFieldsValid(findex) .and. GFS_control%cplwav2atm) then
-!$omp parallel do default(shared) private(i,j,nb,ix,im,tem)
-              do j=jsc,jec
-                do i=isc,iec
-                  nb = Atm_block%blkno(i,j)
-                  ix = Atm_block%ixp(i,j)
-                  im = GFS_control%chunk_begin(nb)+ix-1
-                  if (GFS_Sfcprop%oceanfrac(im) > zero .and.  datar8(i,j) > zorlmin) then
-                    tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, datar8(i,j))
-!                   GFS_Coupling%zorlwav_cpl(im) = tem
-                    GFS_Sfcprop%zorlwav(im)      = tem
-                    GFS_Sfcprop%zorlw(im)        = tem
-                  else
-                    GFS_Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
-                  endif
-                enddo
-              enddo
-            endif
-          endif
+             fldname = 'wave_z0_roughness_length'
+             if (trim(impfield_name) == trim(fldname)) then
+               if (importFieldsValid(queryImportFields(fldname))) then
+                 call copy2block(GFS_Sfcprop%zorlwav, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get wave roughness from mediator'
+               endif
+             endif
+           endif ! GFS_control%cplwav2atm
 
 ! get sea ice surface temperature
 !--------------------------------
           fldname = 'sea_ice_surface_temperature'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
-              call copy2block(GFS_Sfcprop%tisfc, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
+              call copy2block(GFS_Sfcprop%tisfc, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_GFS_kind_phys, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
             endif
           endif
@@ -2001,7 +1989,7 @@ end subroutine update_atmos_chemistry
             fldname = 'sea_surface_temperature'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
-                call copy2block(GFS_Sfcprop%tsfco, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_ESMF_KIND_R8, rc=rc)
+                call copy2block(GFS_Sfcprop%tsfco, datar8, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_GFS_kind_phys, rc=rc)
                 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
 
@@ -2079,7 +2067,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get upward LW flux:  for sea ice covered area
+! get upward LW flux: for sea ice covered area
 !----------------------------------------------
           fldname = 'lwup_flx_ice'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2090,7 +2078,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get latent heat flux:  for sea ice covered area
+! get latent heat flux: for sea ice covered area
 !------------------------------------------------
           fldname = 'laten_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2101,7 +2089,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get sensible heat flux:  for sea ice covered area
+! get sensible heat flux: for sea ice covered area
 !--------------------------------------------------
           fldname = 'sensi_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2112,7 +2100,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get zonal compt of momentum flux:  for sea ice covered area
+! get zonal compt of momentum flux: for sea ice covered area
 !------------------------------------------------------------
           fldname = 'stress_on_air_ice_zonal'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2123,7 +2111,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get meridional compt of momentum flux:  for sea ice covered area
+! get meridional compt of momentum flux: for sea ice covered area
 !-----------------------------------------------------------------
           fldname = 'stress_on_air_ice_merid'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2134,7 +2122,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get sea ice volume:  for sea ice covered area
+! get sea ice volume: for sea ice covered area
 !----------------------------------------------
           fldname = 'sea_ice_volume'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2145,7 +2133,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! get snow volume:  for sea ice covered area
+! get snow volume: for sea ice covered area
 !-------------------------------------------
           fldname = 'snow_volume_on_sea_ice'
           if (trim(impfield_name) == trim(fldname)) then
@@ -2203,7 +2191,7 @@ end subroutine update_atmos_chemistry
           endif ! GFS_control%use_cice_alb
 
           if (GFS_control%use_med_flux) then
-! get upward LW flux:  for open ocean
+! get upward LW flux: for open ocean
 !----------------------------------------------
             fldname = 'lwup_flx_ocn'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2214,7 +2202,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get latent heat flux:  for open ocean
+! get latent heat flux: for open ocean
 !------------------------------------------------
             fldname = 'laten_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2225,7 +2213,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get sensible heat flux:  for open ocean
+! get sensible heat flux: for open ocean
 !--------------------------------------------------
             fldname = 'sensi_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2236,7 +2224,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get zonal compt of momentum flux:  for open ocean
+! get zonal compt of momentum flux: for open ocean
 !------------------------------------------------------------
             fldname = 'stress_on_air_ocn_zonal'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2247,7 +2235,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get meridional compt of momentum flux:  for open ocean
+! get meridional compt of momentum flux: for open ocean
 !-----------------------------------------------------------------
             fldname = 'stress_on_air_ocn_merid'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2260,7 +2248,7 @@ end subroutine update_atmos_chemistry
           end if ! GFS_control%use_med_flux
 
           if (GFS_control%cpllnd .and. GFS_control%cpllnd2atm) then
-! get surface snow area fraction: over land (if cpllnd=true and cpllnd2atm=true)
+! get surface snow area fraction: over land
 !------------------------------------------------
             fldname = 'inst_snow_area_fraction_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2271,7 +2259,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get latent heat flux: over land (if cpllnd=true and cpllnd2atm=true)
+! get latent heat flux: over land
 !------------------------------------------------
             fldname = 'inst_laten_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2282,7 +2270,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get sensible heat flux: over land (if cpllnd=true and cpllnd2atm=true)
+! get sensible heat flux: over land
 !--------------------------------------------------
             fldname = 'inst_sensi_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2293,7 +2281,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get surface upward potential latent heat flux: over land (if cpllnd=true and cpllnd2atm=true)
+! get surface upward potential latent heat flux: over land
 !------------------------------------------------
             fldname = 'inst_potential_laten_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2304,7 +2292,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get 2m air temperature: over land (if cpllnd=true and cpllnd2atm=true)
+! get 2m air temperature: over land
 !------------------------------------------------
             fldname = 'inst_temp_height2m_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2315,7 +2303,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get 2m specific humidity: over land (if cpllnd=true and cpllnd2atm=true)
+! get 2m specific humidity: over land
 !------------------------------------------------
             fldname = 'inst_spec_humid_height2m_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2326,7 +2314,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get specific humidity: over land (if cpllnd=true and cpllnd2atm=true)
+! get specific humidity: over land
 !------------------------------------------------
             fldname = 'inst_spec_humid_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2337,7 +2325,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get upward heat flux in soil (if cpllnd=true and cpllnd2atm=true)
+! get upward heat flux in soil
 !------------------------------------------------
             fldname = 'inst_upward_heat_flux_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2348,7 +2336,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get surface runoff in soil (if cpllnd=true and cpllnd2atm=true)
+! get surface runoff in soil
 !------------------------------------------------
             fldname = 'inst_runoff_rate_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2359,7 +2347,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get subsurface runoff in soil (if cpllnd=true and cpllnd2atm=true)
+! get subsurface runoff in soil
 !------------------------------------------------
             fldname = 'inst_subsurface_runoff_rate_lnd'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2370,7 +2358,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get momentum exchange coefficient (if cpllnd=true and cpllnd2atm=true)
+! get momentum exchange coefficient
 !------------------------------------------------
             fldname = 'inst_drag_wind_speed_for_momentum'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2381,7 +2369,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get thermal exchange coefficient (if cpllnd=true and cpllnd2atm=true)
+! get thermal exchange coefficient
 !------------------------------------------------
             fldname = 'inst_drag_mass_flux_for_heat_and_moisture'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2392,7 +2380,7 @@ end subroutine update_atmos_chemistry
               endif
             endif
 
-! get function of surface roughness length and green vegetation fraction (if cpllnd=true and cpllnd2atm=true)
+! get function of surface roughness length and green vegetation fraction
 !------------------------------------------------
             fldname = 'inst_func_of_roughness_length_and_vfrac'
             if (trim(impfield_name) == trim(fldname)) then
@@ -2772,126 +2760,117 @@ end subroutine update_atmos_chemistry
           endif
         endif
 
-        fldname = 'hflx_fire'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-!$omp parallel do default(shared) private(i,j,nb,ix)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%hflx_fire(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
+        if (GFS_control%cpl_fire) then
+          fldname = 'hflx_fire'
+          if (trim(impfield_name) == trim(fldname)) then
+            if (importFieldsValid(queryImportFields(fldname))) then
+              call copy2block(GFS_sfcprop%hflx_fire, datar8, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get hflx_fire from FBH model'
+            endif
           endif
+
+          fldname = 'evap_fire'
+          if (trim(impfield_name) == trim(fldname)) then
+            if (importFieldsValid(queryImportFields(fldname))) then
+              call copy2block(GFS_sfcprop%evap_fire, datar8, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get evap_fire from FBH model'
+            endif
+          endif
+
+          fldname = 'smoke_fire'
+          if (trim(impfield_name) == trim(fldname)) then
+            if (importFieldsValid(queryImportFields(fldname))) then
+              call copy2block(GFS_sfcprop%smoke_fire, datar8, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+              if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get smoke_fire from FBH model'
+            endif
+          endif
+        endif ! (GFS_control%cpl_fire)
+
+        ! write post merge import data to NetCDF file.
+        if (GFS_control%cpl_imp_dbg) then
+          call ESMF_FieldGet(importFields(n), grid=grid, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          dbgField = ESMF_FieldCreate(grid=grid, farrayPtr=datar8, name=impfield_name, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          write (currtimestring, "(I4.4,'-',I2.2,'-',I2.2,'T',I2.2,':',I2.2,':',I2.2)") &
+               jdat(1), jdat(2), jdat(3), jdat(5), jdat(6), jdat(7)
+          call ESMF_FieldWrite(dbgField, fileName='fv3_merge_'//trim(impfield_name)//'_'// &
+               trim(currtimestring)//'.nc', rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          call ESMF_FieldDestroy(dbgField, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
         endif
 
-        fldname = 'evap_fire'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-!$omp parallel do default(shared) private(i,j,nb,ix)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%evap_fire(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'smoke_fire'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-!$omp parallel do default(shared) private(i,j,nb,ix)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%smoke_fire(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-          ! write post merge import data to NetCDF file.
-          if (GFS_control%cpl_imp_dbg) then
-            call ESMF_FieldGet(importFields(n), grid=grid, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-            dbgField = ESMF_FieldCreate(grid=grid, farrayPtr=datar8, name=impfield_name, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-            write (currtimestring, "(I4.4,'-',I2.2,'-',I2.2,'T',I2.2,':',I2.2,':',I2.2)") &
-                                   jdat(1), jdat(2), jdat(3), jdat(5), jdat(6), jdat(7)
-            call ESMF_FieldWrite(dbgField, fileName='fv3_merge_'//trim(impfield_name)//'_'// &
-                                 trim(currtimestring)//'.nc', rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-            call ESMF_FieldDestroy(dbgField, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          endif
-
-        endif ! if (found) then
-      endif   ! if (isFieldCreated) then
-    enddo
+      endif ! if (found) then
+    endif   ! if (isFieldCreated) then
+  enddo
 !
     deallocate(mergeflg)
     deallocate(datar8)
 
+    !$omp parallel do default(shared) private(i,j,nb,ix,tem,im)
+       do j=jsc,jec
+          do i=isc,iec
+             nb = Atm_block%blkno(i,j)
+             ix = Atm_block%ixp(i,j)
+             im = GFS_control%chunk_begin(nb)+ix-1
 
+             if (GFS_control%cplwav2atm) then
+               if (GFS_Sfcprop%oceanfrac(im) > zero .and. GFS_Sfcprop%zorlwav(im) > zorlmin) then
+                 tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, GFS_Sfcprop%zorlwav(im))
+                 GFS_Sfcprop%zorlwav(im)      = tem
+                 GFS_Sfcprop%zorlw(im)        = tem
+               else
+                 GFS_Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
+               endif
+             endif
 
-! update sea ice related fields:
-    if( lcpl_fice ) then
-!$omp parallel do default(shared) private(i,j,nb,ix,tem,im)
-      do j=jsc,jec
-        do i=isc,iec
-          nb = Atm_block%blkno(i,j)
-          ix = Atm_block%ixp(i,j)
-          im = GFS_control%chunk_begin(nb)+ix-1
-          if (GFS_Sfcprop%oceanfrac(im) > zero) then
-            if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
-
-              GFS_Coupling%hsnoin_cpl(im) = min(hsmax, GFS_Coupling%hsnoin_cpl(im) &
-                                                              / GFS_Sfcprop%fice(im))
-              GFS_Sfcprop%zorli(im)       = z0ice
-              tem = GFS_Sfcprop%tisfc(im) * GFS_Sfcprop%tisfc(im)
-              tem = con_sbc * tem * tem
-              if (GFS_Coupling%ulwsfcin_cpl(im) > zero) then
-                GFS_Sfcprop%emis_ice(im) = GFS_Coupling%ulwsfcin_cpl(im) / tem
-                GFS_Sfcprop%emis_ice(im) = max(0.9, min(one, GFS_Sfcprop%emis_ice(im)))
-              else
-                GFS_Sfcprop%emis_ice(im) = 0.96
-              endif
-              GFS_Coupling%ulwsfcin_cpl(im) = tem * GFS_Sfcprop%emis_ice(im)
-            else
-              GFS_Sfcprop%tisfc(im)       = GFS_Sfcprop%tsfco(im)
-              GFS_Sfcprop%fice(im)        = zero
-              GFS_Sfcprop%hice(im)        = zero
-              GFS_Coupling%hsnoin_cpl(im) = zero
-!
-              GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 ! over open water - should not be used in ATM
-              GFS_Coupling%dqsfcin_cpl(im)  = -99999.0 !                 ,,
-              GFS_Coupling%dusfcin_cpl(im)  = -99999.0 !                 ,,
-              GFS_Coupling%dvsfcin_cpl(im)  = -99999.0 !                 ,,
-              GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 !                 ,,
-              GFS_Coupling%ulwsfcin_cpl(im) = -99999.0 !                 ,,
-!             GFS_Sfcprop%albdirvis_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdirnir_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdifvis_ice(im) = -9999.0  !                 ,,
-!             GFS_Sfcprop%albdifnir_ice(im) = -9999.0  !                 ,,
-              if (abs(one-GFS_Sfcprop%oceanfrac(im)) < epsln) then !  100% open water
-                GFS_Coupling%slimskin_cpl(im) = zero
-                GFS_Sfcprop%slmsk(im)         = zero
-              endif
-            endif
-          endif
-        enddo
-      enddo
-    endif
+             if ( lcpl_fice ) then
+               if (GFS_Sfcprop%oceanfrac(im) > zero) then
+                 if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
+                   GFS_Coupling%hsnoin_cpl(im) = min(hsmax, GFS_Coupling%hsnoin_cpl(im) &
+                        / GFS_Sfcprop%fice(im))
+                   GFS_Sfcprop%zorli(im)       = z0ice
+                   tem = GFS_Sfcprop%tisfc(im) * GFS_Sfcprop%tisfc(im)
+                   tem = con_sbc * tem * tem
+                   if (GFS_Coupling%ulwsfcin_cpl(im) > zero) then
+                     GFS_Sfcprop%emis_ice(im) = GFS_Coupling%ulwsfcin_cpl(im) / tem
+                     GFS_Sfcprop%emis_ice(im) = max(0.9, min(one, GFS_Sfcprop%emis_ice(im)))
+                   else
+                     GFS_Sfcprop%emis_ice(im) = 0.96
+                   endif
+                   GFS_Coupling%ulwsfcin_cpl(im) = tem * GFS_Sfcprop%emis_ice(im)
+                 else
+                   GFS_Sfcprop%tisfc(im)       = GFS_Sfcprop%tsfco(im)
+                   GFS_Sfcprop%fice(im)        = zero
+                   GFS_Sfcprop%hice(im)        = zero
+                   GFS_Coupling%hsnoin_cpl(im) = zero
+                   !
+                   GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 ! over open water - should not be used in ATM
+                   GFS_Coupling%dqsfcin_cpl(im)  = -99999.0 !                 ,,
+                   GFS_Coupling%dusfcin_cpl(im)  = -99999.0 !                 ,,
+                   GFS_Coupling%dvsfcin_cpl(im)  = -99999.0 !                 ,,
+                   GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 !                 ,,
+                   GFS_Coupling%ulwsfcin_cpl(im) = -99999.0 !                 ,,
+                   !             GFS_Sfcprop%albdirvis_ice(im) = -9999.0  !                 ,,
+                   !             GFS_Sfcprop%albdirnir_ice(im) = -9999.0  !                 ,,
+                   !             GFS_Sfcprop%albdifvis_ice(im) = -9999.0  !                 ,,
+                   !             GFS_Sfcprop%albdifnir_ice(im) = -9999.0  !                 ,,
+                   if (abs(one-GFS_Sfcprop%oceanfrac(im)) < epsln) then !  100% open water
+                     GFS_Coupling%slimskin_cpl(im) = zero
+                     GFS_Sfcprop%slmsk(im)         = zero
+                   endif
+                 endif
+               endif ! GFS_Sfcprop%oceanfrac(im) > zero
+             endif ! lcpl_fice
+         enddo
+       enddo
 
     rc=0
 !
