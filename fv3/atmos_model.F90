@@ -2039,33 +2039,39 @@ end subroutine update_atmos_chemistry
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               lcpl_fice = .true.
-!$omp parallel do default(shared) private(i,j,nb,ix,im,ofrac)
-              do j=jsc,jec
-                do i=isc,iec
-                  nb = Atm_block%blkno(i,j)
-                  ix = Atm_block%ixp(i,j)
-                  im = GFS_control%chunk_begin(nb)+ix-1
-                  GFS_Coupling%slimskin_cpl(im) = GFS_Sfcprop%slmsk(im)
-                  ofrac = GFS_Sfcprop%oceanfrac(im)
-                  if (ofrac > zero) then
-                    GFS_Sfcprop%fice(im) = max(zero, min(one, datar8(i,j)/ofrac)) !LHS: ice frac wrt water area
-                    if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
-                      if (GFS_Sfcprop%fice(im) > one-epsln) GFS_Sfcprop%fice(im) = one
-                      if (abs(one-ofrac) < epsln) GFS_Sfcprop%slmsk(im) = 2.0_GFS_kind_phys !slmsk=2 crashes in gcycle on partial land points
-                      GFS_Coupling%slimskin_cpl(im) = 4.0_GFS_kind_phys
-                    else
-                      GFS_Sfcprop%fice(im) = zero
-                      if (abs(one-ofrac) < epsln) then
-                        GFS_Sfcprop%slmsk(im)         = zero
-                        GFS_Coupling%slimskin_cpl(im) = zero
-                      endif
-                    endif
-                  endif
-                enddo
-              enddo
+              call copy2block(GFS_Sfcprop%fice, datar8, mask=GFS_Sfcprop%oceanfrac, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get fice from mediator'
             endif
           endif
+
+! !$omp parallel do default(shared) private(i,j,nb,ix,im,ofrac)
+!               do j=jsc,jec
+!                 do i=isc,iec
+!                   nb = Atm_block%blkno(i,j)
+!                   ix = Atm_block%ixp(i,j)
+!                   im = GFS_control%chunk_begin(nb)+ix-1
+!                   GFS_Coupling%slimskin_cpl(im) = GFS_Sfcprop%slmsk(im)
+!                   ofrac = GFS_Sfcprop%oceanfrac(im)
+!                   if (ofrac > zero) then
+!                     GFS_Sfcprop%fice(im) = max(zero, min(one, datar8(i,j)/ofrac)) !LHS: ice frac wrt water area
+!                     if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
+!                       if (GFS_Sfcprop%fice(im) > one-epsln) GFS_Sfcprop%fice(im) = one
+!                       if (abs(one-ofrac) < epsln) GFS_Sfcprop%slmsk(im) = 2.0_GFS_kind_phys !slmsk=2 crashes in gcycle on partial land points
+!                       GFS_Coupling%slimskin_cpl(im) = 4.0_GFS_kind_phys
+!                     else
+!                       GFS_Sfcprop%fice(im) = zero
+!                       if (abs(one-ofrac) < epsln) then
+!                         GFS_Sfcprop%slmsk(im)         = zero
+!                         GFS_Coupling%slimskin_cpl(im) = zero
+!                       endif
+!                     endif
+!                   endif
+!                 enddo
+!               enddo
+!               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get fice from mediator'
+!             endif
+!           endif
 
 ! get upward LW flux: for sea ice covered area
 !----------------------------------------------
@@ -2814,63 +2820,68 @@ end subroutine update_atmos_chemistry
     deallocate(mergeflg)
     deallocate(datar8)
 
-    !$omp parallel do default(shared) private(i,j,nb,ix,tem,im)
-       do j=jsc,jec
-          do i=isc,iec
-             nb = Atm_block%blkno(i,j)
-             ix = Atm_block%ixp(i,j)
-             im = GFS_control%chunk_begin(nb)+ix-1
+    !$omp parallel do default(shared) private(i,j,nb,ix,tem,im,ofrac)
+    do j=jsc,jec
+      do i=isc,iec
+        nb = Atm_block%blkno(i,j)
+        ix = Atm_block%ixp(i,j)
+        im = GFS_control%chunk_begin(nb)+ix-1
 
-             if (GFS_control%cplwav2atm) then
-               if (GFS_Sfcprop%oceanfrac(im) > zero .and. GFS_Sfcprop%zorlwav(im) > zorlmin) then
-                 tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, GFS_Sfcprop%zorlwav(im))
-                 GFS_Sfcprop%zorlwav(im)      = tem
-                 GFS_Sfcprop%zorlw(im)        = tem
-               else
-                 GFS_Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
-               endif
-             endif
+        if (GFS_control%cplwav2atm) then
+          if (GFS_Sfcprop%oceanfrac(im) > zero .and. GFS_Sfcprop%zorlwav(im) > zorlmin) then
+            tem = 100.0_GFS_kind_phys * min(0.1_GFS_kind_phys, GFS_Sfcprop%zorlwav(im))
+            GFS_Sfcprop%zorlwav(im)      = tem
+            GFS_Sfcprop%zorlw(im)        = tem
+          else
+            GFS_Sfcprop%zorlwav(im) = -999.0_GFS_kind_phys
+          endif
+        endif
 
-             if ( lcpl_fice ) then
-               if (GFS_Sfcprop%oceanfrac(im) > zero) then
-                 if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
-                   GFS_Coupling%hsnoin_cpl(im) = min(hsmax, GFS_Coupling%hsnoin_cpl(im) &
-                        / GFS_Sfcprop%fice(im))
-                   GFS_Sfcprop%zorli(im)       = z0ice
-                   tem = GFS_Sfcprop%tisfc(im) * GFS_Sfcprop%tisfc(im)
-                   tem = con_sbc * tem * tem
-                   if (GFS_Coupling%ulwsfcin_cpl(im) > zero) then
-                     GFS_Sfcprop%emis_ice(im) = GFS_Coupling%ulwsfcin_cpl(im) / tem
-                     GFS_Sfcprop%emis_ice(im) = max(0.9, min(one, GFS_Sfcprop%emis_ice(im)))
-                   else
-                     GFS_Sfcprop%emis_ice(im) = 0.96
-                   endif
-                   GFS_Coupling%ulwsfcin_cpl(im) = tem * GFS_Sfcprop%emis_ice(im)
-                 else
-                   GFS_Sfcprop%tisfc(im)       = GFS_Sfcprop%tsfco(im)
-                   GFS_Sfcprop%fice(im)        = zero
-                   GFS_Sfcprop%hice(im)        = zero
-                   GFS_Coupling%hsnoin_cpl(im) = zero
-                   !
-                   GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 ! over open water - should not be used in ATM
-                   GFS_Coupling%dqsfcin_cpl(im)  = -99999.0 !                 ,,
-                   GFS_Coupling%dusfcin_cpl(im)  = -99999.0 !                 ,,
-                   GFS_Coupling%dvsfcin_cpl(im)  = -99999.0 !                 ,,
-                   GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 !                 ,,
-                   GFS_Coupling%ulwsfcin_cpl(im) = -99999.0 !                 ,,
-                   !             GFS_Sfcprop%albdirvis_ice(im) = -9999.0  !                 ,,
-                   !             GFS_Sfcprop%albdirnir_ice(im) = -9999.0  !                 ,,
-                   !             GFS_Sfcprop%albdifvis_ice(im) = -9999.0  !                 ,,
-                   !             GFS_Sfcprop%albdifnir_ice(im) = -9999.0  !                 ,,
-                   if (abs(one-GFS_Sfcprop%oceanfrac(im)) < epsln) then !  100% open water
-                     GFS_Coupling%slimskin_cpl(im) = zero
-                     GFS_Sfcprop%slmsk(im)         = zero
-                   endif
-                 endif
-               endif ! GFS_Sfcprop%oceanfrac(im) > zero
-             endif ! lcpl_fice
-         enddo
-       enddo
+        if (lcpl_fice) then
+          GFS_Coupling%slimskin_cpl(im) = GFS_Sfcprop%slmsk(im)
+          ofrac = GFS_Sfcprop%oceanfrac(im)
+
+          if (ofrac > zero) then
+            GFS_Sfcprop%fice(im) = max(zero, min(one, GFS_Sfcprop%fice(im)/ofrac)) !LHS: ice frac wrt water area
+            if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
+              if (GFS_Sfcprop%fice(im) > one-epsln) GFS_Sfcprop%fice(im) = one
+              ! slmsk
+              if (abs(one-ofrac) < epsln) GFS_Sfcprop%slmsk(im) = 2.0_GFS_kind_phys !slmsk=2 crashes in gcycle on partial land points
+              GFS_Coupling%slimskin_cpl(im) = 4.0_GFS_kind_phys
+              !hsnow and z0
+              GFS_Coupling%hsnoin_cpl(im) = min(hsmax, GFS_Coupling%hsnoin_cpl(im) / GFS_Sfcprop%fice(im))
+              GFS_Sfcprop%zorli(im)       = z0ice
+              ! ulw
+              tem = GFS_Sfcprop%tisfc(im) * GFS_Sfcprop%tisfc(im)
+              tem = con_sbc * tem * tem
+              if (GFS_Coupling%ulwsfcin_cpl(im) > zero) then
+                GFS_Sfcprop%emis_ice(im) = GFS_Coupling%ulwsfcin_cpl(im) / tem
+                GFS_Sfcprop%emis_ice(im) = max(0.9, min(one, GFS_Sfcprop%emis_ice(im)))
+              else
+                GFS_Sfcprop%emis_ice(im) = 0.96
+              endif
+              GFS_Coupling%ulwsfcin_cpl(im) = tem * GFS_Sfcprop%emis_ice(im)
+            else
+              GFS_Sfcprop%tisfc(im)       = GFS_Sfcprop%tsfco(im)
+              GFS_Sfcprop%fice(im)        = zero
+              GFS_Sfcprop%hice(im)        = zero
+              GFS_Coupling%hsnoin_cpl(im) = zero
+              !
+              GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 ! over open water - should not be used in ATM
+              GFS_Coupling%dqsfcin_cpl(im)  = -99999.0 !                 ,,
+              GFS_Coupling%dusfcin_cpl(im)  = -99999.0 !                 ,,
+              GFS_Coupling%dvsfcin_cpl(im)  = -99999.0 !                 ,,
+              GFS_Coupling%dtsfcin_cpl(im)  = -99999.0 !                 ,,
+              GFS_Coupling%ulwsfcin_cpl(im) = -99999.0 !                 ,,
+              if (abs(one-GFS_Sfcprop%oceanfrac(im)) < epsln) then !  100% open water
+                GFS_Coupling%slimskin_cpl(im) = zero
+                GFS_Sfcprop%slmsk(im)         = zero
+              endif
+            endif ! GFS_Sfcprop%fice(im) >= GFS_control%min_seaice
+          endif ! GFS_Sfcprop%oceanfrac(im) > zero
+        endif ! lcpl_fice
+      enddo
+    enddo
 
     rc=0
 !
