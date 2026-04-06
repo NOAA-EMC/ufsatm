@@ -2045,34 +2045,6 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-! !$omp parallel do default(shared) private(i,j,nb,ix,im,ofrac)
-!               do j=jsc,jec
-!                 do i=isc,iec
-!                   nb = Atm_block%blkno(i,j)
-!                   ix = Atm_block%ixp(i,j)
-!                   im = GFS_control%chunk_begin(nb)+ix-1
-!                   GFS_Coupling%slimskin_cpl(im) = GFS_Sfcprop%slmsk(im)
-!                   ofrac = GFS_Sfcprop%oceanfrac(im)
-!                   if (ofrac > zero) then
-!                     GFS_Sfcprop%fice(im) = max(zero, min(one, dataptr(i,j)/ofrac)) !LHS: ice frac wrt water area
-!                     if (GFS_Sfcprop%fice(im) >= GFS_control%min_seaice) then
-!                       if (GFS_Sfcprop%fice(im) > one-epsln) GFS_Sfcprop%fice(im) = one
-!                       if (abs(one-ofrac) < epsln) GFS_Sfcprop%slmsk(im) = 2.0_GFS_kind_phys !slmsk=2 crashes in gcycle on partial land points
-!                       GFS_Coupling%slimskin_cpl(im) = 4.0_GFS_kind_phys
-!                     else
-!                       GFS_Sfcprop%fice(im) = zero
-!                       if (abs(one-ofrac) < epsln) then
-!                         GFS_Sfcprop%slmsk(im)         = zero
-!                         GFS_Coupling%slimskin_cpl(im) = zero
-!                       endif
-!                     endif
-!                   endif
-!                 enddo
-!               enddo
-!               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get fice from mediator'
-!             endif
-!           endif
-
 ! get upward LW flux: for sea ice covered area
 !----------------------------------------------
           fldname = 'lwup_flx_ice'
