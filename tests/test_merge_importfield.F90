@@ -1,7 +1,7 @@
 program test_merge_importfield
   !! Unit test driver for merge_importfield
 
-  use ESMF,                only: ESMF_KIND_R8, ESMF_SUCCESS
+  use ESMF,                only: ESMF_SUCCESS
   use block_control_mod,   only: block_control_type
   use GFS_typedefs,        only: GFS_kind_phys => kind_phys
   use atmos_model_mod,     only: merge_importfield
@@ -87,13 +87,13 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:), src_1d(:), mask(:)
-    real(ESMF_KIND_R8), allocatable :: src_2d(:,:)
+    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
     integer :: i, j, im, rc, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -777.0_GFS_kind_phys
-    real(ESMF_KIND_R8), parameter :: sentinel2d = -888.0_ESMF_KIND_R8
+    real(GFS_kind_phys), parameter :: sentinel2d = -888.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield field path"
 
@@ -134,7 +134,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(src_1d(im), ESMF_KIND_R8)) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - real(src_1d(im), GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: field merge did not update src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
@@ -145,7 +145,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: field merge changed unflagged src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
@@ -172,14 +172,14 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:)
-    real(ESMF_KIND_R8), allocatable :: src_2d(:,:)
+    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
     integer :: i, j, im, rc, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 12.5_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -222.0_GFS_kind_phys
-    real(ESMF_KIND_R8), parameter :: sentinel2d = -333.0_ESMF_KIND_R8
+    real(GFS_kind_phys), parameter :: sentinel2d = -333.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield scalar path"
 
@@ -215,7 +215,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(scalarfill, ESMF_KIND_R8)) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - real(scalarfill, GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: scalar merge did not update src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
@@ -226,7 +226,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: scalar merge changed unflagged src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
@@ -253,13 +253,13 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:), src_1d(:), mask(:)
-    real(ESMF_KIND_R8), allocatable :: src_2d(:,:)
+    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
     integer :: i, j, im, rc, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -5.0_GFS_kind_phys
-    real(ESMF_KIND_R8), parameter :: sentinel2d = -6.0_ESMF_KIND_R8
+    real(GFS_kind_phys), parameter :: sentinel2d = -6.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield all-false noop"
 
@@ -295,7 +295,7 @@ contains
     if (ok) then
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
-             if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_ESMF_KIND_R8) then
+             if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
                 print *, "    FAILED: all-false merge changed source2d at i=", i, " j=", j
                 ok = .false.
                 exit
@@ -321,7 +321,7 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:)
-    real(ESMF_KIND_R8), allocatable :: src_2d(:,:)
+    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     real(GFS_kind_phys), allocatable :: mask(:)
     logical, allocatable :: mergeflg(:,:)
 
@@ -329,7 +329,7 @@ contains
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 99.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -101.0_GFS_kind_phys
-    real(ESMF_KIND_R8), parameter :: sentinel2d = -202.0_ESMF_KIND_R8
+    real(GFS_kind_phys), parameter :: sentinel2d = -202.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield mask gating"
 
@@ -371,7 +371,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(scalarfill, ESMF_KIND_R8)) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - real(scalarfill, GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: mask-gated merge missed active source2d at i=", i, " j=", j
                    ok = .false.
                    exit
@@ -382,7 +382,7 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_ESMF_KIND_R8) then
+                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: mask-gated merge updated masked-out source2d at i=", i, " j=", j
                    ok = .false.
                    exit
