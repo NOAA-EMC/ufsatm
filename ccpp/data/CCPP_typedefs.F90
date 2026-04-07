@@ -73,6 +73,7 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: cld1d(:)           => null()  !<
     real (kind=kind_phys), pointer      :: clouds(:,:,:)      => null()  !<
     real (kind=kind_phys), pointer      :: clw(:,:,:)         => null()  !<
+    real (kind=kind_phys), pointer      :: dclw(:,:,:)        => null()  !<
     real (kind=kind_phys), pointer      :: clx(:,:)           => null()  !<
     real (kind=kind_phys), pointer      :: cmm_ice(:)         => null()  !<
     real (kind=kind_phys), pointer      :: cmm_land(:)        => null()  !<
@@ -261,6 +262,10 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: stress_land(:)     => null()  !<
     real (kind=kind_phys), pointer      :: stress_water(:)    => null()  !<
     real (kind=kind_phys), pointer      :: t2mmp(:)           => null()  !<
+    real (kind=kind_phys), pointer      :: ten_q(:,:,:)       => null()
+    real (kind=kind_phys), pointer      :: ten_t(:,:)         => null()
+    real (kind=kind_phys), pointer      :: ten_u(:,:)         => null()
+    real (kind=kind_phys), pointer      :: ten_v(:,:)         => null()
     real (kind=kind_phys), pointer      :: theta(:)           => null()  !<
     real (kind=kind_phys), pointer      :: tlvl(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: tkeh(:,:)          => null()  !< vertical turbulent kinetic energy (m2/s2) at the model layer interfaces
@@ -528,6 +533,7 @@ contains
     allocate (Interstitial%cld1d           (ixs:ixe))
     allocate (Interstitial%clouds          (ixs:ixe,Model%levr+LTP,NF_CLDS))
     allocate (Interstitial%clw             (ixs:ixe,Model%levs,Interstitial%nn))
+    allocate (Interstitial%dclw            (ixs:ixe,Model%levs,Interstitial%nn))
     allocate (Interstitial%clx             (ixs:ixe,4))
     allocate (Interstitial%cmm_ice         (ixs:ixe))
     allocate (Interstitial%cmm_land        (ixs:ixe))
@@ -673,6 +679,10 @@ contains
     allocate (Interstitial%stress_ice      (ixs:ixe))
     allocate (Interstitial%stress_land     (ixs:ixe))
     allocate (Interstitial%stress_water    (ixs:ixe))
+    allocate (Interstitial%ten_q           (ixs:ixe,Model%levs,Model%ntrac))
+    allocate (Interstitial%ten_t           (ixs:ixe,Model%levs))
+    allocate (Interstitial%ten_u           (ixs:ixe,Model%levs))
+    allocate (Interstitial%ten_v           (ixs:ixe,Model%levs))
     allocate (Interstitial%theta           (ixs:ixe))
     allocate (Interstitial%tkeh            (ixs:ixe,Model%levs+1)) !Vertical turbulent kinetic energy at model layer interfaces
     allocate (Interstitial%tlvl            (ixs:ixe,Model%levr+1+LTP))
@@ -876,6 +886,7 @@ contains
     deallocate (Interstitial%cld1d)
     deallocate (Interstitial%clouds)
     deallocate (Interstitial%clw)
+    deallocate (Interstitial%dclw)
     deallocate (Interstitial%clx)
     deallocate (Interstitial%cmm_ice)
     deallocate (Interstitial%cmm_land)
@@ -1021,6 +1032,10 @@ contains
     deallocate (Interstitial%stress_ice)
     deallocate (Interstitial%stress_land)
     deallocate (Interstitial%stress_water)
+    deallocate (Interstitial%ten_q)
+    deallocate (Interstitial%ten_t)
+    deallocate (Interstitial%ten_u)
+    deallocate (Interstitial%ten_v)
     deallocate (Interstitial%theta)
     deallocate (Interstitial%tkeh)
     deallocate (Interstitial%tlvl)
@@ -1418,6 +1433,7 @@ contains
     Interstitial%clouds          = clear_val
     Interstitial%clw             = clear_val
     Interstitial%clw(:,:,2)      = -999.9
+    Interstitial%dclw            = clear_val
     Interstitial%clx             = clear_val
     Interstitial%cmm_ice         = Model%huge
     Interstitial%cmm_land        = Model%huge
@@ -1574,6 +1590,10 @@ contains
     Interstitial%stress_ice      = Model%huge
     Interstitial%stress_land     = Model%huge
     Interstitial%stress_water    = Model%huge
+    Interstitial%ten_q           = clear_val
+    Interstitial%ten_t           = clear_val
+    Interstitial%ten_u           = clear_val
+    Interstitial%ten_v           = clear_val
     Interstitial%theta           = clear_val
     Interstitial%tkeh            = 0
     Interstitial%tlvl            = clear_val
