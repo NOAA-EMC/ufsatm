@@ -58,6 +58,9 @@ jobs:
         spack external find gmake cmake git git-lfs perl python ${{ matrix.mpi }}
         spack config add "packages:all:require:['%gcc@${{ matrix.gcc_ver }}']"
         spack config add "packages:mpi:require:'${{ matrix.mpi }}'"
+        if [ "${{ matrix.mpi }}" != openmpi ]; then # Spack currently fails to find external OpenMPI
+          spack external find --not-buildable ${{ matrix.mpi }}
+        fi
         spack concretize |& tee ${SPACK_ENV}/log.concretize
         spack install -j2 --fail-fast
         echo "spackrc=$?" >> ${GITHUB_ENV}
