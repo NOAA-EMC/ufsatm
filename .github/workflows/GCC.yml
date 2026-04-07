@@ -1,6 +1,6 @@
-# This is a CI workflow for the fv3atm project.
+# This is a CI workflow for the ufsatm project.
 #
-# This workflow builds and tests the fv3atm library using GCC, and it tests
+# This workflow builds and tests the ufsatm library using GCC, and it tests
 # different CMake build options.
 #
 # Alex Richert, 6 Dec 2023
@@ -25,10 +25,10 @@ jobs:
 
     steps:
         
-    - name: checkout-fv3atm
+    - name: checkout-ufsatm
       uses: actions/checkout@v4
       with:
-        path: ${{ github.workspace }}/fv3atm
+        path: ${{ github.workspace }}/ufsatm
         submodules: recursive
 
     - name: install-cmake
@@ -42,7 +42,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}/spack-develop
-        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
+        key: spack-${{ hashFiles('ufsatm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
 
     # Building dependencies takes 40+ min
     - name: spack-install
@@ -51,7 +51,7 @@ jobs:
         wget --no-verbose https://github.com/spack/spack/archive/refs/heads/develop.zip
         unzip develop.zip -d ${GITHUB_WORKSPACE}/ &> unzip.out
         . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
-        spack env create gcc${{ matrix.gcc_ver }} ${GITHUB_WORKSPACE}/fv3atm/ci/spack.yaml
+        spack env create gcc${{ matrix.gcc_ver }} ${GITHUB_WORKSPACE}/ufsatm/ci/spack.yaml
         spack env activate gcc${{ matrix.gcc_ver }}
         spack compiler find | grep gcc@${{ matrix.gcc_ver }}
         spack external find gmake cmake git git-lfs perl python ${{ matrix.mpi }}
@@ -62,7 +62,7 @@ jobs:
         echo "spackrc=$?" >> ${GITHUB_ENV}
         spack clean --all
 
-  build_fv3atm:
+  build_ufsatm:
     needs: build_spack
     runs-on: ubuntu-latest
 
@@ -94,10 +94,10 @@ jobs:
         curl -f -s -S -R -L https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-Linux-x86_64.tar.gz | tar -zx
         echo "${{ github.workspace }}/cmake-3.29.2-linux-x86_64/bin" >> $GITHUB_PATH
 
-    - name: checkout-fv3atm
+    - name: checkout-ufsatm
       uses: actions/checkout@v4
       with:
-        path: ${{ github.workspace }}/fv3atm
+        path: ${{ github.workspace }}/ufsatm
         submodules: recursive
 
     - name: cache-spack
@@ -105,14 +105,14 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ github.workspace }}/spack-develop
-        key: spack-${{ hashFiles('fv3atm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
+        key: spack-${{ hashFiles('ufsatm/ci/spack.yaml') }}-gcc${{ matrix.gcc_ver }}-${{ matrix.mpi }}
 
-    - name: build-fv3atm
+    - name: build-ufsatm
       run: |
         . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
         spack env activate gcc${{ matrix.gcc_ver }}
         spack load $(spack find --format "{name}")
-        cd ${GITHUB_WORKSPACE}/fv3atm
+        cd ${GITHUB_WORKSPACE}/ufsatm
         git clone https://github.com/NOAA-EMC/CMakeModules
         git clone --recurse-submodules https://github.com/NOAA-PSL/stochastic_physics stochastic_physics_repo
         mkdir ${GITHUB_WORKSPACE}/build
@@ -120,7 +120,7 @@ jobs:
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_CI_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
+        cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_CI_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
         make -j2
 
     - name: run-tests
@@ -132,13 +132,13 @@ jobs:
       if: ${{ env.devbuild == 'ON' }}
       run: |
         cd $GITHUB_WORKSPACE/build
-        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/fv3atm/tests --exclude $GITHUB_WORKSPACE/fv3atm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/fv3atm/build/ccpp --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/physics --exclude $GITHUB_WORKSPACE/fv3atm/ccpp/framework --exclude $GITHUB_WORKSPACE/fv3atm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
+        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/ufsatm/tests --exclude $GITHUB_WORKSPACE/ufsatm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/ufsatm/build/ccpp --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/physics --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/framework --exclude $GITHUB_WORKSPACE/ufsatm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
 
     - name: upload-test-coverage
       uses: actions/upload-artifact@v4
       if: ${{ env.devbuild == 'ON' }}
       with:
-        name: test-coverage-fv3atm-${{ github.sha }}
+        name: test-coverage-ufsatm-${{ github.sha }}
         path: |
               ${{ github.workspace }}/build/*.html 
               ${{ github.workspace }}/build/*.css
