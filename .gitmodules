@@ -8,8 +8,10 @@
   branch = main
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = production/GFS.v17
+  #url = https://github.com/ufs-community/ccpp-physics
+  #branch = production/GFS.v17
+  url = https://github.com/dpsarmie/ccpp-physics
+  branch = v17/radwarnfix_gotos
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
