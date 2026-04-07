@@ -113,14 +113,12 @@ jobs:
         spack env activate gcc${{ matrix.gcc_ver }}
         spack load $(spack find --format "{name}")
         cd ${GITHUB_WORKSPACE}/ufsatm
-        git clone https://github.com/NOAA-EMC/CMakeModules
-        git clone --recurse-submodules https://github.com/NOAA-PSL/stochastic_physics stochastic_physics_repo
         mkdir ${GITHUB_WORKSPACE}/build
         cd ${GITHUB_WORKSPACE}/build
         export CC=mpicc
         export CXX=mpicxx
         export FC=mpif90
-        cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_CI_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
+        cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_UFSATM_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
         make -j2
 
     - name: run-tests
@@ -132,7 +130,7 @@ jobs:
       if: ${{ env.devbuild == 'ON' }}
       run: |
         cd $GITHUB_WORKSPACE/build
-        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/ufsatm/tests --exclude $GITHUB_WORKSPACE/ufsatm/stochastic_physics_repo --exclude $GITHUB_WORKSPACE/ufsatm/build/ccpp --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/physics --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/framework --exclude $GITHUB_WORKSPACE/ufsatm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
+        gcovr -r .. -v --html-details --gcov-executable gcov-12 --exclude $GITHUB_WORKSPACE/ufsatm/tests --exclude $GITHUB_WORKSPACE/ufsatm/stochastic_physics --exclude $GITHUB_WORKSPACE/ufsatm/build/ccpp --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/physics --exclude $GITHUB_WORKSPACE/ufsatm/ccpp/framework --exclude $GITHUB_WORKSPACE/ufsatm/atmos_cubed_sphere  --exclude CMakeFiles --print-summary -o test-coverage.html
 
     - name: upload-test-coverage
       uses: actions/upload-artifact@v4
