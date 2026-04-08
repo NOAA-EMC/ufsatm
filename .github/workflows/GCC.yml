@@ -79,6 +79,12 @@ jobs:
 
     steps:
 
+    - name: install-deps
+      run: |
+        if [ ${{ matrix.mpi }} == mpich ]; then mpi_pkgs="mpich libmpich-dev"; fi
+        if [ ${{ matrix.mpi }} == openmpi ]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
+        sudo apt-get install cmake libopenblas-serial-dev $mpi_pkgs
+
     # Only do gcovr build for one job
     - name: decide-gcovr-build
       run: |
@@ -92,12 +98,6 @@ jobs:
     - name: install-utilities
       run: |
         python3 -m pip install gcovr
-
-    - name: install-cmake
-      run: |
-        cd ${{ github.workspace }}
-        curl -f -s -S -R -L https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-Linux-x86_64.tar.gz | tar -zx
-        echo "${{ github.workspace }}/cmake-3.29.2-linux-x86_64/bin" >> $GITHUB_PATH
 
     - name: checkout-ufsatm
       uses: actions/checkout@v4
