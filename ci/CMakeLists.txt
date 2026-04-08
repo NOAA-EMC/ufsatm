@@ -5,22 +5,19 @@
 #
 # Alex Richert, 6 Dec 2023
 
-# Download CMakeModules if not present (normally provided by UFS)
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/CMakeModules/Modules")
-    set(CMakeModules_ref 69049ec0c26b3160c3dbe1980b2feb78470a37a6)
-    message(STATUS "Downloading CMakeModules@${CMakeModules_ref}...")
+set(CMakeModules_ref 69049ec0c26b3160c3dbe1980b2feb78470a37a6)
+message(STATUS "Downloading CMakeModules@${CMakeModules_ref}...")
 
-    include(FetchContent)
-    FetchContent_Declare(
-        CMakeModules
-        GIT_REPOSITORY https://github.com/NOAA-EMC/CMakeModules.git
-        GIT_TAG ${CMakeModules_ref}
-        SOURCE_DIR "${CMAKE_SOURCE_DIR}/CMakeModules"
-    )
-    FetchContent_MakeAvailable(CMakeModules)
+include(FetchContent)
+FetchContent_Declare(
+    CMakeModules
+    GIT_REPOSITORY https://github.com/NOAA-EMC/CMakeModules.git
+    GIT_TAG ${CMakeModules_ref}
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/CMakeModules"
+)
+FetchContent_MakeAvailable(CMakeModules)
 
-    message(STATUS "CMakeModules downloaded successfully")
-endif()
+message(STATUS "CMakeModules downloaded successfully")
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMakeModules/Modules)
 
@@ -93,19 +90,17 @@ find_package(w3emc 2.9.2 REQUIRED)
 
 find_package(Python 3.6 REQUIRED COMPONENTS Interpreter)
 
-# Download stochastic_physics if not present (normally provided by UFS)
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/stochastic_physics/CMakeLists.txt")
-    set(stochastic_physics_ref ae192f119b8614b4476a1b04ba55f6fb93e2953d)
-    message(STATUS "Downloading stochastic_physics@${stochastic_physics_ref}...")
+# Download stochastic_physics
+set(stochastic_physics_ref ae192f119b8614b4476a1b04ba55f6fb93e2953d)
+message(STATUS "Downloading stochastic_physics@${stochastic_physics_ref}...")
 
-    include(FetchContent)
-    FetchContent_Declare(
-        stochastic_physics
-        GIT_REPOSITORY https://github.com/NOAA-PSL/stochastic_physics
-        GIT_TAG ${stochastic_physics_ref}
-        SOURCE_DIR "${CMAKE_SOURCE_DIR}/stochastic_physics"
-    )
-    FetchContent_MakeAvailable(stochastic_physics)
+include(FetchContent)
+FetchContent_Declare(
+    stochastic_physics
+    GIT_REPOSITORY https://github.com/NOAA-PSL/stochastic_physics
+    GIT_TAG ${stochastic_physics_ref}
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/stochastic_physics"
+)
+FetchContent_MakeAvailable(stochastic_physics)
 
-    message(STATUS "stochastic_physics downloaded successfully")
-endif()
+message(STATUS "stochastic_physics downloaded successfully")
