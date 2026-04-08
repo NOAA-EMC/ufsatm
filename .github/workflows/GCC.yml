@@ -120,9 +120,9 @@ jobs:
         cd ${GITHUB_WORKSPACE}/ufsatm
         mkdir ${GITHUB_WORKSPACE}/build
         cd ${GITHUB_WORKSPACE}/build
-        export CC=mpicc
-        export CXX=mpicxx
-        export FC=mpif90
+        export CC=mpicc ; export OMPI_CC=gcc-${{ matrix.gcc_ver }} ; export MPICH_CC=gcc-${{ matrix.gcc_ver }}
+        export CXX=mpicxx ; export OMPI_CXX=g++-${{ matrix.gcc_ver }} ; export MPICH_CXX=g++-${{ matrix.gcc_ver }}
+        export FC=mpif90 ; export OMPI_FC=gfortran-${{ matrix.gcc_ver }} ; export MPICH_FC=gfortran-${{ matrix.gcc_ver }}
         cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_UFSATM_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
         make -j2
 
