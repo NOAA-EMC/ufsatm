@@ -32,11 +32,11 @@ jobs:
         path: ${{ github.workspace }}/ufsatm
         submodules: recursive
 
-    - name: install-cmake
+    - name: install-deps
       run: |
-        cd ${{ github.workspace }}
-        curl -f -s -S -R -L https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-Linux-x86_64.tar.gz | tar -zx
-        echo "${{ github.workspace }}/cmake-3.29.2-linux-x86_64/bin" >> $GITHUB_PATH
+        if [ ${{ matrix.mpi }} == mpich ]]; then mpi_pkgs="mpich libmpich-dev"; fi
+        if [ ${{ matrix.mpi }} == openmpi ]]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
+        sudo apt-get install cmake git-lfs libopenblas-serial-dev $mpi_pkgs
 
     - name: cache-spack
       id: cache-spack
@@ -55,12 +55,11 @@ jobs:
         spack env create gcc${{ matrix.gcc_ver }} ${GITHUB_WORKSPACE}/ufsatm/ci/spack.yaml
         spack env activate gcc${{ matrix.gcc_ver }}
         spack compiler find | grep gcc@${{ matrix.gcc_ver }}
-        spack external find gmake cmake git git-lfs perl python ${{ matrix.mpi }}
         spack config add "packages:all:require:['%gcc@${{ matrix.gcc_ver }}']"
-        spack config add "packages:mpi:require:'${{ matrix.mpi }}'"
-        if [ "${{ matrix.mpi }}" != openmpi ]; then # Spack currently fails to find external OpenMPI
-          spack external find --not-buildable ${{ matrix.mpi }}
-        fi
+        ## Add externals, based on what we installed above with apt
+        spack external find --not-buildable gmake cmake git git-lfs perl python ${{ matrix.mpi }}
+        spack external find --not-buildable --path /usr/lib/x86_64-linux-gnu/openblas-serial/ openblas
+        ##
         spack concretize |& tee ${SPACK_ENV}/log.concretize
         spack install -j2 --fail-fast
         echo "spackrc=$?" >> ${GITHUB_ENV}
