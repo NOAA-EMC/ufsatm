@@ -34,8 +34,8 @@ jobs:
 
     - name: install-deps
       run: |
-        if [ ${{ matrix.mpi }} == mpich ]]; then mpi_pkgs="mpich libmpich-dev"; fi
-        if [ ${{ matrix.mpi }} == openmpi ]]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
+        if [ ${{ matrix.mpi }} == mpich ]; then mpi_pkgs="mpich libmpich-dev"; fi
+        if [ ${{ matrix.mpi }} == openmpi ]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
         sudo apt-get install cmake git-lfs libopenblas-serial-dev $mpi_pkgs
 
     - name: cache-spack
