@@ -67,9 +67,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
                                 calendar, cpl_grid_id,                     &
                                 cplprint_flag
 
-#ifdef STOCH_PHYS
   use get_stochy_pattern_mod, only: write_stoch_restart_atm
-#endif
   use module_cplfields,       only: nExportFields, exportFields, exportFieldsInfo, &
                                     nImportFields, importFields, importFieldsInfo
   use module_cplfields,       only: realizeConnectedCplFields
@@ -1564,9 +1562,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
           timestamp = date_to_string (Atmos%Time)
           call atmos_model_restart(Atmos, timestamp)
-#ifdef STOCH_PHYS
           call write_stoch_restart_atm('RESTART/'//trim(timestamp)//'.atm_stoch.res.nc')
-#endif
 
           !----- write coupler.res file ------
           if (.not. quilting_restart .and. mpp_pe() == mpp_root_pe()) then
