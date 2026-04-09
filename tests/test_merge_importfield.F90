@@ -1,7 +1,6 @@
 program test_merge_importfield
   !! Unit test driver for merge_importfield
 
-  use ESMF,                only: ESMF_SUCCESS
   use block_control_mod,   only: block_control_type
   use GFS_typedefs,        only: GFS_kind_phys => kind_phys
   use atmos_model_mod,     only: merge_importfield
@@ -90,7 +89,7 @@ contains
     real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im,  total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -777.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel2d = -888.0_GFS_kind_phys
@@ -117,12 +116,9 @@ contains
           mergeflg(i, j) = mod(i + j, 2) == 0
        end do
     end do
+    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
 
-    rc = -999
-    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block, rc=rc)
-
-    ok = rc == ESMF_SUCCESS
-    if (.not. ok) print *, "    FAILED: merge_importfield returned rc=", rc
+    ok = .true.
 
     if (ok) then
        do j = block%jsc, block%jec
@@ -175,7 +171,7 @@ contains
     real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im,  total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 12.5_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -222.0_GFS_kind_phys
@@ -198,12 +194,9 @@ contains
           mergeflg(i, j) = mod(i * 2 + j, 3) == 0
        end do
     end do
+    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, block=block)
 
-    rc = -999
-    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, block=block, rc=rc)
-
-    ok = rc == ESMF_SUCCESS
-    if (.not. ok) print *, "    FAILED: merge_importfield returned rc=", rc
+    ok = .true.
 
     if (ok) then
        do j = block%jsc, block%jec
@@ -256,7 +249,7 @@ contains
     real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im,  total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -5.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel2d = -6.0_GFS_kind_phys
@@ -275,12 +268,9 @@ contains
     src_1d = 44.0_GFS_kind_phys
     mergeflg = .false.
     mask = 1.0_GFS_kind_phys
+    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
 
-    rc = -999
-    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block, rc=rc)
-
-    ok = rc == ESMF_SUCCESS
-    if (.not. ok) print *, "    FAILED: merge_importfield returned rc=", rc
+    ok = .true.
 
     if (ok) then
        do im = 1, total_pts
@@ -325,7 +315,7 @@ contains
     real(GFS_kind_phys), allocatable :: mask(:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im, rc, total_pts
+    integer :: i, j, im,  total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 99.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -101.0_GFS_kind_phys
@@ -354,12 +344,9 @@ contains
           end if
        end do
     end do
+    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, mask=mask, block=block)
 
-    rc = -999
-    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, mask=mask, block=block, rc=rc)
-
-    ok = rc == ESMF_SUCCESS
-    if (.not. ok) print *, "    FAILED: merge_importfield returned rc=", rc
+    ok = .true.
 
     if (ok) then
        do j = block%jsc, block%jec
