@@ -835,6 +835,19 @@ module GFS_typedefs
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: idate(4)        !< initial date with different size and ordering
                                             !< (hr, mon, day, yr)
+!--- tendency control
+    integer              :: tend_opt_swrad
+    integer              :: tend_opt_lwrad
+    integer              :: tend_opt_rad_scaler
+    integer              :: tend_opt_surface
+    integer              :: tend_opt_pbl
+    integer              :: tend_opt_gwd
+    integer              :: tend_opt_photochem
+    integer              :: tend_opt_deep_conv
+    integer              :: tend_opt_shal_conv
+    integer              :: tend_opt_mp
+    integer              :: tend_opt_stoch
+    
     logical              :: gfs_phys_time_vary_is_init=.false. !< GFS_phys_time_vary interstitial initialization flag
 
 !--- radiation control parameters
@@ -3508,6 +3521,23 @@ module GFS_typedefs
     integer              :: thermodyn_id   =  1              !< valid for GFS only for get_prs/phi
     integer              :: sfcpress_id    =  1              !< valid for GFS only for get_prs/phi
 
+    !--- time-coupling options after a scheme completes
+    ! 1 = immediately apply tendencies
+    ! 2 = add tendencies to a sum to be applied later
+    ! 3 = add tendencies to a sum and apply the accumulated sum to the state
+    ! 4 = ignore output tendencies (e.g. some other scheme may use/apply them)
+    integer              :: tend_opt_swrad      = 4
+    integer              :: tend_opt_lwrad      = 4
+    integer              :: tend_opt_rad_scaler = 2
+    integer              :: tend_opt_surface    = 2
+    integer              :: tend_opt_pbl        = 2
+    integer              :: tend_opt_gwd        = 3
+    integer              :: tend_opt_photochem  = 1
+    integer              :: tend_opt_deep_conv  = 1
+    integer              :: tend_opt_shal_conv  = 1
+    integer              :: tend_opt_mp         = 1
+    integer              :: tend_opt_stoch      = 1
+
     !--- coupling parameters
     logical              :: cplflx         = .false.         !< default no cplflx collection
     logical              :: cplice         = .false.         !< default no cplice collection (used together with cplflx)
@@ -4205,6 +4235,11 @@ module GFS_typedefs
                                fhzero, fhzero_array, fhzero_fhour, ldiag3d, qdiag3d, lssav, &
                                naux2d, dtend_select, naux3d, aux2d_time_avg,                &
                                aux3d_time_avg, fhcyc, thermodyn_id, sfcpress_id,            &
+                          !--- tendency application controls
+                               tend_opt_swrad, tend_opt_lwrad, tend_opt_rad_scaler,         &
+                               tend_opt_surface, tend_opt_pbl, tend_opt_gwd,                &
+                               tend_opt_photochem, tend_opt_deep_conv, tend_opt_shal_conv,  &
+                               tend_opt_mp, tend_opt_stoch,                                 &
                           !--- coupling parameters
                                cplflx, cplice, cplocn2atm, cplwav, cplwav2atm, cplaqm,      &
                                cplchm, cpllnd, cpllnd2atm, cpl_imp_mrg, cpl_imp_dbg,        &
@@ -4629,8 +4664,20 @@ module GFS_typedefs
         Model%chunk_begin(i) = Model%chunk_end(i-1) + 1
         Model%chunk_end(i) = Model%chunk_begin(i) + blksz(i) - 1
     end do
+!--- tendency controls
+    Model%tend_opt_swrad      = tend_opt_swrad
+    Model%tend_opt_lwrad      = tend_opt_lwrad
+    Model%tend_opt_rad_scaler = tend_opt_rad_scaler
+    Model%tend_opt_surface    = tend_opt_surface
+    Model%tend_opt_pbl        = tend_opt_pbl
+    Model%tend_opt_gwd        = tend_opt_gwd
+    Model%tend_opt_photochem  = tend_opt_photochem
+    Model%tend_opt_deep_conv  = tend_opt_deep_conv
+    Model%tend_opt_shal_conv  = tend_opt_shal_conv
+    Model%tend_opt_mp         = tend_opt_mp
+    Model%tend_opt_stoch      = tend_opt_stoch
+    
     Model%ipr = min(minval(Model%blksz), 10)
-
 !--- coupling parameters
     Model%cplflx           = cplflx
     Model%cplice           = cplice
@@ -6829,8 +6876,11 @@ module GFS_typedefs
         if (j > 1) then
           read(fscav(i)(j+1:), *, iostat=ios) tem
           if (ios /= 0) cycle
-          n = get_physics_tracer_index(adjustl(fscav(i)(:j-1)), Model) - Model%ntchs + 1
-          if (n > 0) Model%fscav(n) = tem
+          n = get_physics_tracer_index(adjustl(fscav(i)(:j-1)), Model)
+          if (n /= physics_no_tracer) then
+            n = n - Model%ntchs + 1
+            if (n > 0) Model%fscav(n) = tem
+          endif
         endif
       enddo
     endif
