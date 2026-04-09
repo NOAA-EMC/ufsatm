@@ -77,31 +77,31 @@ program test_copy2block
      current_test_count = current_test_count + 1
      call test_copy2block_no_mask(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 6: copy2block validmin only
+     ! Test 6: copy2block validmin only
      current_test_count = current_test_count + 1
      call test_copy2block_validmin_only(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 7: copy2block validmax only
+     ! Test 7: copy2block validmax only
      current_test_count = current_test_count + 1
      call test_copy2block_validmax_only(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 8: copy2block mixed copied/skipped regression
+     ! Test 8: copy2block mixed copied/skipped regression
      current_test_count = current_test_count + 1
      call test_copy2block_mixed_skip_regression(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 9: copy2block flip only
+     ! Test 9: copy2block flip only
      current_test_count = current_test_count + 1
      call test_copy2block_flip_only(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 10: copy2block default flip
+     ! Test 10: copy2block default flip
      current_test_count = current_test_count + 1
      call test_copy2block_default_flip(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 11: copy2block negative mask values
+     ! Test 11: copy2block negative mask values
      current_test_count = current_test_count + 1
      call test_copy2block_negative_mask_values(block_control, current_test_count, current_test_passed, config_idx)
 
-   ! Test 12: copy2block oversized source/mask acceptance
+     ! Test 12: copy2block oversized source/mask acceptance
      current_test_count = current_test_count + 1
      call test_copy2block_oversized_inputs(block_control, current_test_count, current_test_passed, config_idx)
 
@@ -421,7 +421,6 @@ contains
     call copy2block(dest_1d, source_2d, block=block)
 
     test_pass = .true.
-
     if (test_pass) then
        do j = block%jsc, block%jec
           do i = block%isc, block%iec

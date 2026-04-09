@@ -1967,7 +1967,6 @@ subroutine assign_importdata(jdat, rc)
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%zorlwav, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get wave roughness from mediator'
               endif
             endif
@@ -1979,7 +1978,6 @@ subroutine assign_importdata(jdat, rc)
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Sfcprop%tisfc, dataptr, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_GFS_kind_phys)
-
             endif
           endif
 
@@ -1990,44 +1988,33 @@ subroutine assign_importdata(jdat, rc)
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%tsfco, dataptr, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_GFS_kind_phys)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
-
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 end if
               endif
             end if
-
             ! get zonal ocean current:
             !--------------------------------------------------------------------------
             fldname = 'ocn_current_zonal'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%usfco, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get usfco from mediator'
-
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 end if
               end if
             end if
-
             ! get meridional ocean current:
             !--------------------------------------------------------------------------
             fldname = 'ocn_current_merid'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%vsfco, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get vsfco from mediator'
-
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%vsfco, zero, mergeflg, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 end if
               end if
             end if
@@ -2040,84 +2027,69 @@ subroutine assign_importdata(jdat, rc)
             if (importFieldsValid(queryImportFields(fldname))) then
               lcpl_fice = .true.
               call copy2block(GFS_Sfcprop%fice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get fice from mediator'
             endif
           endif
-
           ! get upward LW flux: for sea ice covered area
           !----------------------------------------------
           fldname = 'lwup_flx_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%ulwsfcin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx from mediator'
             endif
           endif
-
           ! get latent heat flux: for sea ice covered area
           !------------------------------------------------
           fldname = 'laten_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dqsfcin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat from mediator'
             endif
           endif
-
           ! get sensible heat flux: for sea ice covered area
           !--------------------------------------------------
           fldname = 'sensi_heat_flx_atm_into_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dtsfcin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat from mediator'
             endif
           endif
-
           ! get zonal compt of momentum flux: for sea ice covered area
           !------------------------------------------------------------
           fldname = 'stress_on_air_ice_zonal'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dusfcin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx from mediator'
             endif
           endif
-
           ! get meridional compt of momentum flux: for sea ice covered area
           !-----------------------------------------------------------------
           fldname = 'stress_on_air_ice_merid'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%dvsfcin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx from mediator'
             endif
           endif
-
           ! get sea ice volume: for sea ice covered area
           !----------------------------------------------
           fldname = 'sea_ice_volume'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Sfcprop%hice, dataptr, mask=GFS_Sfcprop%oceanfrac, validmax=himax)
-
               if (mpp_pe() == mpp_root_pe() .and. debug) print *,'fv3 assign_import: get ice_volume from mediator'
             endif
           endif
-
           ! get snow volume: for sea ice covered area
           !-------------------------------------------
           fldname = 'snow_volume_on_sea_ice'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_Coupling%hsnoin_cpl, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get snow_volume from mediator'
             endif
           endif
@@ -2129,40 +2101,33 @@ subroutine assign_importdata(jdat, rc)
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdifnir_ice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_nir_dif_cpl from mediator'
               endif
             endif
-            !
             ! get instantaneous near IR albedo for direct radiation: for sea ice covered area
             !---------------------------------------------------------------------------------
             fldname = 'inst_ice_ir_dir_albedo'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdirnir_ice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_nir_dir_cpl from mediator'
               endif
             endif
-            !
             ! get instantaneous visible albedo for diffuse radiation: for sea ice covered area
             !---------------------------------------------------------------------------------
             fldname = 'inst_ice_vis_dif_albedo'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdifvis_ice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sfc_alb_vis_dif_cpl from mediator'
               endif
             endif
-            !
             ! get instantaneous visible IR albedo for direct radiation: for sea ice covered area
             !---------------------------------------------------------------------------------
             fldname = 'inst_ice_vis_dir_albedo'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Sfcprop%albdirvis_ice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get inst_ice_vis_dir_albedo from mediator'
               endif
             endif
@@ -2175,51 +2140,42 @@ subroutine assign_importdata(jdat, rc)
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%ulwsfcin_med, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get lwflx for open ocean from mediator'
               endif
             endif
-
             ! get latent heat flux: for open ocean
             !------------------------------------------------
             fldname = 'laten_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dqsfcin_med, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get laten_heat for open ocean from mediator'
               endif
             endif
-
             ! get sensible heat flux: for open ocean
             !--------------------------------------------------
             fldname = 'sensi_heat_flx_atm_into_ocn'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dtsfcin_med, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensi_heat for open ocean from mediator'
               endif
             endif
-
             ! get zonal compt of momentum flux: for open ocean
             !------------------------------------------------------------
             fldname = 'stress_on_air_ocn_zonal'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dusfcin_med, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get zonal_moment_flx for open ocean from mediator'
               endif
             endif
-
             ! get meridional compt of momentum flux: for open ocean
             !-----------------------------------------------------------------
             fldname = 'stress_on_air_ocn_merid'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%dvsfcin_med, dataptr, mask=GFS_Sfcprop%oceanfrac, flipsign=.true.)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get merid_moment_flx for open ocean from mediator'
               endif
             endif
@@ -2232,139 +2188,114 @@ subroutine assign_importdata(jdat, rc)
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%sncovr1_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get snow area fraction from land'
               endif
             endif
-
             ! get latent heat flux: over land
             !------------------------------------------------
             fldname = 'inst_laten_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%evap_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get latent heat flux from land'
               endif
             endif
-
             ! get sensible heat flux: over land
             !--------------------------------------------------
             fldname = 'inst_sensi_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%hflx_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get sensible heat flux from land'
               endif
             endif
-
             ! get surface upward potential latent heat flux: over land
             !------------------------------------------------
             fldname = 'inst_potential_laten_heat_flx_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%ep_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get potential latent heat flux from land'
               endif
             endif
-
             ! get 2m air temperature: over land
             !------------------------------------------------
             fldname = 'inst_temp_height2m_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%t2mmp_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get temperature at 2m from land'
               endif
             endif
-
             ! get 2m specific humidity: over land
             !------------------------------------------------
             fldname = 'inst_spec_humid_height2m_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%q2mp_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get specific humidity at 2m from land'
               endif
             endif
-
             ! get specific humidity: over land
             !------------------------------------------------
             fldname = 'inst_spec_humid_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%qsurf_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get specific humidity from land'
               endif
             endif
-
             ! get upward heat flux in soil
             !------------------------------------------------
             fldname = 'inst_upward_heat_flux_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%gflux_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get upward heat flux from land'
               endif
             endif
-
             ! get surface runoff in soil
             !------------------------------------------------
             fldname = 'inst_runoff_rate_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%runoff_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get surface runoff from land'
               endif
             endif
-
             ! get subsurface runoff in soil
             !------------------------------------------------
             fldname = 'inst_subsurface_runoff_rate_lnd'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%drain_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get subsurface runoff from land'
               endif
             endif
-
             ! get momentum exchange coefficient
             !------------------------------------------------
             fldname = 'inst_drag_wind_speed_for_momentum'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%cmm_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get drag wind speed for momentum from land'
               endif
             endif
-
             ! get thermal exchange coefficient
             !------------------------------------------------
             fldname = 'inst_drag_mass_flux_for_heat_and_moisture'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%chh_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get thermal exchange coefficient form land'
               endif
             endif
-
             ! get function of surface roughness length and green vegetation fraction
             !------------------------------------------------
             fldname = 'inst_func_of_roughness_length_and_vfrac'
             if (trim(impfield_name) == trim(fldname)) then
               if (importFieldsValid(queryImportFields(fldname))) then
                 call copy2block(GFS_Coupling%zvfun_lnd, dataptr, mask=GFS_Sfcprop%landfrac)
-
                 if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get func. of roughness length and vfrac form land'
               endif
             endif
@@ -2739,29 +2670,30 @@ subroutine assign_importdata(jdat, rc)
         endif
 
         if (GFS_control%cpl_fire) then
+          ! get kinematic surface upward sensible heat flux of fire from Fire Behaviour model
+          !------------------------------------------------
           fldname = 'hflx_fire'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_sfcprop%hflx_fire, dataptr)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get hflx_fire from FBH model'
             endif
           endif
-
+          ! get kinematic surface upward latent heat flux of fire from Fire Behaviour model
+          !------------------------------------------------
           fldname = 'evap_fire'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_sfcprop%evap_fire, dataptr)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get evap_fire from FBH model'
             endif
           endif
-
+          ! get smoke_fire from Fire Behaviour model
+          !------------------------------------------------
           fldname = 'smoke_fire'
           if (trim(impfield_name) == trim(fldname)) then
             if (importFieldsValid(queryImportFields(fldname))) then
               call copy2block(GFS_sfcprop%smoke_fire, dataptr)
-
               if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get smoke_fire from FBH model'
             endif
           endif
@@ -2792,7 +2724,7 @@ subroutine assign_importdata(jdat, rc)
   deallocate(mergeflg)
   deallocate(dataptr)
 
-  !$omp parallel do default(shared) private(i,j,nb,ix,tem,im,ofrac)
+!$omp parallel do default(shared) private(i,j,nb,ix,tem,im,ofrac)
   do j=jsc,jec
     do i=isc,iec
       nb = Atm_block%blkno(i,j)
@@ -2859,51 +2791,46 @@ subroutine assign_importdata(jdat, rc)
   !
 end subroutine assign_importdata
 !
-  subroutine setup_inlinedata(fieldName, datar82d, logunit)
+subroutine setup_inlinedata(fieldName, datar82d, logunit)
 
-    use ESMF, only: ESMF_KIND_R8, ESMF_LogFoundError, ESMF_LOGERR_PASSTHRU
+  use ESMF, only: ESMF_KIND_R8, ESMF_LogFoundError, ESMF_LOGERR_PASSTHRU
 
-    !--- arguments
-    character(len=*), intent(in) :: fieldName
-    real(kind=ESMF_KIND_R8), dimension(:,:), target, intent(in) :: datar82d
-    integer, intent(in) :: logunit
+  !--- arguments
+  character(len=*), intent(in) :: fieldName
+  real(kind=ESMF_KIND_R8), dimension(:,:), target, intent(in) :: datar82d
+  integer, intent(in) :: logunit
 
-    !--- local variables
-    real(kind=GFS_kind_phys), dimension(:,:), pointer  :: dataptr
-    integer :: i, j, ix, nb, im, rc
-    integer :: isc, iec, jsc, jec
+  !--- local variables
+  real(kind=GFS_kind_phys), dimension(:,:), pointer  :: dataptr
+  integer :: i, j, ix, nb, im, rc
+  integer :: isc, iec, jsc, jec
 
-    allocate(dataptr(size(datar82d,1),size(datar82d,2)))
-    dataptr = datar82d
+  allocate(dataptr(size(datar82d,1),size(datar82d,2)))
+  dataptr = datar82d
 
-! set up local dimension
-    isc = GFS_control%isc
-    iec = GFS_control%isc+GFS_control%nx-1
-    jsc = GFS_control%jsc
-    jec = GFS_control%jsc+GFS_control%ny-1
+  ! set up local dimension
+  isc = GFS_control%isc
+  iec = GFS_control%isc+GFS_control%nx-1
+  jsc = GFS_control%jsc
+  jec = GFS_control%jsc+GFS_control%ny-1
 
-! fill variables
-    select case(trim(fieldName))
-    case ('Si_ifrac')
-      call copy2block(GFS_Coupling%fice_dat, dataptr)
+  ! fill variables
+  select case(trim(fieldName))
+  case ('Si_ifrac')
+    call copy2block(GFS_Coupling%fice_dat, dataptr)
+  case ('Si_thick')
+    call copy2block(GFS_Coupling%hice_dat, dataptr)
+  case ('So_omask')
+    call copy2block(GFS_Coupling%mask_dat, dataptr)
+  case ('So_t')
+    call copy2block(GFS_Coupling%tsfco_dat, dataptr)
+  case ('Si_t')
+    call copy2block(GFS_Coupling%tice_dat, dataptr)
+  case default
+    write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
+  end select
 
-    case ('Si_thick')
-      call copy2block(GFS_Coupling%hice_dat, dataptr)
-
-    case ('So_omask')
-      call copy2block(GFS_Coupling%mask_dat, dataptr)
-
-    case ('So_t')
-      call copy2block(GFS_Coupling%tsfco_dat, dataptr)
-
-    case ('Si_t')
-      call copy2block(GFS_Coupling%tice_dat, dataptr)
-
-    case default
-      write(logunit,*) trim(fieldName)//' can not be used by cdeps inline! Skipping field ...'
-    end select
-
-  end subroutine setup_inlinedata
+end subroutine setup_inlinedata
 !
   subroutine setup_exportdata(rc)
 
@@ -3383,188 +3310,188 @@ end subroutine assign_importdata
 !> @param[out] nx Grid points in x-direction
 !> @param[out] ny Grid points in y-direction
 !> @param[out] pelist List of processor IDs
-  subroutine atmos_model_get_nth_domain_info(n, layout, nx, ny, pelist)
-   integer, intent(in)  :: n
-   integer, intent(out) :: layout(2)
-   integer, intent(out) :: nx, ny
-   integer, pointer, intent(out) :: pelist(:)
+subroutine atmos_model_get_nth_domain_info(n, layout, nx, ny, pelist)
+  integer, intent(in)  :: n
+  integer, intent(out) :: layout(2)
+  integer, intent(out) :: nx, ny
+  integer, pointer, intent(out) :: pelist(:)
 
-   call get_nth_domain_info(n, layout, nx, ny, pelist)
+  call get_nth_domain_info(n, layout, nx, ny, pelist)
 
-  end subroutine atmos_model_get_nth_domain_info
-  !> @brief Copy data from a 2D source array to a 1D block-distributed destination array.
-  !>
-  !> @param[inout] destin_ptr 1D destination array distributed by block
-  !> @param[in]    source_ptr 2D source array in local coordinates
-  !> @param[in]    mask       Optional 1D mask array; elements with mask <= 0 are skipped
-  !> @param[in]    validmin   Optional minimum acceptable value; values <= validmin are rejected
-  !> @param[in]    validmax   Optional maximum acceptable value; values >= validmax are rejected
-  !> @param[in]    flipsign   Optional flag to negate values before assignment
-  !> @param[in]    block      Optional block control structure; uses Atm_block if not provided
-  !>
-  !> @author Denise.Worthen@noaa.gov
-  subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, flipsign, block)
+end subroutine atmos_model_get_nth_domain_info
+!> @brief Copy data from a 2D source array to a 1D block-distributed destination array.
+!>
+!> @param[inout] destin_ptr 1D destination array distributed by block
+!> @param[in]    source_ptr 2D source array in local coordinates
+!> @param[in]    mask       Optional 1D mask array; elements with mask <= 0 are skipped
+!> @param[in]    validmin   Optional minimum acceptable value; values <= validmin are rejected
+!> @param[in]    validmax   Optional maximum acceptable value; values >= validmax are rejected
+!> @param[in]    flipsign   Optional flag to negate values before assignment
+!> @param[in]    block      Optional block control structure; uses Atm_block if not provided
+!>
+!> @author Denise.Worthen@noaa.gov
+subroutine copy2block(destin_ptr, source_ptr, mask, validmin, validmax, flipsign, block)
 
-    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
-    real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:,:)
-    real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
-    type(block_control_type), intent(in),  target, optional :: block
-    real(kind=GFS_kind_phys), intent(in), optional :: validmin
-    real(kind=GFS_kind_phys), intent(in), optional :: validmax
-    logical,                  intent(in), optional :: flipsign
+  real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+  real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:,:)
+  real(kind=GFS_kind_phys), intent(in),  target, optional :: mask(:)
+  type(block_control_type), intent(in),  target, optional :: block
+  real(kind=GFS_kind_phys), intent(in), optional :: validmin
+  real(kind=GFS_kind_phys), intent(in), optional :: validmax
+  logical,                  intent(in), optional :: flipsign
 
-    integer :: isc, jsc, iec, jec
-    integer :: i, j, nb, ix, im
-    type(block_control_type), pointer :: active_block
+  integer :: isc, jsc, iec, jec
+  integer :: i, j, nb, ix, im
+  type(block_control_type), pointer :: active_block
 
-    real(kind=GFS_kind_phys) :: fval, spval
-    real(kind=GFS_kind_phys) :: lvmin, lvmax
-    logical :: lflip
+  real(kind=GFS_kind_phys) :: fval, spval
+  real(kind=GFS_kind_phys) :: lvmin, lvmax
+  logical :: lflip
 
-    if (present(block)) then
-      active_block => block
-    else
-      active_block => Atm_block
-    end if
+  if (present(block)) then
+    active_block => block
+  else
+    active_block => Atm_block
+  end if
 
-    isc = GFS_control%isc
-    iec = GFS_control%isc + GFS_control%nx - 1
-    jsc = GFS_control%jsc
-    jec = GFS_control%jsc + GFS_control%ny - 1
-    spval = GFS_control%huge
-    lvmin = -spval
-    lvmax = spval
-    lflip = .false.
-    if(present(validmin)) lvmin = validmin
-    if(present(validmax)) lvmax = validmax
-    if(present(flipsign)) lflip = flipsign
+  isc = GFS_control%isc
+  iec = GFS_control%isc + GFS_control%nx - 1
+  jsc = GFS_control%jsc
+  jec = GFS_control%jsc + GFS_control%ny - 1
+  spval = GFS_control%huge
+  lvmin = -spval
+  lvmax = spval
+  lflip = .false.
+  if(present(validmin)) lvmin = validmin
+  if(present(validmax)) lvmax = validmax
+  if(present(flipsign)) lflip = flipsign
 
-    !NOTE: initializing destin_ptr
-    !destin_ptr = -spval fails in sfc_diff LN 568
-    !destin_ptr = spval fails in module_nst_model LN 868
+  !NOTE: initializing destin_ptr
+  !destin_ptr = -spval fails in sfc_diff LN 568
+  !destin_ptr = spval fails in module_nst_model LN 868
 
-    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
-    do j = jsc, jec
-      do i = isc, iec
-        nb = active_block%blkno(i,j)
-        ix = active_block%ixp(i,j)
-        im = GFS_control%chunk_begin(nb) + ix - 1
-        if (present(mask)) then
-          if (mask(im) <= zero) cycle
-        end if
-        fval = source_ptr(i-isc+1, j-jsc+1)
-        if (lvmin /= -spval .and. fval <= lvmin) cycle
-        if (lvmax /=  spval .and. fval >= lvmax) cycle
-        if (lflip) then
-          destin_ptr(im) = -fval
-        else
-          destin_ptr(im) = fval
-        end if
-      end do
+  !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+  do j = jsc, jec
+    do i = isc, iec
+      nb = active_block%blkno(i,j)
+      ix = active_block%ixp(i,j)
+      im = GFS_control%chunk_begin(nb) + ix - 1
+      if (present(mask)) then
+        if (mask(im) <= zero) cycle
+      end if
+      fval = source_ptr(i-isc+1, j-jsc+1)
+      if (lvmin /= -spval .and. fval <= lvmin) cycle
+      if (lvmax /=  spval .and. fval >= lvmax) cycle
+      if (lflip) then
+        destin_ptr(im) = -fval
+      else
+        destin_ptr(im) = fval
+      end if
     end do
-  end subroutine copy2block
-  !> @brief Merge values from a source field into a destination array based on a merge flag.
-  !>
-  !> @param[inout] destin_ptr   1D destination array distributed by block
-  !> @param[in]    source_ptr   1D source array distributed by block
-  !> @param[in]    mergeflg     2D logical merge flag array in local coordinates
-  !> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
-  !> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
-  !> @param[in]    block        Optional block control structure; uses Atm_block if not provided
-  !>
-  !> @author Denise.Worthen@noaa.gov
-  subroutine merge_importfield_with_field(destin_ptr, source_ptr, mergeflg, source_ptr2d, mask, block)
+  end do
+end subroutine copy2block
+!> @brief Merge values from a source field into a destination array based on a merge flag.
+!>
+!> @param[inout] destin_ptr   1D destination array distributed by block
+!> @param[in]    source_ptr   1D source array distributed by block
+!> @param[in]    mergeflg     2D logical merge flag array in local coordinates
+!> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
+!> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
+!> @param[in]    block        Optional block control structure; uses Atm_block if not provided
+!>
+!> @author Denise.Worthen@noaa.gov
+subroutine merge_importfield_with_field(destin_ptr, source_ptr, mergeflg, source_ptr2d, mask, block)
 
-    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
-    real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:)
-    logical,                  intent(in),    target :: mergeflg(:,:)
-    real(kind=GFS_kind_phys), intent(inout), target :: source_ptr2d(:,:)
-    real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
-    type(block_control_type), intent(in),    target, optional :: block
+  real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+  real(kind=GFS_kind_phys), intent(in),    target :: source_ptr(:)
+  logical,                  intent(in),    target :: mergeflg(:,:)
+  real(kind=GFS_kind_phys), intent(inout), target :: source_ptr2d(:,:)
+  real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
+  type(block_control_type), intent(in),    target, optional :: block
 
-    real(kind=GFS_kind_phys) :: fval
+  real(kind=GFS_kind_phys) :: fval
 
-    integer :: isc, jsc, iec, jec
-    integer :: i, j, nb, ix, im
-    type(block_control_type), pointer :: active_block
+  integer :: isc, jsc, iec, jec
+  integer :: i, j, nb, ix, im
+  type(block_control_type), pointer :: active_block
 
-    if (present(block)) then
-      active_block => block
-    else
-      active_block => Atm_block
-    end if
+  if (present(block)) then
+    active_block => block
+  else
+    active_block => Atm_block
+  end if
 
-    isc = GFS_control%isc
-    iec = GFS_control%isc + GFS_control%nx - 1
-    jsc = GFS_control%jsc
-    jec = GFS_control%jsc + GFS_control%ny - 1
+  isc = GFS_control%isc
+  iec = GFS_control%isc + GFS_control%nx - 1
+  jsc = GFS_control%jsc
+  jec = GFS_control%jsc + GFS_control%ny - 1
 
-    !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
-    do j = jsc, jec
-      do i = isc, iec
-        nb = active_block%blkno(i,j)
-        ix = active_block%ixp(i,j)
-        im = GFS_control%chunk_begin(nb) + ix - 1
-        fval = source_ptr(im)
-        if (present(mask)) then
-          if (mask(im) <= zero) cycle
-        end if
-        if (mergeflg(i-isc+1, j-jsc+1)) then
-          destin_ptr(im) = fval
-          source_ptr2d(i-isc+1, j-jsc+1) = fval
-        end if
-      end do
+  !$omp parallel do default(shared) private(i,j,nb,ix,im,fval)
+  do j = jsc, jec
+    do i = isc, iec
+      nb = active_block%blkno(i,j)
+      ix = active_block%ixp(i,j)
+      im = GFS_control%chunk_begin(nb) + ix - 1
+      fval = source_ptr(im)
+      if (present(mask)) then
+        if (mask(im) <= zero) cycle
+      end if
+      if (mergeflg(i-isc+1, j-jsc+1)) then
+        destin_ptr(im) = fval
+        source_ptr2d(i-isc+1, j-jsc+1) = fval
+      end if
     end do
-  end subroutine merge_importfield_with_field
-  !> @brief Merge scalar values into a destination array and 2D field based on a merge flag.
-  !>
-  !> @param[inout] destin_ptr   1D destination array distributed by block
-  !> @param[in]    scalarfill   Scalar value to assign where merge flag is true
-  !> @param[in]    mergeflg     2D logical merge flag array in local coordinates
-  !> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
-  !> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
-  !> @param[in]    block        Optional block control structure; uses Atm_block if not provided
-  !>
-  !> @author Denise.Worthen@noaa.gov
-  subroutine merge_importfield_with_scalar(destin_ptr, scalarfill, mergeflg, source_ptr2d, mask, block)
+  end do
+end subroutine merge_importfield_with_field
+!> @brief Merge scalar values into a destination array and 2D field based on a merge flag.
+!>
+!> @param[inout] destin_ptr   1D destination array distributed by block
+!> @param[in]    scalarfill   Scalar value to assign where merge flag is true
+!> @param[in]    mergeflg     2D logical merge flag array in local coordinates
+!> @param[inout] source_ptr2d 2D field array to be updated in parallel with destination
+!> @param[in]    mask         Optional 1D mask array; elements with mask <= 0 are skipped
+!> @param[in]    block        Optional block control structure; uses Atm_block if not provided
+!>
+!> @author Denise.Worthen@noaa.gov
+subroutine merge_importfield_with_scalar(destin_ptr, scalarfill, mergeflg, source_ptr2d, mask, block)
 
-    real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
-    real(kind=GFS_kind_phys), intent(in)            :: scalarfill
-    logical,                  intent(in),    target :: mergeflg(:,:)
-    real(kind=GFS_kind_phys), intent(inout), target :: source_ptr2d(:,:)
-    real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
-    type(block_control_type), intent(in),    target, optional :: block
+  real(kind=GFS_kind_phys), intent(inout), target :: destin_ptr(:)
+  real(kind=GFS_kind_phys), intent(in)            :: scalarfill
+  logical,                  intent(in),    target :: mergeflg(:,:)
+  real(kind=GFS_kind_phys), intent(inout), target :: source_ptr2d(:,:)
+  real(kind=GFS_kind_phys), intent(in),    target, optional :: mask(:)
+  type(block_control_type), intent(in),    target, optional :: block
 
-    integer :: isc, jsc, iec, jec
-    integer :: i, j, nb, ix, im
-    type(block_control_type), pointer :: active_block
+  integer :: isc, jsc, iec, jec
+  integer :: i, j, nb, ix, im
+  type(block_control_type), pointer :: active_block
 
-    if (present(block)) then
-      active_block => block
-    else
-      active_block => Atm_block
-    end if
+  if (present(block)) then
+    active_block => block
+  else
+    active_block => Atm_block
+  end if
 
-    isc = GFS_control%isc
-    iec = GFS_control%isc + GFS_control%nx - 1
-    jsc = GFS_control%jsc
-    jec = GFS_control%jsc + GFS_control%ny - 1
+  isc = GFS_control%isc
+  iec = GFS_control%isc + GFS_control%nx - 1
+  jsc = GFS_control%jsc
+  jec = GFS_control%jsc + GFS_control%ny - 1
 
-    !$omp parallel do default(shared) private(i,j,nb,ix,im)
-    do j = jsc, jec
-      do i = isc, iec
-        nb = active_block%blkno(i,j)
-        ix = active_block%ixp(i,j)
-        im = GFS_control%chunk_begin(nb) + ix - 1
-        if (present(mask)) then
-          if (mask(im) <= zero) cycle
-        end if
-        if (mergeflg(i-isc+1, j-jsc+1)) then
-          destin_ptr(im) = scalarfill
-          source_ptr2d(i-isc+1, j-jsc+1) = scalarfill
-        end if
-      end do
+  !$omp parallel do default(shared) private(i,j,nb,ix,im)
+  do j = jsc, jec
+    do i = isc, iec
+      nb = active_block%blkno(i,j)
+      ix = active_block%ixp(i,j)
+      im = GFS_control%chunk_begin(nb) + ix - 1
+      if (present(mask)) then
+        if (mask(im) <= zero) cycle
+      end if
+      if (mergeflg(i-isc+1, j-jsc+1)) then
+        destin_ptr(im) = scalarfill
+        source_ptr2d(i-isc+1, j-jsc+1) = scalarfill
+      end if
     end do
-  end subroutine merge_importfield_with_scalar
+  end do
+end subroutine merge_importfield_with_scalar
 
 end module atmos_model_mod

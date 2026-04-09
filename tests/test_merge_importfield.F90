@@ -119,7 +119,6 @@ contains
     call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
 
     ok = .true.
-
     if (ok) then
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
@@ -197,7 +196,6 @@ contains
     call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, block=block)
 
     ok = .true.
-
     if (ok) then
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
@@ -271,7 +269,6 @@ contains
     call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
 
     ok = .true.
-
     if (ok) then
        do im = 1, total_pts
           if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
@@ -347,7 +344,6 @@ contains
     call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, mask=mask, block=block)
 
     ok = .true.
-
     if (ok) then
        do j = block%jsc, block%jec
           do i = block%isc, block%iec
