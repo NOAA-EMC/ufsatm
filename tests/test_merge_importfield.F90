@@ -86,13 +86,11 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:), src_1d(:), mask(:)
-    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im,  total_pts
+    integer :: i, j, im, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -777.0_GFS_kind_phys
-    real(GFS_kind_phys), parameter :: sentinel2d = -888.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield field path"
 
@@ -100,11 +98,9 @@ contains
     total_pts = sum(block%blksz)
 
     allocate(dest_1d(total_pts), src_1d(total_pts), mask(total_pts))
-    allocate(src_2d(block%isc:block%iec, block%jsc:block%jec))
     allocate(mergeflg(block%isc:block%iec, block%jsc:block%jec))
 
     dest_1d = sentinel
-    src_2d = sentinel2d
     mask = 1.0_GFS_kind_phys
 
     do im = 1, total_pts
@@ -116,7 +112,8 @@ contains
           mergeflg(i, j) = mod(i + j, 2) == 0
        end do
     end do
-    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
+
+    call merge_importfield(dest_1d, src_1d, mergeflg, mask=mask, block=block)
 
     ok = .true.
     if (ok) then
@@ -129,19 +126,9 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(src_1d(im), GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: field merge did not update src_2d at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
              else
                 if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: field merge changed unflagged dest at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: field merge changed unflagged src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
                 end if
@@ -158,7 +145,7 @@ contains
        print *, "    FAILED: merge_importfield field-path verification failed"
     end if
 
-    deallocate(dest_1d, src_1d, mask, src_2d, mergeflg)
+    deallocate(dest_1d, src_1d, mask, mergeflg)
   end subroutine test_merge_field_selected_points
 
   subroutine test_merge_scalar_selected_points(block, test_num, passed_count, config_idx)
@@ -167,14 +154,12 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:)
-    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im,  total_pts
+    integer :: i, j, im, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 12.5_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -222.0_GFS_kind_phys
-    real(GFS_kind_phys), parameter :: sentinel2d = -333.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield scalar path"
 
@@ -182,18 +167,17 @@ contains
     total_pts = sum(block%blksz)
 
     allocate(dest_1d(total_pts))
-    allocate(src_2d(block%isc:block%iec, block%jsc:block%jec))
     allocate(mergeflg(block%isc:block%iec, block%jsc:block%jec))
 
     dest_1d = sentinel
-    src_2d = sentinel2d
 
     do j = block%jsc, block%jec
        do i = block%isc, block%iec
           mergeflg(i, j) = mod(i * 2 + j, 3) == 0
        end do
     end do
-    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, block=block)
+
+    call merge_importfield(dest_1d, scalarfill, mergeflg, block=block)
 
     ok = .true.
     if (ok) then
@@ -206,19 +190,9 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(scalarfill, GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: scalar merge did not update src_2d at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
              else
                 if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: scalar merge changed unflagged dest at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: scalar merge changed unflagged src_2d at i=", i, " j=", j
                    ok = .false.
                    exit
                 end if
@@ -235,7 +209,7 @@ contains
        print *, "    FAILED: merge_importfield scalar-path verification failed"
     end if
 
-    deallocate(dest_1d, src_2d, mergeflg)
+    deallocate(dest_1d, mergeflg)
   end subroutine test_merge_scalar_selected_points
 
   subroutine test_merge_all_false_noop(block, test_num, passed_count, config_idx)
@@ -244,13 +218,11 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:), src_1d(:), mask(:)
-    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im,  total_pts
+    integer :: im, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: sentinel = -5.0_GFS_kind_phys
-    real(GFS_kind_phys), parameter :: sentinel2d = -6.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield all-false noop"
 
@@ -258,15 +230,14 @@ contains
     total_pts = sum(block%blksz)
 
     allocate(dest_1d(total_pts), src_1d(total_pts), mask(total_pts))
-    allocate(src_2d(block%isc:block%iec, block%jsc:block%jec))
     allocate(mergeflg(block%isc:block%iec, block%jsc:block%jec))
 
     dest_1d = sentinel
-    src_2d = sentinel2d
     src_1d = 44.0_GFS_kind_phys
     mergeflg = .false.
     mask = 1.0_GFS_kind_phys
-    call merge_importfield(dest_1d, src_1d, mergeflg, src_2d, mask=mask, block=block)
+
+    call merge_importfield(dest_1d, src_1d, mergeflg, mask=mask, block=block)
 
     ok = .true.
     if (ok) then
@@ -280,26 +251,13 @@ contains
     end if
 
     if (ok) then
-       do j = block%jsc, block%jec
-          do i = block%isc, block%iec
-             if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
-                print *, "    FAILED: all-false merge changed source2d at i=", i, " j=", j
-                ok = .false.
-                exit
-             end if
-          end do
-          if (.not. ok) exit
-       end do
-    end if
-
-    if (ok) then
        print *, "    PASSED"
        passed_count = passed_count + 1
     else
        print *, "    FAILED: merge_importfield all-false verification failed"
     end if
 
-    deallocate(dest_1d, src_1d, mask, src_2d, mergeflg)
+    deallocate(dest_1d, src_1d, mask, mergeflg)
   end subroutine test_merge_all_false_noop
 
   subroutine test_merge_mask_blocks_updates(block, test_num, passed_count, config_idx)
@@ -308,15 +266,13 @@ contains
     integer, intent(inout) :: passed_count
 
     real(GFS_kind_phys), allocatable :: dest_1d(:)
-    real(GFS_kind_phys), allocatable :: src_2d(:,:)
     real(GFS_kind_phys), allocatable :: mask(:)
     logical, allocatable :: mergeflg(:,:)
 
-    integer :: i, j, im,  total_pts
+    integer :: i, j, im, total_pts
     logical :: ok
     real(GFS_kind_phys), parameter :: scalarfill = 99.0_GFS_kind_phys
     real(GFS_kind_phys), parameter :: sentinel = -101.0_GFS_kind_phys
-    real(GFS_kind_phys), parameter :: sentinel2d = -202.0_GFS_kind_phys
 
     print *, "  [Config ", config_idx, "] Test ", test_num, ": merge_importfield mask gating"
 
@@ -324,11 +280,9 @@ contains
     total_pts = sum(block%blksz)
 
     allocate(dest_1d(total_pts), mask(total_pts))
-    allocate(src_2d(block%isc:block%iec, block%jsc:block%jec))
     allocate(mergeflg(block%isc:block%iec, block%jsc:block%jec))
 
     dest_1d = sentinel
-    src_2d = sentinel2d
     mergeflg = .true.
 
     do j = block%jsc, block%jec
@@ -341,7 +295,8 @@ contains
           end if
        end do
     end do
-    call merge_importfield(dest_1d, scalarfill, mergeflg, src_2d, mask=mask, block=block)
+
+    call merge_importfield(dest_1d, scalarfill, mergeflg, mask=mask, block=block)
 
     ok = .true.
     if (ok) then
@@ -354,19 +309,9 @@ contains
                    ok = .false.
                    exit
                 end if
-                if (abs(src_2d(i, j) - real(scalarfill, GFS_kind_phys)) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: mask-gated merge missed active source2d at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
              else
                 if (abs(dest_1d(im) - sentinel) > 1.0e-10_GFS_kind_phys) then
                    print *, "    FAILED: mask-gated merge updated masked-out point at i=", i, " j=", j
-                   ok = .false.
-                   exit
-                end if
-                if (abs(src_2d(i, j) - sentinel2d) > 1.0e-10_GFS_kind_phys) then
-                   print *, "    FAILED: mask-gated merge updated masked-out source2d at i=", i, " j=", j
                    ok = .false.
                    exit
                 end if
@@ -383,7 +328,7 @@ contains
        print *, "    FAILED: merge_importfield mask-gating verification failed"
     end if
 
-    deallocate(dest_1d, mask, src_2d, mergeflg)
+    deallocate(dest_1d, mask, mergeflg)
   end subroutine test_merge_mask_blocks_updates
 
 end program test_merge_importfield
