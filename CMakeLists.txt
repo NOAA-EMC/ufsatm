@@ -5,10 +5,6 @@ cmake_minimum_required(VERSION 3.19)
 
 # Handle user build options.
 option(ENABLE_FV3ATM_DOCS "Enable generation of doxygen-based documentation." OFF)
-set(STOCH_PHYS ON CACHE BOOL "Enable stochastic physics coupling in FV3")
-if(STOCH_PHYS)
-  list(APPEND _ufsatm_defs_private STOCH_PHYS)
-endif()
 
 # Determine whether or not to generate documentation.
 if(ENABLE_FV3ATM_DOCS)
@@ -17,8 +13,8 @@ if(ENABLE_FV3ATM_DOCS)
   add_subdirectory(docs)
 endif()
 
-# Enable CI build & unit testing:
-if(BUILD_CI_TESTING)
+# Enable standalone build for unit testing:
+if(BUILD_UFSATM_TESTING)
   if (FV3)
     project(ufsatm_fv3 VERSION 1.0 LANGUAGES C CXX Fortran)
   endif()
@@ -64,7 +60,7 @@ if(ENABLE_RRFS_WAR)
   list(APPEND _ufsatm_defs_private ENABLE_RRFS_WAR)
 endif()
 
-if(BUILD_CI_TESTING)
+if(BUILD_UFSATM_TESTING)
   include(CTest)
   add_subdirectory(tests)
 endif()
@@ -177,19 +173,13 @@ if (FV3)
   endif()
 
   # FV3 drivers and dependencies
-  if(STOCH_PHYS)
-    set(_stoch_wrapper_src fv3/stochastic_physics/stochastic_physics_wrapper.F90)
-  else()
-    set(_stoch_wrapper_src fv3/stochastic_physics/stochastic_physics_wrapper_stub.F90)
-  endif()
-
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
     ufsatm_util.F90
     fv3/atmos_model.F90
     fv3/module_fv3_config.F90
     fv3/module_fcst_grid_comp.F90
-    ${_stoch_wrapper_src}
+    fv3/stochastic_physics/stochastic_physics_wrapper.F90
     ${coupling_srcs}
     ${fv3_io_srcs}
     ${io_srcs}
@@ -197,10 +187,7 @@ if (FV3)
     ${cdeps_inline_srcs}
     ${POST_SRC}
     )
-  add_dependencies(${DYCORE_TARGET} fv3 fv3ccpp)
-  if(STOCH_PHYS)
-    add_dependencies(${DYCORE_TARGET} stochastic_physics)
-  endif()
+  add_dependencies(${DYCORE_TARGET} fv3 fv3ccpp stochastic_physics)
 
   if(CDEPS_INLINE)
     add_dependencies(${DYCORE_TARGET} cdeps::cdeps)
@@ -293,10 +280,8 @@ target_include_directories(${DYCORE_TARGET} INTERFACE $<BUILD_INTERFACE:${CMAKE_
 if (FV3)
   target_link_libraries(${DYCORE_TARGET} PUBLIC fv3
                                          fv3ccpp
+                                         stochastic_physics
                                          fms)
-  if(STOCH_PHYS)
-    target_link_libraries(${DYCORE_TARGET} PUBLIC stochastic_physics)
-  endif()
   if(UFS_TRACING)
     target_link_libraries(${DYCORE_TARGET} PUBLIC ufs_tracing)
   endif()

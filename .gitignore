@@ -7,4 +7,5 @@
 
 build/
 install/
-
+CMakeModules/
+stochastic_physics/
