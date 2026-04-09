@@ -26,7 +26,6 @@
   </group>
   <group name="phys_ps">
     <subcycle loop="1">
-      <scheme>GFS_suite_stateout_reset</scheme>
       <scheme>get_prs_fv3</scheme>
       <scheme>GFS_suite_interstitial_1</scheme>
       <scheme>GFS_surface_generic_pre</scheme>
@@ -53,21 +52,20 @@
       <scheme>sfc_diag_post</scheme>
       <scheme>GFS_surface_generic_post</scheme>
       <scheme>mynnedmf_wrapper</scheme>
+      <scheme>mynnedmf_wrapper_post</scheme>
       <scheme>GFS_GWD_generic_pre</scheme>
       <scheme>cires_ugwp</scheme>
       <scheme>cires_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
-      <scheme>GFS_suite_stateout_update</scheme>
     </subcycle>
   </group>
   <group name="phys_ts">
     <subcycle loop="1">
       <scheme>GFS_photochemistry</scheme>
+      <scheme>GFS_photochemistry_post</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>GFS_suite_interstitial_4</scheme>
-      <scheme>GFS_MP_generic_pre</scheme>
-      <scheme>mp_thompson_pre</scheme>
       <scheme>mp_thompson</scheme>
       <scheme>mp_thompson_post</scheme>
       <scheme>GFS_MP_generic_post</scheme>
