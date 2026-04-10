@@ -18,7 +18,7 @@ module module_cap_cpl
   contains
 
     !> @brief Diagnose coupling fields
-    !> 
+    !>
     !> @param[in] gcomp ESMF GridComp object
     !> @param[in] clock_fv3 ESMF Clock object of current time
     !> @param[in] fcstpe  Logical flag if this is the forecast PE
@@ -49,7 +49,7 @@ module module_cap_cpl
 !
       call ESMF_ClockGet(clock_fv3, currTime=currTime, timeStep=timestep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_TimeGet(currTime, timestring=import_timestr, rc=rc)
+      call ESMF_TimeGet(currTime+timestep, timestring=import_timestr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call ESMF_TimeGet(currTime+timestep, timestring=export_timestr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -312,7 +312,7 @@ module module_cap_cpl
     end subroutine State_RWFields_tiles
 
   !> @brief Get diagnostic statistics for fields
-  !> 
+  !>
   !> @param[in] State Fields to diagnose
   !> @param[in] string String to add for logging
   !> @param[out] rc Return code

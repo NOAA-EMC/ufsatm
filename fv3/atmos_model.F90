@@ -1872,14 +1872,15 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   logical :: found, isFieldCreated, lcpl_fice
   real(ESMF_KIND_R8), parameter :: missing_value = 9.99e20_ESMF_KIND_R8
   ! used by debug FB
-  logical                       :: foundfirst, add2FB
-  character(len=128)            :: fname
-  type(ESMF_Grid)               :: grid
-  type(ESMF_FieldBundle)        :: FBcpl2phys
-  type(ESMF_Field)              :: dbgField
-  character(19)                 :: timestring
-  character(len=:), allocatable :: fieldlist(:)
-  integer                       :: nfields
+  logical                           :: foundfirst, add2FB
+  character(len=128)                :: fname
+  type(ESMF_Grid)                   :: grid
+  type(ESMF_FieldBundle)            :: FBcpl2phys
+  type(ESMF_Field)                  :: dbgField
+  real(kind=GFS_kind_phys), pointer :: dbgptr(:,:)
+  character(19)                     :: timestring
+  character(len=:), allocatable     :: fieldlist(:)
+  integer                           :: nfields
   !
   !     real(kind=GFS_kind_phys), parameter :: himax = 8.0      !< maximum ice thickness allowed
   !     real(kind=GFS_kind_phys), parameter :: himin = 0.1      !< minimum ice thickness required
@@ -1915,6 +1916,8 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   do n=1,nImportFields ! Each import field is only available if it was connected in the import state.
 
     found = .false.
+    foundfirst = .false.
+    add2FB = .false.
 
     isFieldCreated = ESMF_FieldIsCreated(importFields(n), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1923,8 +1926,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
 
       dataptr = -99999.0
       mergeflg = .false.
-      call ESMF_FieldGet(importFields(n), dimCount=dimCount ,typekind=datatype, &
-           name=impfield_name, rc=rc)
+      call ESMF_FieldGet(importFields(n), dimCount=dimCount ,typekind=datatype, name=impfield_name, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       if ( dimCount == 2) then
@@ -1995,10 +1997,10 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
               if (importFieldsValid(queryImportFields(fldname))) then
                 add2FB = .true.
                 call copy2block(GFS_Sfcprop%tsfco, dataptr, mask=GFS_Sfcprop%oceanfrac, validmin=150.0_GFS_kind_phys)
-                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%tsfco, GFS_Sfcprop%tsfc, mergeflg, mask=GFS_Sfcprop%oceanfrac)
                 end if
+                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get sst from mediator'
               endif
             end if
             ! get zonal ocean current:
@@ -2008,10 +2010,10 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
               if (importFieldsValid(queryImportFields(fldname))) then
                 add2FB = .true.
                 call copy2block(GFS_Sfcprop%usfco, dataptr, mask=GFS_Sfcprop%oceanfrac)
-                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get usfco from mediator'
                 if (GFS_control%cpl_imp_mrg) then
                   call merge_importfield(GFS_Sfcprop%usfco, zero, mergeflg, mask=GFS_Sfcprop%oceanfrac)
                 end if
+                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get usfco from mediator'
               end if
             end if
             ! get meridional ocean current:
@@ -2021,10 +2023,10 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
               if (importFieldsValid(queryImportFields(fldname))) then
                 add2FB = .true.
                 call copy2block(GFS_Sfcprop%vsfco, dataptr, mask=GFS_Sfcprop%oceanfrac)
-                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get vsfco from mediator'
                 if (GFS_control%cpl_imp_mrg) then
-                  call merge_importfield(GFS_Sfcprop%vsfco, zero, mergeflg, mask=GFS_Sfcprop%oceanfrac
+                  call merge_importfield(GFS_Sfcprop%vsfco, zero, mergeflg, mask=GFS_Sfcprop%oceanfrac)
                 end if
+                if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'get vsfco from mediator'
               end if
             end if
           end if ! GFS_control%cplocn2atm
@@ -2727,6 +2729,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
           call ESMF_FieldBundleAdd(FBcpl2phys, (/dbgField/), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_LogWrite('field '//trim(impfield_name)//' added to FBcpl2phys', ESMF_LOGMSG_INFO)
         endif
       endif ! if (found) then
     endif   ! if (isFieldCreated) then
@@ -2737,13 +2740,14 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
 
   !add fields not present in importstate to FB
   if (GFS_control%cpl_imp_dbg) then
-    allocate(character(len=13) :: fieldlist(4))
+    allocate(character(len=14) :: fieldlist(4))
     fieldlist = (/'ocean_fraction', 'slimskin_cpl', 'slmsk', 'zorlw'/)
     do n = 1,4
       dbgField = ESMF_FieldCreate(grid=grid, typekind=ESMF_TYPEKIND_R8, name=trim(fieldlist(n)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call ESMF_FieldBundleAdd(FBcpl2phys, (/dbgField/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      call ESMF_LogWrite('field '//trim(fieldlist(n))//' added to FBcpl2phys', ESMF_LOGMSG_INFO)
     enddo
     deallocate(fieldlist)
   endif
@@ -2832,36 +2836,78 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call ESMF_FieldGet(dbgField, farrayPtr=dbgptr, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      call ESMF_LogWrite('field '//trim(fieldlist(n))//' retrieved from FBcpl2phys', ESMF_LOGMSG_INFO)
 
       dbgptr = missing_value
       localrc = ESMF_SUCCESS
-      !$omp parallel do default(shared) private(nb) reduction(max:localrc)
-      do nb = 1, Atm_block%nblks
-        select case(trim(fieldlist(n)))
-        case ('wave_z0_roughness_length')
+      select case(trim(fieldlist(n)))
+      case ('wave_z0_roughness_length')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%zorlwav, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('sea_surface_temperature')
+        enddo
+      case ('sea_ice_surface_temperature')
+        do nb = 1, Atm_block%nblks
+          call block_data_copy(dbgptr, GFS_Sfcprop%tisfc, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
+        enddo
+      case ('sea_surface_temperature')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%tsfco, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('ocn_current_zonal')
+        enddo
+      case ('ocn_current_zonal')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%usfco, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('ocn_current_merid')
+        enddo
+      case ('ocn_current_merid')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%vsfco, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('ice_fraction')
+        enddo
+      case ('ice_fraction')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%fice, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('lwup_flx_ice')
+        enddo
+      case ('lwup_flx_ice')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Coupling%ulwsfcin_cpl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('sea_ice_volume')
+        enddo
+      case ('sea_ice_volume')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%hice, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('snow_volume_on_sea_ice')
+        enddo
+      case ('snow_volume_on_sea_ice')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Coupling%hsnoin_cpl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('slimskin_cpl')
+        enddo
+      case ('ocean_fraction')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
+          call block_data_copy(dbgptr, GFS_Sfcprop%oceanfrac, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
+        enddo
+      case ('slimskin_cpl')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Coupling%slimskin_cpl, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case ('slmsk')
+        enddo
+      case ('slmsk')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%slmsk, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
-        case default
-          localrc = ESMF_RC_NOT_FOUND
-        end select
-      enddo
+        enddo
+      case ('zorlw')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
+        do nb = 1, Atm_block%nblks
+          call block_data_copy(dbgptr, GFS_Sfcprop%zorlw, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
+        enddo
+      case default
+        localrc = ESMF_RC_NOT_FOUND
+      end select
       if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     enddo
 
