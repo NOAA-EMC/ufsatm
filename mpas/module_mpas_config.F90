@@ -57,6 +57,10 @@ module module_mpas_config
   character(len=256) :: output_filename = "output.mpas.nc"
   character(len=256) :: restart_filename = "restart.mpas.nc"
 
+  !> UFSATM namelist filename
+  character(len=256) :: nml_filename = "input.nml"
+  character(len=:), dimension(:), allocatable, target :: input_nml_file
+
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem_ic
   type(iosystem_desc_t), pointer :: pio_subsystem_lbc

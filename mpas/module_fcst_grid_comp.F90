@@ -21,14 +21,13 @@ module module_fcst_grid_comp
   use constants_mod,      only: constants_init
   use fms_mod,            only: error_mesg, fms_init, fms_end, write_version_number,        &
                                 uppercase
-  use mpp_mod,            only: mpp_init, mpp_pe, mpp_npes, mpp_root_pe,                    &
-                                mpp_set_current_pelist, mpp_error, FATAL, WARNING, NOTE
-  use mpp_mod,            only: mpp_clock_id, mpp_clock_begin
   use sat_vapor_pres_mod, only: sat_vapor_pres_init
   use diag_manager_mod,   only: diag_manager_init, diag_manager_end,                        &
                                 diag_manager_set_time_end
   use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar
   use CCPP_data,          only: GFS_control
+  use mpas_log,            only : mpas_log_write
+  use mpas_derived_types,  only : MPAS_LOG_CRIT
 
   implicit none
   private
@@ -105,7 +104,7 @@ contains
     type(ESMF_Config) :: cf
     real(kind=8) :: tbeg1
     logical :: fexist
-    integer :: initClock, io_unit, calendar_type_res, date_res(6), date_init_res(6)
+    integer :: io_unit, calendar_type_res, date_res(6), date_init_res(6)
     integer,dimension(6) :: date, date_end, days
     type(time_type) :: Time_init, Time, Time_step, Time_end, Time_restart, Time_step_restart
 
@@ -131,9 +130,6 @@ contains
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     call fms_init(fcst_mpi_comm%mpi_val)
-    call mpp_init()
-    initClock = mpp_clock_id( 'Initialization' )
-    call mpp_clock_begin (initClock) !nesting problem
 
     call constants_init
     call sat_vapor_pres_init
@@ -150,8 +146,9 @@ contains
     case( 'NO_CALENDAR' )
         calendar_type = NO_CALENDAR
     case default
-        call mpp_error ( FATAL, 'fcst_initialize: calendar must be one of '// &
-                                'JULIAN|GREGORIAN|NOLEAP|THIRTY_DAY|NO_CALENDAR.' )
+        call mpas_log_write( 'fcst_initialize: calendar must be one of '// &
+                             'JULIAN|GREGORIAN|NOLEAP|THIRTY_DAY|NO_CALENDAR.',&
+                             messageType=MPAS_LOG_CRIT)
     end select
 
     call set_calendar_type (calendar_type)
