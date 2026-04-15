@@ -10,6 +10,7 @@ module atmos_model_mod
   ! MPAS
   use MPAS_typedefs,         only : MPAS_kind_phys => kind_phys
   use atmos_coupling_mod,    only : MPAS_statein_type, MPAS_stateout_type
+  use ufs_mpas_constituents, only : constituent_name, is_water_species
   ! CCPP
   use CCPP_data,             only : UFSATM_control      => GFS_control
   use CCPP_data,             only : UFSATM_intdiag      => GFS_intdiag
@@ -29,16 +30,13 @@ module atmos_model_mod
   use mpas_derived_types,    only : MPAS_LOG_CRIT
   ! FMS
   use time_manager_mod,      only : time_type, get_time, get_date, operator(+), operator(-)
-  use field_manager_mod,     only : MODEL_ATMOS
-  use tracer_manager_mod,    only : get_number_tracers, get_tracer_names, get_tracer_index
-  use mpp_mod,               only : mpp_pe, mpp_root_pe
-  use fms_mod,               only : stdlog
-  use mpp_mod,               only : stdout
+
   ! UFSATM
   use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
   use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
-  use module_mpas_config,    only : pi!, input_nml_file
-  use mpp_mod,               only : input_nml_file
+  use module_mpas_config,    only : pi, mpas_errfile_handle, mpas_logfile_handle
+  use module_mpas_config,    only : nml_filename, nml_funit
+  use module_mpas_config,    only : tracer_funit, tracer_filename
   use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
   use omp_lib
@@ -84,9 +82,6 @@ module atmos_model_mod
   ! Component Timers
   real(MPAS_kind_phys) :: setupClock, atmiClock, radClock, physClock,mpasClock, mpClock, outClock
 
-  ! DJS2025: For UFS WM RTs unitl output is setup for MPAS.
-  integer, parameter :: mpas_logfile_handle = 42323
-
   type(MPAS_statein_type)  :: MPAS_statein
   type(MPAS_stateout_type) :: MPAS_stateout
 
@@ -108,7 +103,6 @@ contains
     use ufs_mpas_subdriver,     only : MPAS_control_type
     use ufs_mpas_subdriver,     only : ufs_mpas_init
     use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc
-    use ufs_mpas_constituents,  only : constituent_name, is_water_species
     use atmos_coupling_mod,     only : ufs_mpas_to_physics, ufs_mpas_grid_to_physics
     use MPAS_init,              only : MPAS_initialize
 
@@ -119,7 +113,7 @@ contains
     character(17),            intent(in   ) :: calendar 
 
     ! Locals
-    integer :: i, io, ierr, nConstituents, sec, iCol
+    integer :: i, io, ierr, nConstituents, sec, iCol, mpi_size, mpi_rank
     type(MPAS_control_type) :: Cfg
     integer :: times(6), timee(6), ttime, logUnits(2), nthrds
     logical :: file_exists
@@ -129,6 +123,14 @@ contains
     ! Start timer for this procedure (init).
     start_time = MPI_Wtime()
 
+    ! Open log files.
+    logunits(1) = mpas_logfile_handle
+    logunits(2) = mpas_errfile_handle
+    if (Cfg % master == Cfg % me) then
+       open(unit=mpas_logfile_handle, file='mpas_log.txt', action='write', status='unknown')
+       open(unit=mpas_errfile_handle, file='mpas_err.txt', action='write', status='unknown')
+    endif
+    
     ! Set atmospheric model time.
     Atmos % isAtCapTime = .false.
     Atmos % Time_init = Time_init
@@ -144,55 +146,44 @@ contains
     call get_time(Time_end - Time_init, ttime)
     
     ! Set MPI bookeeping parameters.
-    Cfg%me        = mpp_pe()
-    Cfg%master    = mpp_root_pe()
+    Cfg%master    = 0
     Cfg%mpi_comm  = mpicomm
-    
-    ! Read in ATMosphere namelist.
-    inquire(file = 'input.nml', exist=file_exists)
-    if (file_exists) then
-       read(input_nml_file, nml=atmos_model_nml, iostat=ierr)
-       if (ierr/=0) call mpas_log_write(subname // " ERROR: When Reading in ATM Namelist",messageType=MPAS_LOG_CRIT)
-    endif
 
+    call MPI_Comm_rank(MPI_COMM_WORLD, Cfg%me, ierr)
+    print*,'SWALES MPI size = ',Cfg%master,Cfg%me
+    !
+    ! Read in ATMosphere namelist (master processor only)
+    !
+    if ( Cfg%me == Cfg%master) then
+       inquire(file = trim(nml_filename), exist=file_exists)
+       if (file_exists) then
+          close(nml_funit)
+          open(nml_funit,file=trim(nml_filename),status='unknown')
+          read(nml_funit, nml=atmos_model_nml, iostat=ierr)
+          if (ierr/=0) call mpas_log_write(subname // " ERROR: When Reading in ATM Namelist",messageType=MPAS_LOG_CRIT)
+       endif
+    end if
+    ! Broadcast ATMosphere namelist to all processors.
+    call mpi_barrier(Cfg%mpi_comm, ierr)
+    call mpi_bcast(regional,     1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(dycore_only,  1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(debug,        1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(ccpp_suite,   len(ccpp_suite),   MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(blocksize,    1,                 MPI_INTEGER,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(ic_filename,  len(ic_filename),  MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(lbc_filename, len(lbc_filename), MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    
     !
     ! Handle constituents (scalars/tracers)
     !
-
-    ! Get constituent name(s) and type(s).
-    ! Active constituents are defined in the FMS "field_table".
-    call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
-    allocate (Cfg % tracer_names(Cfg % nConstituents), Cfg % tracer_types(Cfg % nConstituents))
-    do i = 1, Cfg % nConstituents
-       call get_tracer_names(MODEL_ATMOS, i, Cfg % tracer_names(i))
-    enddo
-    call get_atmos_tracer_types(Cfg % tracer_types)
-
-    ! Get number of water species.
-    ! DJS Asks? With FV3, this is set during dycore initialization. How do we get this information
-    ! here? Does MPAS have a routine for this?
-    !
-    ! It would be simple, albeit not the most elegant thing, but we could create a simple routine
-    ! that has a list of "known MPAS water species" and compare each "tracer_name" to that.
-    ! A more robust solution IMO would be to quiery the field table entries for a "water-species"
-    ! attribute, or something along those lines. Actually, I think this is straightforward if we
-    ! extend ../ufsatm_util.F90.
-    
-    !
-    ! From field_tables:
-    ! For RRFS   MPAS we have: 11 water tracers (ql,qc,qi,qr,qs,qg,nc,nc,ni,nr,ng)
-    !                           2 prog. tracers (o3,sgs-tke)
-    ! For GFSv17 MPAS we have:  6 water species (ql,qc,qi,qr,qs,qg)
-    !                           4 prog. tracers (o3,sgs-tke,cld_amt,sigma_b)
     Cfg % nwat = 6
-
-    call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
+    call get_number_tracers(tracer_funit, tracer_filename, Cfg % nConstituents)
     allocate (constituent_name(Cfg % nConstituents), is_water_species(Cfg % nConstituents))
+    allocate (Cfg % tracer_names(Cfg % nConstituents), Cfg % tracer_types(Cfg % nConstituents))
+    call get_tracer_names(tracer_funit, tracer_filename, Cfg % nConstituents, Cfg % nwat)
     do i = 1, Cfg % nConstituents
-       call get_tracer_names(MODEL_ATMOS, i, constituent_name(i))
+       Cfg % tracer_names(i) = trim(constituent_name(i))
     enddo
-    is_water_species(:) = .false.
-    is_water_species(1:Cfg % nwat) = .true.
 
     ! Open (PIO) MPAS Initial Condition (IC) file.
     call ufs_mpas_open_init()
@@ -208,16 +199,6 @@ contains
     ! - Set up MPAS logging
     ! - Read in static data, setup MPAS invariant stream
     ! - Setup physical constants used by MPAS dycore
-    logUnits(1) = stdout()
-    logUnits(2) = stdlog()
-
-    ! DJS2025: This is for UWM RT logging only. Can be removed when MPAS output is added.
-    if (Cfg % master == Cfg % me) then
-       open(unit=mpas_logfile_handle, file='mpas_log.txt', action='write', status='unknown')
-       logunits(1) = mpas_logfile_handle
-       logunits(2) = mpas_logfile_handle
-    endif
-
     call ufs_mpas_init(Cfg, times, timee, ttime, calendar, logUnits, mpas_from_ufs_cnst, ufs_from_mpas_cnst, debug)
 
     !> #########################################################################################
@@ -236,8 +217,8 @@ contains
 #else
     nthrds = 1
 #endif
-    ! Set file ID for log file
-    Cfg%nlunit = stdlog()
+    ! Set file ID for namelist file
+    Cfg%nlunit = nml_funit
     
     ! Number of physics blocks
     Atmos % nblks = nCellsSolve / blocksize
@@ -257,12 +238,8 @@ contains
     Cfg%cdat(:) = 0
     call get_date (Time,      Cfg%cdat(1), Cfg%cdat(2), Cfg%cdat(3), Cfg%cdat(5), Cfg%cdat(6), Cfg%cdat(7))
 
-    ! Allocate required to work around GNU compiler bug 100886 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100886
-    allocate(Cfg%input_nml_file, mold=input_nml_file)
-    Cfg%input_nml_file  => input_nml_file
-    Cfg%fn_nml='using internal file'
-
     ! Read in physics namelist and allocate data containers.
+    Cfg%fn_nml = nml_filename
     call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
          UFSATM_statein, UFSATM_stateout, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
     
@@ -326,6 +303,7 @@ contains
     call mpas_log_write('MPAS Output                '// stringify([outClock]))
     call mpas_log_write('------------------------------------------------------------------')
     close(unit=mpas_logfile_handle)
+    close(unit=mpas_errfile_handle)
   end subroutine atmos_model_end
 
   !> #########################################################################################
@@ -443,5 +421,61 @@ contains
     ! Advance time
     Atmos % Time = Atmos % Time + Atmos % Time_step
   end subroutine update_atmos_model_state
+
+  !> #########################################################################################
+  !> Internal procedure to get the number of tracers (lines) in the tracer table file.
+  !>
+  !> #########################################################################################
+  subroutine get_number_tracers(funit, fname, flines)
+    integer,          intent(in)  :: funit
+    character(len=*), intent(in)  :: fname
+    integer,          intent(out) :: flines
+    character(len=1) :: dummy
+    integer :: status
+
+    ! Get number of lines (tracers) in file
+    flines = 0
+    open(funit,file=trim(fname),status='unknown')
+    do 
+       read(funit, "(a)",iostat=status) dummy
+       if (status /= 0) exit
+       flines = flines + 1
+    enddo
+    close(funit)
+  end subroutine get_number_tracers
+  !> #########################################################################################
+  !> Internal procedure to get tracer names from the tracer table file.
+  !> ach line of the tracer table is of this format: (a10,a,a40,a,a10,a,i1)
+  !>
+  !> #########################################################################################
+  subroutine get_tracer_names(funit, fname, ntracers, nwat)
+    integer,          intent(in)  :: funit
+    character(len=*), intent(in)  :: fname
+    integer,          intent(in)  :: ntracers
+    integer,          intent(out) :: nwat
+
+    integer :: itracer, status
+    character(len=10) :: tracer_name
+    character(len=1) :: c1,c2,c3
+    character(len=40) :: tracer_long_name
+    character(len=10) :: tracer_unit
+    integer :: tracer_type
+
+    nwat = 0
+    is_water_species(:) = .false.
+    open(funit,file=trim(fname),status='unknown')
+    do itracer=1,ntracers
+       read(funit, "(a10,a,a40,a,a10,a,i1)",iostat=status) tracer_name,c1,tracer_long_name,c2,tracer_unit,c3,tracer_type
+       constituent_name(itracer) = tracer_name
+       if (tracer_type == 0) then
+          is_water_species(itracer) = .true.
+          nwat = nwat+1
+       endif
+    enddo
+    close(funit)
+
+    !Thompson/TEMPO are hardcoded to only accept 6 tracers.???
+    nwat = 6
+  end subroutine get_tracer_names
 
 end module atmos_model_mod

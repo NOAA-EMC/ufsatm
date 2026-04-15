@@ -48,19 +48,25 @@ module module_mpas_config
   character(17)            :: calendar='                 '
 
   !> MPAS Initial Condition file (via UFSATM NML)
-  character(len=256) :: ic_filename
+  character(len=256) :: ic_filename=""
 
   !> MPAS Lateral Boundary Condition file (via UFSATM NML)
-  character(len=256) :: lbc_filename
+  character(len=256) :: lbc_filename=""
 
+  !> MPAS tracer file (via UFSATM NML)
+  character(len=256) :: tracer_filename="tracer_table"
+  integer, parameter :: tracer_funit = 68
   !> MPAS output filenames
   character(len=256) :: output_filename = "output.mpas.nc"
   character(len=256) :: restart_filename = "restart.mpas.nc"
 
   !> UFSATM namelist filename
   character(len=256) :: nml_filename = "input.nml"
-  character(len=:), dimension(:), allocatable, target :: input_nml_file
+  integer, parameter :: nml_funit = 67
+  integer, parameter :: mpas_errfile_handle = 42324
+  integer, parameter :: mpas_logfile_handle = 42323
 
+  
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem_ic
   type(iosystem_desc_t), pointer :: pio_subsystem_lbc

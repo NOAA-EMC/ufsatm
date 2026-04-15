@@ -411,8 +411,6 @@ contains
     tbeg1 = mpi_wtime()
     
     call atmos_model_end (Atmos)
-    call diag_manager_end (Atmos%Time)
-    call fms_end
 
     ! Timing info (debug mode)
     if (mype == 0) write(*,*)'PASS(fcst_finalize): total is ', mpi_wtime() - tbeg1

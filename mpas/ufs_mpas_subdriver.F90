@@ -27,7 +27,7 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : nEdgesSolve, nVerticesSolve, nVertLevelsSolve
   use module_mpas_config, only : dt_atmos, n_atmos, output_fh
   use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
-  !use module_mpas_config, only : input_nml_file
+  use module_mpas_config, only : nml_filename, nml_funit
   use ufs_mpas_tools
   use ufs_mpas_io
   use ufs_mpas_boundaries
@@ -52,6 +52,7 @@ module ufs_mpas_subdriver
      character(len=64) :: fn_nml
 
      ! Full namelist for use with internal file reads
+     ! This is not needed, but maintains the same interface with GFS_typedefs.F90:control_initialize()
      character(len=:), pointer, dimension(:) :: input_nml_file => null()
 
      ! MPI Bookkeeping
@@ -729,7 +730,6 @@ contains
     use mpas_kind_types,    only: StrKIND, RKIND
     use mpas_pool_routines, only: mpas_pool_add_config
     use mpas_typedefs,      only: r8 => kind_dbl_prec
-    use mpp_mod,            only: input_nml_file
 
     ! Inputs
     type(MPI_Comm),       intent(in   ) :: mpicomm
@@ -834,34 +834,40 @@ contains
     ! Locals
     integer :: ierr, io, mpierr
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::read_mpas_namelist'
+    logical :: file_exists
 
     ! Read in namelists...
     if (me == master) then
-       call mpas_log_write('Reading MPAS-A dynamical core namelist')
-       ! nhyd_model
-       read(input_nml_file, nml=mpas_nhyd_model, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_nhyd_model',messageType=MPAS_LOG_CRIT)
-       ! damping
-       read(input_nml_file, nml=mpas_damping, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_damping',messageType=MPAS_LOG_CRIT)
-       ! limited_area
-       read(input_nml_file, nml=mpas_limited_area, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_limited_area',messageType=MPAS_LOG_CRIT)
-       ! PIO
-       read(input_nml_file, nml=mpas_io, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_io',messageType=MPAS_LOG_CRIT)
-       ! assimilation
-       read(input_nml_file, nml=mpas_assimilation, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_assimilation',messageType=MPAS_LOG_CRIT)
-       ! decomposition
-       read(input_nml_file, nml=mpas_decomposition, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_decomposition',messageType=MPAS_LOG_CRIT)
-       ! restart
-       read(input_nml_file, nml=mpas_restart, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_restart',messageType=MPAS_LOG_CRIT)
-       ! printout
-       read(input_nml_file, nml=mpas_printout, iostat=io)
-       if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_printout',messageType=MPAS_LOG_CRIT)
+       inquire(file = trim(nml_filename), exist=file_exists)
+       if (file_exists) then
+          call mpas_log_write('Reading MPAS-A dynamical core namelist')
+          close(nml_funit)
+          open(nml_funit,file=trim(nml_filename),status='unknown')
+          ! nhyd_model
+          read(nml_funit, nml=mpas_nhyd_model, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_nhyd_model',messageType=MPAS_LOG_CRIT)
+          ! damping
+          read(nml_funit, nml=mpas_damping, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_damping',messageType=MPAS_LOG_CRIT)
+          ! limited_area
+          read(nml_funit, nml=mpas_limited_area, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_limited_area',messageType=MPAS_LOG_CRIT)
+          ! PIO
+          read(nml_funit, nml=mpas_io, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_io',messageType=MPAS_LOG_CRIT)
+          ! assimilation
+          read(nml_funit, nml=mpas_assimilation, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_assimilation',messageType=MPAS_LOG_CRIT)
+          ! decomposition
+          read(nml_funit, nml=mpas_decomposition, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_decomposition',messageType=MPAS_LOG_CRIT)
+          ! restart
+          read(nml_funit, nml=mpas_restart, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_restart',messageType=MPAS_LOG_CRIT)
+          ! printout
+          read(nml_funit, nml=mpas_printout, iostat=io)
+          if (io .ne. 0) call mpas_log_write(subname // ' ERROR: Readin in MPAS namelist mpas_printout',messageType=MPAS_LOG_CRIT)
+       endif
     endif
 
     ! Other processors waiting...
