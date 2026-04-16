@@ -5,7 +5,7 @@
 !>
 ! ###########################################################################################
 module atmos_model_mod
-  ! Fortran
+  use esmf
   use mpi_f08
   ! MPAS
   use MPAS_typedefs,         only : MPAS_kind_phys => kind_phys
@@ -28,15 +28,13 @@ module atmos_model_mod
   ! MPAS
   use mpas_log,              only : mpas_log_write
   use mpas_derived_types,    only : MPAS_LOG_CRIT
-  ! FMS
-  use time_manager_mod,      only : time_type, get_time, get_date, operator(+), operator(-)
-
   ! UFSATM
   use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
   use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
   use module_mpas_config,    only : pi, mpas_errfile_handle, mpas_logfile_handle
   use module_mpas_config,    only : nml_filename, nml_funit
   use module_mpas_config,    only : tracer_funit, tracer_filename
+  use module_mpas_config,    only : dt_atmos
   use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
   use omp_lib
@@ -58,11 +56,10 @@ module atmos_model_mod
   !>
   !> #########################################################################################
   type atmos_control_type
-     type(time_type)  :: Time       ! current time
-     type(time_type)  :: Time_step  ! atmospheric time step.
-     type(time_type)  :: Time_init  ! reference time.
      logical          :: isAtCapTime ! true if currTime is at the cap driverClock's currTime 
      integer          :: nblks      ! Number of physics blocks.
+     type(ESMF_Time)  :: CurrTime, StartTime, StopTime
+     type(ESMF_TimeInterval) :: timeStep
   end type atmos_control_type
   
   ! Index map between MPAS tracers and UFS constituents
@@ -99,7 +96,7 @@ contains
   !> - Initialize CCPP Physics
   !>
   !> #########################################################################################
-  subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
+  subroutine atmos_model_init(Atmos, mpicomm, calendar, CurrTime, StartTime, StopTime)
     use ufs_mpas_subdriver,     only : MPAS_control_type
     use ufs_mpas_subdriver,     only : ufs_mpas_init
     use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc
@@ -108,12 +105,12 @@ contains
 
     ! Arguments
     type(atmos_control_type), intent(inout) :: Atmos
-    type(time_type),          intent(in   ) :: Time_init, Time, Time_step, Time_end
     type(MPI_Comm),           intent(in   ) :: mpicomm
-    character(17),            intent(in   ) :: calendar 
+    character(17),            intent(in   ) :: calendar
+    type(ESMF_Time),          intent(in   ) :: CurrTime, StartTime, StopTime
 
     ! Locals
-    integer :: i, io, ierr, nConstituents, sec, iCol, mpi_size, mpi_rank
+    integer :: i, io, ierr, nConstituents, sec, iCol, mpi_size, mpi_rank, rc
     type(MPAS_control_type) :: Cfg
     integer :: times(6), timee(6), ttime, logUnits(2), nthrds
     logical :: file_exists
@@ -133,24 +130,28 @@ contains
     
     ! Set atmospheric model time.
     Atmos % isAtCapTime = .false.
-    Atmos % Time_init = Time_init
-    Atmos % Time      = Time
-    Atmos % Time_step = Time_step
-    
-    call get_time (Atmos % Time_step, sec)
-    Cfg%dt_phys   = real(sec)
+    !Atmos % Time_init = Time_init
+    !Atmos % Time      = Time
+    !Atmos % Time_step = Time_step
+    Atmos % StartTime = StartTime
+    Atmos % CurrTime  = CurrTime
+    Atmos % StopTime  = StopTime
+  
+    Cfg%dt_phys   = real(dt_atmos)
     
     ! Get forecast start/stop times (year/month/day/hour/minute/second)
-    call get_date(Time_init,times(1),times(2),times(3),times(4),times(5),times(6))
-    call get_date(Time_end, timee(1),timee(2),timee(3),timee(4),timee(5),timee(6))
-    call get_time(Time_end - Time_init, ttime)
-    
+    call ESMF_TimeIntervalGet(StopTime-StartTime, s=ttime, rc=rc)
+    call ESMF_TimeGet (StartTime, YY=times(1),MM=times(2),DD=times(3),H=times(4),M=times(5),S=times(6),rc=rc)
+    call ESMF_TimeGet (StopTime,  YY=timee(1),MM=timee(2),DD=timee(3),H=timee(4),M=timee(5),S=timee(6),rc=rc)
+
+    ! Set forecast time interval
+    call ESMF_TimeIntervalSet(Atmos % timeStep, s=dt_atmos, rc=rc)
+
     ! Set MPI bookeeping parameters.
     Cfg%master    = 0
     Cfg%mpi_comm  = mpicomm
-
     call MPI_Comm_rank(MPI_COMM_WORLD, Cfg%me, ierr)
-    print*,'SWALES MPI size = ',Cfg%master,Cfg%me
+    
     !
     ! Read in ATMosphere namelist (master processor only)
     !
@@ -234,9 +235,9 @@ contains
     
     ! Update time (UFS specific time formatting array)
     Cfg%bdat(:) = 0
-    call get_date (Time_init, Cfg%bdat(1), Cfg%bdat(2), Cfg%bdat(3), Cfg%bdat(5), Cfg%bdat(6), Cfg%bdat(7))
+    call ESMF_TimeGet (StartTime, YY=Cfg%bdat(1),MM=Cfg%bdat(2),DD=Cfg%bdat(3),H=Cfg%bdat(4),M=Cfg%bdat(5),S=Cfg%bdat(6),rc=rc)
     Cfg%cdat(:) = 0
-    call get_date (Time,      Cfg%cdat(1), Cfg%cdat(2), Cfg%cdat(3), Cfg%cdat(5), Cfg%cdat(6), Cfg%cdat(7))
+    call ESMF_TimeGet (CurrTime,  YY=Cfg%cdat(1),MM=Cfg%cdat(2),DD=Cfg%cdat(3),H=Cfg%cdat(4),M=Cfg%cdat(5),S=Cfg%cdat(6),rc=rc)
 
     ! Read in physics namelist and allocate data containers.
     Cfg%fn_nml = nml_filename
@@ -419,7 +420,8 @@ contains
     character(len=*), parameter :: subname = 'atmos_model::update_atmos_model_state'
 
     ! Advance time
-    Atmos % Time = Atmos % Time + Atmos % Time_step
+    !Atmos % Time = Atmos % Time + Atmos % Time_step
+    Atmos % CurrTime = Atmos % CurrTime + Atmos % TimeStep
   end subroutine update_atmos_model_state
 
   !> #########################################################################################
@@ -474,8 +476,6 @@ contains
     enddo
     close(funit)
 
-    !Thompson/TEMPO are hardcoded to only accept 6 tracers.???
-    nwat = 6
   end subroutine get_tracer_names
 
 end module atmos_model_mod

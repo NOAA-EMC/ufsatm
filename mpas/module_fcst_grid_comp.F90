@@ -246,7 +246,8 @@ contains
     ! Initialize component models.
     ! atmos_model_init() calls the MPAS dycore initialization.
     ! #######################################################################################
-    call atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, fcst_mpi_comm, calendar)
+    !call atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, fcst_mpi_comm, calendar, CurrTime, StartTime, StopTime)
+    call atmos_model_init(Atmos, fcst_mpi_comm, calendar, CurrTime, StartTime, StopTime)
 
     ! Timing info (debug mode)
     if (mype == 0) write(*,*)'PASS(fcst_initialize): Time is ', mpi_wtime() - tbeg1
@@ -295,17 +296,20 @@ contains
     real(kind=8)        :: mpi_wtime, tbeg1
     logical,save        :: first=.true.
     integer,save        :: dt_cap=0
-    type(ESMF_Time)     :: currTime,stopTime
+    type(ESMF_Time)     :: currTime,stopTime,startTIme
     
     ! Timing info.
     tbeg1 = mpi_wtime()
 
     ! Initialize ESMF error message.
     rc = ESMF_SUCCESS
+
     
-    call get_time(Atmos%Time - Atmos%Time_init, seconds)
+    !call get_time(Atmos%Time - Atmos%Time_init, seconds)
+    call ESMF_ClockGet(clock, currTime=currTime, startTime=startTime, rc=rc)
+    call ESMF_TimeIntervalGet(currTime-StartTime, s=seconds, rc=rc)
     n_atmsteps = seconds/dt_atmos
-    
+
     if (first) then
        call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
