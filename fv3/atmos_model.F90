@@ -1877,7 +1877,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   type(ESMF_Grid)                   :: grid
   type(ESMF_FieldBundle)            :: FBcpl2phys
   type(ESMF_Field)                  :: dbgField
-  real(kind=GFS_kind_phys), pointer :: dbgptr(:,:)
+  real(kind=ESMF_KIND_R8), pointer  :: dbgptr(:,:)
   character(19)                     :: timestring
   character(len=:), allocatable     :: fieldlist(:)
   integer                           :: nfields
