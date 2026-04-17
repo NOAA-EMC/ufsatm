@@ -1861,7 +1861,6 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   !--- local variables
   integer :: n, j, i, k, ix, nb, im, isc, iec, jsc, jec, nk, dimCount, localrc
   integer :: iyear, imonth, iday, ihour, iminute, isecond
-  integer :: sphum, liq_wat, ice_wat, o3mr
   character(len=128) :: impfield_name, fldname
   type(ESMF_TypeKind_Flag)                           :: datatype
   real(kind=ESMF_KIND_R8),  dimension(:,:), pointer  :: datar82d
@@ -1881,10 +1880,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   character(19)                     :: timestring
   character(len=:), allocatable     :: fieldlist(:)
   integer                           :: nfields
-  !
-  !     real(kind=GFS_kind_phys), parameter :: himax = 8.0      !< maximum ice thickness allowed
-  !     real(kind=GFS_kind_phys), parameter :: himin = 0.1      !< minimum ice thickness required
-  !     real(kind=GFS_kind_phys), parameter :: hsmax = 100.0    !< maximum snow depth (m) allowed
+
   real(kind=GFS_kind_phys), parameter :: z0ice=1.0        !< ice roughness (cm)
   real(kind=GFS_kind_phys), parameter :: himax = 1.0e12   !< maximum ice thickness allowed
   real(kind=GFS_kind_phys), parameter :: hsmax = 1.0e12   !< maximum snow depth (m) allowed
@@ -1908,10 +1904,6 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
     FBcpl2phys = ESMF_FieldBundleCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
   end if
-  !   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,dim=',isc,iec,jsc,jec
-  !   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,GFS_data, size', size(GFS_data)
-  !   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,tsfc, size', size(GFS_data(1)%sfcprop%tsfc)
-  !   if (mpp_pe() == mpp_root_pe() .and. debug) print *,'in cplImp,tsfc, min_seaice', GFS_control%min_seaice
 
   do n=1,nImportFields ! Each import field is only available if it was connected in the import state.
 
@@ -1957,24 +1949,6 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
           foundfirst = .true.
         endif
         if (dataptr(isc,jsc) > -99998.0) then
-          !
-          ! get sea land mask: in order to update the coupling fields over the ocean/ice
-          !        fldname = 'land_mask'
-          !        if (trim(impfield_name) == trim(fldname)) then
-          !          findex = queryImportFields(fldname)
-          !          if (importFieldsValid(findex)) then
-!!$omp parallel do default(shared) private(i,j,nb,ix)
-          !            do j=jsc,jec
-          !              do i=isc,iec
-          !                nb = Atm_block%blkno(i,j)
-          !                ix = Atm_block%ixp(i,j)
-          !                GFS_data(nb)%Coupling%slimskin_cpl(ix) = datar8(i,j)
-          !              enddo
-          !            enddo
-          !            if( mpp_pe()==mpp_root_pe()) print *,'get land mask from mediator'
-          !          endif
-          !        endif
-
 
           if(GFS_control%cplwav2atm) then
             ! get sea-state dependent surface roughness
@@ -2328,372 +2302,6 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
 
         endif ! if (dataptr(isc,jsc) > -99999.0) then
 
-        !-------------------------------------------------------
-
-        ! For JEDI
-
-        sphum   = get_tracer_index(MODEL_ATMOS, 'sphum')
-        liq_wat = get_tracer_index(MODEL_ATMOS, 'liq_wat')
-        ice_wat = get_tracer_index(MODEL_ATMOS, 'ice_wat')
-        o3mr    = get_tracer_index(MODEL_ATMOS, 'o3mr')
-
-        fldname = 'u'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%u(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'v'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%v(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'ua'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%ua(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'va'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%va(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 't'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%pt(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'delp'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%delp(i,j,k) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'sphum'
-        if (trim(impfield_name) == trim(fldname) .and. sphum > 0) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%q(i,j,k,sphum) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'ice_wat'
-        if (trim(impfield_name) == trim(fldname) .and. ice_wat > 0) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%q(i,j,k,ice_wat) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'liq_wat'
-        if (trim(impfield_name) == trim(fldname) .and. liq_wat > 0) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%q(i,j,k,sphum) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'o3mr'
-        if (trim(impfield_name) == trim(fldname) .and. o3mr > 0) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,k)
-            do k=1,nk
-              do j=jsc,jec
-                do i=isc,iec
-                  Atm(mygrid)%q(i,j,k,o3mr) = datar83d(i-isc+1,j-jsc+1,k)
-                enddo
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'phis'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j)
-            do j=jsc,jec
-              do i=isc,iec
-                Atm(mygrid)%phis(i,j) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'u_srf'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j)
-            do j=jsc,jec
-              do i=isc,iec
-                Atm(mygrid)%u_srf(i,j) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'v_srf'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j)
-            do j=jsc,jec
-              do i=isc,iec
-                Atm(mygrid)%v_srf(i,j) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        ! physics
-        fldname = 'slmsk'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%slmsk(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'weasd'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%weasd(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'tsea'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%tsfco(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'vtype'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%vtype(im) = int(datar82d(i-isc+1,j-jsc+1))
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'stype'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%stype(im) = int(datar82d(i-isc+1,j-jsc+1))
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'vfrac'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%vfrac(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'stc'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%stc(im,:) = datar83d(i-isc+1,j-jsc+1,:)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'smc'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%smc(im,:) = datar83d(i-isc+1,j-jsc+1,:)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'snwdph'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%snowd(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'f10m'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%f10m(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 'zorl'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%zorl(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
-        fldname = 't2m'
-        if (trim(impfield_name) == trim(fldname)) then
-          if (importFieldsValid(queryImportFields(fldname))) then
-            !$omp parallel do default(shared) private(i,j,nb,ix,im)
-            do j=jsc,jec
-              do i=isc,iec
-                nb = Atm_block%blkno(i,j)
-                ix = Atm_block%ixp(i,j)
-                im = GFS_control%chunk_begin(nb)+ix-1
-                GFS_sfcprop%t2m(im) = datar82d(i-isc+1,j-jsc+1)
-              enddo
-            enddo
-          endif
-        endif
-
         if (GFS_control%cpl_fire) then
           ! get kinematic surface upward sensible heat flux of fire from Fire Behaviour model
           !------------------------------------------------
@@ -2847,6 +2455,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
           call block_data_copy(dbgptr, GFS_Sfcprop%zorlwav, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
         enddo
       case ('sea_ice_surface_temperature')
+        !$omp parallel do default(shared) private(nb) reduction(max:localrc)
         do nb = 1, Atm_block%nblks
           call block_data_copy(dbgptr, GFS_Sfcprop%tisfc, Atm_block, nb, offset=GFS_Control%chunk_begin(nb), rc=localrc)
         enddo
