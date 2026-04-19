@@ -1861,8 +1861,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   integer, intent(out) :: rc
 
   !--- local variables
-  integer :: n, j, i, k, ix, nb, im, isc, iec, jsc, jec, nk, dimCount, localrc
-  integer :: iyear, imonth, iday, ihour, iminute, isecond
+  integer :: n, j, i, k, ix, nb, im, isc, iec, jsc, jec, nk, dimCount
   character(len=128) :: impfield_name, fldname
   type(ESMF_TypeKind_Flag)                           :: datatype
   real(kind=ESMF_KIND_R8),  dimension(:,:), pointer  :: datar82d
@@ -1873,15 +1872,16 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
   logical :: lcpl_fice
   real(ESMF_KIND_R8), parameter :: missing_value = 9.99e20_ESMF_KIND_R8
   ! used by debug FB
-  logical                           :: add2FB
-  character(len=128)                :: fname
-  type(ESMF_Grid)                   :: grid
-  type(ESMF_FieldBundle)            :: FBcpl2phys
-  type(ESMF_Field)                  :: dbgField
-  real(kind=ESMF_KIND_R8), pointer  :: dbgptr(:,:)
-  character(19)                     :: timestring
-  character(len=:), allocatable     :: fieldlist(:)
-  integer                           :: nfields
+  logical                          :: add2FB
+  character(len=128)               :: fname
+  type(ESMF_Grid)                  :: grid
+  type(ESMF_FieldBundle)           :: FBcpl2phys
+  type(ESMF_Field)                 :: dbgField
+  real(kind=ESMF_KIND_R8), pointer :: dbgptr(:,:)
+  character(19)                    :: timestring
+  character(len=:), allocatable    :: fieldlist(:)
+  integer                          :: nfields, localrc
+  integer                          :: iyear, imonth, iday, ihour, iminute, isecond
 
   real(kind=GFS_kind_phys), parameter :: z0ice=1.0        !< ice roughness (cm)
   real(kind=GFS_kind_phys), parameter :: himax = 1.0e12   !< maximum ice thickness allowed
@@ -1938,7 +1938,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
         if (GFS_control%cpl_imp_mrg) then
           mergeflg(:,:) = datar82d(:,:).eq.missing_value
         endif
-        if (mpp_pe() == mpp_root_pe()) print '(A,3g16.7)','in cplIMP,atmos gets '//trim(impfield_name) &
+        if (mpp_pe() == mpp_root_pe() .and. debug) print '(A,3g16.7)','in cplIMP,atmos gets '//trim(impfield_name) &
              //' dataptr= ', dataptr(isc,jsc), maxval(dataptr), minval(dataptr)
       endif
     else if( dimCount == 3) then
@@ -2346,8 +2346,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
 
   !add fields not present in importstate to debug FB
   if (GFS_control%cpl_imp_dbg) then
-    allocate(character(len=14) :: fieldlist(4))
-    fieldlist = (/'ocean_fraction', 'slimskin_cpl', 'slmsk', 'zorlw'/)
+    allocate(fieldlist(4), source=[character(len=14) :: 'ocean_fraction', 'slimskin_cpl', 'slmsk', 'zorlw'])
     do n = 1,4
       dbgField = ESMF_FieldCreate(grid=grid, typekind=ESMF_TYPEKIND_R8, name=trim(fieldlist(n)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
