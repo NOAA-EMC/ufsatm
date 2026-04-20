@@ -2550,17 +2550,9 @@ subroutine setup_inlinedata(fieldName, datar82d, logunit)
 
   !--- local variables
   real(kind=GFS_kind_phys), dimension(:,:), pointer  :: dataptr
-  integer :: i, j, ix, nb, im, rc
-  integer :: isc, iec, jsc, jec
 
   allocate(dataptr(size(datar82d,1),size(datar82d,2)))
   dataptr = datar82d
-
-  ! set up local dimension
-  isc = GFS_control%isc
-  iec = GFS_control%isc+GFS_control%nx-1
-  jsc = GFS_control%jsc
-  jec = GFS_control%jsc+GFS_control%ny-1
 
   ! fill variables
   select case(trim(fieldName))
@@ -2594,7 +2586,6 @@ end subroutine setup_inlinedata
     integer                :: i, j, ix, im
     integer                :: isc, iec, jsc, jec
     integer                :: nb, nk
-    integer                :: sphum, liq_wat, ice_wat, o3mr
     real(GFS_kind_phys)    :: rtime, rtimek, spval
 
     integer                                     :: localrc
