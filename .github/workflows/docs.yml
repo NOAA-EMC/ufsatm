@@ -23,7 +23,7 @@ jobs:
         mpi: ["mpich"]
 
     steps:
-        
+
     - name: checkout-fv3atm
       uses: actions/checkout@v4
       with:
@@ -116,9 +116,6 @@ jobs:
         git clone --recurse-submodules https://github.com/NOAA-PSL/stochastic_physics stochastic_physics_repo
         mkdir ${GITHUB_WORKSPACE}/build
         cd ${GITHUB_WORKSPACE}/build
-        export CC=mpicc
-        export CXX=mpicxx
-        export FC=mpif90
         cmake ${GITHUB_WORKSPACE}/fv3atm -DBUILD_CI_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} -DENABLE_FV3ATM_DOCS=ON ${{ env.gcov_cmake }}
         make doxygen_doc
 
