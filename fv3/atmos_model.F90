@@ -2517,7 +2517,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,rc)
         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       enddo
 
-      call ESMF_FieldBundleWrite(FBcpl2phys, fileName=trim(fname), rc=rc)
+      call ESMF_FieldBundleWrite(FBcpl2phys, fileName=trim(fname), timeslice=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       ! clean up
