@@ -6898,7 +6898,7 @@ module GFS_typedefs
     class(GFS_control_type) :: Model
 
 !--- local variables
-    integer :: i, mpierr
+    integer :: i
 
     if (Model%me == Model%master) then
       print *, ' '

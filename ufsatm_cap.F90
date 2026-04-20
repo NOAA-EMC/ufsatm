@@ -273,7 +273,6 @@ module ufsatm_cap_mod
     integer                                :: ngrids
     type(ESMF_Grid)                        :: src_grid, dst_grid
     type(ESMF_Field), allocatable          :: dst_field_mask(:)
-    integer                                :: ierr
 !
 !------------------------------------------------------------------------
 !
