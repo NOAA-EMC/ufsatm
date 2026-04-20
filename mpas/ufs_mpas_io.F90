@@ -790,31 +790,8 @@ contains
    type(mpas_pool_type), pointer :: mpas_pool
    type(mpas_stream_type), pointer :: mpas_stream
    type(var_info_type), allocatable :: var_info_list(:)
-   character (len=StrKIND) :: local_when
-   integer :: local_whence
-   integer :: local_ierr
-   type (MPAS_Time_type) :: now_time
    
    ierr = 0
-
-   !
-   ! Optional arguments.
-   !
-   if (present(actualWhen)) write(actualWhen,'(a)') '0000-01-01_00:00:00'
-   if (present(whence)) then
-      local_whence = whence
-   else
-      local_whence = MPAS_STREAM_EXACT_TIME
-   end if
-
-   if (present(when)) then
-      local_when = when
-   else
-      now_time = mpas_get_clock_time(clock, MPAS_NOW, ierr=local_ierr)
-      if (local_ierr /= 0) then
-         call mpas_log_write(subname // ' ERROR: Failed to get clock_time for "mpas_NOW"', messageType=MPAS_LOG_CRIT)
-      endif
-   end if
 
    nullify(mpas_pool)
    nullify(mpas_stream)
@@ -834,7 +811,7 @@ contains
    case ('r', 'read')
       if (debug) call mpas_log_write(subname // 'Reading stream "' // trim(adjustl(stream_name)) // '"')
 
-      call read_stream(mpas_stream, local_when, local_whence, actualWhen, nRecord, ierr)
+      call read_stream(mpas_stream, actualWhen, nRecord, ierr)
 
       if (ierr /= mpas_stream_noerr) then
          call mpas_log_write(subname // ' ERROR: Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -899,13 +876,11 @@ contains
  !>
  !>
  !> ########################################################################################
- subroutine read_stream(stream, when, whence, actualWhen, nRecord, ierr)
+ subroutine read_stream(stream, actualWhen, nRecord, ierr)
    use mpas_io_streams,     only : MPAS_readStream, MPAS_streamTime
    use mpas_derived_types,  only : mpas_pool_type, mpas_stream_noerr, mpas_stream_type
 
    type(mpas_stream_type), pointer, intent(inout) :: stream
-   character (len=*), intent(in) :: when
-   integer, intent(in) :: whence
    integer, intent(in) :: nRecord
    character (len=*), intent(out), optional :: actualWhen
    integer, intent(out) :: ierr
