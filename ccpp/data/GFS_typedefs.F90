@@ -43,6 +43,7 @@ module GFS_typedefs
 
    integer, parameter :: physics_no_tracer = -99
 
+
 !> \section arg_table_GFS_typedefs
 !! \htmlinclude GFS_typedefs.html
 !!
@@ -8805,10 +8806,34 @@ module GFS_typedefs
     !--- local variables
     integer :: get_physics_tracer_index
 
-    get_physics_tracer_index = get_tracer_index(MODEL_ATMOS, name, verbose = (Model%me == Model%master) .and. Model%debug)
+    ! UFS-FV3 uses FMS
+    if (Model%dycore_active == Model%dycore_fv3) then
+       get_physics_tracer_index = get_tracer_index(MODEL_ATMOS, name, verbose = (Model%me == Model%master) .and. Model%debug)
+    endif
+
+    ! UFS-MPAS does not use FMS
+    if (Model%dycore_active == Model%dycore_mpas) then
+       get_physics_tracer_index = get_constituent_index(name, Model%tracer_names)
+    endif
 
     if (get_physics_tracer_index == NO_TRACER) get_physics_tracer_index = physics_no_tracer
 
   end function get_physics_tracer_index
+
+  ! We don't use FMS when using the MPAS dynamical core. Here we simply grab the
+  ! index from the input tracer list. This is the same as FMS get_tracer_index().
+  function get_constituent_index(const_name, tracer_names)
+    character(len=*),  intent(in) :: const_name
+    character(len=*),  intent(in) :: tracer_names(:)
+    integer :: itracer
+    integer :: get_constituent_index
+
+    get_constituent_index = 0
+    do itracer=1,size(tracer_names)
+       if (trim(const_name) == trim(tracer_names(itracer))) then
+          get_constituent_index = itracer
+       endif
+    enddo
+  end function get_constituent_index
 
 end module GFS_typedefs

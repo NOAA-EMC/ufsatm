@@ -13,9 +13,6 @@ module module_fcst_grid_comp
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
                                 atmos_model_microphysics, update_atmos_model_state
-  use constants_mod,      only: constants_init
-  use fms_mod,            only: fms_init
-  use sat_vapor_pres_mod, only: sat_vapor_pres_init
   use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar
   use CCPP_data,          only: GFS_control
   use mpas_log,            only : mpas_log_write
@@ -123,11 +120,6 @@ contains
     ! Load resoure file.
     call ESMF_ConfigLoadFile(config=CF ,filename='model_configure' ,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    ! DJS LAST FMS DEPENDENCIES TO REMOVE!
-    call fms_init(fcst_mpi_comm%mpi_val)
-    call constants_init
-    call sat_vapor_pres_init
 
     select case( ESMF_UtilStringUpperCase(trim(calendar)) )
     case( 'JULIAN' )
