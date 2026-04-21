@@ -9,10 +9,12 @@ name: GCC
 on:
   push:
     branches:
-    - develop
+    - test
+    #- develop
   pull_request:
     branches:
-    - develop
+    - test
+    #- develop
   workflow_dispatch:
 
 jobs:
@@ -25,7 +27,7 @@ jobs:
         mpi: ["mpich", "openmpi"]
 
     steps:
-        
+
     - name: checkout-ufsatm
       uses: actions/checkout@v4
       with:
@@ -85,19 +87,23 @@ jobs:
         if [ ${{ matrix.mpi }} == openmpi ]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
         sudo apt-get install cmake libopenblas-serial-dev $mpi_pkgs
 
-    # Only do gcovr build for one job
-    - name: decide-gcovr-build
+    # Only do Doxygen and gcovr build for one job
+    - name: decide-doc-gcovr-build
       run: |
+        echo 'common_fortran_flags=-fno-lto -fno-strict-aliasing' | tee -a ${GITHUB_ENV}
         if [[ "${{ matrix.cmake_opts }}" == "-D32BIT=ON" && "${{ matrix.gcc_ver }}" == 12 && "${{ matrix.mpi }}" == mpich ]]; then
           echo 'devbuild=ON' | tee -a ${GITHUB_ENV}
-          echo 'gcov_cmake="-DCMAKE_Fortran_FLAGS=-fprofile-abs-path -fprofile-arcs -ftest-coverage -O0"' | tee -a ${GITHUB_ENV}
+          echo 'gcov_fortran_flags=-fprofile-abs-path -fprofile-arcs -ftest-coverage -O0' | tee -a ${GITHUB_ENV}
+          echo 'docs_cmake=-DENABLE_FV3ATM_DOCS=ON' | tee -a ${GITHUB_ENV}
         else
           echo 'devbuild=OFF' | tee -a ${GITHUB_ENV}
+          echo 'gcov_fortran_flags=' | tee -a ${GITHUB_ENV}
         fi
 
     - name: install-utilities
       run: |
         python3 -m pip install gcovr
+        if [[ "${{ env.devbuild }}" == "ON" ]]; then sudo apt-get install doxygen graphviz; fi
 
     - name: checkout-ufsatm
       uses: actions/checkout@v4
@@ -123,7 +129,7 @@ jobs:
         export CC=mpicc ; export OMPI_CC=gcc-${{ matrix.gcc_ver }} ; export MPICH_CC=gcc-${{ matrix.gcc_ver }}
         export CXX=mpicxx ; export OMPI_CXX=g++-${{ matrix.gcc_ver }} ; export MPICH_CXX=g++-${{ matrix.gcc_ver }}
         export FC=mpif90 ; export OMPI_FC=gfortran-${{ matrix.gcc_ver }} ; export MPICH_FC=gfortran-${{ matrix.gcc_ver }}
-        cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_UFSATM_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} ${{ env.gcov_cmake }}
+        cmake ${GITHUB_WORKSPACE}/ufsatm -DBUILD_UFSATM_TESTING=ON -DFV3=ON ${{ matrix.cmake_opts }} "-DCMAKE_Fortran_FLAGS=${{ env.common_fortran_flags }} ${{ env.gcov_fortran_flags }}" -DCMAKE_EXE_LINKER_FLAGS=-fno-lto ${{ env.docs_cmake }}
         make -j2
 
     - name: run-tests
@@ -143,8 +149,22 @@ jobs:
       with:
         name: test-coverage-ufsatm-${{ github.sha }}
         path: |
-              ${{ github.workspace }}/build/*.html 
+              ${{ github.workspace }}/build/*.html
               ${{ github.workspace }}/build/*.css
+
+    - name: build-docs
+      if: ${{ env.devbuild == 'ON' }}
+      run: |
+        cd $GITHUB_WORKSPACE/build
+        make doxygen_doc
+
+    - name: upload-docs
+      uses: actions/upload-artifact@v4
+      if: ${{ env.devbuild == 'ON' }}
+      with:
+        name: docs-ufsatm
+        path: |
+          build/docs/html
 
     - name: debug-artifacts
       uses: actions/upload-artifact@v4
