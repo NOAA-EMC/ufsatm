@@ -9,12 +9,10 @@ name: GCC
 on:
   push:
     branches:
-    - test
-    #- develop
+    - develop
   pull_request:
     branches:
-    - test
-    #- develop
+    - develop
   workflow_dispatch:
 
 jobs:
