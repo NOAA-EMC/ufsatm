@@ -2079,4 +2079,23 @@ contains
    
  end subroutine dyn_mpas_check_variable_status
 
+ subroutine create_file_timeStamp(curr_time,timeStampOutFile)
+   use esmf
+   implicit none
+   type (MPAS_Time_type),  intent(in ) :: curr_time
+   character(len=StrKIND), intent(out) :: timeStampOutFile
+   integer :: YY,MM,DD,H,M,S,S_n,S_d,ierr
+   character(len=4) :: yy_str
+   character(len=2) :: mm_str, dd_str, h_str, m_str, s_str
+
+   call ESMF_TimeGet(curr_time % t, YY=YY, MM=MM, DD=DD, H=H, M=M, S=S, Sn=S_n, Sd=S_d, rc=ierr)
+   write(yy_str, '(I4)') YY
+   write(mm_str, '(I2.2)') MM
+   write(dd_str, '(I2.2)') DD
+   write(h_str,  '(I2.2)') H
+   write(m_str,  '(I2.2)') M
+   write(s_str,  '(I2.2)') S
+   timeStampOutFile = yy_str//'-'//mm_str//'-'//dd_str//'_'//h_str//'.'//m_str//'.'//s_str
+
+ end subroutine create_file_timeStamp
 end module ufs_mpas_io

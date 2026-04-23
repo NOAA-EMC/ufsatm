@@ -559,7 +559,7 @@ contains
     real (kind=RKIND), pointer :: config_dt
     type (mpas_pool_type), pointer :: state, diag, mesh
     type (mpas_Time_type) :: timeNow, timeStop,timeLBCnew
-    character(len=StrKIND) :: timeStamp
+    character(len=StrKIND) :: timeStamp, timeStampOutFile
     integer :: ierr, itime, itimestep, iout
     real (kind=R8KIND) :: integ_start_time, integ_stop_time
     logical, pointer :: config_apply_lbcs
@@ -611,7 +611,8 @@ contains
           end if
        enddo
        ! Also, write IC state to history file while we're here.
-       call ufs_mpas_write("output", timeStamp, debug)
+       call create_file_timeStamp(timeNow,timeStampOutFile)
+       call ufs_mpas_write("output", timeStampOutFile, debug)
        ! Start output file counter
        out_file_index = 2
     endif
@@ -629,8 +630,6 @@ contains
           return
        end if
        init_lbc = .false.
-       ! Also, write IC state to history file while we're here.
-       call ufs_mpas_write("output", timeStamp, debug)
     end if
 
     ! During integration, time level 1 stores the model state at the beginning of the
@@ -708,7 +707,8 @@ contains
     end if
 
     if (timeStop .EQ. mpas_output_times(out_file_index)) then
-       call ufs_mpas_write("output", timeStamp, debug)
+       call create_file_timeStamp(timeStop,timeStampOutFile)
+       call ufs_mpas_write("output", timeStampOutFile, debug)
        out_file_index = out_file_index + 1
     end if
     stop_time = MPI_Wtime()
