@@ -385,7 +385,7 @@ module ufsatm_cap_mod
        end if
     else
        cvalue = 'PNETCDF'
-       pio_iotype = PIO_IOTYPE_NETCDF
+       pio_iotype = PIO_IOTYPE_PNETCDF
     end if
 
     ! pio_root
