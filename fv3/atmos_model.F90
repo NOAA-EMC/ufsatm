@@ -1873,16 +1873,16 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,ngrids,rc)
   real(kind=GFS_kind_phys)                           :: tem, ofrac
   logical :: lcpl_fice
   real(ESMF_KIND_R8), parameter :: missing_value = 9.99e20_ESMF_KIND_R8
-  ! used by debug FB
-  type(ESMF_Grid)                  :: grid
-  type(ESMF_FieldBundle)           :: FBcpl2phys
-  type(ESMF_Field)                 :: dbgField
-  logical                          :: add2FB
-  character(len=128)               :: fname
-  character(19)                    :: timestring
-  character(len=:), allocatable    :: fieldlist(:)
-  integer                          :: nfields
-  integer                          :: iyear, imonth, iday, ihour, iminute, isecond
+
+  type(ESMF_Grid)               :: grid
+  type(ESMF_FieldBundle)        :: FBcpl2phys
+  type(ESMF_Field)              :: dbgField
+  logical                       :: add2FB
+  character(len=128)            :: fname
+  character(19)                 :: timestring
+  character(len=:), allocatable :: fieldlist(:)
+  integer                       :: nfields
+  integer                       :: iyear, imonth, iday, ihour, iminute, isecond
 
   real(kind=GFS_kind_phys), parameter :: z0ice=1.0        !< ice roughness (cm)
   real(kind=GFS_kind_phys), parameter :: himax = 1.0e12   !< maximum ice thickness allowed
@@ -1891,6 +1891,11 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,ngrids,rc)
   !------------------------------------------------------------------------------
 
   rc  = -999
+  ! configurations with nests cannot create debug FBs in this routine
+  if (ngrids > 1 .and. GFS_control%cpl_imp_dbg) then
+    print '(A)','cpl_imp_dbg=.T. is incompatible with ngrids>1'
+    return
+  endif
 
   ! set up local dimension
   isc = GFS_control%isc
@@ -1902,12 +1907,6 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,ngrids,rc)
 
   allocate(dataptr(isc:iec,jsc:jec))
   allocate(mergeflg(isc:iec,jsc:jec))
-
-  ! configurations with nests cannot create debug FBs in this routine
-  if (ngrids > 1) then
-    if (GFS_control%cpl_imp_dbg) print '(A)','cpl_imp_dbg=.T. is incompatible with ngrids>1'
-    return
-  endif
 
   if (GFS_control%cpl_imp_dbg) then
     FBcpl2phys = ESMF_FieldBundleCreate(rc=rc)
