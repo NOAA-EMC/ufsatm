@@ -672,6 +672,7 @@ contains
        call mpas_log_write(' Timing for integration step: $r s', realArgs=(/real(integ_stop_time - integ_start_time, kind=RKIND)/))
 
        ! Move time level 2 fields back into time level 1 for next time step
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
        call mpas_pool_shift_time_levels(state)
 
        ! Advance clock.
@@ -751,12 +752,14 @@ contains
     real(r8)                :: mpas_h_theta_eddy_visc4             = 0.0_r8
     real(r8)                :: mpas_v_theta_eddy_visc2             = 0.0_r8
     character (len=StrKIND) :: mpas_horiz_mixing                   = '2d_smagorinsky'
-    real(r8)                :: mpas_len_disp                       = 120000.0_r8
+    real(r8)                :: mpas_len_disp                       = 0.0_r8
     real(r8)                :: mpas_visc4_2dsmag                   = 0.05_r8
     real(r8)                :: mpas_del4u_div_factor               = 10.0_r8
     integer                 :: mpas_w_adv_order                    = 3
     integer                 :: mpas_theta_adv_order                = 3
     integer                 :: mpas_scalar_adv_order               = 3
+    real(r8)                :: mpas_h_scalar_filter4               = 0.0_r8
+    logical                 :: mpas_scalar_eddy_mix                = .false.
     integer                 :: mpas_u_vadv_order                   = 3
     integer                 :: mpas_w_vadv_order                   = 3
     integer                 :: mpas_theta_vadv_order               = 3
@@ -775,10 +778,10 @@ contains
     real(r8)                :: mpas_zd                             = 22000.0_r8
     real(r8)                :: mpas_xnutr                          = 0.2_r8
     real(r8)                :: mpas_cam_coef                       = 0.0_r8
-    integer                 :: mpas_cam_damping_levels             = 0
-    logical                 :: mpas_rayleigh_damp_u                = .true.
+    integer                 :: mpas_cam_damping_levels             = 4
+    logical                 :: mpas_rayleigh_damp_u                = .false.
     real(r8)                :: mpas_rayleigh_damp_u_timescale_days = 5.0_r8
-    integer                 :: mpas_number_rayleigh_damp_u_levels  = 3
+    integer                 :: mpas_number_rayleigh_damp_u_levels  = 6
     ! Namelist limited_area
     logical                 :: mpas_apply_lbcs                     = .false.
     ! Namelist PIO
@@ -800,7 +803,8 @@ contains
          mpas_h_mom_eddy_visc2, mpas_h_mom_eddy_visc4, mpas_v_mom_eddy_visc2,                 &
          mpas_h_theta_eddy_visc2, mpas_h_theta_eddy_visc4, mpas_v_theta_eddy_visc2,           &
          mpas_horiz_mixing, mpas_len_disp, mpas_visc4_2dsmag, mpas_del4u_div_factor,          &
-         mpas_w_adv_order, mpas_theta_adv_order, mpas_scalar_adv_order, mpas_u_vadv_order,    &
+         mpas_w_adv_order, mpas_theta_adv_order, mpas_scalar_adv_order, mpas_h_scalar_filter4,&
+         mpas_scalar_eddy_mix, mpas_u_vadv_order,                                             &
          mpas_w_vadv_order, mpas_theta_vadv_order, mpas_scalar_vadv_order,                    &
          mpas_scalar_advection, mpas_positive_definite, mpas_monotonic, mpas_coef_3rd_order,  &
          mpas_smagorinsky_coef, mpas_mix_full, mpas_epssm, mpas_smdiv, mpas_apvm_upwinding,   &
@@ -895,6 +899,8 @@ contains
     call mpi_bcast(mpas_w_adv_order,                    1, mpi_integer,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_theta_adv_order,                1, mpi_integer,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_scalar_adv_order,               1, mpi_integer,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_h_scalar_filter4,               1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_scalar_eddy_mix,                1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_u_vadv_order,                   1, mpi_integer,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_w_vadv_order,                   1, mpi_integer,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_theta_vadv_order,               1, mpi_integer,   master, mpicomm, mpierr)
@@ -955,6 +961,8 @@ contains
     call mpas_pool_add_config(configPool, 'config_w_adv_order',                    mpas_w_adv_order)
     call mpas_pool_add_config(configPool, 'config_theta_adv_order',                mpas_theta_adv_order)
     call mpas_pool_add_config(configPool, 'config_scalar_adv_order',               mpas_scalar_adv_order)
+    call mpas_pool_add_config(configPool, 'config_h_scalar_filter4',               real(mpas_h_scalar_filter4))
+    call mpas_pool_add_config(configPool, 'config_scalar_eddy_mix',                mpas_scalar_eddy_mix)
     call mpas_pool_add_config(configPool, 'config_u_vadv_order',                   mpas_u_vadv_order)
     call mpas_pool_add_config(configPool, 'config_w_vadv_order',                   mpas_w_vadv_order)
     call mpas_pool_add_config(configPool, 'config_theta_vadv_order',               mpas_theta_vadv_order)
