@@ -19,12 +19,13 @@ module ufs_mpas_io
   use mpas_log,            only : mpas_log_write
   use mpas_derived_types,  only : MPAS_LOG_CRIT, MPAS_LOG_WARN
   use module_mpas_config,  only : pio_iotype, pio_stride, pio_numiotasks, pio_iodesc
-  use module_mpas_config,  only : lbc_filename, pioid_lbc, pio_subsystem_lbc
-  use module_mpas_config,  only : ic_filename,  pioid_ic,  pio_subsystem_ic
+  use module_mpas_config,  only : lbc_filename,        pioid_lbc,      pio_subsystem_lbc
+  use module_mpas_config,  only : ic_filename,         pioid_ic,       pio_subsystem_ic
+  use module_mpas_config,  only :                      pioid_restart,  pio_subsystem_restart
+  use module_mpas_config,  only :                      pioid_output,   pio_subsystem_output
   use module_mpas_config,  only : stream_list_history, stream_list_history_funit
   use module_mpas_config,  only : stream_list_diag,    stream_list_diag_funit
   use module_mpas_config,  only : stream_list_restart, stream_list_restart_funit
-  use module_mpas_config,  only :               pioid_output, pio_subsystem_output
   use module_mpas_config,  only : TIMELEVEL_NOW
   use ufs_mpas_tools,      only : stringify
   use mpi_f08
@@ -36,8 +37,9 @@ module ufs_mpas_io
   type(mpas_Clock_type), pointer :: clock      => null()
 
   !
-  integer :: out_file_index
+  integer :: out_file_index, restart_file_index
   type (MPAS_Time_Type), allocatable :: mpas_output_times(:)
+  type (MPAS_Time_Type), allocatable :: mpas_restart_times(:)
 
   !> #########################################################################################
   !>
@@ -245,19 +247,29 @@ module ufs_mpas_io
   !> Only variables that are specific to the "restart" stream are included.
   !> #########################################################################################
   type(var_info_type), parameter :: restart_var_info_list(*) = [ &
+       var_info_type('scalars'                         , 'real'      , 3), &
+       var_info_type('initial_time'                    , 'character' , 0), &
+       var_info_type('Time'                            , 'real'      , 0), &
+       var_info_type('u'                               , 'real'      , 2), &
+       var_info_type('w'                               , 'real'      , 2), &
+       var_info_type('rho_zz'                          , 'real'      , 2), &
+       var_info_type('theta_m'                         , 'real'      , 2), &
+       var_info_type('pressure_p'                      , 'real'      , 2), &
+       var_info_type('rho'                             , 'real'      , 2), &
+       var_info_type('theta'                           , 'real'      , 2), &
+       var_info_type('relhum'                          , 'real'      , 2), &
+       var_info_type('circulation'                     , 'real'      , 2), &
        var_info_type('exner'                           , 'real'      , 2), &
        var_info_type('exner_base'                      , 'real'      , 2), &
-       var_info_type('pressure_base'                   , 'real'      , 2), &
-       var_info_type('pressure_p'                      , 'real'      , 2), &
-       var_info_type('rho_p'                           , 'real'      , 2), &
-       var_info_type('rho_zz'                          , 'real'      , 2), &
        var_info_type('rtheta_base'                     , 'real'      , 2), &
+       var_info_type('pressure_base'                   , 'real'      , 2), &
        var_info_type('rtheta_p'                        , 'real'      , 2), &
        var_info_type('ru'                              , 'real'      , 2), &
        var_info_type('ru_p'                            , 'real'      , 2), &
        var_info_type('rw'                              , 'real'      , 2), &
        var_info_type('rw_p'                            , 'real'      , 2), &
-       var_info_type('theta_m'                         , 'real'      , 2)  &
+       var_info_type('rho_p'                           , 'real'      , 2), &
+       var_info_type('surface_pressure'                , 'real'      , 1)  &
     ]
 
   !> #########################################################################################

@@ -79,9 +79,11 @@ module module_mpas_config
   type(iosystem_desc_t), pointer :: pio_subsystem_ic
   type(iosystem_desc_t), pointer :: pio_subsystem_lbc
   type(iosystem_desc_t), pointer :: pio_subsystem_output
+  type(iosystem_desc_t), pointer :: pio_subsystem_restart
   type(file_desc_t), target :: pioid_ic
   type(file_desc_t), target :: pioid_lbc
   type(file_desc_t), target :: pioid_output
+  type(file_desc_t), target :: pioid_restart
   type(io_desc_t) :: pio_iodesc
   integer :: pio_iotype
   integer :: pio_ioformat
