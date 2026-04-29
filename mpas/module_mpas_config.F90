@@ -44,6 +44,9 @@ module module_mpas_config
   !! hours
   real,dimension(:),allocatable :: output_fh
 
+  !> Restart frequency
+  real,dimension(:),allocatable :: restart_fh
+
   !> Calendar type
   character(17)            :: calendar='                 '
 

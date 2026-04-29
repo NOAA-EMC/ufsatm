@@ -36,7 +36,7 @@ module ufsatm_cap_mod
                                     cplprint_flag, first_kdt
 #endif
 #ifdef MPAS
-  use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
+  use module_mpas_config,     only: output_fh, restart_fh, dt_atmos, calendar,&
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
                                     pio_subsystem_ic, pio_stride, pio_subsystem_lbc, &
                                     pio_subsystem_output, &
@@ -232,11 +232,13 @@ module ufsatm_cap_mod
 
     integer                                :: i, j, k, urc, ist, grid_id
     integer                                :: noutput_fh, nfh, nfh2
+    integer                                :: nrestart_fh
     integer                                :: petcount
     integer                                :: nfhmax_hf
     real                                   :: nfhmax
     real                                   :: output_startfh, outputfh, outputfh2(2)
     logical                                :: loutput_fh, lfreq
+    logical                                :: lrestart_fh
     character(ESMF_MAXSTR)                 :: gc_name, fb_name
     integer,dimension(:), allocatable      :: petList, originPetList, targetPetList
     character(len=esmf_maxstr),allocatable :: fcstItemNameList(:)
@@ -577,9 +579,10 @@ module ufsatm_cap_mod
     if (iau_offset < 0) iau_offset=0
 
     noutput_fh = ESMF_ConfigGetLen(config=CF, label ='output_fh:',rc=rc)
+    nrestart_fh = ESMF_ConfigGetLen(config=CF, label ='restart_fh:',rc=rc)
 
     if(mype == 0) print *,'af ufs config,quilting=',quilting,' calendar=', trim(calendar),' iau_offset=',iau_offset, &
-      ' noutput_fh=',noutput_fh
+      ' noutput_fh=',noutput_fh,' nrestart_fh=',nrestart_fh
 !
     if ( quilting ) then
       call ESMF_ConfigGetAttribute(config=CF,value=use_saved_routehandles, &
@@ -1248,7 +1251,7 @@ module ufsatm_cap_mod
           if(outputfh2(2) == -1) then
             !--- output_fh is output frequency, the second item is -1
             lfreq = .true.
-            call OutputHours_FrequencyInput(nfhmax, output_startfh, outputfh2)
+            call OutputHours_FrequencyInput(output_fh, nfhmax, output_startfh, outputfh2)
           endif
         endif
         if( noutput_fh /= 2 .or. .not. lfreq ) then
@@ -1257,7 +1260,7 @@ module ufsatm_cap_mod
           call ESMF_ConfigGetAttribute(CF,valueList=output_fh,label='output_fh:', &
              count=noutput_fh, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call OutputHours_ArrayInput(noutput_fh,output_startfh)
+          call OutputHours_ArrayInput(output_fh, noutput_fh,output_startfh)
         endif
       endif ! end loutput_fh
     endif
@@ -1269,7 +1272,48 @@ module ufsatm_cap_mod
         call ESMF_InfoSet(info, key="output_fh", values=output_fh, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       enddo
+   endif
+
+!-- set up restart time if restart_fh is specified
+    if (nrestart_fh > 0 ) then
+!--- use restart_fh to sepcify restart file time
+      lrestart_fh = .true.
+      lflname_fulltime = .false.
+      if(nrestart_fh == 1) then
+        call ESMF_ConfigGetAttribute(CF,value=outputfh,label='restart_fh:', rc=rc)
+        if(outputfh == -1) lrestart_fh = .false.
+      endif
+      if( lrestart_fh ) then
+        lfreq = .false.
+        if( allocated(restart_fh)) deallocate(restart_fh)
+        if(nrestart_fh == 2) then
+          call ESMF_ConfigGetAttribute(CF,valueList=outputfh2,label='restart_fh:', &
+             count=nrestart_fh, rc=rc)
+          if(outputfh2(2) == -1) then
+            !--- restart_fh is output frequency, the second item is -1
+            lfreq = .true.
+            call OutputHours_FrequencyInput(restart_fh, nfhmax, output_startfh, outputfh2)
+          endif
+        endif
+        if( nrestart_fh /= 2 .or. .not. lfreq ) then
+          allocate(restart_fh(nrestart_fh))
+          restart_fh = 0
+          call ESMF_ConfigGetAttribute(CF,valueList=restart_fh,label='restart_fh:', &
+             count=nrestart_fh, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call OutputHours_ArrayInput(restart_fh, nrestart_fh,output_startfh)
+        endif
+      endif ! end lrestart_fh
     endif
+    if(mype==0) print *,'restart_fh=',restart_fh(1:size(restart_fh)),'lflname_fulltime=',lflname_fulltime
+    if ( quilting ) then
+      do i=1, write_groups
+	call ESMF_InfoGetFromHost(wrtState(i), info=info, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        call ESMF_InfoSet(info, key="restart_fh", values=restart_fh, rc=rc)
+	if (ESMF_LogFoundError(rcToCheck=rc,  msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      enddo
+   endif
 
     ! --- advertise Fields in importState and exportState -------------------
 
@@ -1300,22 +1344,23 @@ module ufsatm_cap_mod
   !> @param[inout] outputfh2 user defined forecast hour configuration
   !>
   !> @author Daniel Sarmiento @date May 16, 2025
-  subroutine OutputHours_FrequencyInput(nfhmax, output_startfh, outputfh2)
+  subroutine OutputHours_FrequencyInput(out_fh, nfhmax, output_startfh, outputfh2)
     integer                   :: nfh, i
     real, intent(inout)       :: nfhmax, output_startfh, outputfh2(2)
+    real, intent(inout), allocatable :: out_fh(:)
 
     nfh = 0
     if( nfhmax>output_startfh) nfh = nint((nfhmax-output_startfh)/outputfh2(1)) + 1
     if( nfh > 0) then
-      allocate(output_fh(nfh))
-      output_fh(1) = output_startfh + dt_atmos/3600.
+      allocate(out_fh(nfh))
+      out_fh(1) = output_startfh + dt_atmos/3600.
       do i=2,nfh
-        output_fh(i) = (i-1)*outputfh2(1) + output_startfh
+        out_fh(i) = (i-1)*outputfh2(1) + output_startfh
         ! Except fh000, which is the first time output, if any other of the
         ! output time is not integer hour, set lflname_fulltime to be true, so the
         ! history file names will contain the full time stamp (HHH-MM-SS).
         if(.not.lflname_fulltime) then
-          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+          if(mod(nint(out_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
         endif
       enddo
     endif
@@ -1324,39 +1369,40 @@ module ufsatm_cap_mod
   !> This will calculate output hours if the user has stated a
   !> an array of desired output hours.
   !>
-  !> @param[inout] noutput_fh index of output hours array
+  !> @param[inout] n_fh index of output hours array
   !> @param[inout] output_startfh ouptut start time
   !>
   !> @author Daniel Sarmiento @date May 16, 2025
-  subroutine OutputHours_ArrayInput(noutput_fh,output_startfh)
+  subroutine OutputHours_ArrayInput(out_fh, n_fh,output_startfh)
 
     integer                   :: ist, i
-    integer, intent(inout)    :: noutput_fh
+    integer, intent(inout)    :: n_fh
     real, intent(inout)       :: output_startfh
+    real, intent(inout), allocatable :: out_fh(:)
 
     if( output_startfh == 0) then
-      ! If the output time in output_fh array contains first time stamp output,
+      ! If the output time in out_fh array contains first time stamp output,
       ! check the rest of output time, otherwise, check all the output time.
       ! If any of them is not integer hour, the history file names will
       ! contain the full time stamp (HHH-MM-SS)
       ist = 1
-      if(output_fh(1)==0) then
-        output_fh(1) = dt_atmos/3600.
+      if(out_fh(1)==0) then
+        out_fh(1) = dt_atmos/3600.
         ist= 2
       endif
-      do i=ist,noutput_fh
+      do i=ist,n_fh
         if(.not.lflname_fulltime) then
-          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+          if(mod(nint(out_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
         endif
       enddo
     else
-      do i=1,noutput_fh
-        output_fh(i) = output_startfh + output_fh(i)
+      do i=1,n_fh
+        out_fh(i) = output_startfh + out_fh(i)
         ! When output_startfh >0, check all the output time, if any of
         ! them is not integer hour, set lflname_fulltime to be true. The
         ! history file names will contain the full time stamp (HHH-MM-SS).
         if(.not.lflname_fulltime) then
-          if(mod(nint(output_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
+          if(mod(nint(out_fh(i)*3600.),3600) /= 0) lflname_fulltime = .true.
         endif
       enddo
     endif
