@@ -399,7 +399,7 @@ contains
     file_exists = .false.
     INQUIRE(FILE=stream_list_file, EXIST=file_exists)
     if (.not. file_exists) then
-       call mpas_log_write(subname // "No stream_list file provided for "//trim(stream_name)// &
+       call mpas_log_write(subname // " No stream_list file provided for "//trim(stream_name)// &
                            ". All available fields will be output", messageType=MPAS_LOG_WARN)
        return
     end if
@@ -452,7 +452,7 @@ contains
           enddo
           ! If not found, requested variables is not supported. Print warning message.
           if (.not. found) then
-             call mpas_log_write(subname // "Variable not supported, "//trim(var_list(ivar))// &
+             call mpas_log_write(subname // " Variable not supported, "//trim(var_list(ivar))// &
                                  ", skipping", messageType=MPAS_LOG_WARN)
           end if
        end do
@@ -540,8 +540,8 @@ contains
                            trim(stream_name), messageType=MPAS_LOG_CRIT)
     end if
 
-    if (debug) call mpas_log_write(subname // "entering ufs_mpas_write")
-    if (debug) call mpas_log_write(subname // "creating "//trim(stream_name)//" stream file: "//trim(filename))
+    if (debug) call mpas_log_write(subname // " entering ufs_mpas_write")
+    if (debug) call mpas_log_write(subname // " creating "//trim(stream_name)//" stream file: "//trim(filename))
     ierr = pio_createfile(pio_subsystem_output, pioid_output, pio_iotype, trim(filename))
     if ( ierr /= 0 ) then
        call mpas_log_write(subname // " pio_createfile failed", messageType=MPAS_LOG_CRIT)

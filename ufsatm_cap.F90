@@ -1305,8 +1305,10 @@ module ufsatm_cap_mod
           call OutputHours_ArrayInput(restart_fh, nrestart_fh,output_startfh, ldumb)
         endif
       endif ! end lrestart_fh
-    endif
-    if(mype==0) print *,'restart_fh=',restart_fh(1:size(restart_fh))
+   endif
+   if (allocated(restart_fh)) then
+      if(mype==0) print *,'restart_fh=',restart_fh(1:size(restart_fh))
+   end if
     if ( quilting ) then
       do i=1, write_groups
 	call ESMF_InfoGetFromHost(wrtState(i), info=info, rc=rc)
