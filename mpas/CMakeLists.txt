@@ -42,6 +42,8 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/${MPAS_MODULE_DIR}/ DESTINATION ${CMAKE_IN
 ###############################################################################
 # Build MPAS libraries...
 ###############################################################################
+add_definitions(-DMPAS_CAM_DYCORE)
+add_definitions(-DMPAS_UFS_DYCORE)
 
 # MPAS Utilities (Externals)
 add_subdirectory(MPAS-Model/src/external/ezxml)

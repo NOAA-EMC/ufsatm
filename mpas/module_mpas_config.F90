@@ -38,7 +38,7 @@ module module_mpas_config
 
   !> Flag to decide if write grid component writes out restart files
   logical                  :: quilting_restart = .false.
-  
+
   !> Output frequency if this array has only two elements and the value of
   !! the second eletment is -1. Otherwise, it is the specific output forecast
   !! hours
@@ -53,15 +53,27 @@ module module_mpas_config
   !> MPAS Lateral Boundary Condition file (via UFSATM NML)
   character(len=256) :: lbc_filename
 
+  !> MPAS output filenames
+  character(len=256) :: output_filename = "output.mpas.nc"
+  character(len=256) :: restart_filename = "restart.mpas.nc"
+
   !> PIO
-  type(iosystem_desc_t), pointer :: pio_subsystem
+  type(iosystem_desc_t), pointer :: pio_subsystem_ic
+  type(iosystem_desc_t), pointer :: pio_subsystem_lbc
+  type(iosystem_desc_t), pointer :: pio_subsystem_output
+  type(file_desc_t), target :: pioid_ic
+  type(file_desc_t), target :: pioid_lbc
+  type(file_desc_t), target :: pioid_output
+  type(io_desc_t) :: pio_iodesc
   integer :: pio_iotype
   integer :: pio_ioformat
   integer :: pio_stride
   integer :: pio_numiotasks
-  type(file_desc_t), target :: pioid
-  type(io_desc_t) :: pio_iodesc
-  
+  logical :: pio_subsystem_output_file_created = .false.
+  integer :: pio_subsystem_output_record = 1
+  integer, parameter :: TIMELEVEL_NOW = 1 ! current time
+  integer, parameter :: TIMELEVEL_NEXT = 2 ! updated/next time
+
   !> MPAS Grid information
   real(r8), target, allocatable :: zref(:)
   real(r8), target, allocatable :: zref_edge(:)
@@ -77,10 +89,13 @@ module module_mpas_config
   integer :: nVertLevels   ! number of vertical layers (midpoints)
 
   integer, pointer :: &
+       nCells,          & ! number of cells in task
        nCellsSolve,     & ! number of cells that a task solves
        nEdgesSolve,     & ! number of edges (velocity) that a task solves
        nVerticesSolve,  & ! number of vertices (vorticity) that a task solves
        nVertLevelsSolve
+
+  real(r4), pointer :: latCell(:), lonCell(:)
 
   !> Global gridded data
   integer :: nCellsGlobal     ! global number of cells/columns
@@ -91,5 +106,5 @@ module module_mpas_config
   real(r4), allocatable :: latCellGlobal(:)
   real(r4), allocatable :: lonCellGlobal(:)
   real(r4), allocatable :: areaCellGlobal(:)
-  
+
 end module module_mpas_config
