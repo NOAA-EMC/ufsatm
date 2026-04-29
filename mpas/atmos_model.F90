@@ -30,6 +30,7 @@ module atmos_model_mod
   use mpas_derived_types,    only : MPAS_LOG_CRIT
   ! UFSATM
   use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
+  use module_mpas_config,    only : stream_list_history, stream_list_restart, stream_list_diag
   use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
   use module_mpas_config,    only : pi, mpas_errfile_handle, mpas_logfile_handle
   use module_mpas_config,    only : nml_filename, nml_funit
@@ -74,7 +75,7 @@ module atmos_model_mod
   logical :: regional     = .false.
 
   namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename, &
-       regional
+       regional, stream_list_history, stream_list_restart, stream_list_diag
 
   ! Component Timers
   real(MPAS_kind_phys) :: setupClock, atmiClock, radClock, physClock,mpasClock, mpClock, outClock
@@ -99,7 +100,7 @@ contains
   subroutine atmos_model_init(Atmos, mpicomm, calendar, CurrTime, StartTime, StopTime)
     use ufs_mpas_subdriver,     only : MPAS_control_type
     use ufs_mpas_subdriver,     only : ufs_mpas_init
-    use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc
+    use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc, ufs_mpas_read_stream_lists
     use atmos_coupling_mod,     only : ufs_mpas_to_physics, ufs_mpas_grid_to_physics
     use MPAS_init,              only : MPAS_initialize
 
@@ -130,9 +131,6 @@ contains
     
     ! Set atmospheric model time.
     Atmos % isAtCapTime = .false.
-    !Atmos % Time_init = Time_init
-    !Atmos % Time      = Time
-    !Atmos % Time_step = Time_step
     Atmos % StartTime = StartTime
     Atmos % CurrTime  = CurrTime
     Atmos % StopTime  = StopTime
@@ -166,13 +164,16 @@ contains
     end if
     ! Broadcast ATMosphere namelist to all processors.
     call mpi_barrier(Cfg%mpi_comm, ierr)
-    call mpi_bcast(regional,     1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(dycore_only,  1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(debug,        1,                 MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(ccpp_suite,   len(ccpp_suite),   MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(blocksize,    1,                 MPI_INTEGER,   Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(ic_filename,  len(ic_filename),  MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
-    call mpi_bcast(lbc_filename, len(lbc_filename), MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(regional,            1,                        MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(dycore_only,         1,                        MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(debug,               1,                        MPI_LOGICAL,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(ccpp_suite,          len(ccpp_suite),          MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(blocksize,           1,                        MPI_INTEGER,   Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(ic_filename,         len(ic_filename),         MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(lbc_filename,        len(lbc_filename),        MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(stream_list_history, len(stream_list_history), MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(stream_list_restart, len(stream_list_restart), MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
+    call mpi_bcast(stream_list_diag,    len(stream_list_diag),    MPI_CHARACTER, Cfg%master, Cfg%mpi_comm, ierr)
     
     !
     ! Handle constituents (scalars/tracers)
@@ -201,6 +202,11 @@ contains
     ! - Read in static data, setup MPAS invariant stream
     ! - Setup physical constants used by MPAS dycore
     call ufs_mpas_init(Cfg, times, timee, ttime, calendar, logUnits, mpas_from_ufs_cnst, ufs_from_mpas_cnst, debug)
+
+    !
+    ! Read in MPAS Stream_list file(s) (master processor only in ufs_mpas_read_stream_lists)
+    !
+    call ufs_mpas_read_stream_lists(Cfg%me, Cfg%master, Cfg%mpi_comm)
 
     !> #########################################################################################
     !> #########################################################################################

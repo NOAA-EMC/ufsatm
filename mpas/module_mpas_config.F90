@@ -53,12 +53,17 @@ module module_mpas_config
   !> MPAS Lateral Boundary Condition file (via UFSATM NML)
   character(len=256) :: lbc_filename=""
 
+  !> MPAS stream_list files (i.e. runtime contol over which fields to write)
+  character(len=256) :: stream_list_history=""
+  character(len=256) :: stream_list_restart=""
+  character(len=256) :: stream_list_diag=""
+  integer :: stream_list_history_funit
+  integer :: stream_list_restart_funit
+  integer :: stream_list_diag_funit
+  
   !> MPAS tracer file (via UFSATM NML)
   character(len=256) :: tracer_filename="tracer_table"
   integer, parameter :: tracer_funit = 68
-  !> MPAS output filenames
-  character(len=256) :: output_filename = "output.mpas.nc"
-  character(len=256) :: restart_filename = "restart.mpas.nc"
 
   !> UFSATM namelist filename
   character(len=256) :: nml_filename = "input.nml"

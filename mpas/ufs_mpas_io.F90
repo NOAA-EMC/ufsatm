@@ -17,13 +17,17 @@ module ufs_mpas_io
   use mpas_derived_types,  only : MPAS_Time_Type
   use mpas_kind_types,     only : StrKIND
   use mpas_log,            only : mpas_log_write
-  use mpas_derived_types,  only : MPAS_LOG_CRIT
+  use mpas_derived_types,  only : MPAS_LOG_CRIT, MPAS_LOG_WARN
   use module_mpas_config,  only : pio_iotype, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config,  only : lbc_filename, pioid_lbc, pio_subsystem_lbc
   use module_mpas_config,  only : ic_filename,  pioid_ic,  pio_subsystem_ic
+  use module_mpas_config,  only : stream_list_history, stream_list_history_funit
+  use module_mpas_config,  only : stream_list_diag,    stream_list_diag_funit
+  use module_mpas_config,  only : stream_list_restart, stream_list_restart_funit
   use module_mpas_config,  only :               pioid_output, pio_subsystem_output
   use module_mpas_config,  only : TIMELEVEL_NOW
   use ufs_mpas_tools,      only : stringify
+  use mpi_f08
   implicit none
 
   !
@@ -43,6 +47,14 @@ module ufs_mpas_io
      character(10) :: type = ''
      integer :: rank = 0
   end type var_info_type
+
+  !> #########################################################################################
+  !> These variable lists are set at runtime via the stream_list.atmosphere.STREAM files.
+  !>
+  !> #########################################################################################
+  integer, allocatable :: stream_list_history_indices(:)
+  integer, allocatable :: stream_list_restart_indices(:)
+  integer, allocatable :: stream_list_diag_indices(:)
 
   !> #########################################################################################
   !> This list corresponds to the "lbc_in" stream in core_atmosphere/Registry.xml
@@ -253,22 +265,22 @@ module ufs_mpas_io
   !> It consists of variables that are members of the "diag" structure.
   !> Only variables that are specific to the "output" stream are included.
   !> #########################################################################################
-  type(var_info_type), parameter :: output_var_info_list(*) = [ &
+  type(var_info_type), parameter :: history_var_info_list(*) = [ &
        var_info_type('Time'                            , 'real'      , 0), &
        var_info_type('initial_time'                    , 'character' , 0), &
-       !var_info_type('divergence'                      , 'real'      , 2), &
-       !var_info_type('pressure'                        , 'real'      , 2), &
-       !var_info_type('relhum'                          , 'real'      , 2), &
-       !var_info_type('rho'                             , 'real'      , 2), &
+       var_info_type('divergence'                      , 'real'      , 2), &
+       var_info_type('pressure'                        , 'real'      , 2), &
+       var_info_type('relhum'                          , 'real'      , 2), &
+       var_info_type('rho'                             , 'real'      , 2), &
        var_info_type('scalars'                         , 'real'      , 3), &
        var_info_type('surface_pressure'                , 'real'      , 1), &
        var_info_type('theta'                           , 'real'      , 2), &
-       !var_info_type('u'                               , 'real'      , 2), &
+       var_info_type('u'                               , 'real'      , 2), &
        var_info_type('uReconstructMeridional'          , 'real'      , 2), &
        var_info_type('uReconstructZonal'               , 'real'      , 2), &
        var_info_type('vorticity'                       , 'real'      , 2), &
-       var_info_type('w'                               , 'real'      , 2) &
-       !var_info_type('zz'                              , 'real'      , 2)  &
+       var_info_type('w'                               , 'real'      , 2), &
+       var_info_type('zz'                              , 'real'      , 2)  &
     ]
   
 contains
@@ -283,18 +295,18 @@ contains
     ! Locals
     integer :: ierr
     logical :: file_exists
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_open_init'
+    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_open_init'
 
     ! Open MPAS Initial Condition file.
     INQUIRE(FILE=ic_filename, EXIST=file_exists)
     if (file_exists) then
        ierr = pio_openfile(pio_subsystem_ic, pioid_ic, pio_iotype, ic_filename, pio_nowrite)
        if (ierr /= 0) then
-          call mpas_log_write(subname // " ERROR: Opening initial condition file", &
+          call mpas_log_write(subname // " Opening initial condition file", &
                               messageType=MPAS_LOG_CRIT)
        end if
     else
-       call mpas_log_write(subname // " ERROR: Initial condition file could not be found", &
+       call mpas_log_write(subname // " Initial condition file could not be found", &
                            messageType=MPAS_LOG_CRIT)
     end if
     
@@ -310,23 +322,181 @@ contains
     ! Locals
     integer :: ierr
     logical :: file_exists
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_open_lbc'
+    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_open_lbc'
 
     ! Open MPAS Initial Condition file.
     INQUIRE(FILE=lbc_filename, EXIST=file_exists)
     if (file_exists) then
        ierr = pio_openfile(pio_subsystem_lbc, pioid_lbc, pio_iotype, lbc_filename, pio_nowrite)
        if (ierr /= 0) then
-          call mpas_log_write(subname // " ERROR: Opening lateral boundary condition file", &
+          call mpas_log_write(subname // " Opening lateral boundary condition file", &
                               messageType=MPAS_LOG_CRIT)
        end if
     else
-       call mpas_log_write(subname // " ERROR: Lateral boundary condition file could not be found", &
+       call mpas_log_write(subname // " Lateral boundary condition file could not be found", &
                            messageType=MPAS_LOG_CRIT)
     end if
 
   end subroutine ufs_mpas_open_lbc
 
+  !> #########################################################################################
+  !> Procedure to read in stream_list (a.k.a File with fields to include in output stream)
+  !> 
+  !> #########################################################################################
+  subroutine ufs_mpas_read_stream_lists(me, master, mpicomm)
+    ! Arguments
+    integer,        intent(in) :: me, master
+    type(MPI_Comm), intent(in) :: mpicomm
+    ! Locals
+    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_read_stream_list'
+    
+    ! Output stream
+    call read_stream_list(me, master, mpicomm, stream_list_history,  stream_list_history_funit,  'history')
+
+    ! Diag stream
+    !call read_stream_list(me, master, mpicomm, stream_list_diag,  stream_list_diag_funit,  'diag')
+ 
+    ! Restart stream
+    !call read_stream_list(me, master, mpicomm, stream_list_restart, stream_list_restart_funit, 'restart')
+
+  end subroutine ufs_mpas_read_stream_lists
+
+  !> #########################################################################################
+  !> The procedure reads in a MPAS stream_list and compares the requested variables in the
+  !> <stream_list_file> to the available varaibles in  <stream_name>_var_info_list.
+  !>
+  !> If no MPAS stream_list is provided, all fields included in <stream_name>_var_info_list
+  !> will be included in the output file.
+  !>
+  !> #########################################################################################
+  subroutine read_stream_list(me, master, mpicomm, stream_list_file, funit, stream_name)
+    integer, intent(in) :: me, master
+    type(MPI_Comm), intent(in) :: mpicomm
+    character(len=*), intent(in) :: stream_list_file
+    integer, intent(inout) :: funit
+    character(len=*), intent(in) :: stream_name
+    integer :: nvars, ivar, io, i, nvar_av, count, mpierr
+    logical :: file_exists, found
+    character(len=128) :: line_buffer
+    character(len=128), allocatable :: var_list(:)
+    integer, allocatable :: indices_temp(:), indices(:)
+    character(len=*), parameter :: subname = 'ufs_mpas_io::read_stream_list'
+    type(var_info_type), allocatable :: var_info_list(:)
+
+    ! Check if file exists before trying to read.
+    file_exists = .false.
+    INQUIRE(FILE=stream_list_file, EXIST=file_exists)
+    if (.not. file_exists) then
+       call mpas_log_write(subname // "No stream_list file provided for "//trim(stream_name)// &
+                           ". All available fields will be output", messageType=MPAS_LOG_WARN)
+       return
+    end if
+    
+    ! Set var_info_list for given <stream_name>.
+    select case (trim(adjustl(stream_name)))
+    case ('')
+       allocate(var_info_list(0))
+    case ('restart')
+       allocate(var_info_list, source=restart_var_info_list)
+    case ('history')
+       allocate(var_info_list, source=history_var_info_list)
+    end select
+
+    ! On master process...
+    if (me == master) then
+       ! Get number of lines (variables) in stream_list file.
+       open(newunit=funit,file=trim(stream_list_file))
+       nvars = 0
+       do
+          read(funit, *, iostat=io)
+          if (io /= 0) exit  ! Exit loop on end-of-file or error
+          nvars = nvars + 1
+       end do
+       close(funit)
+
+       ! Read in stream_list from file.
+       allocate(indices_temp(nvars))
+       indices_temp(:) = -999
+       allocate(var_list(nvars))
+       open(newunit=funit,file=trim(stream_list_file))
+       do iVar = 1,nvars
+          read(funit, '(A)', iostat=io) line_buffer
+          var_list(ivar) = line_buffer
+       enddo
+       close(funit)
+
+       ! Are requested stream_list variables available in <var_info_list>?
+       ! Loop over requested variables in <stream_list>, <nvars>, and check
+       ! for existence in <var_info_list>.
+       nvar_av = 0
+       do iVar = 1,nvars
+          do i = 1, size(var_info_list)
+             found = .false.
+             if (trim(var_list(ivar)) == trim(var_info_list(i)%name)) then
+                found = .true.
+                nvar_av = nvar_av + 1
+                indices_temp(nvar_av) = i
+             endif
+          enddo
+          ! If not found, requested variables is not supported. Print warning message.
+          if (.not. found) then
+             call mpas_log_write(subname // "Variable not supported, "//trim(var_list(ivar))// &
+                                 ", skipping", messageType=MPAS_LOG_WARN)
+          end if
+       end do
+
+       ! Handle case when fields requested in stream_list are not available.
+       if (nvar_av .ne. nvars) then
+          allocate(indices(nvar_av))
+          count = 0
+          do iVar = 1,nvars
+             if (indices_temp(ivar) .ne. -999) then
+                count = count + 1
+                indices(count) = indices_temp(ivar)
+             end if
+          end do
+          nvars = count
+       ! Otherwise, use full requested variable list.
+       else
+          allocate(indices(nvars))
+          indices = indices_temp
+       end if
+    end if
+
+    ! Other processors waiting...
+    call mpi_barrier(mpicomm, mpierr)
+
+    ! Broadcast dimension
+    call mpi_bcast(nvars, 1, MPI_INTEGER, master, mpicomm, mpierr)
+    
+    ! Allocate
+    select case (trim(adjustl(stream_name)))
+    case ('restart')
+       allocate(stream_list_restart_indices(nvars))
+    case ('history')
+       allocate(stream_list_history_indices(nvars))
+    end select
+    
+    ! Set
+    if (me == master) then
+       select case (trim(adjustl(stream_name)))
+       case ('restart')
+          stream_list_restart_indices = indices
+       case ('history')
+          stream_list_history_indices = indices
+       end select
+    end if
+    
+    ! Broadcast data
+    select case (trim(adjustl(stream_name)))
+    case ('restart')
+       call mpi_bcast(stream_list_restart_indices, nvars, MPI_INTEGER, master, mpicomm, mpierr)
+    case ('history')
+       call mpi_bcast(stream_list_history_indices, nvars, MPI_INTEGER, master, mpicomm, mpierr)
+    end select
+
+  end subroutine read_stream_list
+  
   !> #########################################################################################
   !> Procedure to create and write to MPAS stream
   !>
@@ -341,10 +511,10 @@ contains
     character(len=*), intent(in) :: timestamp
     logical,          intent(in) :: debug
     ! Locals
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_write'
+    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_write'
     character(len=:), allocatable :: filename
     integer :: ierr
-    type(var_info_type), allocatable :: output_var_info_list(:)
+    !type(var_info_type), allocatable :: history_var_info_list(:)
     integer :: timelevel, whence
 
     if (trim(stream_name) == "output") then
@@ -354,7 +524,7 @@ contains
     else if (trim(stream_name) == "input") then
        filename = 'input.'//trim(timestamp)//'.nc'
     else
-       call mpas_log_write(subname // " ERROR: Invalid stream_name to ufs_mpas_write: stream_name ="// &
+       call mpas_log_write(subname // " Invalid stream_name to ufs_mpas_write: stream_name ="// &
                            trim(stream_name), messageType=MPAS_LOG_CRIT)
     end if
 
@@ -362,10 +532,10 @@ contains
     if (debug) call mpas_log_write(subname // "creating "//trim(stream_name)//" stream file: "//trim(filename))
     ierr = pio_createfile(pio_subsystem_output, pioid_output, pio_iotype, trim(filename))
     if ( ierr /= 0 ) then
-       call mpas_log_write(subname // " ERROR: pio_createfile failed", messageType=MPAS_LOG_CRIT)
+       call mpas_log_write(subname // " pio_createfile failed", messageType=MPAS_LOG_CRIT)
     endif
 
-    output_var_info_list = parse_stream_name_fragment('output')
+    !history_var_info_list = parse_stream_name_fragment('output')
     timelevel = TIMELEVEL_NOW
     whence = MPAS_NOW
 
@@ -373,7 +543,7 @@ contains
                                     timeLevel=timelevel, whence=whence,        &
                                     nRecord=1, ierr=ierr, debug=debug)
     if ( ierr /= 0 ) then
-       call mpas_log_write(subname // " ERROR: dyn_mpas_read_write_stream failed ", &
+       call mpas_log_write(subname // " dyn_mpas_read_write_stream failed ", &
                            messageType=MPAS_LOG_CRIT)
     endif
     
@@ -522,7 +692,7 @@ contains
    real (kind=RKIND), dimension(:), pointer :: areaCell
    real (kind=RKIND), dimension(:), pointer :: temp
 
-   character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_get_global_coords'
+   character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_get_global_coords'
 
 
    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh', meshPool)
@@ -537,7 +707,7 @@ contains
    ! check: size(latCellGlobal) ?= nCellsGlobal
    allocate(temp(nCellsGlobal), stat=ierr)
    if ( ierr /= 0 ) then
-      call mpas_log_write(subname // " ERROR: failed to allocate temp array", messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // " failed to allocate temp array", messageType=MPAS_LOG_CRIT)
    endif
 
    !
@@ -600,7 +770,7 @@ contains
    character(*), intent(in) :: field_name
    logical, intent(in)      :: debug
 
-   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_exchange_halo'
+   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_exchange_halo'
    type(field1dinteger), pointer :: field_1d_integer
    type(field2dinteger), pointer :: field_2d_integer
    type(field3dinteger), pointer :: field_3d_integer
@@ -630,12 +800,12 @@ contains
    if (mpas_pool_field_info % fieldtype == -1 .or. &
         mpas_pool_field_info % ndims == -1 .or. &
         mpas_pool_field_info % nhalolayers == -1) then
-      call mpas_log_write(subname // ' ERROR: Invalid field information for "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Invalid field information for "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    ! No halo layers to exchange. This field is not decomposed.
    if (mpas_pool_field_info % nhalolayers == 0) then
-      call mpas_log_write(subname // ' WARNING: Skipping field "' // trim(adjustl(field_name)) // '" due to not decomposed')
+      call mpas_log_write(subname // ' Skipping field "' // trim(adjustl(field_name)) // '" due to not decomposed')
       return
    end if
 
@@ -649,7 +819,7 @@ contains
               trim(adjustl(field_name)), field_1d_integer, timelevel=1)
 
          if (.not. associated(field_1d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_1d_integer)
@@ -660,7 +830,7 @@ contains
               trim(adjustl(field_name)), field_2d_integer, timelevel=1)
 
          if (.not. associated(field_2d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_2d_integer)
@@ -671,14 +841,14 @@ contains
               trim(adjustl(field_name)), field_3d_integer, timelevel=1)
 
          if (.not. associated(field_3d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_3d_integer)
 
          nullify(field_3d_integer)
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported field rank "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+         call mpas_log_write(subname // ' Unsupported field rank "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
       end select
    case (mpas_pool_real)
       select case (mpas_pool_field_info % ndims)
@@ -687,7 +857,7 @@ contains
               trim(adjustl(field_name)), field_1d_real, timelevel=1)
 
          if (.not. associated(field_1d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_1d_real)
@@ -698,7 +868,7 @@ contains
               trim(adjustl(field_name)), field_2d_real, timelevel=1)
 
          if (.not. associated(field_2d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
          call mpas_dmpar_exch_halo_field(field_2d_real)
          nullify(field_2d_real)
@@ -707,7 +877,7 @@ contains
               trim(adjustl(field_name)), field_3d_real, timelevel=1)
 
          if (.not. associated(field_3d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_3d_real)
@@ -718,7 +888,7 @@ contains
               trim(adjustl(field_name)), field_4d_real, timelevel=1)
 
          if (.not. associated(field_4d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_4d_real)
@@ -729,17 +899,17 @@ contains
               trim(adjustl(field_name)), field_5d_real, timelevel=1)
 
          if (.not. associated(field_5d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
          end if
 
          call mpas_dmpar_exch_halo_field(field_5d_real)
 
          nullify(field_5d_real)
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported field rank "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
+         call mpas_log_write(subname // ' Unsupported field rank "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
       end select
    case default
-      call mpas_log_write(subname // ' ERROR: Unsupported field type (Must be one of: integer, real)', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Unsupported field type (Must be one of: integer, real)', messageType=MPAS_LOG_CRIT)
    end select
 
    if (debug) call mpas_log_write(subname // ' completed')
@@ -785,7 +955,7 @@ contains
    integer, intent(out) :: ierr
    logical, intent(in) :: debug
    ! Local variables
-   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_read_write_stream'
+   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_read_write_stream'
    integer :: i
    type(mpas_pool_type), pointer :: mpas_pool
    type(mpas_stream_type), pointer :: mpas_stream
@@ -800,11 +970,11 @@ contains
    call dyn_mpas_init_stream_with_pool(mpas_pool, mpas_stream, pio_file_desc, stream_mode, stream_name, timeLevel, debug)
 
    if (.not. associated(mpas_pool)) then
-      call mpas_log_write(subname // ' ERROR: Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    if (.not. associated(mpas_stream)) then
-      call mpas_log_write(subname // ' ERROR: Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    select case (trim(adjustl(stream_mode)))
@@ -814,7 +984,7 @@ contains
       call read_stream(mpas_stream, actualWhen, nRecord, ierr)
 
       if (ierr /= mpas_stream_noerr) then
-         call mpas_log_write(subname // ' ERROR: Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+         call mpas_log_write(subname // ' Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
       end if
 
       ! Exchange halo layers because new data have just been read.
@@ -823,7 +993,7 @@ contains
       do i = 1, size(var_info_list)
          call dyn_mpas_exchange_halo(var_info_list(i) % name, debug)
          if ( ierr /= 0 ) then
-            call mpas_log_write(subname // ' ERROR: Failed to exchange halo layers for group '//var_info_list(i) % name, messageType=MPAS_LOG_CRIT)
+            call mpas_log_write(subname // ' Failed to exchange halo layers for group '//var_info_list(i) % name, messageType=MPAS_LOG_CRIT)
          end if
       end do
 
@@ -843,13 +1013,13 @@ contains
       call mpas_writestream(mpas_stream, 1, ierr=ierr)
 
       if (ierr /= mpas_stream_noerr) then
-         call mpas_log_write(subname // ' ERROR: Failed to write stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+         call mpas_log_write(subname // ' Failed to write stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
       end if
 
       ! For any connectivity arrays in this stream, reset global indexes back to local indexes.
       call postwrite_reindex(domain_ptr % blocklist % allfields, mpas_pool)
    case default
-      call mpas_log_write(subname // ' ERROR: Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', messageType=MPAS_LOG_CRIT)
    end select
 
    if (debug) call mpas_log_write('Closing stream "' // trim(adjustl(stream_name)) // '"')
@@ -858,7 +1028,7 @@ contains
    call mpas_closestream(mpas_stream, ierr=ierr)
 
    if (ierr /= mpas_stream_noerr) then
-      call mpas_log_write(subname // ' ERROR: Failed to close stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Failed to close stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    ! Deallocate temporary pointers to avoid memory leaks.
@@ -938,7 +1108,7 @@ contains
       procedure :: add_stream_attribute_1d
    end interface add_stream_attribute
 
-   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_init_stream_with_pool'
+   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_init_stream_with_pool'
    character(strkind) :: stream_filename
    integer :: i, ierr, stream_format
    !> Whether a variable is present on the file (i.e., `pio_file`).
@@ -979,7 +1149,7 @@ contains
    allocate(mpas_stream, stat=ierr)
 
    if (ierr /= 0) then
-      call mpas_log_write(subname // ' ERROR: Failed to allocate stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Failed to allocate stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    ! Not actually used because a PIO file descriptor is directly supplied.
@@ -989,34 +1159,34 @@ contains
    if (debug) call mpas_log_write('Checking PIO file descriptor')
 
    if (.not. associated(pio_file)) then
-      call mpas_log_write(subname // ' ERROR: Invalid PIO file descriptor', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Invalid PIO file descriptor', messageType=MPAS_LOG_CRIT)
    end if
 
    if (.not. pio_file_is_open(pio_file)) then
-      call mpas_log_write(subname // ' ERROR: Invalid PIO file descriptor', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Invalid PIO file descriptor', messageType=MPAS_LOG_CRIT)
    end if
 
    select case (trim(adjustl(stream_mode)))
    case ('r', 'read')
-      if (debug) call mpas_log_write('Creating stream "' // trim(adjustl(stream_name)) // '" for reading')
+      if (debug) call mpas_log_write(' Creating stream "' // trim(adjustl(stream_name)) // '" for reading')
 
       call mpas_createstream( &
            mpas_stream, domain_ptr % iocontext, stream_filename, stream_format, mpas_io_read,  &
            clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
            precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
    case ('w', 'write')
-      if (debug) call mpas_log_write('Creating stream "' // trim(adjustl(stream_name)) // '" for writing')
+      if (debug) call mpas_log_write(' Creating stream "' // trim(adjustl(stream_name)) // '" for writing')
 
       call mpas_createstream( &
            mpas_stream, domain_ptr % iocontext, stream_filename, stream_format, mpas_io_write, &
            clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
            precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
    case default
-      call mpas_log_write(subname // ' ERROR: Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', messageType=MPAS_LOG_CRIT)
    end select
 
    if (ierr /= mpas_stream_noerr) then
-      call mpas_log_write(subname // ' ERROR: Failed to create stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
+      call mpas_log_write(subname // ' Failed to create stream "' // trim(adjustl(stream_name)) // '"', messageType=MPAS_LOG_CRIT)
    end if
 
    var_info_list = parse_stream_name(stream_name)
@@ -1065,7 +1235,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_0d_char, timelevel=timeLevel)
 
             if (.not. associated(field_0d_char)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                   trim(adjustl(var_info_list(i) % name)) // '"',     &
                                   messageType=MPAS_LOG_CRIT)
             end if
@@ -1078,7 +1248,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_1d_char, timelevel=timeLevel)
 
             if (.not. associated(field_1d_char)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1087,7 +1257,7 @@ contains
 
             nullify(field_1d_char)
          case default
-            call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' //         &
+            call mpas_log_write(subname // ' Unsupported variable rank ' //                &
                                 stringify([var_info_list(i) % rank]) //                    &
                                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', &
                                 messageType=MPAS_LOG_CRIT)
@@ -1099,7 +1269,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_0d_integer)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' //  &
+               call mpas_log_write(subname // ' Failed to find variable "' //         &
                                    trim(adjustl(var_info_list(i) % name)) // '"',     &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1112,7 +1282,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_1d_integer)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1125,7 +1295,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_2d_integer)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1138,7 +1308,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=timeLevel)
 
             if (.not. associated(field_3d_integer)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1147,7 +1317,7 @@ contains
 
             nullify(field_3d_integer)
          case default
-            call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' //         &
+            call mpas_log_write(subname // ' Unsupported variable rank ' //                &
                                 stringify([var_info_list(i) % rank]) //                    &
                                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', &
                                 messageType=MPAS_LOG_CRIT)
@@ -1159,7 +1329,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_0d_real, timelevel=timeLevel)
 
             if (.not. associated(field_0d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' //  &
+               call mpas_log_write(subname // ' Failed to find variable "' //         &
                                    trim(adjustl(var_info_list(i) % name)) // '"',     &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1172,7 +1342,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_1d_real, timelevel=timeLevel)
 
             if (.not. associated(field_1d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1184,7 +1354,7 @@ contains
             call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
                  trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=timeLevel)
             if (.not. associated(field_2d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1196,7 +1366,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_3d_real, timelevel=timeLevel)
 
             if (.not. associated(field_3d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1208,7 +1378,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_4d_real, timelevel=timeLevel)
 
             if (.not. associated(field_4d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1221,7 +1391,7 @@ contains
                  trim(adjustl(var_info_list(i) % name)), field_5d_real, timelevel=timeLevel)
 
             if (.not. associated(field_5d_real)) then
-               call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+               call mpas_log_write(subname // ' Failed to find variable "' //        &
                                    trim(adjustl(var_info_list(i) % name)) // '"',    &
                                    messageType=MPAS_LOG_CRIT)
             end if
@@ -1230,20 +1400,20 @@ contains
 
             nullify(field_5d_real)
          case default
-            call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' //         &
+            call mpas_log_write(subname // ' Unsupported variable rank ' //                &
                                 stringify([var_info_list(i) % rank]) //                    &
                                 ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', &
                                 messageType=MPAS_LOG_CRIT)
          end select
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported variable type "' //         &
+         call mpas_log_write(subname // ' Unsupported variable type "' //                &
                              trim(adjustl(var_info_list(i) % type)) //                   &
                              '" for "' // trim(adjustl(var_info_list(i) % name)) // '"', &
                              messageType=MPAS_LOG_CRIT)
       end select
 
       if (ierr /= mpas_stream_noerr) then
-         call mpas_log_write(subname // ' ERROR: Failed to add variable "' //      &
+         call mpas_log_write(subname // ' Failed to add variable "' //             &
                              trim(adjustl(var_info_list(i) % name)) //             &
                              '" to stream "' // trim(adjustl(stream_name)) // '"', &
                              messageType=MPAS_LOG_CRIT)
@@ -1304,12 +1474,12 @@ contains
         call mpas_writestreamatt(mpas_stream, &
              trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
      class default
-        call mpas_log_write(subname // ' ERROR: Unsupported attribute type (Must be one of: character, integer, logical, real)', &
+        call mpas_log_write(subname // ' Unsupported attribute type (Must be one of: character, integer, logical, real)', &
                             messageType=MPAS_LOG_CRIT)
      end select
 
      if (ierr /= mpas_stream_noerr) then
-        call mpas_log_write(subname // ' ERROR: Failed to add attribute "' //     &
+        call mpas_log_write(subname // ' Failed to add attribute "' //            &
                             trim(adjustl(attribute_name)) //                      &
                             '" to stream "' // trim(adjustl(stream_name)) // '"', &
                             messageType=MPAS_LOG_CRIT)
@@ -1335,12 +1505,12 @@ contains
         call mpas_writestreamatt(mpas_stream, &
              trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
      class default
-        call mpas_log_write(subname // ' ERROR: Unsupported attribute type (Must be one of: integer, real)',&
+        call mpas_log_write(subname // ' Unsupported attribute type (Must be one of: integer, real)',&
                             messageType=MPAS_LOG_CRIT)
      end select
 
      if (ierr /= mpas_stream_noerr) then
-        call mpas_log_write(subname // ' ERROR: Failed to add attribute "' //     &
+        call mpas_log_write(subname // ' Failed to add attribute "' //            &
                             trim(adjustl(attribute_name)) //                      &
                             '" to stream "' // trim(adjustl(stream_name)) // '"', &
                             messageType=MPAS_LOG_CRIT)
@@ -1476,9 +1646,21 @@ contains
    case ('input')
       allocate(var_info_list, source=input_var_info_list)
    case ('restart')
-      allocate(var_info_list, source=restart_var_info_list)
+      ! If stream_list provided at runtime, only include requested fields.
+      if (allocated(stream_list_restart_indices)) then
+         allocate(var_info_list, source=restart_var_info_list(stream_list_restart_indices))
+      ! Otherwise, include all available fields from stream (default).
+      else
+         allocate(var_info_list, source=restart_var_info_list)
+      end if
    case ('output')
-      allocate(var_info_list, source=output_var_info_list)
+      ! If stream_list provided at runtime, only include requested fields.
+      if (allocated(stream_list_history_indices)) then
+         allocate(var_info_list, source=history_var_info_list(stream_list_history_indices))
+      ! Otherwise, include all available fields from stream (default).
+      else
+         allocate(var_info_list, source=history_var_info_list)
+      end if
    case ('lbc_in')
       allocate(var_info_list, source=lbc_in_var_info_list)
    case ('sfc_input')
@@ -1509,10 +1691,10 @@ contains
          var_info_list = [var_info_list, var_info_list_buffer]
       end if
 
-      var_name_list = output_var_info_list % name
+      var_name_list = history_var_info_list % name
 
       if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
-         var_info_list_buffer = pack(output_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list_buffer = pack(history_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
          var_info_list = [var_info_list, var_info_list_buffer]
       end if
 
@@ -1648,7 +1830,7 @@ contains
    type(var_info_type), intent(in) :: var_info
    logical, intent(in) :: debug
 
-   character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_check_variable_status'
+   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_check_variable_status'
    character(strkind), allocatable :: var_name_list(:)
    integer :: i, ierr, varid, varndims, vartype
    type(field0dchar), pointer :: field_0d_char
@@ -1690,7 +1872,7 @@ contains
               trim(adjustl(var_info % name)), field_0d_char, timelevel=1)
 
          if (.not. associated(field_0d_char)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1699,7 +1881,7 @@ contains
             allocate(var_name_list(size(field_0d_char % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1712,7 +1894,7 @@ contains
               trim(adjustl(var_info % name)), field_1d_char, timelevel=1)
 
          if (.not. associated(field_1d_char)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1721,7 +1903,7 @@ contains
             allocate(var_name_list(size(field_1d_char % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1730,7 +1912,7 @@ contains
 
          nullify(field_1d_char)
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' // &
+         call mpas_log_write(subname // ' Unsupported variable rank ' //        &
                              stringify([var_info % rank]) //                    &
                              ' for "' // trim(adjustl(var_info % name)) // '"', &
                              messageType=MPAS_LOG_CRIT)
@@ -1742,7 +1924,7 @@ contains
               trim(adjustl(var_info % name)), field_0d_integer, timelevel=1)
 
          if (.not. associated(field_0d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1751,7 +1933,7 @@ contains
             allocate(var_name_list(size(field_0d_integer % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1764,7 +1946,7 @@ contains
               trim(adjustl(var_info % name)), field_1d_integer, timelevel=1)
 
          if (.not. associated(field_1d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1773,7 +1955,7 @@ contains
             allocate(var_name_list(size(field_1d_integer % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1786,7 +1968,7 @@ contains
               trim(adjustl(var_info % name)), field_2d_integer, timelevel=1)
 
          if (.not. associated(field_2d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1795,7 +1977,7 @@ contains
             allocate(var_name_list(size(field_2d_integer % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1808,7 +1990,7 @@ contains
               trim(adjustl(var_info % name)), field_3d_integer, timelevel=1)
 
          if (.not. associated(field_3d_integer)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' // &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1817,7 +1999,7 @@ contains
             allocate(var_name_list(size(field_3d_integer % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1826,7 +2008,7 @@ contains
 
          nullify(field_3d_integer)
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' // &
+         call mpas_log_write(subname // ' Unsupported variable rank ' // &
                              stringify([var_info % rank]) //                    &
                              ' for "' // trim(adjustl(var_info % name)) // '"', &
                              messageType=MPAS_LOG_CRIT)
@@ -1839,7 +2021,7 @@ contains
               trim(adjustl(var_info % name)), field_0d_real, timelevel=1)
 
          if (.not. associated(field_0d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1848,7 +2030,7 @@ contains
             allocate(var_name_list(size(field_0d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1862,7 +2044,7 @@ contains
               trim(adjustl(var_info % name)), field_1d_real, timelevel=1)
 
          if (.not. associated(field_1d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1871,7 +2053,7 @@ contains
             allocate(var_name_list(size(field_1d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1884,7 +2066,7 @@ contains
               trim(adjustl(var_info % name)), field_2d_real, timelevel=1)
 
          if (.not. associated(field_2d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1893,7 +2075,7 @@ contains
             allocate(var_name_list(size(field_2d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1905,7 +2087,7 @@ contains
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
               trim(adjustl(var_info % name)), field_3d_real, timelevel=1)
          if (.not. associated(field_3d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1913,7 +2095,7 @@ contains
             allocate(var_name_list(size(field_3d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1925,7 +2107,7 @@ contains
               trim(adjustl(var_info % name)), field_4d_real, timelevel=1)
 
          if (.not. associated(field_4d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1934,7 +2116,7 @@ contains
             allocate(var_name_list(size(field_4d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1947,7 +2129,7 @@ contains
               trim(adjustl(var_info % name)), field_5d_real, timelevel=1)
 
          if (.not. associated(field_5d_real)) then
-            call mpas_log_write(subname // ' ERROR: Failed to find variable "' // &
+            call mpas_log_write(subname // ' Failed to find variable "' //        &
                                 trim(adjustl(var_info % name)) // '"',            &
                                 messageType=MPAS_LOG_CRIT)
          end if
@@ -1956,7 +2138,7 @@ contains
             allocate(var_name_list(size(field_5d_real % constituentnames)), stat=ierr)
 
             if (ierr /= 0) then
-               call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+               call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                                    messageType=MPAS_LOG_CRIT)
             end if
 
@@ -1965,13 +2147,13 @@ contains
 
          nullify(field_5d_real)
       case default
-         call mpas_log_write(subname // ' ERROR: Unsupported variable rank ' // &
+         call mpas_log_write(subname // ' Unsupported variable rank ' //        &
                              stringify([var_info % rank]) //                    &
                              ' for "' // trim(adjustl(var_info % name)) // '"', &
                              messageType=MPAS_LOG_CRIT)
       end select
    case default
-      call mpas_log_write(subname // ' ERROR: Unsupported variable type ' // &
+      call mpas_log_write(subname // ' Unsupported variable type ' //        &
                           stringify([var_info % type]) //                    &
                           ' for "' // trim(adjustl(var_info % name)) // '"', &
                           messageType=MPAS_LOG_CRIT)
@@ -1981,7 +2163,7 @@ contains
       allocate(var_name_list(1), stat=ierr)
 
       if (ierr /= 0) then
-         call mpas_log_write(subname // ' ERROR: Failed to allocate var_name_list', &
+         call mpas_log_write(subname // ' Failed to allocate var_name_list', &
                              messageType=MPAS_LOG_CRIT)
       end if
 
@@ -1991,14 +2173,14 @@ contains
    allocate(var_is_present(size(var_name_list)), stat=ierr)
 
    if (ierr /= 0) then
-      call mpas_log_write(subname // ' ERROR: Failed to allocate var_is_present', &
+      call mpas_log_write(subname // ' Failed to allocate var_is_present', &
                           messageType=MPAS_LOG_CRIT)
    end if
 
    var_is_present(:) = .false.
    allocate(var_is_tkr_compatible(size(var_name_list)), stat=ierr)
    if (ierr /= 0) then
-      call mpas_log_write(subname // ' ERROR: Failed to allocate var_is_tkr_compatible', &
+      call mpas_log_write(subname // ' Failed to allocate var_is_tkr_compatible', &
                           messageType=MPAS_LOG_CRIT)
    end if
 
