@@ -25,9 +25,11 @@ module ufs_mpas_subdriver
   use module_mpas_config, only : maxNCells, maxEdges, nVertLevels
   use module_mpas_config, only : nCellsGlobal, nEdgesGlobal, nVerticesGlobal
   use module_mpas_config, only : nEdgesSolve, nVerticesSolve, nVertLevelsSolve
-  use module_mpas_config, only : dt_atmos, n_atmos, output_fh, restart_fh
+  use module_mpas_config, only : dt_atmos, n_atmos
   use module_mpas_config, only : latCellGlobal, lonCellGlobal, areaCellGlobal
   use module_mpas_config, only : nml_filename, nml_funit
+  use module_mpas_config, only : mpas_output_times, mpas_restart_times
+  use module_mpas_config, only : out_file_index, restart_file_index
   use ufs_mpas_tools
   use ufs_mpas_io
   use ufs_mpas_boundaries
@@ -598,44 +600,6 @@ contains
     if (ierr /= 0) then
        call mpas_log_write(subname // ' Failed to set dynamics time step',messageType=MPAS_LOG_CRIT)
     endif
-
-    !
-    ! Set MPAS output file times
-    !
-    if (.not. allocated(mpas_output_times)) then
-       allocate(mpas_output_times(size(output_fh)))
-       mpas_output_times(1) = timeNow
-       do iout=2,size(output_fh)
-          call mpas_set_timeInterval(mpas_output_interval, S=int(3600.*output_fh(iout)), ierr=ierr)
-          mpas_output_times(iout) = timeNow + mpas_output_interval
-          if ( ierr /= 0 ) then
-             call mpas_log_write(subname // ' Failed to set output file names"',messageType=MPAS_LOG_CRIT)
-          end if
-       enddo
-       ! Also, write IC state to history file while we're here.
-       call create_file_timeStamp(timeNow,timeStampOutFile)
-       call ufs_mpas_write("output", timeStampOutFile, debug)
-       ! Start output file counter
-       out_file_index = 2
-    endif
-
-    !
-    ! Set MPAS restart file times (if necessary)
-    !
-    if (allocated(restart_fh)) then
-       if (.not. allocated(mpas_restart_times)) then
-          allocate(mpas_restart_times(size(restart_fh)))
-          do iout=2,size(restart_fh)
-             call mpas_set_timeInterval(mpas_restart_interval, S=int(3600.*restart_fh(iout)), ierr=ierr)
-             mpas_restart_times(iout-1) = timeNow + mpas_restart_interval
-             if ( ierr /= 0 ) then
-                call mpas_log_write(subname // ' Failed to set restart file names"',messageType=MPAS_LOG_CRIT)
-             end if
-          enddo
-          ! Start restart file counter
-          restart_file_index = 1
-       end if
-    end if
     
     !
     ! Read initial boundary state
@@ -735,7 +699,7 @@ contains
     end if
 
     ! Restart stream
-    if (allocated(restart_fh)) then
+    if (allocated(mpas_restart_times)) then
        if (timeStop .EQ. mpas_restart_times(restart_file_index)) then
           call ufs_mpas_write("restart", timeStampOutFile, debug)
           restart_file_index = restart_file_index + 1

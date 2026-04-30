@@ -89,6 +89,9 @@ list(APPEND fv3_io_srcs
   io/fv3atm_history_io.F90
   io/fv3atm_restart_io.F90)
 
+list(APPEND ufs_srcs
+   ${PROJECT_SOURCE_DIR}/CDEPS-interface/ufs/cdeps_share/shr_is_restart_fh_mod.F90)
+
 ###############################################################################
 ### UFSATM with FV3 dynamical core
 ###############################################################################
@@ -248,6 +251,7 @@ if (MPAS)
     mpas/ufs_mpas_constituents.F90
     ${coupling_srcs}
     ${io_srcs}
+    ${ufs_srcs}
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )

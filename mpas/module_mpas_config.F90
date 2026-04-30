@@ -9,6 +9,7 @@ module module_mpas_config
   use mpi_f08
   use pio, only : iosystem_desc_t, file_desc_t, io_desc_t
   use esmf
+  use mpas_derived_types,  only : MPAS_Time_Type
 
   implicit none
 
@@ -46,6 +47,12 @@ module module_mpas_config
 
   !> Restart frequency
   real,dimension(:),allocatable :: restart_fh
+
+  !>
+  integer :: out_file_index     = 1
+  integer :: restart_file_index = 1
+  type (MPAS_Time_Type), allocatable :: mpas_output_times(:)
+  type (MPAS_Time_Type), allocatable :: mpas_restart_times(:)
 
   !> Calendar type
   character(17)            :: calendar='                 '

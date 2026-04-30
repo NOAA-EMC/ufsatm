@@ -36,11 +36,6 @@ module ufs_mpas_io
   type(domain_type),     pointer :: domain_ptr => null()
   type(mpas_Clock_type), pointer :: clock      => null()
 
-  !
-  integer :: out_file_index, restart_file_index
-  type (MPAS_Time_Type), allocatable :: mpas_output_times(:)
-  type (MPAS_Time_Type), allocatable :: mpas_restart_times(:)
-
   !> #########################################################################################
   !>
   !> #########################################################################################
