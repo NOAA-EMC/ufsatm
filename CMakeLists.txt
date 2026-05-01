@@ -241,7 +241,11 @@ if (MPAS)
     mpas/module_mpas_config.F90
     mpas/module_fcst_grid_comp.F90
     mpas/atmos_coupling.F90
+    mpas/ufs_mpas_tools.F90
     mpas/ufs_mpas_subdriver.F90
+    mpas/ufs_mpas_io.F90
+    mpas/ufs_mpas_boundaries.F90
+    mpas/ufs_mpas_constituents.F90
     ${coupling_srcs}
     ${io_srcs}
     ccpp/data/MPAS_typedefs.F90

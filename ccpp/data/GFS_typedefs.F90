@@ -5537,26 +5537,45 @@ module GFS_typedefs
     if( Model%ntoz <= 0 )  &
     Model%ntoz             = get_physics_tracer_index('spo3', Model)
 #endif
-    Model%ntcw             = get_physics_tracer_index('liq_wat', Model)
-    Model%ntiw             = get_physics_tracer_index('ice_wat', Model)
-    Model%ntrw             = get_physics_tracer_index('rainwat', Model)
-    Model%ntsw             = get_physics_tracer_index('snowwat', Model)
-    Model%ntgl             = get_physics_tracer_index('graupel', Model)
-    Model%nthl             = get_physics_tracer_index('hailwat', Model)
-    Model%ntclamt          = get_physics_tracer_index('cld_amt', Model)
-    Model%ntlnc            = get_physics_tracer_index('water_nc', Model)
-    Model%ntinc            = get_physics_tracer_index('ice_nc', Model)
-    Model%ntrnc            = get_physics_tracer_index('rain_nc', Model)
-    Model%ntsnc            = get_physics_tracer_index('snow_nc', Model)
-    Model%ntgnc            = get_physics_tracer_index('graupel_nc', Model)
-    Model%nthnc            = get_physics_tracer_index('hail_nc', Model)
-    Model%ntccn            = get_physics_tracer_index('ccn_nc', Model)
-    Model%ntccna           = get_physics_tracer_index('ccna_nc', Model)
-    Model%ntgv             = get_physics_tracer_index('graupel_vol', Model)
-    Model%nthv             = get_physics_tracer_index('hail_vol', Model)
-    Model%ntrz             = get_physics_tracer_index('rain_ref', Model)
-    Model%ntgz             = get_physics_tracer_index('graupel_ref', Model)
-    Model%nthz             = get_physics_tracer_index('hail_ref', Model)
+    if (Model%dycore_active == Model%dycore_fv3) then
+       Model%ntcw             = get_physics_tracer_index('liq_wat', Model)
+       Model%ntiw             = get_physics_tracer_index('ice_wat', Model)
+       Model%ntrw             = get_physics_tracer_index('rainwat', Model)
+       Model%ntsw             = get_physics_tracer_index('snowwat', Model)
+       Model%ntgl             = get_physics_tracer_index('graupel', Model)
+       Model%nthl             = get_physics_tracer_index('hailwat', Model)
+       Model%ntclamt          = get_physics_tracer_index('cld_amt', Model)
+       Model%ntlnc            = get_physics_tracer_index('water_nc', Model)
+       Model%ntinc            = get_physics_tracer_index('ice_nc', Model)
+       Model%ntrnc            = get_physics_tracer_index('rain_nc', Model)
+       Model%ntsnc            = get_physics_tracer_index('snow_nc', Model)
+       Model%ntgnc            = get_physics_tracer_index('graupel_nc', Model)
+       Model%nthnc            = get_physics_tracer_index('hail_nc', Model)
+       Model%ntccn            = get_physics_tracer_index('ccn_nc', Model)
+       Model%ntccna           = get_physics_tracer_index('ccna_nc', Model)
+       Model%ntgv             = get_physics_tracer_index('graupel_vol', Model)
+       Model%nthv             = get_physics_tracer_index('hail_vol', Model)
+       Model%ntrz             = get_physics_tracer_index('rain_ref', Model)
+       Model%ntgz             = get_physics_tracer_index('graupel_ref', Model)
+       Model%nthz             = get_physics_tracer_index('hail_ref', Model)
+       Model%ntwa             = get_physics_tracer_index('liq_aero', Model)
+       Model%ntia             = get_physics_tracer_index('ice_aero', Model)
+    endif
+    if (Model%dycore_active == Model%dycore_mpas) then
+       Model%ntcw             = get_physics_tracer_index('qc', Model)
+       Model%ntiw             = get_physics_tracer_index('qi', Model)
+       Model%ntrw             = get_physics_tracer_index('qr', Model)
+       Model%ntsw             = get_physics_tracer_index('qs', Model)
+       Model%ntgl             = get_physics_tracer_index('qg', Model)
+       Model%nthl             = get_physics_tracer_index('qh', Model)
+       Model%ntinc            = get_physics_tracer_index('ni', Model)
+       Model%ntrnc            = get_physics_tracer_index('nr', Model)
+       Model%ntsnc            = get_physics_tracer_index('ns', Model)
+       Model%ntgnc            = get_physics_tracer_index('ng', Model)
+       Model%nthnc            = get_physics_tracer_index('nh', Model)
+       Model%ntwa             = get_physics_tracer_index('nwfa', Model)
+       Model%ntia             = get_physics_tracer_index('nifa', Model)
+    endif
     Model%ntke             = get_physics_tracer_index('sgs_tke', Model)
     Model%ntsigma          = get_physics_tracer_index('sigmab', Model)
     Model%ntomega          = get_physics_tracer_index('omegab', Model)
@@ -6911,9 +6930,12 @@ module GFS_typedefs
       if (Model%dycore_active == Model%dycore_fv3) then
          print *, ' hydrostatic       : ', Model%hydrostatic
       endif
-      print *, ' '
-      print *, 'grid extent parameters'
-      if (Model%dycore_active == Model%dycore_fv3) then
+   endif
+
+   if (Model%dycore_active == Model%dycore_fv3) then
+      if (Model%me == Model%master) then
+         print *, ' '
+         print *, 'grid extent parameters (FV3)'
          print *, ' isc               : ', Model%isc
          print *, ' jsc               : ', Model%jsc
          print *, ' nx                : ', Model%nx
@@ -6924,10 +6946,18 @@ module GFS_typedefs
          print *, ' lonr              : ', Model%lonr
          print *, ' latr              : ', Model%latr
       end if
+   endif
+
+   if (Model%dycore_active == Model%dycore_mpas) then
+      print *, ' '
+      print *, 'grid extent parameters (MPAS) for processor ',Model%me
       print *, ' nblks             : ', Model%nblks
       print *, ' blksz(1)          : ', Model%blksz(1)
       print *, ' blksz(nblks)      : ', Model%blksz(Model%nblks)
       print *, ' Model%ncols       : ', Model%ncols
+   endif
+
+   if (Model%me == Model%master) then
       print *, ' '
       print *, 'coupling parameters'
       print *, ' cplflx            : ', Model%cplflx
