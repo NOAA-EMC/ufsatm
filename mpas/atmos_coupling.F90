@@ -4,21 +4,19 @@
 !>
 ! ###########################################################################################
 module atmos_coupling_mod
-  use mpas_kind_types,    only : mpas_kind => RKIND
-  use ufs_mpas_subdriver, only : domain_ptr
+  use mpas_kind_types, only : mpas_kind => RKIND
+  use ufs_mpas_io,     only : domain_ptr
   
   implicit none
   public :: MPAS_statein_type
   public :: MPAS_stateout_type
   public :: ufs_mpas_to_physics
-  public :: ufs_physics_to_mpas
+  public :: ufs_microphysics_to_mpas
+  public :: ufs_mpas_to_microphysics
+  public :: ufs_mpas_grid_to_physics
 
-  ! Indices for MPAS domain deceomposition on each task.
-  integer, dimension(:), pointer :: indicesGlobal
-  
   !> #######################################################################################
   !> MPAS_statein_type
-  !>
   !> Fields needed by the MPAS dynamical core for forward integration.
   !>
   !> #######################################################################################
@@ -34,7 +32,7 @@ module atmos_coupling_mod
      integer, pointer :: nVerticesSolve           ! Number of vertices, excluding halo vertices
 
      ! MPAS vertical coordiante (invariant)
-     real(mpas_kind), pointer :: zint(:,:)        ! Geometric height [m]  at layer interfaces (nlev+1,ncol)
+     real(mpas_kind), pointer :: zgrid(:,:)       ! Geometric height [m]  at layer interfaces (nlev+1,ncol)
      real(mpas_kind), pointer :: zz(:,:)          ! Vertical coordinate metric [1] at layer
                                                   ! midpoints (nlev,ncol)
      real(mpas_kind), pointer :: fzm(:)           ! Interp weight from k layer midpoint to k
@@ -84,12 +82,17 @@ module atmos_coupling_mod
      real(mpas_kind), pointer :: rho_tend(:,:)    ! Dry air density tendency
                                                   ! from physics [kg/m^3/s]          (nlev,ncol)
 
+     ! Diagnostics
+     real(mpas_kind), pointer :: pressure_b(:,:)
+     real(mpas_kind), pointer :: pressure_p(:,:)
+     real(mpas_kind), pointer :: surface_pressure(:)
+
   end type MPAS_statein_type
 
   !> #######################################################################################
   !> MPAS_stateout_type
-  !>
   !> Fields prognosed (or diagnosed) by the MPAS dynamical core.
+  !>
   !> #######################################################################################
     type MPAS_stateout_type
      ! Dimensions
@@ -103,7 +106,7 @@ module atmos_coupling_mod
      integer, pointer :: nVerticesSolve           ! Number of vertices, excluding halo vertices
      
      ! MPAS vertical coordiante (invariant)
-     real(mpas_kind), pointer :: zint(:,:)        ! Geometric height [m]  at layer interfaces (nlev+1,ncol)
+     real(mpas_kind), pointer :: zgrid(:,:)       ! Geometric height [m]  at layer interfaces (nlev+1,ncol)
      real(mpas_kind), pointer :: zz(:,:)          ! Vertical coordinate metric [1] at layer
                                                   ! midpoints (nlev,ncol)
      real(mpas_kind), pointer :: fzm(:)           ! Interp weight from k layer midpoint to k
@@ -137,37 +140,56 @@ module atmos_coupling_mod
                                                   !                                  (nlev,nvtx)
      real(mpas_kind), pointer :: divergence(:,:)  ! Horizontal velocity divergence [s^-1]
                                                   !                                  (nlev,ncol)
+     ! Diagnostics
+     real(mpas_kind), pointer :: pressure_b(:,:)
+     real(mpas_kind), pointer :: pressure_p(:,:)
+     real(mpas_kind), pointer :: surface_pressure(:)
+
   end type MPAS_stateout_type
   
 contains
   !> #########################################################################################
-  !> Procedure to populate inputs to the CCPP physics using outputs the MPAS dynamical core.
+  !> Procedure to convert input "MPAS" variables to "CCPP" variables.
+  !> Called prior to MPAS dynamical core (initial-step only).
   !>
-  !> Use indicesGlobal to map from MPAS dycore deceomposition to CCPP Physics contiguous data
-  !> structures.
+  !> Analogous to MPAS_to_physics in src/core_atmosphere/physics/mpas_atmphys_interface.F
+  !>
+  !> This procedure accesses MPAS data using MPAS native procedures and stores the data
+  !> locally in the data-containers defined above. The MPAS "state" is then translated to the
+  !> CCPP "state" needed by the physics.
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_to_physics(physics_state)
-    use GFS_typedefs,         only : GFS_statein_type
+  subroutine ufs_mpas_to_physics(physics_state, surface_state)
+    use GFS_typedefs,         only : GFS_statein_type, GFS_sfcprop_type
     use mpas_derived_types,   only : mpas_pool_type
     use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
     use atm_core,             only : atm_compute_output_diagnostics
     use mpas_kind_types,      only : RKIND
+    use mpas_constants,       only : gravity
+
     ! Arguments
     type(GFS_statein_type),   intent(inout) :: physics_state
+    type(GFS_sfcprop_type),   intent(inout) :: surface_state
     ! Locals
     type(mpas_stateout_type) :: mpas_state
     type(mpas_pool_type), pointer :: state_pool
     type(mpas_pool_type), pointer :: diag_pool
     type(mpas_pool_type), pointer :: mesh_pool
-    integer :: iCell, iCol, iTracer
-    integer, pointer :: nCellsSolve, num_scalars, nwat, index_qv, nVertLevels
-    real(RKIND), pointer :: surface_p(:)
+    type(mpas_pool_type), pointer :: sfc_pool
+    integer :: iCol, iLay, iTracer
+    integer, pointer :: nCellsSolve, num_scalars, nwat, nVertLevels, index_qv
+    integer, dimension(:), pointer :: isltyp
+    real(kind=RKIND) :: rho1, rho2, tem1, tem2
+    real(kind=RKIND),dimension(:,:),pointer  :: qv, qc, qr, qi, qs, qg
 
     ! Access MPAS data pools.
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag_pool)
-    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state',     state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',      diag_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',      mesh_pool)
+
+    ! DJS to GFS: Sanity check to ensure data is in "sfc_pool" to pass to physics types.
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'sfc_input', sfc_pool)
+    call mpas_pool_get_array(sfc_pool, 'isltyp', isltyp, 1)
 
     ! Get MPAS dimensions
     call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
@@ -183,64 +205,175 @@ contains
     call mpas_pool_get_array(state_pool, 'scalars',                MPAS_state % tracers, timeLevel=1)
     call mpas_pool_get_array(state_pool, 'w',                      MPAS_state % w, timeLevel=1)
     call mpas_pool_get_array(diag_pool,  'exner',                  MPAS_state % exner)
-    call mpas_pool_get_array(mesh_pool,  'zgrid',                  MPAS_state % zint)
+    call mpas_pool_get_array(mesh_pool,  'zgrid',                  MPAS_state % zgrid)
     call mpas_pool_get_array(mesh_pool,  'zz',                     MPAS_state % zz)
     call mpas_pool_get_array(state_pool, 'theta_m',                MPAS_state % theta_m, timeLevel=1)
     call mpas_pool_get_array(state_pool, 'rho_zz',                 MPAS_state % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(diag_pool,  'pressure_base',          MPAS_state % pressure_b)
+    call mpas_pool_get_array(diag_pool,  'pressure_p',             MPAS_state % pressure_p)
 
     ! Copy fields from MPAS data containers to physics data containers.
     ! [k, i] -> [i, k]
-    ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % tgrs(iCol,:)   = MPAS_state % theta(nVertLevels:1:-1,iCell)
-       physics_state % ugrs(iCol,:)   = MPAS_state % ux(nVertLevels:1:-1,iCell)
-       physics_state % vgrs(iCol,:)   = MPAS_state % uy(nVertLevels:1:-1,iCell)
-       physics_state % phil(iCol,:)   = MPAS_state % zz(nVertLevels:1:-1,iCell)
-       physics_state % phii(iCol,:)   = MPAS_state % zint(nVertLevels+1:1:-1,iCell)
-       physics_state % prslk(iCol,:)  = MPAS_state % exner(nVertLevels:1:-1,iCell)
-       physics_state % vvl(iCol,:)    = MPAS_state % w(nVertLevels:1:-1,iCell)
-       do iTracer = 1,num_scalars
-          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,nVertLevels:1:-1,iCell)
+    ! Retain bottom-up convention
+    do iCol = 1, nCellsSolve
+       physics_state % tgrs(iCol,:)   = MPAS_state % theta(:,iCol)*MPAS_state % exner(:,iCol)
+       physics_state % ugrs(iCol,:)   = MPAS_state % ux(:,iCol)
+       physics_state % vgrs(iCol,:)   = MPAS_state % uy(:,iCol)
+       physics_state % phil(iCol,:)   = MPAS_state % zz(:,iCol)
+       physics_state % phii(iCol,:)   = MPAS_state % zgrid(:,iCol)
+       physics_state % prslk(iCol,:)  = MPAS_state % exner(:,iCol)
+       ! MPAS provides vertical velocity at interfaces, compute layer mean.
+       do iLay=1,nVertLevels
+          physics_state % vvl(iCol,iLay) = 0.5*(MPAS_state % w(iLay,iCol) + MPAS_state % w(iLay+1,iCol))
        enddo
+       do iTracer = 1,num_scalars
+          physics_state % qgrs(iCol,:,iTracer) = MPAS_state % tracers(iTracer,:,iCol)
+       enddo
+    enddo    
+
+    ! Set surface temperature to lowest level temperature (revisit for coupling)
+    do iCol = 1, nCellsSolve
+       surface_state % tsfc(iCol) = MPAS_state % theta(1,iCol)*MPAS_state % exner(1,iCol)
     enddo
+
+    ! Calculation of the surface pressure using hydrostatic assumption down to the surface.
+    ! (from mpas_atmphys_interface.F:MPAS_to_physics())
+    call mpas_pool_get_array(diag_pool,   'surface_pressure'      ,MPAS_state % surface_pressure)
+    do iCol = 1, nCellsSolve
+       tem1 = MPAS_state % zgrid(2,iCol) - MPAS_state % zgrid(1,iCol)
+       tem2 = MPAS_state % zgrid(3,iCol) - MPAS_state % zgrid(2,iCol)
+       rho1 = MPAS_state % rho_zz(1,iCol) * MPAS_state % zz(1,iCol) * (1. + MPAS_state % tracers(index_qv,1,iCol))
+       rho2 = MPAS_state % rho_zz(2,iCol) * MPAS_state % zz(2,iCol) * (1. + MPAS_state % tracers(index_qv,2,iCol))
+       MPAS_state % surface_pressure(iCol) = 0.5*gravity*(MPAS_state % zgrid(2,iCol) - MPAS_state % zgrid(1,iCol)) &
+            * (rho1 - 0.5*(rho2-rho1)*tem1/(tem1+tem2))
+       MPAS_state % surface_pressure(iCol) = MPAS_state % surface_pressure(iCol) + &
+                                             MPAS_state % pressure_p(1,iCol) + &
+                                             MPAS_state % pressure_b(1,iCol)
+    enddo
+
 
     ! Compute hydrostatic pressures
     allocate(MPAS_state % pmid(   nVertLevels,   nCellsSolve))
     allocate(MPAS_state % pmiddry(nVertLevels,   nCellsSolve))
     allocate(MPAS_state % pintdry(nVertLevels+1, nCellsSolve))
     call hydrostatic_pressure(nCellsSolve, nVertLevels, nwat, index_qv, MPAS_state % zz,    &
-         MPAS_state % zint, MPAS_state % rho_zz, MPAS_state % theta_m, MPAS_state % exner,  &
+         MPAS_state % zgrid, MPAS_state % rho_zz, MPAS_state % theta_m, MPAS_state % exner,  &
          MPAS_state % tracers, MPAS_state % pmiddry, MPAS_state % pintdry, MPAS_state % pmid)
 
     ! Copy MPAS pressures into physics data containers.
     ! [k, i] -> [i, k]
-    ! bottom-up -> top-down ordering convention
-    do iCell = 1, nCellsSolve
-       iCol = indicesGlobal(iCell)
-       physics_state % pgr(iCol)    = MPAS_state % pintdry(1,iCell)
-       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(nVertLevels:1:-1,iCell)
-       physics_state % prsi(iCol,:) = MPAS_state % pintdry(nVertLevels+1:1:-1,iCell)
+    ! Retain bottom-up convention
+    do iCol = 1, nCellsSolve
+       physics_state % pgr(iCol)    = MPAS_state % pintdry(nVertLevels+1,iCol)
+       physics_state % prsl(iCol,:) = MPAS_state % pmiddry(:,iCol)
+       physics_state % prsi(iCol,:) = MPAS_state % pintdry(:,iCol)
     enddo
+    ! Housekeeping
+    nullify (mesh_pool)
+    nullify (state_pool)
+    nullify (diag_pool)
+
   end subroutine ufs_mpas_to_physics
 
   !> #########################################################################################
-  !> Procedure to populate inputs to the MPAS dynamical core using outputs from the CCPP
-  !> physics.
+  !> Procedure to update state with physics tendencies prior to calling MPAS dynamical core.
+  !>
+  !> Analogous to phys_get_tend in physics/mpas_atmphys_todynamics.F
+  !> Instead of updating the state with physics tendencies from the MPAS "tend_pool", we
+  !> will use tendencies from the CCPP Physics.
   !>
   !> #########################################################################################
-  subroutine ufs_physics_to_mpas(physics_state)
+  subroutine ufs_physics_to_mpas()
+
+  end subroutine ufs_physics_to_mpas
+
+  !> #########################################################################################
+  !> Procedure to convert of output "CCPP" variables to "MPAS" variables
+  !> Called prior to MPAS dynamical core (integration)
+  !>
+  !> This procedure updates the MPAS "state" using prognosed physics/microphysics variables.
+  !>
+  !> Analogous to microphysics_to_MPAS in src/core_atmosphere/physics/mpas_atmphys_interface.F
+  !>
+  !> #########################################################################################
+  subroutine ufs_microphysics_to_mpas(physics_state)
     use GFS_typedefs,       only : GFS_stateout_type
+    use mpas_derived_types, only : mpas_pool_type
+    use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_dimension
+    use mpas_constants,     only : gravity
+    use mpas_kind_types,    only : RKIND
+
     ! Arguments
     type(GFS_stateout_type), intent(in   ) :: physics_state
     ! Locals
     type(mpas_statein_type) :: mpas_state
+    type(mpas_pool_type), pointer :: diag_pool
+    type(mpas_pool_type), pointer :: mesh_pool
+    type(mpas_pool_type), pointer :: state_pool
+    integer, pointer :: nCellsSolve, index_qv
+    integer :: iCol
+    real(kind=RKIND) :: rho1, rho2, tem1, tem2
+
+    ! Access MPAS data pools
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state',     state_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',      diag_pool)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',      mesh_pool)
+
+    ! Get MPAS dimensions
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
+    call mpas_pool_get_dimension(state_pool, 'index_qv',    index_qv)
+
+    ! Grab fields from MPAS pools
+    call mpas_pool_get_array(state_pool, 'scalars',                MPAS_state % tracers, timeLevel=1)
+    call mpas_pool_get_array(mesh_pool,  'zgrid',                  MPAS_state % zgrid)
+    call mpas_pool_get_array(mesh_pool,  'zz',                     MPAS_state % zz)
+    call mpas_pool_get_array(state_pool, 'rho_zz',                 MPAS_state % rho_zz,  timeLevel=1)
+    call mpas_pool_get_array(diag_pool,  'pressure_base',          MPAS_state % pressure_b)
+    call mpas_pool_get_array(diag_pool,  'pressure_p',             MPAS_state % pressure_p)
 
     ! [i, k] -> [k, i]
     ! top-down -> bottom-up ordering convention
     ! Thermodynamic conversions from moist (CCPP) to dry (MPAS)
 
-  end subroutine ufs_physics_to_mpas
+    ! Calculation of the surface pressure using hydrostatic assumption down to the surface.
+    ! (from mpas_atmphys_interface.F:MPAS_to_physics())
+    call mpas_pool_get_array(diag_pool,   'surface_pressure'      ,MPAS_state % surface_pressure)
+    do iCol = 1, nCellsSolve
+       tem1 = MPAS_state % zgrid(2,iCol) - MPAS_state % zgrid(1,iCol)
+       tem2 = MPAS_state % zgrid(3,iCol) - MPAS_state % zgrid(2,iCol)
+       rho1 = MPAS_state % rho_zz(1,iCol) * MPAS_state % zz(1,iCol) * (1. + MPAS_state % tracers(index_qv,1,iCol))
+       rho2 = MPAS_state % rho_zz(2,iCol) * MPAS_state % zz(2,iCol) * (1. + MPAS_state % tracers(index_qv,2,iCol))
+       MPAS_state % surface_pressure(iCol) = 0.5*gravity*(MPAS_state % zgrid(2,iCol) - MPAS_state % zgrid(1,iCol)) &
+            * (rho1 - 0.5*(rho2-rho1)*tem1/(tem1+tem2))
+       MPAS_state % surface_pressure(iCol) = MPAS_state % surface_pressure(iCol) + &
+                                             MPAS_state % pressure_p(1,iCol) + &
+                                             MPAS_state % pressure_b(1,iCol)
+    enddo
+
+    ! Housekeeping
+    nullify (state_pool)
+    nullify (mesh_pool)
+    nullify (diag_pool)
+
+  end subroutine ufs_microphysics_to_mpas
+
+  !> #########################################################################################
+  !> Procedure to convert of "MPAS" variables to "CCPP" variables.
+  !> Called prior to CCPP Microphysics Group.
+  !> 
+  !> Analogous to microphysics_from_MPAS in src/core_atmosphere/physics/mpas_atmphys_interface.F
+  !>
+  !> This procedure accesses MPAS data using MPAS native procedures and stores the data
+  !> locally in the data-containers defined above. The MPAS "state" is then translated to the
+  !> CCPP "state" needed by the microphysics.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_to_microphysics(physics_state)
+    use GFS_typedefs,         only : GFS_statein_type
+    ! Arguments
+    type(GFS_statein_type),   intent(inout) :: physics_state
+ 
+  end subroutine ufs_mpas_to_microphysics
 
   !> #########################################################################################
   !> Procedure to compute dry hydrostatic pressure at layer interfaces and midpoints.
@@ -251,6 +384,9 @@ contains
   !> or level in the fields.
   !>
   !> \update: Dustin Swales April 2025 - Modified for use in UWM
+  !>
+  !> DJS to GJF: We shouldn't need this once you port the MPAS_to_physics/MPAS_to_microphysics
+  !> routines from MPAS.
   !>
   !> ######################################################################################### 
   subroutine hydrostatic_pressure(nCells, nVertLevels, qsize, index_qv, zz, zgrid, rho_zz,   &
@@ -342,122 +478,90 @@ contains
     end do
   end subroutine hydrostatic_pressure
 
-  !> #########################################################################################
-  !> Procedure to retreieve MPAS domain decomposition <indicesGlobal>, for <varname>.
-  !> Called from atmos_model.F90:_init()
-  !>
-  !> #########################################################################################
-  subroutine get_mpas_pio_decomp(varname)
-    use mpas_kind_types,      only : StrKIND, RKIND
-    use mpas_pool_routines,   only : mpas_pool_get_field_info, mpas_pool_get_field
-    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_array
-    use mpas_pool_routines,   only : mpas_pool_get_dimension
-    use mpas_derived_types,   only : mpas_pool_field_info_type, field2DReal, field3DReal
+!> #########################################################################################
+!> Procedure to transfer MPAS grid information to physics DDTs.
+!>
+!> #########################################################################################
+  subroutine ufs_mpas_grid_to_physics(physics_grid)
+    use GFS_typedefs,         only : GFS_grid_type
     use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_dimension, mpas_pool_get_array, mpas_pool_get_config
+    use mpas_kind_types,      only : RKIND
+    use mpas_constants,       only : pii
+    use mpas_log,             only : mpas_log_write
+    use mpas_derived_types,   only : MPAS_LOG_ERR, MPAS_LOG_WARN
+    use mpp_mod,              only : mpp_error, FATAL
     ! Arguments
-    character(len=*), intent(in)  :: varname
+    type(GFS_grid_type),      intent(inout) :: physics_grid
     ! Locals
-    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::get_mpas_pio_decomp'
-    integer, dimension(:), pointer :: indexArray, indices
-    integer, pointer :: indexDimension
-    type (field2DReal), pointer :: field2d
-    type (field3DReal), pointer :: field3d
-    type (mpas_pool_field_info_type) :: fieldInfo
-    character (len=StrKIND) :: elementName, elementNamePlural
-    logical :: meshFieldDim, cellFieldDIm
-    integer :: i
+    type(mpas_pool_type), pointer :: mesh_pool
+    integer :: i, ierr
+    integer, pointer :: nCellsSolve
+    real(RKIND), pointer :: lat(:), lon(:), area(:), meshDensity(:)
+    
+    real(RKIND), pointer :: nominalMinDc
+    real(RKIND), pointer :: config_len_disp
+    real(RKIND)          :: rad2deg
+    
+    ierr = 0
+    rad2deg = 180.0_RKIND/pii
+    
+    ! Access MPAS data pools.
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh_pool)
+    
+    ! Get MPAS dimensions
+    call mpas_pool_get_dimension(mesh_pool,  'nCellsSolve', nCellsSolve)
+    
+    call mpas_pool_get_array(mesh_pool,  'latCell',                lat)
+    call mpas_pool_get_array(mesh_pool,  'lonCell',                lon)
+    call mpas_pool_get_array(mesh_pool,  'areaCell',               area)
+    call mpas_pool_get_array(mesh_pool,  'meshDensity',            meshDensity)
+    
+    ! (from mpas_atm_core.F/atm_core_init Determine horizontal length scale used by horizontal diffusion and 3-d divergence damping
+    nullify(nominalMinDc)
+    call mpas_pool_get_array(mesh_pool, 'nominalMinDc', nominalMinDc)
 
-    !
-    call mpas_pool_get_field_info(domain_ptr % blocklist % allFields, trim(varname), fieldInfo)
-    if (trim(varname) == 'scalars') then
-       nullify(field3d)
-       if (fieldInfo % nTimeLevels > 1) then
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d, &
-                                   timeLevel=fieldInfo % nTimeLevels )
-       else
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field3d)
-       endif
-       if ( field3d % isDecomposed ) then
-          meshFieldDim = .false.
-          cellFieldDIm = .false.
-          if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nCells') then
-             elementName = 'Cell'
-             elementNamePlural = 'Cells'
-             meshFieldDim = .true.
-             cellFieldDIm = .true.
-          else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-             elementName = 'Edge'
-             elementNamePlural = 'Edges'
-             meshFieldDim = .true.
-          else if (trim(field3d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-             elementName = 'Vertex'
-             elementNamePlural = 'Vertices'
-             meshFieldDim = .true.
-          end if
-       endif
-       nullify(field3d)
+    nullify(config_len_disp)
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'config_len_disp', config_len_disp)
+
+    ! If config_len_disp was specified as a valid value, use that
+    if (config_len_disp > 0.0_RKIND) then
+      ! But if nominalMinDc was available in the input file and is different, print a warning
+      if (nominalMinDc > 0.0_RKIND .and. abs(nominalMinDc - config_len_disp) > 1.0e-6_RKIND * config_len_disp) then
+        call mpas_log_write('nominalMinDc was read from input file as a positive value ($r) that differs', &
+                                realArgs=[nominalMinDc], messageType=MPAS_LOG_WARN)
+        call mpas_log_write('from the specified config_len_disp value ($r)', &
+                                realArgs=[config_len_disp], messageType=MPAS_LOG_WARN)
+      end if
+      nominalMinDc = config_len_disp
+    ! Otherwise, try to use nominalMinDc
     else
-       nullify(field2d)
-       if (fieldInfo % nTimeLevels > 1) then
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d, &
-                                   timeLevel=fieldInfo % nTimeLevels )
-       else
-          call mpas_pool_get_field(domain_ptr % blocklist % allFields, trim(varname), field2d)
-       endif
-       if ( field2d % isDecomposed ) then
-          meshFieldDim = .false.
-          cellFieldDIm = .false.
-          if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nCells') then
-             elementName = 'Cell'
-             elementNamePlural = 'Cells'
-             meshFieldDim = .true.
-             cellFieldDIm = .true.
-          else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nEdges') then
-             elementName = 'Edge'
-             elementNamePlural = 'Edges'
-             meshFieldDim = .true.
-          else if (trim(field2d % dimNames(fieldInfo % nDims)) == 'nVertices') then
-             elementName = 'Vertex'
-             elementNamePlural = 'Vertices'
-             meshFieldDim = .true.
-          end if
-       endif
-       nullify(field2d)
-    endif
-    !
-    if ( meshFieldDim ) then
-       allocate(indices(0))
-       call mpas_pool_get_array(domain_ptr % blocklist % allFields, 'indexTo' // &
-                                trim(elementName) // 'ID', indexArray)
-       call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions, 'n' //  &
-                                    trim(elementNamePlural) // 'Solve', indexDimension)
-       call mergeArrays(indices, indexArray(1:indexDimension))
-    endif
-    ! Save indices for P2D coupling in run phase(s).
-    if ( cellFieldDIm ) then
-       allocate(indicesGlobal(indexDimension))
-       indicesGlobal = indices
-    endif
+      if (nominalMinDc > 0.0_RKIND) then
+        call mpas_log_write('Setting config_len_disp to $r based on nominalMinDc value in input file', realArgs=[nominalMinDc])
+          config_len_disp = nominalMinDc
+      else
+        call mpas_log_write('Both config_len_disp and nominalMinDc are <= 0.0.', messageType=MPAS_LOG_ERR)
+        call mpas_log_write('Please either specify config_len_disp in the &nhyd_model namelist group,', &
+                                messageType=MPAS_LOG_ERR)
+        call mpas_log_write('or use an input file that provides a valid value for the nominalMinDc variable.', &
+                                messageType=MPAS_LOG_ERR)
+        ierr = 1
+      end if
+    end if
+    if (ierr/=0)  call mpp_error(FATAL, 'Call to ufs_mpas_grid_to_physics() failed')  
 
-  end subroutine get_mpas_pio_decomp
-  
-  subroutine mergeArrays(array1, array2)
-    implicit none
-    integer, dimension(:), pointer :: array1
-    integer, dimension(:), intent(in) :: array2
-    integer :: n1, n2
-    integer, dimension(:), pointer :: newArray
-
-    n1 = size(array1)
-    n2 = size(array2)
-
-    allocate(newArray(n1+n2))
-
-    newArray(1:n1) = array1(:)
-    newArray(n1+1:n1+n2) = array2(:)
-
-    deallocate(array1)
-    array1 => newArray
-  end subroutine mergeArrays
+    do i=1, nCellsSolve
+      physics_grid % xlat(i)   = lat(i)
+      physics_grid % xlon(i)   = lon(i)
+      physics_grid % xlat_d(i) = physics_grid % xlat(i) * rad2deg
+      physics_grid % xlon_d(i) = physics_grid % xlon(i) * rad2deg
+      physics_grid % sinlat(i) = sin(physics_grid % xlat(i))
+      physics_grid % coslat(i) = sqrt(1.0_RKIND - physics_grid % sinlat(i) * physics_grid % sinlat(i))
+      physics_grid % area(i)   = area(i)
+      !formula for dx comes from mpas_atmphys_driver_gwdo.F instead of sqrt(area) as in FV3
+      physics_grid % dx(i)     = config_len_disp / meshDensity(i)**0.25
+    end do
+    
+  end subroutine ufs_mpas_grid_to_physics
   
 end module atmos_coupling_mod

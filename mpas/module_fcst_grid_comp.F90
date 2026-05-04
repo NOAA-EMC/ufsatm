@@ -17,7 +17,7 @@ module module_fcst_grid_comp
                                 NO_CALENDAR, date_to_string, get_date, get_time
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
-                                atmos_model_microphysics
+                                atmos_model_microphysics, update_atmos_model_state
   use constants_mod,      only: constants_init
   use fms_mod,            only: error_mesg, fms_init, fms_end, write_version_number,        &
                                 uppercase
@@ -28,6 +28,7 @@ module module_fcst_grid_comp
   use diag_manager_mod,   only: diag_manager_init, diag_manager_end,                        &
                                 diag_manager_set_time_end
   use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar
+  use CCPP_data,          only: GFS_control
 
   implicit none
   private
@@ -74,6 +75,11 @@ contains
     ! Run Phase 1
     call ESMF_GridCompSetEntryPoint(fcst_comp, ESMF_METHOD_RUN, &
                                     userRoutine=fcst_run_phase_1, phase=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    ! Run Phase 2
+    call ESMF_GridCompSetEntryPoint(fcst_comp, ESMF_METHOD_RUN, &
+                                    userRoutine=fcst_run_phase_2, phase=2, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     ! Finalize
@@ -290,25 +296,105 @@ contains
     ! Locals
     integer             :: seconds
     real(kind=8)        :: mpi_wtime, tbeg1
-
-    ! Initialize ESMF error message. 
-    rc = ESMF_SUCCESS
-
-    ! Timing info (debug mode)
+    logical,save        :: first=.true.
+    integer,save        :: dt_cap=0
+    type(ESMF_Time)     :: currTime,stopTime
+    
+    ! Timing info.
     tbeg1 = mpi_wtime()
+
+    ! Initialize ESMF error message.
+    rc = ESMF_SUCCESS
+    
     call get_time(Atmos%Time - Atmos%Time_init, seconds)
     n_atmsteps = seconds/dt_atmos
+    
+    if (first) then
+       call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+       call ESMF_TimeIntervalGet(stopTime-currTime, s=dt_cap, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+       first=.false.
+    endif
+    
+    if ( dt_cap > 0 .and. mod(seconds, dt_cap) == 0 ) then
+       Atmos%isAtCapTime = .true.
+    else
+       Atmos%isAtCapTime = .false.
+    endif
+    
     ! Call forecast integration subroutines...
     call atmos_model_radiation_physics (Atmos)
     call atmos_model_dynamics (Atmos)
     call atmos_model_microphysics (Atmos)
-    
+    !call update_atmos_model_state(Atmos)
+
     ! Timing info (debug mode)
     if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS(fcstRUN phase 1), n_atmsteps = ', &
                                                n_atmsteps,' time is ',mpi_wtime()-tbeg1
   end subroutine fcst_run_phase_1
 
+  ! ###########################################################################################
+  ! Run phase(2) for the ESMF forecast grid component
+  ! ###########################################################################################
+  subroutine fcst_run_phase_2(fcst_comp, importState, exportState, clock, rc)
+    type(ESMF_GridComp) :: fcst_comp
+    type(ESMF_State)    :: importState, exportState
+    type(ESMF_Clock)    :: clock
+    integer,intent(out) :: rc
+
+    real(kind=8)                           :: mpi_wtime, tbeg1
+    integer                                :: FBCount, i
+    logical                                :: isPresent
+    character(len=esmf_maxstr),allocatable :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_FieldBundle)                 :: fcstExportFB
+    ! Timing info.
+    tbeg1 = mpi_wtime()
+
+    ! Initialize ESMF error message.
+    rc = ESMF_SUCCESS
+
+    call update_atmos_model_state(Atmos)
+
+    ! update fhzero
+    call ESMF_StateGet(exportState, itemCount=FBCount, rc=rc)
+
+    allocate (itemNameList(FBCount))
+    allocate (itemTypeList(FBCount))
+    call ESMF_StateGet(exportState, &
+                       itemNameList=itemNameList, &
+                       itemTypeList=itemTypeList, &
+                       rc=rc)
+    do i=1, FBcount
+       if (itemTypeList(i) == ESMF_STATEITEM_FIELDBUNDLE) then
+          call ESMF_StateGet(exportState, itemName=itemNameList(i), &
+                             fieldbundle=fcstExportFB, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          call ESMF_AttributeGet(fcstExportFB, convention="NetCDF", purpose="MPAS", &
+                                 name="fhzero", isPresent=isPresent, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          if (isPresent) then
+             call ESMF_AttributeSet(fcstExportFB, convention="NetCDF", purpose="FV3", name="fhzero", value=GFS_control%fhzero, rc=rc)
+             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          endif
+       else
+          !***### anything but a FieldBundle in the state is unexpected here
+          call ESMF_LogSetError(ESMF_RC_ARG_BAD,                                 &
+                                msg="Only FieldBundles supported in fcstState.", &
+                                line=__LINE__, file=__FILE__, rcToReturn=rc)
+          return
+       endif
+    enddo
+    
+    if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS: fcstRUN phase 2, n_atmsteps = ', &
+                                              n_atmsteps,' time is ',mpi_wtime()-tbeg1
+
+  end subroutine fcst_run_phase_2
   ! ###########################################################################################
   ! Finalize the ESMF forecast grid component.
   ! ###########################################################################################

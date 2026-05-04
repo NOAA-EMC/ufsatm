@@ -9,6 +9,7 @@ module atmos_model_mod
   use mpi_f08,               only : MPI_Comm, MPI_CHARACTER, MPI_INTEGER, MPI_REAL8, MPI_LOGICAL
   ! MPAS
   use MPAS_typedefs,         only : MPAS_kind_phys => kind_phys
+  use atmos_coupling_mod,    only : MPAS_statein_type, MPAS_stateout_type
   ! CCPP
   use CCPP_data,             only : UFSATM_control      => GFS_control
   use CCPP_data,             only : UFSATM_intdiag      => GFS_intdiag
@@ -27,8 +28,6 @@ module atmos_model_mod
   use time_manager_mod,      only : time_type, get_time, get_date, operator(+), operator(-)
   use field_manager_mod,     only : MODEL_ATMOS
   use tracer_manager_mod,    only : get_number_tracers, get_tracer_names, get_tracer_index
-  use fms_mod,               only : check_nml_error
-  use fms2_io_mod,           only : file_exists
   use mpp_mod,               only : input_nml_file, mpp_error, FATAL
   use mpp_mod,               only : mpp_pe, mpp_root_pe, mpp_clock_id, mpp_clock_begin
   use mpp_mod,               only : mpp_clock_end, CLOCK_COMPONENT, MPP_CLOCK_SYNC
@@ -36,8 +35,8 @@ module atmos_model_mod
   use fms_mod,               only : stdlog
   use mpp_mod,               only : stdout
   ! UFSATM
-  use module_mpas_config,    only : pio_numiotasks, nCellsGlobal, ic_filename, lbc_filename
-  use module_mpas_config,    only : lonCellGlobal, latCellGlobal, areaCellGlobal
+  use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
+  use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
   use module_mpas_config,    only : pi
   use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
@@ -53,6 +52,7 @@ module atmos_model_mod
   public :: atmos_model_radiation_physics
   public :: atmos_model_microphysics
   public :: atmos_model_dynamics
+  public :: update_atmos_model_state
 
   !> #########################################################################################
   !> Type containing information on MPAS enabled UFSATM forecast.
@@ -62,27 +62,32 @@ module atmos_model_mod
      type(time_type)  :: Time       ! current time
      type(time_type)  :: Time_step  ! atmospheric time step.
      type(time_type)  :: Time_init  ! reference time.
+     logical          :: isAtCapTime ! true if currTime is at the cap driverClock's currTime 
      integer          :: nblks      ! Number of physics blocks.
   end type atmos_control_type
   
-  ! Index map between MPAS tracers and CAM constituents
-  integer, dimension(:), pointer :: mpas_from_ufs_cnst => null() ! indices into UFS constituent array
   ! Index map between MPAS tracers and UFS constituents
+  integer, dimension(:), pointer :: mpas_from_ufs_cnst => null() ! indices into UFS constituent array
+  ! Index map between UFS tracers and MPAS constituents
   integer, dimension(:), pointer :: ufs_from_mpas_cnst => null() ! indices into MPAS tracers array  
   
   ! Namelist
   integer :: blocksize    = 1
   logical :: dycore_only  = .false.
   logical :: debug        = .false.
+  logical :: regional     = .false.
 
-  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename
+  namelist /atmos_model_nml/ blocksize, dycore_only, debug, ccpp_suite, ic_filename, lbc_filename, &
+       regional
 
   ! Component Timers
-  integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock
+  integer :: setupClock, radClock, physClock, mpasClock, mpClock, atmiClock, outClock
 
   ! DJS2025: For UFS WM RTs unitl output is setup for MPAS.
   integer, parameter :: mpas_logfile_handle = 42323
-  
+
+  type(MPAS_statein_type)  :: MPAS_statein
+  type(MPAS_stateout_type) :: MPAS_stateout
 contains
   !> #########################################################################################
   !> Procedure to initialize UWM ATMosphere with MPAS dynamical core.
@@ -98,13 +103,12 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_init(Atmos, Time_init, Time, Time_end, Time_step, mpicomm, calendar)
-    use ufs_mpas_subdriver, only : MPAS_control_type
-    use ufs_mpas_subdriver, only : ufs_mpas_init_phase1, ufs_mpas_init_phase2
-    use ufs_mpas_subdriver, only : ufs_mpas_open_init
-    use ufs_mpas_subdriver, only : dyn_mpas_read_write_stream, ufs_mpas_define_scalars
-    use ufs_mpas_subdriver, only : constituent_name, is_water_species
-    use atmos_coupling_mod, only : ufs_mpas_to_physics, get_mpas_pio_decomp
-    use MPAS_init,          only : MPAS_initialize
+    use ufs_mpas_subdriver,     only : MPAS_control_type
+    use ufs_mpas_subdriver,     only : ufs_mpas_init
+    use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc
+    use ufs_mpas_constituents,  only : constituent_name, is_water_species
+    use atmos_coupling_mod,     only : ufs_mpas_to_physics, ufs_mpas_grid_to_physics
+    use MPAS_init,              only : MPAS_initialize
 
     ! Arguments
     type(atmos_control_type), intent(inout) :: Atmos
@@ -116,6 +120,7 @@ contains
     integer :: i, io, ierr, nConstituents, sec, iCol
     type(MPAS_control_type) :: Cfg
     integer :: times(6), timee(6), ttime, logUnits(2), nthrds
+    logical :: file_exists
     
     ! Set up timers
     setupClock = mpp_clock_id( 'Time-Step Setup       ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
@@ -124,14 +129,17 @@ contains
     physClock  = mpp_clock_id( 'Physics               ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
     mpasClock  = mpp_clock_id( 'MPAS Dycore           ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
     mpClock    = mpp_clock_id( 'Microphysics          ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
+    outClock   = mpp_clock_id( 'MPAS Output           ', flags=clock_flag_default, grain=CLOCK_COMPONENT )
 
     ! Start timer for this procedure (init).
     call mpp_clock_begin(atmiClock)
 
-    ! Set model time
+    ! Set atmospheric model time.
+    Atmos % isAtCapTime = .false.
     Atmos % Time_init = Time_init
     Atmos % Time      = Time
     Atmos % Time_step = Time_step
+    
     call get_time (Atmos % Time_step, sec)
     Cfg%dt_phys   = real(sec)
     
@@ -146,21 +154,41 @@ contains
     Cfg%mpi_comm  = mpicomm
     
     ! Read in ATMosphere namelist.
-    if (file_exists('input.nml')) then
-       read(input_nml_file, nml=atmos_model_nml, iostat=io)
-       ierr = check_nml_error(io, 'atmos_model_nml')
+    inquire(file = 'input.nml', exist=file_exists)
+    if (file_exists) then
+       read(input_nml_file, nml=atmos_model_nml, iostat=ierr)
+       if (ierr/=0)  call mpp_error(FATAL, 'ERROR When Reading in ATM Namelist')
     endif
 
-    ! Get tracer name(s) and type(s).
+    !
+    ! Handle constituents (scalars/tracers)
+    !
+
+    ! Get constituent name(s) and type(s).
+    ! Active constituents are defined in the FMS "field_table".
     call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
     allocate (Cfg % tracer_names(Cfg % nConstituents), Cfg % tracer_types(Cfg % nConstituents))
     do i = 1, Cfg % nConstituents
        call get_tracer_names(MODEL_ATMOS, i, Cfg % tracer_names(i))
     enddo
     call get_atmos_tracer_types(Cfg % tracer_types)
+
+    ! Get number of water species.
+    ! DJS Asks? With FV3, this is set during dycore initialization. How do we get this information
+    ! here? Does MPAS have a routine for this?
+    !
+    ! It would be simple, albeit not the most elegant thing, but we could create a simple routine
+    ! that has a list of "known MPAS water species" and compare each "tracer_name" to that.
+    ! A more robust solution IMO would be to quiery the field table entries for a "water-species"
+    ! attribute, or something along those lines. Actually, I think this is straightforward if we
+    ! extend ../ufsatm_util.F90.
     
-    ! DJS2025: There are 9 tracers, but only 6 are water. How do we get to 6?
-    ! With FV3, this is set during dycore initialization. Set and Revisit later.
+    !
+    ! From field_tables:
+    ! For RRFS   MPAS we have: 11 water tracers (ql,qc,qi,qr,qs,qg,nc,nc,ni,nr,ng)
+    !                           2 prog. tracers (o3,sgs-tke)
+    ! For GFSv17 MPAS we have:  6 water species (ql,qc,qi,qr,qs,qg)
+    !                           4 prog. tracers (o3,sgs-tke,cld_amt,sigma_b)
     Cfg % nwat = 6
 
     call get_number_tracers(MODEL_ATMOS, num_tracers=Cfg % nConstituents)
@@ -171,10 +199,15 @@ contains
     is_water_species(:) = .false.
     is_water_species(1:Cfg % nwat) = .true.
 
-    ! Open (PIO) MPAS IC data file.
+    ! Open (PIO) MPAS Initial Condition (IC) file.
     call ufs_mpas_open_init()
-    
-    ! Call MPAS initialization phase 1.
+
+    ! Open (PIO) MPAS Lateral Boundary Condition (LBC) file.
+    if (regional) then
+       call ufs_mpas_open_lbc()
+    endif
+
+    ! Call MPAS initialization.
     ! - Set up MPAS framework
     ! - Read in MPAS namelists
     ! - Set up MPAS logging
@@ -190,30 +223,13 @@ contains
        logunits(2) = mpas_logfile_handle
     endif
 
-    call ufs_mpas_init_phase1(Cfg, times, timee, ttime, calendar, logUnits)
+    call ufs_mpas_init(Cfg, times, timee, ttime, calendar, logUnits, mpas_from_ufs_cnst, ufs_from_mpas_cnst)
 
-    call ufs_mpas_define_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
-    if (ierr /= 0) then
-       call mpp_error(FATAL,'ERROR: Set-up of constituents for MPAS-A dycore failed.')
-    end if
-
-    ! Read in MPAS IC data. Populate MPAS data containers and MPAS "input" stream.
-    call dyn_mpas_read_write_stream( 'r', 'input-scalars')
-
-    ! Complete the MPAS dycore initialization.
-    ! - Set up threading.
-    ! - Call MPAS core_atmosphere init.
-    call ufs_mpas_init_phase2(Cfg)
-    
     !> #########################################################################################
     !> #########################################################################################
     !> END MPAS DYCORE INITIALIZATION
     !> #########################################################################################
     !> #########################################################################################
-
-    ! Set domain decomposition needed for P2D step
-    ! Use 'theta', but any MPAS field defined on the cell center will work.
-    call get_mpas_pio_decomp('theta')
 
     !> #########################################################################################
     !> #########################################################################################
@@ -229,14 +245,14 @@ contains
     Cfg%nlunit = stdlog()
     
     ! Number of physics blocks
-    Atmos % nblks = nCellsGlobal / blocksize
-    if (mod(nCellsGlobal, blocksize) .gt. 0) Atmos % nblks = Atmos % nblks + 1
-    
+    Atmos % nblks = nCellsSolve / blocksize
+    if (mod(nCellsSolve, blocksize) .gt. 0) Atmos % nblks = Atmos % nblks + 1
+
     ! Physics block sizes.
     Cfg % nblks = Atmos % nblks
     allocate(Cfg % blksz(Atmos % nblks))
     Cfg % blksz(:) = blocksize
-    Cfg % blksz(Atmos % nblks) = nCellsGlobal - (Atmos % nblks - 1)*blocksize
+    Cfg % blksz(Atmos % nblks) = nCellsSolve - (Atmos % nblks - 1)*blocksize
 
     allocate(UFSATM_interstitial(nthrds+1))
     
@@ -254,18 +270,21 @@ contains
     ! Read in physics namelist and allocate data containers.
     call MPAS_initialize(UFSATM_control, UFSATM_intdiag, UFSATM_grid, UFSATM_tbd, UFSATM_sfcprop, &
          UFSATM_statein, UFSATM_stateout, UFSATM_cldprop, UFSATM_radtend, UFSATM_coupling, Cfg)
-
-    ! Get longitude/latitude/area from MPAS to use in the physics.
-    UFSATM_grid % xlon   = lonCellGlobal
-    UFSATM_grid % xlat   = latCellGlobal
-    UFSATM_grid % xlon_d = lonCellGlobal*180./pi
-    UFSATM_grid % xlat_d = latCellGlobal*180./pi
-    UFSATM_grid % area   = areaCellGlobal
+    
+    call ufs_mpas_grid_to_physics(UFSATM_grid)
 
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
-    ! we are calling the physics before the dynamical core.
-    call ufs_mpas_to_physics(UFSATM_statein)
-    
+    ! we are calling the physics before the MPAS dynamical core.
+    !
+    ! DJS to GJF: See fcst_run_phase_1 in module_fcst_grid_comp.F90. That is where we call the
+    ! "pieces" of the Atmospheric timestep defined below.
+    ! Since we are calling the radiation/physics first, we need to take the MPAS Initial state
+    ! and map it to the physics data containers (e.g. Typdefs). We will use a similar routine
+    ! in a different "piece" later, but copying the Updated state from the dycore before calling
+    ! the microphsyics.
+    !
+    call ufs_mpas_to_physics(UFSATM_statein, UFSATM_sfcprop)
+
     ! Initialize the CCPP framework
     call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP init step failed')
@@ -285,7 +304,7 @@ contains
   end subroutine atmos_model_init
 
   !> #########################################################################################
-  !> Procedure to finalize model.
+  !> Procedure to finalize atmospheric forecast.
   !>
   !> #########################################################################################
   subroutine atmos_model_end(Atmos)
@@ -306,30 +325,41 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_radiation_physics(Atmos)
+    use atmos_coupling_mod,     only : ufs_mpas_to_physics
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
+
+    ! Populate physics inputs with MPAS data.
+    call ufs_mpas_to_physics(UFSATM_statein, UFSATM_sfcprop)
 
     ! Call CCPP Timestep_initialize Group
     call mpp_clock_begin(setupClock)
     call CCPP_step (step="timestep_init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_init step failed')
     call mpp_clock_end(setupClock)
-    
+
     ! Call CCPP Radiation Group
     call mpp_clock_begin(radClock)
     if (UFSATM_control%lsswr .or. UFSATM_control%lslwr) then
+       ! DJS to GJF: If you un comment this line, you will get an error in the RRTMG radiation.
+       ! Needless to say, I didn't see why, but I assume it is due to one of the many instances
+       ! that we will need to identify as being FV3/MPAS specifc. Mostly in the Typedefs I suspect,
+       ! but there may be interstitial schemes (NOTE that I added an new MPAS specific interstital file
+       ! already, GFS_rad_time_vary.mpas.F90. I don't think it is complete.
+       ! 
        !call CCPP_step (step="radiation", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
        if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP radiation step failed')
     endif
     call mpp_clock_end(radClock)
 
     ! Call CCPP Physics Group
+    ! NOT YET IMPLEMENTED in SDF
     call mpp_clock_begin(physClock)
     call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP physics step failed')
     call mpp_clock_end(physClock)
-    
+
   end subroutine atmos_model_radiation_physics
 
   !> #########################################################################################
@@ -338,21 +368,17 @@ contains
   !> #########################################################################################
   subroutine atmos_model_dynamics(Atmos)
     use ufs_mpas_subdriver, only : ufs_mpas_run
-    use atmos_coupling_mod, only : ufs_physics_to_mpas, ufs_mpas_to_physics
+    use atmos_coupling_mod, only : ufs_physics_to_mpas
     use MPAS_init,          only : MPAS_initialize
     
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
-    call ufs_physics_to_mpas(UFSATM_stateout)
+    ! NOT YET IMPLEMENTED
+    call ufs_physics_to_mpas()
     
     ! Call MPAS dycore
-    call mpp_clock_begin(mpasClock)
-    call ufs_mpas_run()
-    call mpp_clock_end(mpasClock)
-
-    ! Prepare CCPP physics inputs with MPAS dycore outputs.
-    call ufs_mpas_to_physics(UFSATM_statein)
+    call ufs_mpas_run(mpasClock, outClock)
     
   end subroutine atmos_model_dynamics
 
@@ -361,11 +387,17 @@ contains
   !>
   !> #########################################################################################
   subroutine atmos_model_microphysics(Atmos)
+    use atmos_coupling_mod, only : ufs_mpas_to_microphysics, ufs_microphysics_to_mpas
     type (atmos_control_type), intent(inout) :: Atmos
     ! Locals
     integer :: ierr
-    
+
+    ! Prepare CCPP physics inputs with MPAS dycore outputs.
+    ! NOT YET IMPLEMENTED
+    call ufs_mpas_to_microphysics(UFSATM_statein)
+
     ! Call CCPP Microphysics Group
+    ! NOT YET IMPLEMENTED in SDF
     call mpp_clock_begin(mpClock)
     call CCPP_step (step="microphysics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP microphysics step failed')
@@ -377,6 +409,20 @@ contains
     if (ierr/=0)  call mpp_error(FATAL, 'Call to CCPP timestep_finalize step failed')
     call mpp_clock_end(setupClock)
 
+    ! Prepare MPAS dycore inputs with CCPP physics outputs.
+    call ufs_microphysics_to_mpas(UFSATM_stateout)
+
   end subroutine atmos_model_microphysics
-  
+
+  !> #########################################################################################
+  !> Procedure to advance the model forecast time
+  !>
+  !> #########################################################################################
+  subroutine update_atmos_model_state(Atmos)
+    type (atmos_control_type), intent(inout) :: Atmos
+
+    ! Advance time
+    Atmos % Time = Atmos % Time + Atmos % Time_step
+  end subroutine update_atmos_model_state
+
 end module atmos_model_mod
