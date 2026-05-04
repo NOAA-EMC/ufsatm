@@ -32,10 +32,11 @@ module atmos_model_mod
   use module_mpas_config,    only : nCellsGlobal, ic_filename, lbc_filename, nCellsSolve
   use module_mpas_config,    only : stream_list_history, stream_list_restart, stream_list_diag
   use module_mpas_config,    only : lonCell, latCell, areaCellGlobal
-  use module_mpas_config,    only : pi, mpas_errfile_handle, mpas_logfile_handle
+  use module_mpas_config,    only : mpas_errfile_funit, mpas_errfilename
+  use module_mpas_config,    only : mpas_logfile_funit, mpas_logfilename
   use module_mpas_config,    only : nml_filename, nml_funit
   use module_mpas_config,    only : tracer_funit, tracer_filename
-  use module_mpas_config,    only : dt_atmos
+  use module_mpas_config,    only : pi, dt_atmos
   use mod_ufsatm_util,       only : get_atmos_tracer_types
 #ifdef _OPENMP
   use omp_lib
@@ -121,14 +122,19 @@ contains
     ! Start timer for this procedure (init).
     start_time = MPI_Wtime()
 
+    ! Set MPI bookeeping parameters.
+    Cfg%master    = 0
+    Cfg%mpi_comm  = mpicomm
+    call MPI_Comm_rank(MPI_COMM_WORLD, Cfg%me, ierr)
+ 
     ! Open log files.
-    logunits(1) = mpas_logfile_handle
-    logunits(2) = mpas_errfile_handle
     if (Cfg % master == Cfg % me) then
-       open(unit=mpas_logfile_handle, file='mpas_log.txt', action='write', status='unknown')
-       open(unit=mpas_errfile_handle, file='mpas_err.txt', action='write', status='unknown')
+       open(newunit=mpas_logfile_funit, file=trim(mpas_logfilename), action='write', status='unknown')
+       open(newunit=mpas_errfile_funit, file=trim(mpas_errfilename), action='write', status='unknown')
+       logunits(1) = mpas_logfile_funit
+       logunits(2) = mpas_errfile_funit
     endif
-    
+
     ! Set atmospheric model time.
     Atmos % isAtCapTime = .false.
     Atmos % StartTime = StartTime
@@ -144,11 +150,6 @@ contains
 
     ! Set forecast time interval
     call ESMF_TimeIntervalSet(Atmos % timeStep, s=dt_atmos, rc=rc)
-
-    ! Set MPI bookeeping parameters.
-    Cfg%master    = 0
-    Cfg%mpi_comm  = mpicomm
-    call MPI_Comm_rank(MPI_COMM_WORLD, Cfg%me, ierr)
     
     !
     ! Read in ATMosphere namelist (master processor only)
@@ -156,10 +157,12 @@ contains
     if ( Cfg%me == Cfg%master) then
        inquire(file = trim(nml_filename), exist=file_exists)
        if (file_exists) then
-          close(nml_funit)
-          open(nml_funit,file=trim(nml_filename),status='unknown')
+          open(newunit=nml_funit,file=trim(nml_filename),status='unknown')
           read(nml_funit, nml=atmos_model_nml, iostat=ierr)
-          if (ierr/=0) call mpas_log_write(subname // " ERROR: When Reading in ATM Namelist",messageType=MPAS_LOG_CRIT)
+          if (ierr/=0) then
+             print*,'ERROR: When Reading in ATM Namelist'
+             stop
+          endif
        endif
     end if
     ! Broadcast ATMosphere namelist to all processors.
@@ -188,11 +191,19 @@ contains
     enddo
 
     ! Open (PIO) MPAS Initial Condition (IC) file.
-    call ufs_mpas_open_init()
+    call ufs_mpas_open_init(ierr)
+    if (ierr/=0) then
+       print*,'ERROR: Could not open MPAS IC file'
+       stop
+    end if
 
     ! Open (PIO) MPAS Lateral Boundary Condition (LBC) file.
     if (regional) then
-       call ufs_mpas_open_lbc()
+       call ufs_mpas_open_lbc(ierr)
+       if (ierr/=0) then
+          print*,'ERROR: Could not open MPAS LBC file'
+          stop
+       endif
     endif
 
     ! Call MPAS initialization.
@@ -309,8 +320,8 @@ contains
     call mpas_log_write('CCPP Microphysics:         '// stringify([mpClock]))
     call mpas_log_write('MPAS Output                '// stringify([outClock]))
     call mpas_log_write('------------------------------------------------------------------')
-    close(unit=mpas_logfile_handle)
-    close(unit=mpas_errfile_handle)
+    close(unit=mpas_logfile_funit)
+    close(unit=mpas_errfile_funit)
   end subroutine atmos_model_end
 
   !> #########################################################################################
@@ -435,15 +446,15 @@ contains
   !>
   !> #########################################################################################
   subroutine get_number_tracers(funit, fname, flines)
-    integer,          intent(in)  :: funit
-    character(len=*), intent(in)  :: fname
-    integer,          intent(out) :: flines
+    integer,          intent(inout) :: funit
+    character(len=*), intent(in)    :: fname
+    integer,          intent(out)   :: flines
     character(len=1) :: dummy
     integer :: status
 
     ! Get number of lines (tracers) in file
     flines = 0
-    open(funit,file=trim(fname),status='unknown')
+    open(newunit=funit,file=trim(fname),status='unknown')
     do 
        read(funit, "(a)",iostat=status) dummy
        if (status /= 0) exit
@@ -457,10 +468,10 @@ contains
   !>
   !> #########################################################################################
   subroutine get_tracer_names(funit, fname, ntracers, nwat)
-    integer,          intent(in)  :: funit
-    character(len=*), intent(in)  :: fname
-    integer,          intent(in)  :: ntracers
-    integer,          intent(out) :: nwat
+    integer,          intent(inout) :: funit
+    character(len=*), intent(in)    :: fname
+    integer,          intent(in)    :: ntracers
+    integer,          intent(out)   :: nwat
 
     integer :: itracer, status
     character(len=10) :: tracer_name
@@ -471,7 +482,7 @@ contains
 
     nwat = 0
     is_water_species(:) = .false.
-    open(funit,file=trim(fname),status='unknown')
+    open(newunit=funit,file=trim(fname),status='unknown')
     do itracer=1,ntracers
        read(funit, "(a10,a,a40,a,a10,a,i1)",iostat=status) tracer_name,c1,tracer_long_name,c2,tracer_unit,c3,tracer_type
        constituent_name(itracer) = tracer_name

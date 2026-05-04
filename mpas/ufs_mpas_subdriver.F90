@@ -141,11 +141,11 @@ contains
 
     ! Setup MPAS infrastructure
     allocate(corelist, stat=ierr)
-    if ( ierr /= 0 ) call mpas_log_write(subname // " failed to allocate corelist array", messageType=MPAS_LOG_CRIT)
+    !if ( ierr /= 0 ) call mpas_log_write(subname // " failed to allocate corelist array", messageType=MPAS_LOG_CRIT)
     nullify(corelist % next)
 
     allocate(corelist % domainlist, stat=ierr)
-    if ( ierr /= 0 ) call mpas_log_write(subname // " failed to allocate corelist%domainlist%next", messageType=MPAS_LOG_CRIT)
+    !if ( ierr /= 0 ) call mpas_log_write(subname // " failed to allocate corelist%domainlist%next", messageType=MPAS_LOG_CRIT)
     nullify(corelist % domainlist % next)
 
     domain_ptr => corelist % domainlist
@@ -840,8 +840,7 @@ contains
        inquire(file = trim(nml_filename), exist=file_exists)
        if (file_exists) then
           call mpas_log_write('Reading MPAS-A dynamical core namelist')
-          close(nml_funit)
-          open(nml_funit,file=trim(nml_filename),status='unknown')
+          open(newunit=nml_funit,file=trim(nml_filename),status='unknown')
           ! nhyd_model
           read(nml_funit, nml=mpas_nhyd_model, iostat=io)
           if (io .ne. 0) call mpas_log_write(subname // ' Reading in MPAS namelist mpas_nhyd_model',messageType=MPAS_LOG_CRIT)

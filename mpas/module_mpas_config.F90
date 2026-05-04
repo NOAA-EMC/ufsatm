@@ -73,13 +73,15 @@ module module_mpas_config
   
   !> MPAS tracer file (via UFSATM NML)
   character(len=256) :: tracer_filename="tracer_table"
-  integer, parameter :: tracer_funit = 68
+  integer :: tracer_funit
 
   !> UFSATM namelist filename
   character(len=256) :: nml_filename = "input.nml"
-  integer, parameter :: nml_funit = 67
-  integer, parameter :: mpas_errfile_handle = 42324
-  integer, parameter :: mpas_logfile_handle = 42323
+  integer :: nml_funit
+  character(len=256) :: mpas_errfilename = "mpas_err.log"
+  integer :: mpas_errfile_funit
+  character(len=256) :: mpas_logfilename = "mpas_out.log"
+  integer :: mpas_logfile_funit
 
   
   !> PIO

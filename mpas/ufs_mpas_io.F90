@@ -296,25 +296,18 @@ contains
   !> Procedure to open MPAS IC file.
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_open_init()
+  subroutine ufs_mpas_open_init(ierr)
     use pio, only : pio_openfile, pio_nowrite
-    ! Arguments
-    ! Locals
-    integer :: ierr
+    integer, intent(out) :: ierr
     logical :: file_exists
-    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_open_init'
 
     ! Open MPAS Initial Condition file.
+    ierr = 0
     INQUIRE(FILE=ic_filename, EXIST=file_exists)
     if (file_exists) then
        ierr = pio_openfile(pio_subsystem_ic, pioid_ic, pio_iotype, ic_filename, pio_nowrite)
-       if (ierr /= 0) then
-          call mpas_log_write(subname // " Opening initial condition file", &
-                              messageType=MPAS_LOG_CRIT)
-       end if
     else
-       call mpas_log_write(subname // " Initial condition file could not be found", &
-                           messageType=MPAS_LOG_CRIT)
+       ierr = -1
     end if
     
   end subroutine ufs_mpas_open_init
@@ -323,25 +316,18 @@ contains
   !> Procedure to open MPAS Lateral Boundary Condition file.
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_open_lbc()
+  subroutine ufs_mpas_open_lbc(ierr)
     use pio, only : pio_openfile, pio_nowrite
-    ! Arguments
-    ! Locals
-    integer :: ierr
+    integer, intent(out) :: ierr
     logical :: file_exists
-    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_open_lbc'
 
     ! Open MPAS Initial Condition file.
+    ierr = 0
     INQUIRE(FILE=lbc_filename, EXIST=file_exists)
     if (file_exists) then
        ierr = pio_openfile(pio_subsystem_lbc, pioid_lbc, pio_iotype, lbc_filename, pio_nowrite)
-       if (ierr /= 0) then
-          call mpas_log_write(subname // " Opening lateral boundary condition file", &
-                              messageType=MPAS_LOG_CRIT)
-       end if
     else
-       call mpas_log_write(subname // " Lateral boundary condition file could not be found", &
-                           messageType=MPAS_LOG_CRIT)
+       ierr = -1
     end if
 
   end subroutine ufs_mpas_open_lbc
