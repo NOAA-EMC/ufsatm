@@ -1140,11 +1140,12 @@ module post_fv3
 
             ! foundation temperature
             if(trim(fieldname)=='tref') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst,fillValue)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,fdnsst,fillValue,sm)
               do j=jsta,jend
                 do i=ista, iend
                   fdnsst(i,j) = arrayr42d(i,j)
                   if (abs(arrayr42d(i,j)-fillValue) < small) fdnsst(i,j)=spval
+                  if (sm(i,j) == 0.0) fdnsst(i,j)=spval
                 enddo
               enddo
             endif
