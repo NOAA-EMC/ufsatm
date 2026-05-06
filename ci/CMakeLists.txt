@@ -1,9 +1,23 @@
-# This file is used by fv3atm's root CMakeLists.txt when BUILD_TESTING=ON. It is
-# used for CI runs and is based on the ufs-weather-model root CMakeLists.txt. It
-# cannot be built directly, and should not be used for compiling for general R&D
-# or operations.
+# This file is used by fv3atm's root CMakeLists.txt when
+# BUILD_UFSATM_TESTING=ON. It is used to build the ufsatm code in standalone
+# mode for running unit tests. This file is based on the relevant configuration
+# provided by ufs-weather-model's root CMakeLists.txt.
 #
 # Alex Richert, 6 Dec 2023
+
+set(CMakeModules_ref 69049ec0c26b3160c3dbe1980b2feb78470a37a6)
+message(STATUS "Downloading CMakeModules@${CMakeModules_ref}...")
+
+include(FetchContent)
+FetchContent_Declare(
+    CMakeModules
+    GIT_REPOSITORY https://github.com/NOAA-EMC/CMakeModules.git
+    GIT_TAG ${CMakeModules_ref}
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/CMakeModules"
+)
+FetchContent_MakeAvailable(CMakeModules)
+
+message(STATUS "CMakeModules downloaded successfully")
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMakeModules/Modules)
 
@@ -76,4 +90,17 @@ find_package(w3emc 2.9.2 REQUIRED)
 
 find_package(Python 3.6 REQUIRED COMPONENTS Interpreter)
 
-add_subdirectory(stochastic_physics_repo)
+# Download stochastic_physics
+set(stochastic_physics_ref ae192f119b8614b4476a1b04ba55f6fb93e2953d)
+message(STATUS "Downloading stochastic_physics@${stochastic_physics_ref}...")
+
+include(FetchContent)
+FetchContent_Declare(
+    stochastic_physics
+    GIT_REPOSITORY https://github.com/NOAA-PSL/stochastic_physics
+    GIT_TAG ${stochastic_physics_ref}
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/stochastic_physics"
+)
+FetchContent_MakeAvailable(stochastic_physics)
+
+message(STATUS "stochastic_physics downloaded successfully")
