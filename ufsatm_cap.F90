@@ -68,7 +68,7 @@ module ufsatm_cap_mod
 #ifdef UFS_TRACING
   use ufs_trace_mod
 #endif
-  use shr_is_restart_fh_mod, only : init_is_restart_fh, is_restart_fh, is_restart_fh_type
+  use shr_is_restart_fh_mod, only : init_is_restart_fh, is_restart_fh_type
 
   implicit none
   private
@@ -1716,6 +1716,7 @@ module ufsatm_cap_mod
     call ESMF_ClockSet(mclock, timeStep=mtimestep, stopTime=mstoptime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+#ifdef MPAS
     ! Setup MPAS output stream times.
     call ESMF_TimeIntervalGet( dtimestep, s=dtime, rc=rc )
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1740,7 +1741,7 @@ module ufsatm_cap_mod
 
     ! Setup MPAS da stream times.
     ! NOT YET IMPLEMENTED
-
+#endif
   end subroutine ModelSetRunClock
 
 !-----------------------------------------------------------------------------

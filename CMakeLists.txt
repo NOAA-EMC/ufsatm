@@ -189,6 +189,7 @@ if (FV3)
     ${moving_nest_srcs}
     ${cdeps_inline_srcs}
     ${POST_SRC}
+    ${ufs_srcs}
     )
   add_dependencies(${DYCORE_TARGET} fv3 fv3ccpp stochastic_physics)
 
