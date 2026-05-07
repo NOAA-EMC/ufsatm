@@ -18,7 +18,7 @@ module module_cap_cpl
   contains
 
     !> @brief Diagnose coupling fields
-    !> 
+    !>
     !> @param[in] gcomp ESMF GridComp object
     !> @param[in] clock_fv3 ESMF Clock object of current time
     !> @param[in] fcstpe  Logical flag if this is the forecast PE
@@ -43,16 +43,19 @@ module module_cap_cpl
       type(ESMF_Time) :: currTime
       type(ESMF_State) :: state
       type(ESMF_TimeInterval) :: timeStep
-      character(len=240) :: import_timestr, export_timestr
+      character(len=15)  :: import_timestr, export_timestr
       character(len=160) :: nuopcMsg
       character(len=160) :: filename
+      integer            :: iyear, imonth, iday, ihour, iminute, isecond
 !
       call ESMF_ClockGet(clock_fv3, currTime=currTime, timeStep=timestep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_TimeGet(currTime, timestring=import_timestr, rc=rc)
+      call ESMF_TimeGet(currTime+timestep,yy=iyear,mm=imonth,dd=iday,h=ihour,m=iminute,s=isecond, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_TimeGet(currTime+timestep, timestring=export_timestr, rc=rc)
+      write(import_timestr, "(I4.4,I2.2,I2.2,'.',I2.2,I2.2,I2.2)") iyear,imonth,iday,ihour,iminute,isecond
+      call ESMF_TimeGet(currTime,yy=iyear,mm=imonth,dd=iday,h=ihour,m=iminute,s=isecond, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      write(export_timestr, "(I4.4,I2.2,I2.2,'.',I2.2,I2.2,I2.2)") iyear,imonth,iday,ihour,iminute,isecond
 
       call ESMF_ClockPrint(clock_fv3, options="currTime", preString="current time: ", unit=nuopcMsg)
       call ESMF_LogWrite(trim(subname)//' '//trim(state_tag)//' '//trim(nuopcMsg), ESMF_LOGMSG_INFO)
@@ -312,7 +315,7 @@ module module_cap_cpl
     end subroutine State_RWFields_tiles
 
   !> @brief Get diagnostic statistics for fields
-  !> 
+  !>
   !> @param[in] State Fields to diagnose
   !> @param[in] string String to add for logging
   !> @param[out] rc Return code
