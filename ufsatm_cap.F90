@@ -1720,7 +1720,7 @@ module ufsatm_cap_mod
     ! Setup MPAS output stream times.
     call ESMF_TimeIntervalGet( dtimestep, s=dtime, rc=rc )
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    call init_is_restart_fh(mcurrTime, dtime, .false., outputfh_info, stream='output_fh')
+    call init_is_restart_fh(mcurrTime, dtime, .false., outputfh_info, key='output_fh')
     allocate(mpas_output_times(size(outputfh_info%restartFhTimes)))
     do ifout =1,size(outputfh_info%restartFhTimes)
        mpas_output_times(ifout)%t = outputfh_info%restartFhTimes(ifout)
