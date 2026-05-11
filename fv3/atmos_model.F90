@@ -640,7 +640,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    call get_atmos_tracer_types(tracer_types)
 !--- setup Init_parm
    Init_parm%me              =  mpp_pe()
-   Init_parm%master          =  mpp_root_pe()
+   Init_parm%master          =  0
    Init_parm%fcst_mpi_comm   =  fcst_mpi_comm
    Init_parm%fcst_ntasks     =  fcst_ntasks
    Init_parm%tile_num        =  tile_num
