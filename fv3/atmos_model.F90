@@ -1931,7 +1931,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,ngrids,rc)
 
     ! put the data from local cubed sphere grid to column grid for phys
     add2FB = .false.
-    dataptr = -GFS_control%huge
+    dataptr = zero
     mergeflg = .false.
     call ESMF_FieldGet(importFields(n), dimCount=dimCount ,typekind=datatype, name=impfield_name, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -2131,7 +2131,7 @@ subroutine assign_importdata(atmtime,atmtimestep,isregional,ngrids,rc)
         if (trim(impfield_name) == trim(fldname)) then
           if (importFieldsValid(queryImportFields(fldname))) then
             call copy2block(GFS_Sfcprop%albdirvis_ice, dataptr, mask=GFS_Sfcprop%oceanfrac)
-            if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get get albedo for visible dir radiation from mediator'
+            if (mpp_pe() == mpp_root_pe() .and. debug)  print *,'fv3 assign_import: get albedo for visible dir radiation from mediator'
           endif
         endif
       endif ! GFS_control%use_cice_alb
