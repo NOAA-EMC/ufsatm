@@ -981,6 +981,10 @@ module GFS_typedefs
     logical              :: top_at_1                !< Vertical ordering flag.
     integer              :: iSFC                    !< Vertical index for surface
     integer              :: iTOA                    !< Vertical index for TOA
+    logical              :: is_init_lw_gas_optics   = .false.  !< flag to denote whether LW radiation gas optics have been initialized
+    logical              :: is_init_sw_gas_optics   = .false.  !< flag to denote whether SW radiation gas optics have been initialized
+    logical              :: is_init_lw_cloud_optics = .false.  !< flag to denote whether LW radiation cloud optics have been initialized
+    logical              :: is_init_sw_cloud_optics = .false.  !< flag to denote whether SW radiation cloud optics have been initialized
 
 !--- microphysical switch
     logical              :: convert_dry_rho = .true.       !< flag for converting mass/number concentrations from moist to dry
