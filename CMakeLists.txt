@@ -249,7 +249,10 @@ if (MPAS)
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )
-  add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
+  add_dependencies(${DYCORE_TARGET} mpas mpasccpp stochastic_physics)
+  target_include_directories(${DYCORE_TARGET} PRIVATE
+    ${CMAKE_BINARY_DIR}/stochastic_physics/mod
+  )
 
   if(NOT MPAS_GIT_VERSION)
     find_package(Git QUIET)
@@ -298,6 +301,7 @@ endif()
 if (MPAS)
   target_link_libraries(${DYCORE_TARGET} PUBLIC mpas
                                          mpasccpp
+                                         stochastic_physics
 					 fms)
 endif()
 

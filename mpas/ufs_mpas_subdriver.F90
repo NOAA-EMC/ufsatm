@@ -363,6 +363,7 @@ contains
     use mpas_attlist,               only : mpas_modify_att
     use mpas_string_utils,          only : mpas_string_replace
     use mpas_field_routines,        only : mpas_allocate_scratch_field
+    use mpas_stochastic_physics,    only : stochastic_physics_pattern_init, dosppt
     ! Arguments
     type(mpas_control_type), intent(inout) :: Cfg
     type(mpas_pool_type), pointer :: tend_physics_pool
@@ -525,6 +526,15 @@ contains
     call mpas_log_write('Initializing the dynamics')
     call mpas_atm_dynamics_init(domain_ptr)
 
+    ! init stochastic pattern generation
+    if (dosppt(domain_ptr)) then
+       call stochastic_physics_pattern_init(domain_ptr, ierr)
+       if (ierr /= 0) then
+          call mpas_log_write('Failed stochastic_physics_pattern_init call')
+          return
+       end if
+    endif
+
     call mpas_log_write('Successful initialization of MPAS dynamical core')
 
   end subroutine ufs_mpas_atm_core_init
@@ -552,6 +562,7 @@ contains
     ! FMS
     use mpp_mod,              only : FATAL, mpp_error
     use mpp_mod,              only : mpp_clock_begin, mpp_clock_end
+    use mpas_stochastic_physics, only : stochastic_physics_pattern_adv, dosppt
     ! Arguments
     integer, intent(inout) :: mpasClock, outClock
     ! Locals
@@ -661,6 +672,11 @@ contains
              end if
           end if
        end if
+
+       ! Update stochastic physics pattern
+       if (dosppt(domain_ptr)) then
+          call stochastic_physics_pattern_adv(domain_ptr, itimestep, ierr)
+       endif
 
        ! Integrate forward one dycore time step
        call mpas_timer_start('time integration')
@@ -795,6 +811,21 @@ contains
     logical                 :: mpas_print_global_minmax_vel        = .true.
     logical                 :: mpas_print_detailed_minmax_vel      = .true.
     logical                 :: mpas_print_global_minmax_sca        = .true.
+    ! Namelist nam_stochy
+    logical                 :: mpas_do_sppt                        = .false.
+    logical                 :: mpas_do_skeb                        = .false.
+    integer                 :: mpas_spptint                        = 0
+    real(r8)                :: mpas_sppt_1                         = 0.0
+    real(r8)                :: mpas_sppt_2                         = 0.0
+    real(r8)                :: mpas_sppt_3                         = 0.0
+    real(r8)                :: mpas_sppt_tau_1                     = 21600.
+    real(r8)                :: mpas_sppt_tau_2                     = 86400.
+    real(r8)                :: mpas_sppt_tau_3                     = 21600.
+    real(r8)                :: mpas_sppt_lscale_1                  = 500000.
+    real(r8)                :: mpas_sppt_lscale_2                  = 1000000.
+    real(r8)                :: mpas_sppt_lscale_3                  = 2000000.
+    logical                 :: mpas_sppt_logit                     = .true.
+    logical                 :: mpas_sppt_sfclimit                  = .true.
 
     namelist /mpas_nhyd_model/ mpas_time_integration, mpas_time_integration_order, mpas_dt,   &
          mpas_split_dynamics_transport, mpas_number_of_sub_steps, mpas_dynamics_split_steps,  &
@@ -824,7 +855,11 @@ contains
     !
     namelist /mpas_printout/ mpas_print_global_minmax_vel, mpas_print_detailed_minmax_vel,    &
          mpas_print_global_minmax_sca
-
+    !
+    namelist /mpas_nam_stochy/ mpas_do_sppt, mpas_do_skeb, mpas_spptint, mpas_sppt_1,         &
+         mpas_sppt_2, mpas_sppt_3, mpas_sppt_tau_1, mpas_sppt_tau_2, mpas_sppt_tau_3,         &
+         mpas_sppt_lscale_1, mpas_sppt_lscale_2, mpas_sppt_lscale_3, mpas_sppt_logit,         &
+         mpas_sppt_sfclimit
     ! These configuration parameters must be set in the MPAS configPool, but can't be changed
     ! in UFS. *From CAM src/dynamics/mpas/dyn_comp.F90*
     integer                :: config_num_halos = 2
@@ -863,6 +898,9 @@ contains
        ! printout
        read(input_nml_file, nml=mpas_printout, iostat=io)
        ierr = check_nml_error(io, 'mpas_printout')
+       ! nam_stochy
+       read(input_nml_file, nml=mpas_nam_stochy, iostat=io)
+       ierr = check_nml_error(io, 'mpas_nam_stochy')
     endif
 
     ! Other processors waiting...
@@ -929,7 +967,21 @@ contains
     call mpi_bcast(mpas_print_global_minmax_vel,        1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_detailed_minmax_vel,      1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_global_minmax_sca,        1, mpi_logical,   master, mpicomm, mpierr)
-
+    !
+    call mpi_bcast(mpas_do_sppt,                        1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_do_skeb,                        1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_spptint,                        1, mpi_integer,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_1,                         1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_2,                         1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_3,                         1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_tau_1,                     1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_tau_2,                     1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_tau_3,                     1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_lscale_1,                  1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_lscale_2,                  1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_lscale_3,                  1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_sfclimit,                  1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_logit,                     1, mpi_logical,   master, mpicomm, mpierr)
     !
     ! Set MPAS configuration information pool variables
     !
@@ -991,6 +1043,21 @@ contains
     call mpas_pool_add_config(configPool, 'config_print_global_minmax_vel',        mpas_print_global_minmax_vel)
     call mpas_pool_add_config(configPool, 'config_print_detailed_minmax_vel',      mpas_print_detailed_minmax_vel)
     call mpas_pool_add_config(configPool, 'config_print_global_minmax_sca',        mpas_print_global_minmax_sca)
+    !
+    call mpas_pool_add_config(configPool, 'do_sppt',                               mpas_do_sppt)
+    call mpas_pool_add_config(configPool, 'do_skeb',                               mpas_do_skeb)
+    call mpas_pool_add_config(configPool, 'config_spptint',                        mpas_spptint)
+    call mpas_pool_add_config(configPool, 'config_sppt_1',                         real(mpas_sppt_1))
+    call mpas_pool_add_config(configPool, 'config_sppt_2',                         real(mpas_sppt_2))
+    call mpas_pool_add_config(configPool, 'config_sppt_3',                         real(mpas_sppt_3))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_1',                     real(mpas_sppt_tau_1))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_2',                     real(mpas_sppt_tau_2))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_3',                     real(mpas_sppt_tau_3))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_1',                  real(mpas_sppt_lscale_1))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_2',                  real(mpas_sppt_lscale_2))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_3',                  real(mpas_sppt_lscale_3))
+    call mpas_pool_add_config(configPool, 'config_sppt_logit',                     mpas_sppt_logit)
+    call mpas_pool_add_config(configPool, 'config_sppt_sfclimit',                  mpas_sppt_sfclimit)
 
     ! Set some configuration parameters that cannot be changed by UFSATM. *From CAM src/dynamics/mpas/dyn_comp.F90*
     call mpas_pool_add_config(configPool, 'config_num_halos',                      config_num_halos)
@@ -1052,6 +1119,21 @@ contains
        call mpas_log_write('   mpas_print_global_minmax_vel        = '//log2str(mpas_print_global_minmax_vel))
        call mpas_log_write('   mpas_print_detailed_minmax_vel      = '//log2str(mpas_print_detailed_minmax_vel))
        call mpas_log_write('   mpas_print_global_minmax_sca        = '//log2str(mpas_print_global_minmax_sca))
+       call mpas_log_write('----------------------------- stochastic physics namelist -------------------------------')
+       call mpas_log_write('   do_sppt                             = '//log2str(mpas_do_sppt))
+       call mpas_log_write('   do_skeb                             = '//log2str(mpas_do_skeb))
+       call mpas_log_write('   mpas_spptint                        = '//int2str(mpas_spptint))
+       call mpas_log_write('   mpas_sppt_1                         = '//int2str(int(mpas_sppt_1)))
+       call mpas_log_write('   mpas_sppt_2                         = '//int2str(int(mpas_sppt_2)))
+       call mpas_log_write('   mpas_sppt_3                         = '//int2str(int(mpas_sppt_3)))
+       call mpas_log_write('   mpas_sppt_tau_1                     = '//int2str(int(mpas_sppt_tau_1)))
+       call mpas_log_write('   mpas_sppt_tau_2                     = '//int2str(int(mpas_sppt_tau_2)))
+       call mpas_log_write('   mpas_sppt_tau_3                     = '//int2str(int(mpas_sppt_tau_3)))
+       call mpas_log_write('   mpas_sppt_lscale_1                  = '//int2str(int(mpas_sppt_lscale_1)))
+       call mpas_log_write('   mpas_sppt_lscale_2                  = '//int2str(int(mpas_sppt_lscale_2)))
+       call mpas_log_write('   mpas_sppt_lscale_3                  = '//int2str(int(mpas_sppt_lscale_3)))
+       call mpas_log_write('   mpas_sppt_logit                     = '//log2str(mpas_sppt_logit))
+       call mpas_log_write('   mpas_sppt_sfclimit                  = '//log2str(mpas_sppt_sfclimit))
     end if
  end subroutine read_mpas_namelist
 
