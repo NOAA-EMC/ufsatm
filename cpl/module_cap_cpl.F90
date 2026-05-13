@@ -1,10 +1,14 @@
+!> @file
+!> @brief This module contains the the debug subroutines for fv3 coupled run
+!> @author Jun Wang
+!>
+!> ## Module History
+!>
+!> Date | Programmer | Modification
+!> -----|------------|-------------
+!> 12 Mar 2018 | J. Wang | Pull coupled subroutines from fv3_cap.F90 to this module
+
 module module_cap_cpl
-!
-!*** this module contains the debug subroutines for fv3 coupled run
-!
-! revision history
-!  12 Mar 2018: J. Wang       Pull coupled subroutines from fv3_cap.F90 to this module
-!
   use ESMF
 
   implicit none
@@ -13,9 +17,17 @@ module module_cap_cpl
   public diagnose_cplFields
   contains
 
-  !-----------------------------------------------------------------------------
-  !-----------------------------------------------------------------------------
-
+    !> @brief Diagnose coupling fields
+    !>
+    !> @param[in] gcomp ESMF GridComp object
+    !> @param[in] clock_fv3 ESMF Clock object of current time
+    !> @param[in] fcstpe  Logical flag if this is the forecast PE
+    !> @param[in] statewrite_flag  Logical to enable writing to files
+    !> @param[in] stdiagnose_flag Integer controlling output
+    !> @param[in] state_tag Set to import or export
+    !> @param[out] rc Return code
+    !>
+    !> @author
     subroutine diagnose_cplFields(gcomp, clock_fv3, fcstpe, &
                                   statewrite_flag, stdiagnose_flag, state_tag, rc)
 
@@ -31,16 +43,19 @@ module module_cap_cpl
       type(ESMF_Time) :: currTime
       type(ESMF_State) :: state
       type(ESMF_TimeInterval) :: timeStep
-      character(len=240) :: import_timestr, export_timestr
+      character(len=15)  :: import_timestr, export_timestr
       character(len=160) :: nuopcMsg
       character(len=160) :: filename
+      integer            :: iyear, imonth, iday, ihour, iminute, isecond
 !
       call ESMF_ClockGet(clock_fv3, currTime=currTime, timeStep=timestep, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_TimeGet(currTime, timestring=import_timestr, rc=rc)
+      call ESMF_TimeGet(currTime+timestep,yy=iyear,mm=imonth,dd=iday,h=ihour,m=iminute,s=isecond, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_TimeGet(currTime+timestep, timestring=export_timestr, rc=rc)
+      write(import_timestr, "(I4.4,I2.2,I2.2,'.',I2.2,I2.2,I2.2)") iyear,imonth,iday,ihour,iminute,isecond
+      call ESMF_TimeGet(currTime,yy=iyear,mm=imonth,dd=iday,h=ihour,m=iminute,s=isecond, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      write(export_timestr, "(I4.4,I2.2,I2.2,'.',I2.2,I2.2,I2.2)") iyear,imonth,iday,ihour,iminute,isecond
 
       call ESMF_ClockPrint(clock_fv3, options="currTime", preString="current time: ", unit=nuopcMsg)
       call ESMF_LogWrite(trim(subname)//' '//trim(state_tag)//' '//trim(nuopcMsg), ESMF_LOGMSG_INFO)
@@ -79,9 +94,15 @@ module module_cap_cpl
 
     end subroutine diagnose_cplFields
 
-  !-----------------------------------------------------------------------------
-
-  ! This subroutine requires ESMFv8 - for coupled FV3
+    !> @brief Write fields out to NetCDF files
+    !>
+    !> This subroutine requires ESMFv8 - for coupled FV3
+    !>
+    !> @param[in] state Fields to write
+    !> @param[in] filename Filename
+    !> @param[out] rc Return code
+    !>
+    !> @author
     subroutine State_RWFields_tiles(state,filename,rc)
 
       type(ESMF_State), intent(in)          :: state
@@ -254,6 +275,13 @@ module module_cap_cpl
 
     contains
 
+      !> @brief Find axis ID for given axis number and dimension
+      !>
+      !> @param[in] axis Axis number
+      !> @param[in] count Dimension length
+      !> @result id Axis ID
+      !>
+      !> @author
       function find_axis_id_for_axis_count(axis, count) result(id)
         integer, intent(in) :: axis, count
 
@@ -286,8 +314,13 @@ module module_cap_cpl
 
     end subroutine State_RWFields_tiles
 
-  !-----------------------------------------------------------------------------
-
+  !> @brief Get diagnostic statistics for fields
+  !>
+  !> @param[in] State Fields to diagnose
+  !> @param[in] string String to add for logging
+  !> @param[out] rc Return code
+  !>
+  !> @author
   subroutine state_diagnose(State,string, rc)
     ! ----------------------------------------------
     ! Diagnose status of state
@@ -371,6 +404,5 @@ module module_cap_cpl
 
   end subroutine state_diagnose
 
-  !-----------------------------------------------------------------------------
 
 end module module_cap_cpl

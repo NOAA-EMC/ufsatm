@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_2017_satmedmfq" version="1">
+<suite name="FV3_HAFS_v1_gfdlmp_tedmf_ntiedtke" version="1">
   <!-- <init></init> -->
+  <group name="fast_physics">
+    <subcycle loop="1">
+      <scheme>fv_sat_adj</scheme>
+    </subcycle>
+  </group>
   <group name="time_vary">
     <subcycle loop="1">
       <scheme>GFS_time_vary_pre</scheme>
@@ -12,22 +17,18 @@
   </group>
   <group name="radiation">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_rad_reset</scheme>
       <scheme>GFS_rrtmg_pre</scheme>
       <scheme>GFS_radiation_surface</scheme>
       <scheme>rad_sw_pre</scheme>
       <scheme>rrtmg_sw</scheme>
       <scheme>rrtmg_sw_post</scheme>
-      <scheme>rrtmg_lw_pre</scheme>
       <scheme>rrtmg_lw</scheme>
       <scheme>rrtmg_lw_post</scheme>
-      <scheme>GFS_rrtmg_post</scheme>
+      <scheme>GFS_radiation_post</scheme>
     </subcycle>
   </group>
-  <group name="physics">
+  <group name="phys_ps">
     <subcycle loop="1">
-      <scheme>GFS_suite_interstitial_phys_reset</scheme>
-      <scheme>GFS_suite_stateout_reset</scheme>
       <scheme>get_prs_fv3</scheme>
       <scheme>GFS_suite_interstitial_1</scheme>
       <scheme>GFS_surface_generic_pre</scheme>
@@ -57,27 +58,27 @@
       <scheme>satmedmfvdifq</scheme>
       <scheme>GFS_PBL_generic_post</scheme>
       <scheme>GFS_GWD_generic_pre</scheme>
-      <scheme>cires_ugwp</scheme>
-      <scheme>cires_ugwp_post</scheme>
+      <scheme>unified_ugwp</scheme>
+      <scheme>unified_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
-      <scheme>GFS_suite_stateout_update</scheme>
-      <scheme>ozphys</scheme>
+    </subcycle>
+  </group>
+  <group name="phys_ts">
+    <subcycle loop="1">
+      <scheme>GFS_photochemistry</scheme>
+      <scheme>GFS_photochemistry_post</scheme>
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
-      <scheme>GFS_DCNV_generic_pre</scheme>
-      <scheme>samfdeepcnv</scheme>
+      <scheme>cu_ntiedtke_pre</scheme>
+      <scheme>cu_ntiedtke</scheme>
       <scheme>GFS_DCNV_generic_post</scheme>
-      <scheme>GFS_SCNV_generic_pre</scheme>
-      <scheme>samfshalcnv</scheme>
-      <scheme>GFS_SCNV_generic_post</scheme>
       <scheme>GFS_suite_interstitial_4</scheme>
       <scheme>cnvc90</scheme>
-      <scheme>GFS_MP_generic_pre</scheme>
-      <scheme>zhaocarr_gscond</scheme>
-      <scheme>zhaocarr_precpd</scheme>
+      <scheme>gfdl_cloud_microphys</scheme>
       <scheme>GFS_MP_generic_post</scheme>
+      <scheme>cu_ntiedtke_post</scheme>
       <scheme>maximum_hourly_diagnostics</scheme>
-      <scheme>phys_tend</scheme>
+      <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
   <group name="stochastics">

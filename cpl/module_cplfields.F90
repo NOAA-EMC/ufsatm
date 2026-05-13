@@ -1,9 +1,7 @@
-module module_cplfields
+!> @file
+!> @brief This module contains the fv3 Coupling Fields: export and import
 
-  !-----------------------------------------------------------------------------
-  ! This module contains the fv3 Coupling Fields: export and import
-  !
-  !-----------------------------------------------------------------------------
+module module_cplfields
 
   use ESMF
   use NUOPC
@@ -13,7 +11,14 @@ module module_cplfields
   private
 
   type, public :: FieldInfo
-    character(len=41) :: name
+    character(len=41) :: name !< Standard name
+    !> Field type
+    !> Field types should be provided according to the table below:
+    !>    g : soil levels (3D)
+    !>    i : interface (3D)
+    !>    l : model levels (3D)
+    !>    s : surface (2D)
+    !>    t : tracers (4D)
     character(len=1) :: type
   end type
 
@@ -26,9 +31,10 @@ module module_cplfields
   !  l : model levels (3D)
   !  s : surface (2D)
   !  t : tracers (4D)
-  integer,          public, parameter :: NexportFields = 121
-  type(ESMF_Field), target, public    :: exportFields(NexportFields)
+  integer,          public, parameter :: NexportFields = 98 !< Total number of export fields
+  type(ESMF_Field), target, public    :: exportFields(NexportFields) !< ESMF array for export fields
 
+  !> ESMF array for export fields
   type(FieldInfo), dimension(NexportFields), public, parameter :: exportFieldsInfo = [ &
     FieldInfo("inst_pres_interface                      ", "i"), &
     FieldInfo("inst_pres_levels                         ", "l"), &
@@ -127,43 +133,18 @@ module module_cplfields
     FieldInfo("surface_friction_velocity                ", "s"), &
     ! FieldInfo("fraction_of_vegetation_category          ", "s"), &
     ! FieldInfo("number_of_vegetation_categories          ", "s"), &
-
-
-    !  For JEDI
-    ! dynamics
-    FieldInfo("u                                        ", "l"), &
-    FieldInfo("v                                        ", "l"), &
-    FieldInfo("ua                                       ", "l"), &
-    FieldInfo("va                                       ", "l"), &
-    FieldInfo("t                                        ", "l"), &
-    FieldInfo("delp                                     ", "l"), &
-    FieldInfo("sphum                                    ", "l"), &
-    FieldInfo("ice_wat                                  ", "l"), &
-    FieldInfo("liq_wat                                  ", "l"), &
-    FieldInfo("o3mr                                     ", "l"), &
-    FieldInfo("phis                                     ", "s"), &
-    FieldInfo("u_srf                                    ", "s"), &
-    FieldInfo("v_srf                                    ", "s"), &
-    ! physics
-    FieldInfo("slmsk                                    ", "s"), &
-    FieldInfo("weasd                                    ", "s"), &
-    FieldInfo("tsea                                     ", "s"), &
-    FieldInfo("vtype                                    ", "s"), &
-    FieldInfo("stype                                    ", "s"), &
     FieldInfo("vfrac                                    ", "s"), &
-    FieldInfo("stc                                      ", "g"), &
-    FieldInfo("smc                                      ", "g"), &
-    FieldInfo("snwdph                                   ", "s"), &
-    FieldInfo("f10m                                     ", "s"), &
     FieldInfo("zorl                                     ", "s"), &
-    FieldInfo("t2m                                      ", "s"), &
     FieldInfo("cpl_scalars                              ", "s")]
 
 ! Import Fields ----------------------------------------
-  integer,          public, parameter :: NimportFields = 67 + 3 + 5 !IVAI: add 3 inst_tracer_diag
+  !> Number of import fields (IVAI: add 3 inst_tracer_diag)
+  integer,          public, parameter :: NimportFields = 42 + 3 + 5
+  !> Logicals to inidicate if field is valid
   logical,          public            :: importFieldsValid(NimportFields)
+  !> ESMF array for import fields
   type(ESMF_Field), target, public    :: importFields(NimportFields)
-
+  !> ESMF array for export fields
   type(FieldInfo), dimension(NimportFields), public, parameter :: importFieldsInfo = [ &
     FieldInfo("inst_tracer_mass_frac                    ", "t"), &
     FieldInfo("land_mask                                ", "s"), &
@@ -220,41 +201,12 @@ module module_cplfields
     FieldInfo("inst_drag_mass_flux_for_heat_and_moisture", "s"), &
     FieldInfo("inst_func_of_roughness_length_and_vfrac  ", "s"), &
 
-    !  For JEDI
-    ! dynamics
-    FieldInfo("u                                        ", "l"), &
-    FieldInfo("v                                        ", "l"), &
-    FieldInfo("ua                                       ", "l"), &
-    FieldInfo("va                                       ", "l"), &
-    FieldInfo("t                                        ", "l"), &
-    FieldInfo("delp                                     ", "l"), &
-    FieldInfo("sphum                                    ", "l"), &
-    FieldInfo("ice_wat                                  ", "l"), &
-    FieldInfo("liq_wat                                  ", "l"), &
-    FieldInfo("o3mr                                     ", "l"), &
-    FieldInfo("phis                                     ", "s"), &
-    FieldInfo("u_srf                                    ", "s"), &
-    FieldInfo("v_srf                                    ", "s"), &
-    ! physics
-    FieldInfo("slmsk                                    ", "s"), &
-    FieldInfo("weasd                                    ", "s"), &
-    FieldInfo("tsea                                     ", "s"), &
-    FieldInfo("vtype                                    ", "s"), &
-    FieldInfo("stype                                    ", "s"), &
-    FieldInfo("vfrac                                    ", "s"), &
-    FieldInfo("stc                                      ", "g"), &
-    FieldInfo("smc                                      ", "g"), &
-    FieldInfo("snwdph                                   ", "s"), &
-    FieldInfo("f10m                                     ", "s"), &
-    FieldInfo("zorl                                     ", "s"), &
-    FieldInfo("t2m                                      ", "s"), &
-
     ! For FIRE
     FieldInfo("hflx_fire                                ", "s"), &
     FieldInfo("evap_fire                                ", "s"), &
     FieldInfo("smoke_fire                               ", "s") ]
 
-! Fields exported exclusively for coupling with chemistry
+!> Fields exported exclusively for coupling with chemistry
   character(*), public, parameter :: chemistryFieldNames(*) = [ &
     "inst_pres_interface             ", &
     "inst_pres_levels                ", &
@@ -298,9 +250,13 @@ module module_cplfields
   public cplFieldGet
   public realizeConnectedCplFields
 
-!-----------------------------------------------------------------------------
   contains
-!-----------------------------------------------------------------------------
+  !> @brief Search field name in export list and return index
+  !>
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
+  !>
+  !> @author
   integer function queryExportFields(fieldname, abortflag)
 
     character(len=*),intent(in) :: fieldname
@@ -310,8 +266,12 @@ module module_cplfields
 
   end function queryExportFields
 
-!-----------------------------------------------------------------------------
-
+  !> @brief Search field name in import list and return index
+  !>
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
+  !>
+  !> @author
   integer function queryImportFields(fieldname, abortflag)
 
     character(len=*),intent(in) :: fieldname
@@ -321,8 +281,13 @@ module module_cplfields
 
   end function queryImportFields
 
-!-----------------------------------------------------------------------------
-
+  !> @brief Search field name in a list and return index
+  !>
+  !> @param[in] fieldsInfo List of fields
+  !> @param[in] fieldname Field name
+  !> @param[in] abortflag Flag to abort if field not found
+  !>
+  !> @author
   integer function queryFieldList(fieldsInfo, fieldname, abortflag)
     ! returns integer index of first found fieldname in fieldlist
     ! by default, will abort if field not found, set abortflag to false
@@ -359,8 +324,14 @@ module module_cplfields
     endif
   end function queryFieldList
 
-!-----------------------------------------------------------------------------
-
+  !> @brief Get field list and count from import or export coupling state
+  !>
+  !> @param[in] state Set to either import (i) or export (o)
+  !> @param[in] fieldList List of fields
+  !> @param[out] fieldCount Field counter
+  !> @param[out] rc Return code
+  !>
+  !> @author
   subroutine cplStateGet(state, fieldList, fieldCount, rc)
 
     character(len=*), intent(in)            :: state
@@ -387,8 +358,17 @@ module module_cplfields
 
   end subroutine cplStateGet
 
-!-----------------------------------------------------------------------------
-
+  !> @brief Get pointer to field data from import or export coupling state
+  !>
+  !> @param[in] state Set to either import (i) or export (o)
+  !> @param[in] name Field name
+  !> @param[in] localDe Local decomp index
+  !> @param[in] farrayPtr2d Pointer for 2D field array
+  !> @param[in] farrayPtr3d Pointer for 3D field array
+  !> @param[in] farrayPtr4d Pointer for 4D field array
+  !> @param[out] rc Return code
+  !>
+  !> @author
   subroutine cplFieldGet(state, name, localDe, &
                          farrayPtr2d, farrayPtr3d, farrayPtr4d, rc)
 
@@ -457,7 +437,20 @@ module module_cplfields
 
   end subroutine cplFieldGet
 
-
+  !> @brief Realize ESMF fields for connected coupling fields
+  !>
+  !> @param[inout] state Set to either import (i) or export (o)
+  !> @param[in] grid ESMF grid object
+  !> @param[in] numLevels Number of vertical levels
+  !> @param[in] numSoilLayers Number of soil layers
+  !> @param[in] numTracers Number of tracers
+  !> @param[in] fields_info List of fields
+  !> @param[in] state_tag Define import or export
+  !> @param[out] fieldList List of fields
+  !> @param[in] fill_value Value to initialize new fields
+  !> @param[out] rc Return code
+  !>
+  !> @author
   subroutine realizeConnectedCplFields(state, grid, &
                                        numLevels, numSoilLayers, numTracers, &
                                        fields_info, state_tag, fieldList, fill_value, rc)
@@ -581,8 +574,22 @@ module module_cplfields
 
   end subroutine realizeConnectedCplFields
 
-!-----------------------------------------------------------------------------
-
+  !> @brief Add metadata to field
+  !> @details This subroutine implements a preliminary method to provide
+  !>   metadata to a coupled model that is accessing the field via reference
+  !>   sharing (NUOPC SharedStatusField=.true.). The method sets a
+  !>   (key, values) pair in the field's array ESMF_Info object to retrieve
+  !>   an array of strings encoding metadata.
+  !>   Such a capability should be implemented in the standard NUOPC connector
+  !>   for more general applications, possibly providing access to the field's
+  !>   ESMF_Info object.
+  !>
+  !> @param[in] field Attach metadata to this field
+  !> @param[in] key Metadata key name
+  !> @param[in] values Metadata values
+  !> @param[out] rc Return code
+  !>
+  !> @author
   subroutine addFieldMetadata(field, key, values, rc)
 
     ! This subroutine implements a preliminary method to provide metadata to
@@ -616,7 +623,5 @@ module module_cplfields
     if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__, rcToReturn=rc)) return
 
   end subroutine addFieldMetadata
-!
-!------------------------------------------------------------------------------
-!
+
 end module module_cplfields
