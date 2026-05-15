@@ -828,6 +828,12 @@ contains
     real(r8)                :: mpas_sppt_lscale_3                  = 2000000.
     logical                 :: mpas_sppt_logit                     = .true.
     logical                 :: mpas_sppt_sfclimit                  = .true.
+    character (len=StrKIND) :: mpas_iseed_sppt1                    = '2026010112001'
+    character (len=StrKIND) :: mpas_iseed_sppt2                    = '0'
+    character (len=StrKIND) :: mpas_iseed_sppt3                    = '0'
+    real(r8)                :: mpas_sppt_hgt_top1                  = 15000
+    real(r8)                :: mpas_sppt_hgt_top2                  = 27000
+    logical                 :: mpas_stochini                       = .false.
 
     namelist /mpas_nhyd_model/ mpas_time_integration, mpas_time_integration_order, mpas_dt,   &
          mpas_split_dynamics_transport, mpas_number_of_sub_steps, mpas_dynamics_split_steps,  &
@@ -861,7 +867,8 @@ contains
     namelist /mpas_nam_stochy/ mpas_do_sppt, mpas_do_skeb, mpas_spptint, mpas_sppt_1,         &
          mpas_sppt_2, mpas_sppt_3, mpas_sppt_tau_1, mpas_sppt_tau_2, mpas_sppt_tau_3,         &
          mpas_sppt_lscale_1, mpas_sppt_lscale_2, mpas_sppt_lscale_3, mpas_sppt_logit,         &
-         mpas_sppt_sfclimit
+         mpas_sppt_sfclimit, mpas_iseed_sppt1, mpas_iseed_sppt2, mpas_iseed_sppt3,            &
+         mpas_sppt_hgt_top1, mpas_sppt_hgt_top2, mpas_stochini
     ! These configuration parameters must be set in the MPAS configPool, but can't be changed
     ! in UFS. *From CAM src/dynamics/mpas/dyn_comp.F90*
     integer                :: config_num_halos = 2
@@ -984,6 +991,12 @@ contains
     call mpi_bcast(mpas_sppt_lscale_3,                  1, mpi_real8,     master, mpicomm, mpierr)
     call mpi_bcast(mpas_sppt_sfclimit,                  1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_sppt_logit,                     1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_iseed_sppt1,              StrKIND, mpi_character, master, mpicomm, mpierr)
+    call mpi_bcast(mpas_iseed_sppt2,              StrKIND, mpi_character, master, mpicomm, mpierr)
+    call mpi_bcast(mpas_iseed_sppt3,              StrKIND, mpi_character, master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_hgt_top1,                  1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_sppt_hgt_top2,                  1, mpi_real8,     master, mpicomm, mpierr)
+    call mpi_bcast(mpas_stochini,                       1, mpi_logical,   master, mpicomm, mpierr)
     !
     ! Set MPAS configuration information pool variables
     !
@@ -1060,7 +1073,13 @@ contains
     call mpas_pool_add_config(configPool, 'config_sppt_lscale_3',                  real(mpas_sppt_lscale_3))
     call mpas_pool_add_config(configPool, 'config_sppt_logit',                     mpas_sppt_logit)
     call mpas_pool_add_config(configPool, 'config_sppt_sfclimit',                  mpas_sppt_sfclimit)
-
+    call mpas_pool_add_config(configPool, 'config_iseed_sppt1',                    mpas_iseed_sppt1)
+    call mpas_pool_add_config(configPool, 'config_iseed_sppt2',                    mpas_iseed_sppt2)
+    call mpas_pool_add_config(configPool, 'config_iseed_sppt3',                    mpas_iseed_sppt3)
+    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top1',                  real(mpas_sppt_hgt_top1))
+    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top2',                  real(mpas_sppt_hgt_top2))
+    call mpas_pool_add_config(configPool, 'config_stochini',                       mpas_stochini)
+    
     ! Set some configuration parameters that cannot be changed by UFSATM. *From CAM src/dynamics/mpas/dyn_comp.F90*
     call mpas_pool_add_config(configPool, 'config_num_halos',                      config_num_halos)
     call mpas_pool_add_config(configPool, 'config_number_of_blocks',               config_number_of_blocks)
@@ -1136,6 +1155,12 @@ contains
        call mpas_log_write('   mpas_sppt_lscale_3                  = '//int2str(int(mpas_sppt_lscale_3)))
        call mpas_log_write('   mpas_sppt_logit                     = '//log2str(mpas_sppt_logit))
        call mpas_log_write('   mpas_sppt_sfclimit                  = '//log2str(mpas_sppt_sfclimit))
+       call mpas_log_write('   mpas_iseed_sppt1                    = '//trim(mpas_iseed_sppt1))
+       call mpas_log_write('   mpas_iseed_sppt2                    = '//trim(mpas_iseed_sppt1))
+       call mpas_log_write('   mpas_iseed_sppt3                    = '//trim(mpas_iseed_sppt1))
+       call mpas_log_write('   mpas_sppt_hgt_top1                  = '//int2str(int(mpas_sppt_hgt_top1)))
+       call mpas_log_write('   mpas_sppt_hgt_top2                  = '//int2str(int(mpas_sppt_hgt_top2)))
+       call mpas_log_write('   mpas_sppt_stochini                  = '//log2str(mpas_stochini))
     end if
  end subroutine read_mpas_namelist
 

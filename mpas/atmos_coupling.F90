@@ -349,16 +349,17 @@ contains
     
     ! Call stochastic physics (SPPT) for (non-hydrostatic) physics tendencies. 
     if (do_sppt) then
-
+       ! Grab tend_physics pool from MPAS, populate with CCPP Physics data. 
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
+       !
        call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', tend_array)
        !call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics', tend_array)
        tend_names(1) = "tend_rtheta_physics"
        !tend_names(2) = "tend_rho_physics"
-
+       !
        ! Apply pattern to tendencies
        !call stochastic_physics_pattern_apply(domain_ptr, 'prog', ierr)
        call stochastic_physics_pattern_apply(domain_ptr, 1, tend_names, ierr)
-       
     end if
 
   end subroutine ufs_physics_to_mpas

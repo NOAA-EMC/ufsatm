@@ -249,6 +249,8 @@ module ufs_mpas_io
   !> Only variables that are specific to the "output" stream are included.
   !> #########################################################################################
   type(var_info_type), parameter :: output_var_info_list(*) = [ &
+       var_info_type('stoch_pattern_sppt'              , 'real',       2), &
+       var_info_type('stoch_pattern_gg'                , 'real',       2), &
        var_info_type('Time'                            , 'real'      , 0), &
        var_info_type('initial_time'                    , 'character' , 0), &
        !var_info_type('divergence'                      , 'real'      , 2), &
