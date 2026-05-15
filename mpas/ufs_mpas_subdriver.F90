@@ -363,7 +363,7 @@ contains
     use mpas_attlist,               only : mpas_modify_att
     use mpas_string_utils,          only : mpas_string_replace
     use mpas_field_routines,        only : mpas_allocate_scratch_field
-    use mpas_stochastic_physics,    only : stochastic_physics_pattern_init, dosppt
+    use mpas_stochastic_physics,    only : stochastic_physics_pattern_init
     ! Arguments
     type(mpas_control_type), intent(inout) :: Cfg
     type(mpas_pool_type), pointer :: tend_physics_pool
@@ -380,7 +380,7 @@ contains
     character (len=StrKIND), pointer :: xtime
     character (len=StrKIND), pointer :: initial_time1, initial_time2
     real(RKIND), dimension(:,:,:), pointer :: field_3d_real
-    logical, pointer :: config_apply_lbcs
+    logical, pointer :: config_apply_lbcs, do_sppt
     real(RKIND), dimension(:,:), pointer :: theta1
 
     !
@@ -526,8 +526,9 @@ contains
     call mpas_log_write('Initializing the dynamics')
     call mpas_atm_dynamics_init(domain_ptr)
 
-    ! init stochastic pattern generation
-    if (dosppt(domain_ptr)) then
+    ! Initialize stochastic pattern generation
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'do_sppt', do_sppt)
+    if (do_sppt) then
        call stochastic_physics_pattern_init(domain_ptr, ierr)
        if (ierr /= 0) then
           call mpas_log_write('Failed stochastic_physics_pattern_init call')
@@ -562,7 +563,7 @@ contains
     ! FMS
     use mpp_mod,              only : FATAL, mpp_error
     use mpp_mod,              only : mpp_clock_begin, mpp_clock_end
-    use mpas_stochastic_physics, only : stochastic_physics_pattern_adv, dosppt
+    use mpas_stochastic_physics, only : stochastic_physics_pattern_adv
     ! Arguments
     integer, intent(inout) :: mpasClock, outClock
     ! Locals
@@ -573,7 +574,7 @@ contains
     character(len=StrKIND) :: timeStamp
     integer :: ierr, itime, itimestep, iout
     real (kind=R8KIND) :: integ_start_time, integ_stop_time
-    logical, pointer :: config_apply_lbcs
+    logical, pointer :: config_apply_lbcs, do_sppt
     type(mpas_timeinterval_type) :: mpas_time_interval, mpas_output_interval
     real (kind=RKIND), dimension(:,:,:), pointer :: scalars
 
@@ -674,7 +675,8 @@ contains
        end if
 
        ! Update stochastic physics pattern
-       if (dosppt(domain_ptr)) then
+       call mpas_pool_get_config(domain_ptr % blocklist % configs, 'do_sppt', do_sppt)
+       if (do_sppt) then
           call stochastic_physics_pattern_adv(domain_ptr, itimestep, ierr)
        endif
 

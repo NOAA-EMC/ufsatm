@@ -283,7 +283,83 @@ contains
   !> will use tendencies from the CCPP Physics.
   !>
   !> #########################################################################################
-  subroutine ufs_physics_to_mpas()
+  subroutine ufs_physics_to_mpas(control, diag)
+    use GFS_typedefs,            only : GFS_diag_type, GFS_control_type
+    use mpas_derived_types,      only : mpas_pool_type
+    use mpas_pool_routines,      only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_config
+    use mpas_stochastic_physics, only : stochastic_physics_pattern_apply
+    use mpas_kind_types,         only : RKIND
+
+    ! Arguments
+    type(GFS_diag_type),    intent(in) :: diag
+    type(GFS_control_type), intent(in) :: control
+    ! Locals
+    character(len=32)  :: tend_names(4)
+    type(mpas_pool_type), pointer :: tend_physics_pool
+    real(kind=RKIND), pointer     :: tend_array(:,:)
+    logical, pointer :: do_sppt
+    integer :: ierr
+    
+    call mpas_pool_get_config(domain_ptr % blocklist % configs, 'do_sppt', do_sppt)
+    
+    ! Call stochastic physics (SPPT) for (hydrostatic) physics tendencies.
+    if (do_sppt) then
+       ! Grab tend_physics pool from MPAS, populate with CCPP Physics data.
+       call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
+       !
+       call mpas_pool_get_array(tend_physics_pool, 'rucuten', tend_array)
+       tend_array(:,:) = &
+            diag%dtend(:,:,control%dtidx(control%index_of_x_wind, control%index_of_process_dcnv)) + &
+            diag%dtend(:,:,control%dtidx(control%index_of_x_wind, control%index_of_process_scnv))
+       call mpas_pool_get_array(tend_physics_pool, 'rvcuten', tend_array)
+       tend_array(:,:) = &
+            diag%dtend(:,:,control%dtidx(control%index_of_y_wind, control%index_of_process_dcnv)) + &
+            diag%dtend(:,:,control%dtidx(control%index_of_y_wind, control%index_of_process_scnv))
+       call mpas_pool_get_array(tend_physics_pool, 'rublten', tend_array)
+       tend_array(:,:) = &
+            diag%dtend(:,:, control%dtidx(control%index_of_x_wind, control%index_of_process_pbl))
+       call mpas_pool_get_array(tend_physics_pool, 'rvblten', tend_array)
+       tend_array(:,:) = &
+            diag%dtend(:,:, control%dtidx(control%index_of_y_wind, control%index_of_process_pbl))
+
+       ! Apply pattern to tendencies
+       !call stochastic_physics_pattern_apply(domain_ptr, 'phys', ierr)
+       tend_names(1) = "rucuten"
+       tend_names(2) = "rvcuten"
+       tend_names(3) = "rublten"
+       tend_names(4) = "rvblten"
+       call stochastic_physics_pattern_apply(domain_ptr, 4, tend_names, ierr)
+    end if
+
+
+
+
+    !
+    ! ACCUMMULATE PHYSICS TENDENCIES, CONVERT TO (NON-HYDROSTATIC) DYCORE PROGNOSIC STATE VARIABLES
+    !
+
+
+
+
+
+
+
+
+
+    
+    ! Call stochastic physics (SPPT) for (non-hydrostatic) physics tendencies. 
+    if (do_sppt) then
+
+       call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', tend_array)
+       !call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics', tend_array)
+       tend_names(1) = "tend_rtheta_physics"
+       !tend_names(2) = "tend_rho_physics"
+
+       ! Apply pattern to tendencies
+       !call stochastic_physics_pattern_apply(domain_ptr, 'prog', ierr)
+       call stochastic_physics_pattern_apply(domain_ptr, 1, tend_names, ierr)
+       
+    end if
 
   end subroutine ufs_physics_to_mpas
 
