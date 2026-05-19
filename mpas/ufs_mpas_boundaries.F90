@@ -34,7 +34,7 @@ contains
   !> \update: Dustin Swales September 2025 - Modified for use in UWM
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_atm_update_bdy_tend(clock, block, firstCall, nRecord, ierr)
+  subroutine ufs_mpas_atm_update_bdy_tend(clock, block, firstCall, nRecord, ierr, debug)
     use mpas_constants,      only : rvord
     use mpas_log,            only : mpas_log_write
     use mpas_derived_types,  only : MPAS_STREAM_MGR_NOERR, MPAS_LOG_ERR
@@ -58,6 +58,7 @@ contains
     logical, intent(in) :: firstCall
     integer, intent(in) :: nRecord
     integer, intent(out) :: ierr
+    logical, intent(in) :: debug
 
     character(len=StrKIND) :: lbc_intv_start_string
     character(len=StrKIND) :: lbc_intv_end_string
@@ -112,7 +113,7 @@ contains
 
     if (firstCall) then
        call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2, &
-            whence = MPAS_STREAM_LATEST_BEFORE, actualWhen=read_time, nRecord=nRecord)
+            whence = MPAS_STREAM_LATEST_BEFORE, actualWhen=read_time, nRecord=nRecord, debug=debug)
        if (ierr /= MPAS_STREAM_MGR_NOERR) then
           call mpas_log_write('Could not read from ''lbc_in'' stream on or before the current date '// &
                               'to update lateral boundary tendencies', messageType=MPAS_LOG_ERR)
@@ -121,7 +122,7 @@ contains
     else
        call mpas_pool_shift_time_levels(lbc)
        call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2,  &
-            whence = MPAS_STREAM_EARLIEST_STRICTLY_AFTER, actualWhen=read_time, nRecord=nRecord)
+            whence = MPAS_STREAM_EARLIEST_STRICTLY_AFTER, actualWhen=read_time, nRecord=nRecord, debug=debug)
        if (ierr /= MPAS_STREAM_MGR_NOERR) then
           call mpas_log_write('Could not read from ''lbc_in'' stream after the current date '// &
                               'to update lateral boundary tendencies', messageType=MPAS_LOG_ERR)

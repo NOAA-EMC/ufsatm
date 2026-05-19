@@ -5,8 +5,10 @@
 !> 
 !> ###########################################################################################
 module ufs_mpas_constituents
-  use mpas_kind_types,  only : StrKIND
-  use ufs_mpas_io,      only : domain_ptr
+  use mpas_kind_types,     only : StrKIND
+  use mpas_log,            only : mpas_log_write
+  use mpas_derived_types,  only : MPAS_LOG_CRIT
+  use ufs_mpas_io,         only : domain_ptr
   implicit none
 
   public
@@ -41,10 +43,6 @@ contains
     use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_field, &
                                    mpas_pool_get_dimension, mpas_pool_add_dimension
     use mpas_attlist,       only : mpas_add_att
-    use mpas_log,           only : mpas_log_write
-    use mpas_derived_types, only : MPAS_LOG_ERR
-    ! FMS
-    use mpp_mod,            only : FATAL, mpp_error
 
     ! Arguments
     integer, dimension(:), pointer :: mpas_from_ufs_cnst, ufs_from_mpas_cnst
@@ -71,10 +69,8 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', statePool)
 
     if (.not. associated(statePool)) then
-       call mpas_log_write(trim(subname)//': ERROR: The ''state'' pool was not found.', &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+       call mpas_log_write(trim(subname) // 'ERROR: The ''state'' pool was not found.', &
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     nullify(num_scalars)
@@ -85,10 +81,8 @@ contains
     ! if this dimension does not exist, something has gone wrong
     !
     if (.not. associated(num_scalars)) then
-       call mpas_log_write(trim(subname)//': ERROR: The ''num_scalars'' dimension does not exist in the ''state'' pool.', &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+       call mpas_log_write(trim(subname) // 'ERROR: The ''num_scalars'' dimension does not exist in the ''state'' pool.', &
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     !
@@ -96,12 +90,10 @@ contains
     ! something has gone wrong
     !
     if (size(constituent_name) /= num_scalars) then
-       call mpas_log_write(trim(subname)//': ERROR: The number of constituent names is not equal to the num_scalars dimension', &
-                           messageType=MPAS_LOG_ERR)
+       call mpas_log_write(trim(subname) // 'ERROR: The number of constituent names is not equal to the num_scalars dimension', &
+                           messageType=MPAS_LOG_CRIT)
        call mpas_log_write('size(constituent_name) = $i, num_scalars = $i', intArgs=[size(constituent_name), num_scalars], &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     !
@@ -110,9 +102,8 @@ contains
     !
     if (size(constituent_name) > 0) then
        if (trim(constituent_name(1)) /= 'qv') then
-          call mpas_log_write(trim(subname)//': ERROR: The first constituent is not qv', messageType=MPAS_LOG_ERR)
-          ierr = 1
-          return
+          call mpas_log_write(trim(subname) // 'ERROR: The first constituent is not qv', &
+                              messageType=MPAS_LOG_CRIT)
        end if
     end if
 
@@ -120,7 +111,10 @@ contains
     ! Determine which of the constituents are moisture species
     !
     allocate(mpas_from_ufs_cnst(num_scalars), stat=ierr)
-    if( ierr /= 0 ) call mpp_error(FATAL,subname//':failed to allocate mpas_from_ufs_cnst array')
+    if( ierr /= 0 ) then
+       call mpas_log_write(trim(subname) // 'ERROR: failed to allocate mpas_from_ufs_cnst array', &
+                           messageType=MPAS_LOG_CRIT)
+    end if
     mpas_from_ufs_cnst(:) = 0
     num_moist = 0
     do i = 1, size(constituent_name)
@@ -153,7 +147,10 @@ contains
     ! Create inverse map, ufs_from_mpas_cnst
     !
     allocate(ufs_from_mpas_cnst(num_scalars), stat=ierr)
-    if( ierr /= 0 ) call mpp_error(FATAL,subname//':failed to allocate ufs_from_mpas_cnst array')
+    if( ierr /= 0 ) then
+       call mpas_log_write(trim(subname)//'ERROR: failed to allocate ufs_from_mpas_cnst array', &
+                           messageType=MPAS_LOG_CRIT)
+    end if
     ufs_from_mpas_cnst(:) = 0
 
     do i = 1, size(constituent_name)
@@ -167,8 +164,8 @@ contains
        call mpas_pool_get_field(statePool, 'scalars', scalarsField, timeLevel=i)
 
        if (.not. associated(scalarsField)) then
-          call mpas_log_write(trim(subname)//': ERROR: The ''scalars'' field was not found in the ''state'' pool', &
-                              messageType=MPAS_LOG_ERR)
+          call mpas_log_write(trim(subname)//'ERROR: The ''scalars'' field was not found in the ''state'' pool', &
+                              messageType=MPAS_LOG_CRIT)
           ierr = 1
           return
        end if
@@ -217,9 +214,7 @@ contains
 
     if (.not. associated(tendPool)) then
        call mpas_log_write(trim(subname)//': ERROR: The ''tend'' pool was not found.', &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     timeLevs = 1
@@ -230,9 +225,7 @@ contains
 
        if (.not. associated(scalarsField)) then
           call mpas_log_write(trim(subname)//': ERROR: The ''scalars_tend'' field was not found in the ''tend'' pool', &
-                              messageType=MPAS_LOG_ERR)
-          ierr = 1
-          return
+                              messageType=MPAS_LOG_CRIT)
        end if
 
        if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qv', 1)
@@ -260,11 +253,10 @@ contains
   !>
   !> #########################################################################################
   subroutine ufs_mpas_define_lbc_scalars(mpas_from_ufs_cnst, ufs_from_mpas_cnst, ierr)
-    use mpas_derived_types, only : mpas_pool_type, field3dReal, MPAS_LOG_ERR
+    use mpas_derived_types, only : mpas_pool_type, field3dReal
     use mpas_pool_routines, only : mpas_pool_get_subpool, mpas_pool_get_field
     use mpas_pool_routines, only : mpas_pool_get_dimension, mpas_pool_add_dimension
     use mpas_attlist,       only : mpas_add_att
-    use mpas_log,           only : mpas_log_write
 
     ! Arguments
     integer, dimension(:), pointer :: mpas_from_ufs_cnst, ufs_from_mpas_cnst
@@ -286,10 +278,8 @@ contains
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'lbc', lbcPool)
 
     if (.not. associated(lbcPool)) then
-       call mpas_log_write(trim(subname)//': ERROR: The ''lbc'' pool was not found.', &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+       call mpas_log_write(trim(subname) // 'ERROR: The ''lbc'' pool was not found.', &
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     nullify(num_scalars)
@@ -300,10 +290,8 @@ contains
     ! if this dimension does not exist, something has gone wrong.
     !
     if (.not. associated(num_scalars)) then
-       call mpas_log_write(trim(subname)//': ERROR: The ''num_scalars'' dimension does not exist in the ''lbc'' pool.', &
-                           messageType=MPAS_LOG_ERR)
-       ierr = 1
-       return
+       call mpas_log_write(trim(subname) // 'ERROR: The ''num_scalars'' dimension does not exist in the ''lbc'' pool.', &
+                           messageType=MPAS_LOG_CRIT)
     end if
 
     timeLevs = 2
@@ -313,8 +301,8 @@ contains
        call mpas_pool_get_field(lbcPool, 'lbc_scalars', scalarsField, timeLevel=i)
 
        if (.not. associated(scalarsField)) then
-          call mpas_log_write(trim(subname)//': ERROR: The ''lbc_scalars'' field was not found in the ''lbc'' pool', &
-                              messageType=MPAS_LOG_ERR)
+          call mpas_log_write(trim(subname) // 'ERROR: The ''lbc_scalars'' field was not found in the ''lbc'' pool', &
+                              messageType=MPAS_LOG_CRIT)
           ierr = 1
           return
        end if

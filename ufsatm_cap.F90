@@ -43,6 +43,7 @@ module ufsatm_cap_mod
                                     pio_numiotasks, pio_iodesc, cpl_grid_id, &
                                     cplprint_flag, first_kdt, quilting,      &
                                     quilting_restart
+  use module_mpas_config,     only: mpas_output_times, mpas_restart_times
 #endif
   use module_fv3_io_def,      only: num_pes_fcst,write_groups,               &
                                     num_files, filename_base,                &
@@ -67,6 +68,7 @@ module ufsatm_cap_mod
 #ifdef UFS_TRACING
   use ufs_trace_mod
 #endif
+  use shr_is_restart_fh_mod, only : init_is_restart_fh, is_restart_fh_type
 
   implicit none
   private
@@ -101,6 +103,10 @@ module ufsatm_cap_mod
   integer, allocatable                        :: frestart(:)
 
   real(kind=8)                                :: timere, timep2re
+  type(is_restart_fh_type)                    :: restartfh_info
+  type(is_restart_fh_type)                    :: outputfh_info
+  type(is_restart_fh_type)                    :: diagfh_info
+  type(is_restart_fh_type)                    :: dafh_info
 !-----------------------------------------------------------------------
 
   contains
@@ -237,6 +243,7 @@ module ufsatm_cap_mod
     real                                   :: nfhmax
     real                                   :: output_startfh, outputfh, outputfh2(2)
     logical                                :: loutput_fh, lfreq
+    logical                                :: lrestart_fh
     character(ESMF_MAXSTR)                 :: gc_name, fb_name
     integer,dimension(:), allocatable      :: petList, originPetList, targetPetList
     character(len=esmf_maxstr),allocatable :: fcstItemNameList(:)
@@ -1333,7 +1340,7 @@ module ufsatm_cap_mod
     integer                   :: ist, i
     integer, intent(inout)    :: noutput_fh
     real, intent(inout)       :: output_startfh
-
+    
     if( output_startfh == 0) then
       ! If the output time in output_fh array contains first time stamp output,
       ! check the rest of output time, otherwise, check all the output time.
@@ -1687,6 +1694,7 @@ module ufsatm_cap_mod
     type(ESMF_Clock)            :: dclock, mclock
     type(ESMF_TimeInterval)     :: dtimestep, mtimestep
     type(ESMF_Time)             :: mcurrtime, mstoptime
+    integer :: dtime, ifout
 
 !-----------------------------------------------------------------------------
 
@@ -1708,6 +1716,32 @@ module ufsatm_cap_mod
     call ESMF_ClockSet(mclock, timeStep=mtimestep, stopTime=mstoptime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+#ifdef MPAS
+    ! Setup MPAS output stream times.
+    call ESMF_TimeIntervalGet( dtimestep, s=dtime, rc=rc )
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    call init_is_restart_fh(mcurrTime, dtime, .false., outputfh_info, key='output_fh')
+    allocate(mpas_output_times(size(outputfh_info%restartFhTimes)))
+    do ifout =1,size(outputfh_info%restartFhTimes)
+       mpas_output_times(ifout)%t = outputfh_info%restartFhTimes(ifout)
+    end do
+
+    ! Setup MPAS history stream times.
+    call ESMF_TimeIntervalGet( dtimestep, s=dtime, rc=rc )
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    call init_is_restart_fh(mcurrTime, dtime, .false., restartfh_info)
+    allocate(mpas_restart_times(size(restartfh_info%restartFhTimes)))
+    do ifout =1,size(restartfh_info%restartFhTimes)
+       mpas_restart_times(ifout)%t = restartfh_info%restartFhTimes(ifout)
+    end do
+
+    ! Setup MPAS diagnostic stream times.
+    ! NOT YET IMPLEMENTED
+    ! This will default to being the same as the output stream.
+
+    ! Setup MPAS da stream times.
+    ! NOT YET IMPLEMENTED
+#endif
   end subroutine ModelSetRunClock
 
 !-----------------------------------------------------------------------------

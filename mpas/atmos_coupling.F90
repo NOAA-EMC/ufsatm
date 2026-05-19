@@ -566,8 +566,7 @@ contains
     use mpas_kind_types,      only : RKIND
     use mpas_constants,       only : pii
     use mpas_log,             only : mpas_log_write
-    use mpas_derived_types,   only : MPAS_LOG_ERR, MPAS_LOG_WARN
-    use mpp_mod,              only : mpp_error, FATAL
+    use mpas_derived_types,   only : MPAS_LOG_ERR, MPAS_LOG_WARN, MPAS_LOG_CRIT
     ! Arguments
     type(GFS_grid_type),      intent(inout) :: physics_grid
     ! Locals
@@ -579,6 +578,7 @@ contains
     real(RKIND), pointer :: nominalMinDc
     real(RKIND), pointer :: config_len_disp
     real(RKIND)          :: rad2deg
+    character(len=*), parameter :: subname = 'atmos_coupling::ufs_mpas_grid_to_physics'
     
     ierr = 0
     rad2deg = 180.0_RKIND/pii
@@ -605,10 +605,10 @@ contains
     if (config_len_disp > 0.0_RKIND) then
       ! But if nominalMinDc was available in the input file and is different, print a warning
       if (nominalMinDc > 0.0_RKIND .and. abs(nominalMinDc - config_len_disp) > 1.0e-6_RKIND * config_len_disp) then
-        call mpas_log_write('nominalMinDc was read from input file as a positive value ($r) that differs', &
-                                realArgs=[nominalMinDc], messageType=MPAS_LOG_WARN)
-        call mpas_log_write('from the specified config_len_disp value ($r)', &
-                                realArgs=[config_len_disp], messageType=MPAS_LOG_WARN)
+        call mpas_log_write(subname // ' WARNING: nominalMinDc was read from input file as a positive value ($r) that differs', &
+                            realArgs=[nominalMinDc], messageType=MPAS_LOG_WARN)
+        call mpas_log_write(subname // ' WARNING: from the specified config_len_disp value ($r)', &
+                            realArgs=[config_len_disp], messageType=MPAS_LOG_WARN)
       end if
       nominalMinDc = config_len_disp
     ! Otherwise, try to use nominalMinDc
@@ -617,15 +617,16 @@ contains
         call mpas_log_write('Setting config_len_disp to $r based on nominalMinDc value in input file', realArgs=[nominalMinDc])
           config_len_disp = nominalMinDc
       else
-        call mpas_log_write('Both config_len_disp and nominalMinDc are <= 0.0.', messageType=MPAS_LOG_ERR)
-        call mpas_log_write('Please either specify config_len_disp in the &nhyd_model namelist group,', &
-                                messageType=MPAS_LOG_ERR)
-        call mpas_log_write('or use an input file that provides a valid value for the nominalMinDc variable.', &
-                                messageType=MPAS_LOG_ERR)
+         call mpas_log_write(subname // ' ERROR: Both config_len_disp and nominalMinDc are <= 0.0.', &
+                             messageType=MPAS_LOG_ERR)
+         call mpas_log_write(subname // ' ERROR: Please either specify config_len_disp in the &nhyd_model namelist group,', &
+                             messageType=MPAS_LOG_ERR)
+         call mpas_log_write(subname // ' ERROR: or use an input file that provides a valid value for the nominalMinDc variable.', &
+                             messageType=MPAS_LOG_ERR)
         ierr = 1
       end if
     end if
-    if (ierr/=0)  call mpp_error(FATAL, 'Call to ufs_mpas_grid_to_physics() failed')  
+    if (ierr/=0)  call mpas_log_write(subname // ' ERROR: Call to ufs_mpas_grid_to_physics() failed', messageType=MPAS_LOG_CRIT)
 
     do i=1, nCellsSolve
       physics_grid % xlat(i)   = lat(i)
