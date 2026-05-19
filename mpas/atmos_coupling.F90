@@ -283,53 +283,53 @@ contains
   !> will use tendencies from the CCPP Physics.
   !>
   !> #########################################################################################
-  subroutine ufs_physics_to_mpas(control, diag)
-    use GFS_typedefs,            only : GFS_diag_type, GFS_control_type
+  subroutine ufs_physics_to_mpas(physics_state, control)
+    use GFS_typedefs,            only : GFS_stateout_type, GFS_control_type
     use mpas_derived_types,      only : mpas_pool_type
     use mpas_pool_routines,      only : mpas_pool_get_subpool, mpas_pool_get_array, mpas_pool_get_config
-    use mpas_stochastic_physics, only : stochastic_physics_pattern_apply
+    use mpas_pool_routines,      only : mpas_pool_get_dimension
     use mpas_kind_types,         only : RKIND
 
     ! Arguments
-    type(GFS_diag_type),    intent(in) :: diag
-    type(GFS_control_type), intent(in) :: control
+    type(GFS_stateout_type), intent(inout) :: physics_state
+    type(GFS_control_type),  intent(in   ) :: control
     ! Locals
-    character(len=32)  :: tend_names(4)
     type(mpas_pool_type), pointer :: tend_physics_pool
-    real(kind=RKIND), pointer     :: tend_array(:,:)
+    real(kind=RKIND), dimension(:,:), pointer :: tend_rtheta_physics, pattern
     logical, pointer :: do_sppt
     integer :: ierr
+    integer, pointer :: nThreads, cellSolveThreadStart(:), cellSolveThreadEnd(:), nVertLevels
+    integer :: iCol,iLay,ithread
+
+    ! Get openMP information
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'nThreads',             nThreads)
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'cellSolveThreadStart', cellSolveThreadStart)
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'cellSolveThreadEnd',   cellSolveThreadEnd)
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'nVertLevels',          nVertLevels)
     
     call mpas_pool_get_config(domain_ptr % blocklist % configs, 'do_sppt', do_sppt)
-    
     ! Call stochastic physics (SPPT) for (hydrostatic) physics tendencies.
     if (do_sppt) then
-       ! Grab tend_physics pool from MPAS, populate with CCPP Physics data.
+       ! Grab stochastic physics pattern.
        call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
-       !
-       call mpas_pool_get_array(tend_physics_pool, 'rucuten', tend_array)
-       tend_array(:,:) = &
-            diag%dtend(:,:,control%dtidx(control%index_of_x_wind, control%index_of_process_dcnv)) + &
-            diag%dtend(:,:,control%dtidx(control%index_of_x_wind, control%index_of_process_scnv))
-       call mpas_pool_get_array(tend_physics_pool, 'rvcuten', tend_array)
-       tend_array(:,:) = &
-            diag%dtend(:,:,control%dtidx(control%index_of_y_wind, control%index_of_process_dcnv)) + &
-            diag%dtend(:,:,control%dtidx(control%index_of_y_wind, control%index_of_process_scnv))
-       call mpas_pool_get_array(tend_physics_pool, 'rublten', tend_array)
-       tend_array(:,:) = &
-            diag%dtend(:,:, control%dtidx(control%index_of_x_wind, control%index_of_process_pbl))
-       call mpas_pool_get_array(tend_physics_pool, 'rvblten', tend_array)
-       tend_array(:,:) = &
-            diag%dtend(:,:, control%dtidx(control%index_of_y_wind, control%index_of_process_pbl))
+       call mpas_pool_get_array(tend_physics_pool,'stoch_pattern_sppt',pattern)
 
-       ! Apply pattern to tendencies
-       !call stochastic_physics_pattern_apply(domain_ptr, 'phys', ierr)
-       tend_names(1) = "rucuten"
-       tend_names(2) = "rvcuten"
-       tend_names(3) = "rublten"
-       tend_names(4) = "rvblten"
-       call stochastic_physics_pattern_apply(domain_ptr, 4, tend_names, ierr)
+       ! Apply pattern to scheme tendencies
+       do ithread = 1,nThreads
+          do iCol = cellSolveThreadStart(ithread),cellSolveThreadEnd(ithread)
+             do iLay = 1,nVertLevels
+                physics_state%ten_u_conv(iCol,iLay) = physics_state%ten_u_conv(iCol,iLay) * pattern(ilay,iCol)
+                physics_state%ten_v_conv(iCol,iLay) = physics_state%ten_v_conv(iCol,iLay) * pattern(ilay,iCol)
+                physics_state%ten_u_pbl(iCol,iLay)  = physics_state%ten_u_pbl(iCol,iLay)  * pattern(ilay,iCol)
+                physics_state%ten_v_pbl(iCol,iLay)  = physics_state%ten_v_pbl(iCol,iLay)  * pattern(ilay,iCol)
+             end do
+          end do
+       end do
+
     end if
+
+
+
 
 
 
@@ -349,17 +349,11 @@ contains
     
     ! Call stochastic physics (SPPT) for (non-hydrostatic) physics tendencies. 
     if (do_sppt) then
-       ! Grab tend_physics pool from MPAS, populate with CCPP Physics data. 
+       ! Grab stochastic physics pattern.
        call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'tend_physics', tend_physics_pool)
-       !
-       call mpas_pool_get_array(tend_physics_pool, 'tend_rtheta_physics', tend_array)
-       !call mpas_pool_get_array(tend_physics_pool, 'tend_rho_physics', tend_array)
-       tend_names(1) = "tend_rtheta_physics"
-       !tend_names(2) = "tend_rho_physics"
-       !
-       ! Apply pattern to tendencies
-       !call stochastic_physics_pattern_apply(domain_ptr, 'prog', ierr)
-       call stochastic_physics_pattern_apply(domain_ptr, 1, tend_names, ierr)
+       call mpas_pool_get_array(tend_physics_pool,'stoch_pattern_sppt',pattern)
+
+       ! Apply pattern to accumulated tendencies.
     end if
 
   end subroutine ufs_physics_to_mpas

@@ -385,7 +385,7 @@ contains
     
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
     ! NOT YET IMPLEMENTED
-    call ufs_physics_to_mpas(UFSATM_control, UFSATM_intdiag)
+    call ufs_physics_to_mpas(UFSATM_stateout, UFSATM_control)
     
     ! Call MPAS dycore
     call ufs_mpas_run(mpasClock, outClock, debug)

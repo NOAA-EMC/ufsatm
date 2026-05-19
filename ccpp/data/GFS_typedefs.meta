@@ -697,6 +697,49 @@
   type = real
   kind = kind_phys
   active = ( index_of_turbulent_kinetic_energy_in_tracer_concentration_array > 0 )
+[ten_t_pbl]
+  standard_name = tendency_of_air_temperature_due_to_PBL
+  long_name = tendency of air temperature calculated by the PBL scheme
+  units = K s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_q_pbl]
+  standard_name = tendency_of_specific_humidity_concentration_due_to_PBL
+  long_name = tendency of tracer concentration calculated by one physics scheme
+  units = kg kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_u_pbl]
+  standard_name = tendency_of_x_wind_due_to_PBL
+  long_name = tendency of x wind calculated by one physics scheme
+  units = m s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_v_pbl]
+  standard_name = tendency_of_y_wind_due_to_PBL
+  long_name = tendency of y wind calculated by one physics scheme
+  units = m s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_u_conv]
+  standard_name = tendency_of_x_wind_due_to_convection
+  long_name = tendency of x wind calculated by one physics scheme
+  units = m s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_v_conv]
+  standard_name = tendency_of_y_wind_due_to_convection
+  long_name = tendency of y wind calculated by one physics scheme
+  units = m s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+
 ########################################################################
 [ccpp-table-properties]
   name = GFS_sfcprop_type

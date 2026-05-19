@@ -910,7 +910,7 @@ contains
           read(nml_funit, nml=mpas_printout, iostat=io)
           if (io .ne. 0) call mpas_log_write(subname // ' Reading in MPAS namelist mpas_printout',messageType=MPAS_LOG_CRIT)
           ! nam_stochy
-          read(input_nml_file, nml=mpas_nam_stochy, iostat=io)
+          read(nml_funit, nml=mpas_nam_stochy, iostat=io)
           if (io .ne. 0) call mpas_log_write(subname // ' Reading in MPAS namelist mpas_nam_stochy',messageType=MPAS_LOG_CRIT)
        endif
     endif
