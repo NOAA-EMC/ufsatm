@@ -207,10 +207,8 @@ module GFS_typedefs
 
     !-- Out (process tendencies)
     !-- PBL
-    real (kind=kind_phys), pointer :: ten_t_pbl(:,:)   => null()  !< Temperature tendency due to PBL scheme
     real (kind=kind_phys), pointer :: ten_u_pbl(:,:)   => null()  !< Zonal-wind tendency ...
     real (kind=kind_phys), pointer :: ten_v_pbl(:,:)   => null()  !< Meridional-wind tendency ...
-    real (kind=kind_phys), pointer :: ten_q_pbl(:,:)   => null()  !< Specific-humidity tendency ...
     !-- Convection
     real (kind=kind_phys), pointer :: ten_u_conv(:,:)  => null()  !< Zonal-wind tendency due to convection scheme
     real (kind=kind_phys), pointer :: ten_v_conv(:,:)  => null()  !< Meridional-wind tendency ...
@@ -2433,15 +2431,11 @@ module GFS_typedefs
     Stateout%gq0 = clear_val
 
     ! Physics tendencies for coupling
-    allocate (Stateout%ten_t_pbl  (IM,Model%levs))
-    allocate (Stateout%ten_q_pbl  (IM,Model%levs))
     allocate (Stateout%ten_u_pbl  (IM,Model%levs))
     allocate (Stateout%ten_v_pbl  (IM,Model%levs))
     allocate (Stateout%ten_u_conv (IM,Model%levs))
     allocate (Stateout%ten_v_conv (IM,Model%levs))
 
-    Stateout%ten_t_pbl  = clear_val
-    Stateout%ten_q_pbl  = clear_val
     Stateout%ten_u_pbl  = clear_val
     Stateout%ten_v_pbl  = clear_val
     Stateout%ten_u_conv = clear_val
