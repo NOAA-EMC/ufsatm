@@ -48,7 +48,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   use diag_manager_mod,   only: diag_manager_init, diag_manager_end,       &
                                 diag_manager_set_time_end
 
-  use data_override_mod,  only: data_override_init
   use fv_nggps_diags_mod, only: fv_dyn_bundle_setup
   use fv3atm_history_io_mod,  only: fv_phys_bundle_setup
   use fv3atm_restart_io_mod,  only: fv_phy_restart_bundle_setup, fv_sfc_restart_bundle_setup
@@ -525,7 +524,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 !-----------------------------------------------------------------------
 !#######################################################################
 !-----------------------------------------------------------------------
-!> @brief Allocate or initialize connected coupling fields 
+!> @brief Allocate or initialize connected coupling fields
 !>
 !> @param[in] nest Array of grid components for the nested domain
 !> @param[in] importState Contains input field data
@@ -835,10 +834,6 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
      call  atmos_model_init (Atmos, Time_init, Time, Time_step)
 !
-     inquire(FILE='data_table', EXIST=fexist)
-     if (fexist) then
-       call data_override_init()
-     endif
 !-----------------------------------------------------------------------
 !---- open and close dummy file in restart dir to check if dir exists --
 

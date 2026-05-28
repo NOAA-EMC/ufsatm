@@ -3437,7 +3437,7 @@
   kind = kind_phys
   active = (do_cdeps_inline)
 [mask_dat]
-  standard_name = land_sea_mask_from_data 
+  standard_name = land_sea_mask_from_data
   long_name = landmask
   units = flag
   dimensions = (horizontal_dimension)
@@ -3841,18 +3841,6 @@
   units = flag
   dimensions = ()
   type = logical
-[cpl_imp_mrg]
-  standard_name = flag_for_merging_imported_data
-  long_name = flag controlling cpl_imp_mrg for imported data (default off)
-  units = flag
-  dimensions = ()
-  type = logical
-[cpl_imp_dbg]
-  standard_name = flag_for_debugging_merged_imported_data
-  long_name = flag controlling cpl_imp_dbg for imported data (default off)
-  units = flag
-  dimensions = ()
-  type = logical
 [use_cice_alb]
  standard_name = flag_for_cice_albedo
  long_name = flag for using ice albedos form CICE when coupled (default false)
@@ -3928,7 +3916,7 @@
   long_name = initial date with different size and ordering
   units = none
   dimensions = (4)
-  type = integer 
+  type = integer
 [tend_opt_swrad]
   standard_name = control_for_application_method_of_shortwave_radiation_tendencies
   long_name = control for application method of shortwave radiation tendencies
