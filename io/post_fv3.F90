@@ -548,7 +548,7 @@ module post_fv3
                              no3cb, nh4cb, dusmass, ducmass, dusmass25,ducmass25, &
                              snownc, graupelnc, qrmax, hail_maxhailcast,       &
                              smoke_ave,dust_ave,coarsepm_ave,swddif,swddni,    &
-                             xlaixy,wspd10umax,wspd10vmax,f10m
+                             xlaixy,wspd10umax,wspd10vmax,f10m,shdmax,shdmin
       use soil,        only: sldpth, sh2o, smc, stc, sllevel
       use masks,       only: lmv, lmh, htm, vtm, gdlat, gdlon, dx, dy, hbm2, sm, sice
       use ctlblk_mod,  only: im, jm, lm, lp1, jsta, jend, jsta_2l, jend_2u, jsta_m,jend_m, &
@@ -1663,6 +1663,40 @@ module post_fv3
                 enddo
               enddo
             endif
+
+            ! maximum fractional coverage of vegetation 
+            if(trim(fieldname)=='shdmax') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,vegfrc,arrayr42d,sm,fillValue)
+              do j=jsta,jend 
+                do i=ista, iend
+                  shdmax(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) shdmax(i,j)=spval 
+                  if (shdmax(i,j) /= spval) then                               
+                    shdmax(i,j) = shdmax(i,j) * 0.01 
+                  else       
+                    shdmax(i,j) = 0.0
+                  endif      
+                  if (sm(i,j) /= 0.0) shdmax(i,j) = spval
+                enddo        
+              enddo    
+            endif
+
+            ! minimum fractional coverage of vegetation 
+            if(trim(fieldname)=='shdmin') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,vegfrc,arrayr42d,sm,fillValue)
+              do j=jsta,jend
+                do i=ista, iend
+                  shdmin(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) shdmin(i,j)=spval
+                  if (shdmin(i,j) /= spval) then
+                    shdmin(i,j) = shdmin(i,j) * 0.01
+                  else
+                    shdmin(i,j) = 0.0
+                  endif
+                  if (sm(i,j) /= 0.0) shdmin(i,j) = spval
+                enddo
+              enddo
+            endi
 
             !assign soil depths for RUC LSM, hard wire 9 soil depths here
             !so they aren't missing.
@@ -4652,6 +4686,20 @@ module post_fv3
       enddo
 !      print *,'in post_gfs,tshltr=',maxval(tshltr(1:im,jsta:jend)), &
 !          minval(tshltr(1:im,jsta:jend))
+
+! modifify 2m q for GFS
+!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval)
+      if(modelname=='FV3R') then
+        do j=jsta,jend
+          do i=ista, iend
+            if( qshltr(i,j) /= spval) then
+              qshltr(I,j) = qshltr(I,j)
+            else
+              qshltr(I,J) = spval
+            endif
+          enddo
+        enddo
+      endif !end GFS
 
 !htop
       do j=jsta,jend
