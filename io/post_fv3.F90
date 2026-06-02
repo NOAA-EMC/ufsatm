@@ -559,7 +559,7 @@ module post_fv3
                              td3d, idat, sdat, ifhr, ifmin, dt, nphs, dtq2, pt_tbl, &
                              alsl, spl, ihrst, modelname, nsoil, rdaod, gocart_on,  &
                              gccpp_on, nasa_on, d2d_chem, nbin_ss, nbin_bc, nbin_oc,&
-                             nbin_du,nbin_su, nbin_no3, nbin_nh4
+                             nbin_du,nbin_su, nbin_no3, nbin_nh4 
       use params_mod,  only: erad, dtr, capa, p1000, small,h1, d608, pi, rd, rtd
       use gridspec_mod,only: latstart, latlast, lonstart, lonlast, cenlon, cenlat, &
                              dxval, dyval, truelat2, truelat1, psmapf, cenlat,     &
@@ -4687,13 +4687,17 @@ module post_fv3
 !      print *,'in post_gfs,tshltr=',maxval(tshltr(1:im,jsta:jend)), &
 !          minval(tshltr(1:im,jsta:jend))
 
-! modifify 2m q for GFS
-!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval)
-      if(modelname=='FV3R') then
+! create a blended qshltr for GFS v17
+!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval,ivgtyp,shdmax,q)
+      if(modelname=='GFS' .and. iSF_SURFACE_PHYSICS==2)) then
         do j=jsta,jend
           do i=ista, iend
             if( qshltr(i,j) /= spval) then
-              qshltr(I,j) = qshltr(I,j)
+              if(ivgtyp(i,j) == 13 .or. ivgtyp(i,j) == 16 .or. ivgtyp(i,j) == 20) then
+                qshltr(I,j) = qshltr(i,j) = q(i,j,lm)
+              else(ivgtyp(i,j) /= 15) then
+                qshltr(i,j) = shdmax(i,j) * qshltr(i,j) + (1.0 - shdmax(i,j)) * q(i,j,lm)
+              endif
             else
               qshltr(I,J) = spval
             endif
