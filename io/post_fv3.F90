@@ -4687,19 +4687,17 @@ module post_fv3
 !      print *,'in post_gfs,tshltr=',maxval(tshltr(1:im,jsta:jend)), &
 !          minval(tshltr(1:im,jsta:jend))
 
-! create a blended qshltr for GFS v17
+! create a blended qshltr for GFS v17, Inside UPP: sm=1 for water; sm=0 for land
       if(modelname=='GFS' .and. iSF_SURFACE_PHYSICS==2) then
-!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval,ivgtyp,shdmax,q)
+!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval,ivgtyp,shdmax,q,sm)
         do j=jsta,jend
           do i=ista, iend
-            if( qshltr(i,j) /= spval) then
+            if( qshltr(i,j) /= spval .and. sm(i,j) == 0.0) then
               if(ivgtyp(i,j) == 13 .or. ivgtyp(i,j) == 16 .or. ivgtyp(i,j) == 20) then
                 qshltr(i,j) = q(i,j,lm)
               elseif (ivgtyp(i,j) /= 15) then
                 qshltr(i,j) = shdmax(i,j) * qshltr(i,j) + (1.0 - shdmax(i,j)) * q(i,j,lm)
               endif
-            else
-              qshltr(I,J) = spval
             endif
           enddo
         enddo
