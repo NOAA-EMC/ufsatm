@@ -1666,7 +1666,7 @@ module post_fv3
 
             ! maximum fractional coverage of vegetation 
             if(trim(fieldname)=='shdmax') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,vegfrc,arrayr42d,sm,fillValue)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,sm,shdmax,fillValue)
               do j=jsta,jend 
                 do i=ista, iend
                   shdmax(i,j) = arrayr42d(i,j)
@@ -1683,7 +1683,7 @@ module post_fv3
 
             ! minimum fractional coverage of vegetation 
             if(trim(fieldname)=='shdmin') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,vegfrc,arrayr42d,sm,fillValue)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,shdmin,arrayr42d,sm,fillValue)
               do j=jsta,jend
                 do i=ista, iend
                   shdmin(i,j) = arrayr42d(i,j)
@@ -1696,7 +1696,7 @@ module post_fv3
                   if (sm(i,j) /= 0.0) shdmin(i,j) = spval
                 enddo
               enddo
-            endi
+            endif
 
             !assign soil depths for RUC LSM, hard wire 9 soil depths here
             !so they aren't missing.
@@ -4688,14 +4688,14 @@ module post_fv3
 !          minval(tshltr(1:im,jsta:jend))
 
 ! create a blended qshltr for GFS v17
+      if(modelname=='GFS' .and. iSF_SURFACE_PHYSICS==2) then
 !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval,ivgtyp,shdmax,q)
-      if(modelname=='GFS' .and. iSF_SURFACE_PHYSICS==2)) then
         do j=jsta,jend
           do i=ista, iend
             if( qshltr(i,j) /= spval) then
               if(ivgtyp(i,j) == 13 .or. ivgtyp(i,j) == 16 .or. ivgtyp(i,j) == 20) then
-                qshltr(I,j) = qshltr(i,j) = q(i,j,lm)
-              else(ivgtyp(i,j) /= 15) then
+                qshltr(i,j) = q(i,j,lm)
+              elseif (ivgtyp(i,j) /= 15) then
                 qshltr(i,j) = shdmax(i,j) * qshltr(i,j) + (1.0 - shdmax(i,j)) * q(i,j,lm)
               endif
             else
