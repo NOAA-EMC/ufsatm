@@ -388,13 +388,6 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-[dummy]
-  standard_name = dummy
-  long_name = dummy
-  units = none
-  dimensions = (horizontal_dimension,vertical_layer_dimension)
-  type = real
-  kind = kind_phys
 [cnv_dqldt]
   standard_name = tendency_of_cloud_water_due_to_convective_microphysics
   long_name = tendency of cloud water due to convective microphysics

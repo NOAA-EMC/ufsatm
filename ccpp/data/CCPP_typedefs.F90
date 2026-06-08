@@ -65,7 +65,6 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: chh_ice(:)         => null()  !<
     real (kind=kind_phys), pointer      :: chh_land(:)        => null()  !<
     real (kind=kind_phys), pointer      :: chh_water(:)       => null()  !<
-    real (kind=kind_phys), pointer      :: dummy(:,:)         => null()  !<
     real (kind=kind_phys), pointer      :: clcn(:,:)          => null()  !<
     real (kind=kind_phys), pointer      :: cldf(:)            => null()  !<
     real (kind=kind_phys), pointer      :: cldsa(:,:)         => null()  !<
@@ -802,9 +801,6 @@ contains
       allocate (Interstitial%kdis_ngw        (ixs:ixe,Model%levs))
     end if
 
-!-- C3 convection
-    allocate (Interstitial%dummy       (ixs:ixe,Model%levs))
-
 !-- GSL drag suite
     if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
         Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
@@ -1160,9 +1156,6 @@ contains
       deallocate (Interstitial%dtdt_ngw)
       deallocate (Interstitial%kdis_ngw)
     end if
-
-    !--C3 convection
-    deallocate (Interstitial%dummy)
     
     !-- GSL drag suite
     if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
@@ -1731,8 +1724,6 @@ contains
       Interstitial%kdis_ngw      = clear_val
     end if
 
-!-- C3
-    Interstitial%dummy      = clear_val    
 !-- GSL drag suite
     if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
         Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
