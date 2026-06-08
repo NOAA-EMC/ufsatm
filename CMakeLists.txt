@@ -118,6 +118,7 @@ if (FV3)
 
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
+    set(BUILD_TESTING OFF)
     find_package(crtm REQUIRED)
     if (TARGET crtm)
       add_library(crtm::crtm ALIAS crtm)
