@@ -1666,34 +1666,22 @@ module post_fv3
 
             ! maximum fractional coverage of vegetation 
             if(trim(fieldname)=='shdmax') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,sm,shdmax,fillValue)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,shdmax,fillValue)
               do j=jsta,jend 
                 do i=ista, iend
                   shdmax(i,j) = arrayr42d(i,j)
                   if( abs(arrayr42d(i,j)-fillValue) < small) shdmax(i,j)=spval 
-                  if (shdmax(i,j) /= spval) then                               
-                    shdmax(i,j) = shdmax(i,j) * 0.01 
-                  else       
-                    shdmax(i,j) = 0.0
-                  endif      
-                  if (sm(i,j) /= 0.0) shdmax(i,j) = spval
                 enddo        
               enddo    
             endif
 
             ! minimum fractional coverage of vegetation 
             if(trim(fieldname)=='shdmin') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,shdmin,arrayr42d,sm,fillValue)
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,shdmin,arrayr42d,fillValue)
               do j=jsta,jend
                 do i=ista, iend
                   shdmin(i,j) = arrayr42d(i,j)
                   if( abs(arrayr42d(i,j)-fillValue) < small) shdmin(i,j)=spval
-                  if (shdmin(i,j) /= spval) then
-                    shdmin(i,j) = shdmin(i,j) * 0.01
-                  else
-                    shdmin(i,j) = 0.0
-                  endif
-                  if (sm(i,j) /= 0.0) shdmin(i,j) = spval
                 enddo
               enddo
             endif
