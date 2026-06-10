@@ -24,7 +24,7 @@ module CCPP_driver
   type(ccpp_t), pointer :: cdata => null()
 
 !--------------------------------------------------------!
-!  Nnumber of OpenMP threads                             !
+!  Number of OpenMP threads                             !
 !--------------------------------------------------------!
   integer :: nthrds
 
