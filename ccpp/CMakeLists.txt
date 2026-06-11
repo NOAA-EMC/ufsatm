@@ -130,6 +130,7 @@ endif()
 
 #------------------------------------------------------------------------------
 # Add model-specific flags for C/C++/Fortran preprocessor
+add_definitions(-DCCPP) 
 if(NOT HYDRO)
   add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
 endif()
