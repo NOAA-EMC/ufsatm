@@ -89,6 +89,9 @@ list(APPEND fv3_io_srcs
   io/fv3atm_history_io.F90
   io/fv3atm_restart_io.F90)
 
+list(APPEND ufs_srcs
+   ${PROJECT_SOURCE_DIR}/CDEPS-interface/ufs/cdeps_share/shr_is_restart_fh_mod.F90)
+
 ###############################################################################
 ### UFSATM with FV3 dynamical core
 ###############################################################################
@@ -115,6 +118,7 @@ if (FV3)
 
   if(INLINE_POST)
     set(BUILD_POSTEXEC OFF)
+    set(BUILD_TESTING OFF)
     find_package(crtm REQUIRED)
     if (TARGET crtm)
       add_library(crtm::crtm ALIAS crtm)
@@ -186,6 +190,7 @@ if (FV3)
     ${moving_nest_srcs}
     ${cdeps_inline_srcs}
     ${POST_SRC}
+    ${ufs_srcs}
     )
   add_dependencies(${DYCORE_TARGET} fv3 fv3ccpp stochastic_physics)
 
@@ -248,6 +253,7 @@ if (MPAS)
     mpas/ufs_mpas_constituents.F90
     ${coupling_srcs}
     ${io_srcs}
+    ${ufs_srcs}
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )
