@@ -104,3 +104,18 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(stochastic_physics)
 
 message(STATUS "stochastic_physics downloaded successfully")
+
+# Download the standalone restart_fh module to satisfy UFSATM's hardcoded path
+set(RESTART_FH_URL "https://raw.githubusercontent.com/ufs-community/ufs-weather-model/develop/CDEPS-interface/ufs/cdeps_share/shr_is_restart_fh_mod.F90")
+set(RESTART_FH_DEST "${CMAKE_SOURCE_DIR}/CDEPS-interface/ufs/cdeps_share/shr_is_restart_fh_mod.F90")
+message(STATUS "Downloading shr_is_restart_fh_mod.F90 from ufs-weather-model...")
+
+file(DOWNLOAD "${RESTART_FH_URL}" "${RESTART_FH_DEST}" STATUS download_status)
+
+# Check if the download was successful to prevent silent CI failures
+list(GET download_status 0 status_code)
+list(GET download_status 1 status_msg)
+if(NOT status_code EQUAL 0)
+    message(FATAL_ERROR "Failed to download shr_is_restart_fh_mod.F90: ${status_msg}")
+endif()
+message(STATUS "restart_fh downloaded successfully")

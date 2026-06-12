@@ -9,6 +9,7 @@ module module_mpas_config
   use mpi_f08
   use pio, only : iosystem_desc_t, file_desc_t, io_desc_t
   use esmf
+  use mpas_derived_types,  only : MPAS_Time_Type
 
   implicit none
 
@@ -44,26 +45,54 @@ module module_mpas_config
   !! hours
   real,dimension(:),allocatable :: output_fh
 
+  !> Restart frequency
+  real,dimension(:),allocatable :: restart_fh
+
+  !>
+  integer :: out_file_index     = 1
+  integer :: restart_file_index = 1
+  type (MPAS_Time_Type), allocatable :: mpas_output_times(:)
+  type (MPAS_Time_Type), allocatable :: mpas_restart_times(:)
+
   !> Calendar type
   character(17)            :: calendar='                 '
 
   !> MPAS Initial Condition file (via UFSATM NML)
-  character(len=256) :: ic_filename
+  character(len=256) :: ic_filename=""
 
   !> MPAS Lateral Boundary Condition file (via UFSATM NML)
-  character(len=256) :: lbc_filename
+  character(len=256) :: lbc_filename=""
 
-  !> MPAS output filenames
-  character(len=256) :: output_filename = "output.mpas.nc"
-  character(len=256) :: restart_filename = "restart.mpas.nc"
+  !> MPAS stream_list files (i.e. runtime contol over which fields to write)
+  character(len=256) :: stream_list_history=""
+  character(len=256) :: stream_list_restart=""
+  character(len=256) :: stream_list_diag=""
+  integer :: stream_list_history_funit
+  integer :: stream_list_restart_funit
+  integer :: stream_list_diag_funit
+  
+  !> MPAS tracer file (via UFSATM NML)
+  character(len=256) :: tracer_filename="tracer_table"
+  integer :: tracer_funit
 
+  !> UFSATM namelist filename
+  character(len=256) :: nml_filename = "input.nml"
+  integer :: nml_funit
+  character(len=256) :: mpas_errfilename = "mpas_err.log"
+  integer :: mpas_errfile_funit
+  character(len=256) :: mpas_logfilename = "mpas_out.log"
+  integer :: mpas_logfile_funit
+
+  
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem_ic
   type(iosystem_desc_t), pointer :: pio_subsystem_lbc
   type(iosystem_desc_t), pointer :: pio_subsystem_output
+  type(iosystem_desc_t), pointer :: pio_subsystem_restart
   type(file_desc_t), target :: pioid_ic
   type(file_desc_t), target :: pioid_lbc
   type(file_desc_t), target :: pioid_output
+  type(file_desc_t), target :: pioid_restart
   type(io_desc_t) :: pio_iodesc
   integer :: pio_iotype
   integer :: pio_ioformat
