@@ -24,20 +24,15 @@ module CCPP_driver
   type(ccpp_t), pointer :: cdata => null()
 
 !--------------------------------------------------------!
-!  Flag for non-uniform block sizes (last block smaller) !
-!  and number of OpenMP threads (with special thread     !
-!  number nthrdsX in case of non-uniform block sizes)    !
+!  Number of OpenMP threads                             !
 !--------------------------------------------------------!
-  logical :: non_uniform_blocks
-  integer :: nthrds, nthrdsX
+  integer :: nthrds
 
 !----------------
 ! Public Entities
 !----------------
 ! functions
   public CCPP_step
-! module variables
-  public non_uniform_blocks
 
   CONTAINS
 !*******************************************************************************************
@@ -78,14 +73,6 @@ module CCPP_driver
       nthrds = 1
 #endif
 
-      ! For non-uniform blocksizes, we use index nthrds+1
-      ! for the interstitial data type with different length
-      if (non_uniform_blocks) then
-        nthrdsX = nthrds+1
-      else
-        nthrdsX = nthrds
-      end if
-
       ! For physics running over the entire domain, block, chunk and thread
       ! numbers are not used; set to safe values
       cdata_domain%blk_no = 1
@@ -94,17 +81,17 @@ module CCPP_driver
       cdata_domain%thrd_cnt = 1
 
       ! Allocate cdata structures for blocks and threads
-      if (.not.allocated(cdata_block)) allocate(cdata_block(1:nblks,1:nthrdsX))
+      if (.not.allocated(cdata_block)) allocate(cdata_block(1:nblks,1:nthrds))
 
       ! Loop over all blocks and threads
-      do nt=1,nthrdsX
+      do nt=1,nthrds
         do nb=1,nblks
           ! Assign the correct block, chunk and thread numbers
           ! Note that we can use block number as chunk number
           cdata_block(nb,nt)%blk_no = nb
           cdata_block(nb,nt)%chunk_no = nb
           cdata_block(nb,nt)%thrd_no = nt
-          cdata_block(nb,nt)%thrd_cnt = nthrdsX
+          cdata_block(nb,nt)%thrd_cnt = nthrds
         end do
       end do
     ! Physics init (same for all dynamical cores)
