@@ -3,7 +3,7 @@
 #  url = https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere
 #  branch = dev/emc
   url = https://github.com/WChen-NOAA/GFDL_atmos_cubed_sphere
-  branch = pdc_full
+  branch = pdc-dev
 [submodule "ccpp/framework"]
   path = ccpp/framework
   url = https://github.com/NCAR/ccpp-framework
