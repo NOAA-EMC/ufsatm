@@ -548,7 +548,7 @@ module post_fv3
                              no3cb, nh4cb, dusmass, ducmass, dusmass25,ducmass25, &
                              snownc, graupelnc, qrmax, hail_maxhailcast,       &
                              smoke_ave,dust_ave,coarsepm_ave,swddif,swddni,    &
-                             xlaixy,wspd10umax,wspd10vmax,f10m
+                             xlaixy,wspd10umax,wspd10vmax,f10m,shdmax,shdmin
       use soil,        only: sldpth, sh2o, smc, stc, sllevel
       use masks,       only: lmv, lmh, htm, vtm, gdlat, gdlon, dx, dy, hbm2, sm, sice
       use ctlblk_mod,  only: im, jm, lm, lp1, jsta, jend, jsta_2l, jend_2u, jsta_m,jend_m, &
@@ -559,7 +559,7 @@ module post_fv3
                              td3d, idat, sdat, ifhr, ifmin, dt, nphs, dtq2, pt_tbl, &
                              alsl, spl, ihrst, modelname, nsoil, rdaod, gocart_on,  &
                              gccpp_on, nasa_on, d2d_chem, nbin_ss, nbin_bc, nbin_oc,&
-                             nbin_du,nbin_su, nbin_no3, nbin_nh4
+                             nbin_du,nbin_su, nbin_no3, nbin_nh4 
       use params_mod,  only: erad, dtr, capa, p1000, small,h1, d608, pi, rd, rtd
       use gridspec_mod,only: latstart, latlast, lonstart, lonlast, cenlon, cenlat, &
                              dxval, dyval, truelat2, truelat1, psmapf, cenlat,     &
@@ -1660,6 +1660,28 @@ module post_fv3
                     vegfrc(i,j) = 0.0
                   endif
                   if (sm(i,j) /= 0.0) vegfrc(i,j) = spval
+                enddo
+              enddo
+            endif
+
+            ! maximum fractional coverage of vegetation 
+            if(trim(fieldname)=='shdmax') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,shdmax,fillValue)
+              do j=jsta,jend 
+                do i=ista, iend
+                  shdmax(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) shdmax(i,j)=spval 
+                enddo        
+              enddo    
+            endif
+
+            ! minimum fractional coverage of vegetation 
+            if(trim(fieldname)=='shdmin') then
+              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,shdmin,arrayr42d,fillValue)
+              do j=jsta,jend
+                do i=ista, iend
+                  shdmin(i,j) = arrayr42d(i,j)
+                  if( abs(arrayr42d(i,j)-fillValue) < small) shdmin(i,j)=spval
                 enddo
               enddo
             endif
@@ -4652,6 +4674,22 @@ module post_fv3
       enddo
 !      print *,'in post_gfs,tshltr=',maxval(tshltr(1:im,jsta:jend)), &
 !          minval(tshltr(1:im,jsta:jend))
+
+! create a blended qshltr for GFS v17, Inside UPP: sm=1 for water; sm=0 for land
+      if(modelname=='GFS' .and. iSF_SURFACE_PHYSICS==2) then
+!$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,lm,qshltr,spval,ivgtyp,shdmax,q,sm)
+        do j=jsta,jend
+          do i=ista, iend
+            if( qshltr(i,j) /= spval .and. sm(i,j) == 0.0) then
+              if(ivgtyp(i,j) == 13 .or. ivgtyp(i,j) == 16 .or. ivgtyp(i,j) == 20) then
+                qshltr(i,j) = q(i,j,lm)
+              elseif (ivgtyp(i,j) /= 15) then
+                qshltr(i,j) = shdmax(i,j) * qshltr(i,j) + (1.0 - shdmax(i,j)) * q(i,j,lm)
+              endif
+            endif
+          enddo
+        enddo
+      endif !end GFS
 
 !htop
       do j=jsta,jend
