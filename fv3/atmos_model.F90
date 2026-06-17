@@ -162,6 +162,7 @@ public merge_importfield
      integer                       :: mlon, mlat         !< longitude and latitude
      integer                       :: iau_offset         !< iau running window length
      logical                       :: pe                 !< current pe.
+     logical                       :: pdc                ! true for higher-order physics-dynamics coupling
      real(kind=GFS_kind_phys), pointer, dimension(:)     :: ak, bk
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lon_bnd  => null() !< local longitude axis grid box corners in radians.
      real(kind=GFS_kind_phys), pointer, dimension(:,:)   :: lat_bnd  => null() !< local latitude axis grid box corners in radians.
@@ -201,8 +202,9 @@ real    :: avg_max_length=3600.   !< Maximum length for time averaging
 logical :: ignore_rst_cksum = .false. !< Logical to ignore restart file checksum
 logical :: cpl_imp_mrg = .false. !< Logical to merge imported data
 logical :: cpl_imp_dbg = .false. !< Logical to debug imported data
+logical :: pdc          = .false. !<Logical to enable phy-dyn-cpl with time dribbling
 namelist /atmos_model_nml/ blocksize, chksum_debug, dycore_only, debug, sync, ccpp_suite, avg_max_length, &
-                           ignore_rst_cksum, cpl_imp_mrg, cpl_imp_dbg
+                           ignore_rst_cksum, cpl_imp_mrg, cpl_imp_dbg,pdc
 
 type (time_type) :: diag_time, diag_time_fhzero !< Time diagnostic and forecast hour zero time diagnostic
 
@@ -610,6 +612,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    if (file_exists('input.nml')) then
       read(input_nml_file, nml=atmos_model_nml, iostat=io)
       ierr = check_nml_error(io, 'atmos_model_nml')
+      Atmos%pdc = pdc
    endif
 
 !-----------------------------------------------------------------------
@@ -862,7 +865,7 @@ subroutine update_atmos_model_dynamics (Atmos)
     endif
 #endif
     call mpp_clock_begin(fv3Clock)
-    call atmosphere_dynamics (Atmos%Time)
+    call atmosphere_dynamics (Atmos%Time,Atmos%pdc)
 #ifdef MOVING_NEST
     ! W. Ramstrom, AOML/HRD -- June 9, 2021
     ! Debugging output of moving nest code.  Called from this level to access needed input variables.
