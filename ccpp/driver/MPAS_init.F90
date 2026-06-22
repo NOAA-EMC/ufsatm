@@ -43,7 +43,6 @@ contains
     integer :: nblks
     integer :: nt
     integer :: nthrds
-    logical :: non_uniform_blocks
     integer :: ix
 
     nblks = size(Init_parm%blksz)
