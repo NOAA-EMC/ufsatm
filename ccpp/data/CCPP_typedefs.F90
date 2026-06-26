@@ -1229,12 +1229,15 @@ contains
 
     if (Model%imp_physics == Model%imp_physics_thompson .or. &
          Model%imp_physics == Model%imp_physics_tempo) then
+       Interstitial%nvdiff = 9
+
       if (Model%ltaerosol) then
-        Interstitial%nvdiff = 12
-     else if (Model%mraerosol) then
-        Interstitial%nvdiff = 10
-      else
-        Interstitial%nvdiff = 9
+        Interstitial%nvdiff = Interstitial%nvdiff + 3
+      else if (Model%mraerosol .and. Model%imp_physics /= Model%imp_physics_tempo) then
+        Interstitial%nvdiff = Interstitial%nvdiff + 1
+      endif
+      if (Model%imp_physics == Model%imp_physics_tempo .and. Model%lthailaware) then
+        Interstitial%nvdiff = Interstitial%nvdiff + 2
       endif
       if (Model%satmedmf) Interstitial%nvdiff = Interstitial%nvdiff + 1
     elseif ( Model%imp_physics == Model%imp_physics_nssl ) then
@@ -1318,12 +1321,14 @@ contains
         Interstitial%nvdiff = 7
      elseif (Model%imp_physics == Model%imp_physics_thompson .or. &
           Model%imp_physics == Model%imp_physics_tempo) then
+        Interstitial%nvdiff = 9
         if (Model%ltaerosol) then
-          Interstitial%nvdiff = 12
-        else if (Model%mraerosol) then
-          Interstitial%nvdiff = 10
-        else
-          Interstitial%nvdiff = 9
+           Interstitial%nvdiff = Interstitial%nvdiff + 3
+        else if (Model%mraerosol .and. Model%imp_physics /= Model%imp_physics_tempo) then
+           Interstitial%nvdiff = Interstitial%nvdiff + 1
+        endif
+        if (Model%imp_physics == Model%imp_physics_tempo .and. Model%lthailaware) then
+           Interstitial%nvdiff = Interstitial%nvdiff + 2
         endif
       else
         write(0,*) "Selected microphysics scheme is not supported when coupling with chemistry"

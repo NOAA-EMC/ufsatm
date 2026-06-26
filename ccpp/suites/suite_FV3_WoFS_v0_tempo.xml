@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_v17_p8_ugwpv1_tempo" version="1">
+<suite name="FV3_WoFS_v0_tempo"  version="1">
   <!-- <init></init> -->
-  <group name="fast_physics">
-    <subcycle loop="1">    
-      <scheme>mp_tempo_condensation</scheme>
-    </subcycle>
-  </group>  
   <group name="time_vary">
     <subcycle loop="1">
       <scheme>GFS_time_vary_pre</scheme>
@@ -17,12 +12,14 @@
   </group>
   <group name="radiation">
     <subcycle loop="1">
+      <scheme>sgscloud_radpre</scheme>
       <scheme>GFS_rrtmg_pre</scheme>
       <scheme>GFS_radiation_surface</scheme>
       <scheme>rad_sw_pre</scheme>
       <scheme>rrtmg_sw</scheme>
       <scheme>rrtmg_sw_post</scheme>
       <scheme>rrtmg_lw</scheme>
+      <scheme>sgscloud_radpost</scheme>
       <scheme>rrtmg_lw_post</scheme>
       <scheme>GFS_radiation_post</scheme>
     </subcycle>
@@ -39,13 +36,12 @@
     </subcycle>
     <!-- Surface iteration loop -->
     <subcycle loop="2">
-      <scheme>sfc_diff</scheme>
+      <scheme>module_sf_mynnsfc_driver</scheme>
       <scheme>GFS_surface_loop_control_part1</scheme>
       <scheme>sfc_nst_pre</scheme>
       <scheme>sfc_nst</scheme>
       <scheme>sfc_nst_post</scheme>
-      <scheme>noahmpdrv</scheme>
-      <scheme>sfc_land</scheme>
+      <scheme>lsm_noah</scheme>
       <scheme>sfc_sice</scheme>
       <scheme>GFS_surface_loop_control_part2</scheme>
     </subcycle>
@@ -55,12 +51,11 @@
       <scheme>sfc_diag</scheme>
       <scheme>sfc_diag_post</scheme>
       <scheme>GFS_surface_generic_post</scheme>
-      <scheme>GFS_PBL_generic_pre</scheme>
-      <scheme>satmedmfvdifq</scheme>
-      <scheme>GFS_PBL_generic_post</scheme>
+      <scheme>mynnedmf_wrapper</scheme>
+      <scheme>mynnedmf_wrapper_post</scheme>
       <scheme>GFS_GWD_generic_pre</scheme>
-      <scheme>ugwpv1_gsldrag</scheme>
-      <scheme>ugwpv1_gsldrag_post</scheme>
+      <scheme>cires_ugwp</scheme>
+      <scheme>cires_ugwp_post</scheme>
       <scheme>GFS_GWD_generic_post</scheme>
     </subcycle>
   </group>
@@ -69,29 +64,17 @@
       <scheme>GFS_photochemistry</scheme>
       <scheme>GFS_photochemistry_post</scheme>
       <scheme>get_phi_fv3</scheme>
-      <scheme>GFS_suite_interstitial_3</scheme>
-      <scheme>samfdeepcnv</scheme>
-      <scheme>GFS_DCNV_generic_post</scheme>
-      <scheme>samfshalcnv</scheme>
-      <scheme>GFS_SCNV_generic_post</scheme>
-      <scheme>GFS_suite_interstitial_4</scheme>
-      <scheme>cnvc90</scheme>
-      </subcycle>
-      <subcycle loop="1">
-        <scheme>mp_tempo</scheme>
-      </subcycle>
-        <subcycle loop="1">
-        <scheme>mp_tempo_post</scheme>      
-        <scheme>GFS_MP_generic_post</scheme>
-        <scheme>maximum_hourly_diagnostics</scheme>
-      </subcycle>
+      <scheme>mp_tempo</scheme>
+      <scheme>mp_tempo_post</scheme>      
+      <scheme>GFS_MP_generic_post</scheme>
+      <scheme>maximum_hourly_diagnostics</scheme>
+      <scheme>GFS_physics_post</scheme>
+    </subcycle>
   </group>
   <group name="stochastics">
     <subcycle loop="1">
       <scheme>GFS_stochastics</scheme>
-      <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
-
   <!-- <finalize></finalize> -->
 </suite>

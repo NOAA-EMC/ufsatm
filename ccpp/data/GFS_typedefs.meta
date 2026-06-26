@@ -602,6 +602,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_graupel_in_tracer_concentration_array > 0)
 [gq0(:,:,index_of_mass_number_concentration_of_hail_in_tracer_concentration_array)]
   standard_name = mass_number_concentration_of_hail
   long_name = number concentration of hail
@@ -5200,18 +5201,24 @@
   units = count
   dimensions = ()
   type = integer
-[tempo_cfg]
+[tempo_cfgs]
   standard_name = configuration_for_TEMPO_microphysics
   long_name = configuration information for TEMPO microphysics
   units = mixed
   dimensions = ()
-  type = ty_tempo_cfg
+  type = ty_tempo_cfgs
 [thompson_mp_is_init]
   standard_name = flag_for_thompson_mp_scheme_initialization
   long_name = flag carrying scheme initialization status
   units = flag
   dimensions = ()
   type = logical
+[tempo_mp_is_init]
+  standard_name = flag_for_tempo_mp_scheme_initialization
+  long_name = flag carrying scheme initialization status
+  units = flag
+  dimensions = ()
+  type = logical  
 [nt_c_l]
   standard_name = prescribed_number_concentration_of_cloud_liquid_water_particles_in_air_over_land
   long_name = volumetric number concentration of cloud liquid water droplets in air over land points
@@ -10708,7 +10715,6 @@
   dependencies_path = ../physics/physics/
   dependencies = hooks/machine.F,hooks/physcons.F90
   dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
-  dependencies = MP/TEMPO/TEMPO/module_mp_tempo_params.F90
   dependencies = photochem/module_ozphys.F90,photochem/module_h2ophys.F90
   dependencies = SFC_Models/Land/Noahmp/lnd_iau_mod.F90
 
