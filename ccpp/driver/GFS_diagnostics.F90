@@ -3605,7 +3605,7 @@ module GFS_diagnostics
       ExtDiag(idx)%desc = 'smoke concentration'
       ExtDiag(idx)%unit = 'kg kg-1'
       ExtDiag(idx)%mod_name = 'gfs_phys'
-      ExtDiag(idx)%data%var3 => Statein%qgrs(:,:,Model%ntfsmoke)
+      ExtDiag(idx)%data%var3 => Stateout%gq0(:,:,Model%ntfsmoke)
     endif
 
     if (Model%rrfs_sd .and. Model%ntsmoke>0) then
