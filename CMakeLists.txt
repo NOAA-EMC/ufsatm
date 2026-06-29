@@ -223,11 +223,9 @@ if (MPAS)
     string(REPLACE " " ";" MPAS_CORES ${MPAS_CORES})
     set(MPAS_CORES ${MPAS_CORES} CACHE STRING "MPAS cores to build. Options: ${MPAS_ALL_CORES}" FORCE)
   endif()
-  set(MPAS_CAM_DYCORE TRUE)
   set(MPAS_USE_PIO TRUE)
   add_definitions(-DMPAS_USE_MPI_F08)
   add_definitions(-DMPAS_PIO_SUPPORT)
-  add_definitions(-DMPAS_CAM_DYCORE)
   add_definitions(-DMPAS_UFS_DYCORE)
   add_definitions(-DSINGLE_PRECISION)
 
@@ -257,7 +255,10 @@ if (MPAS)
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )
-  add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
+  add_dependencies(${DYCORE_TARGET} mpas mpasccpp stochastic_physics)
+  target_include_directories(${DYCORE_TARGET} PRIVATE
+    ${CMAKE_BINARY_DIR}/stochastic_physics/mod
+  )
 
   if(NOT MPAS_GIT_VERSION)
     find_package(Git QUIET)
@@ -306,6 +307,7 @@ endif()
 if (MPAS)
   target_link_libraries(${DYCORE_TARGET} PUBLIC mpas
                                          mpasccpp
+                                         stochastic_physics
 					 fms)
 endif()
 

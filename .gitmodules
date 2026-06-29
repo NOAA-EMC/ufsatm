@@ -16,5 +16,5 @@
   branch = develop
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
-  url = https://github.com/ufs-community/MPAS-Model.git
-  branch = feature/mpas-in-ufs
+  url = https://github.com/dustinswales/MPAS-Model.git
+  branch = feature/stochy_in_ufs

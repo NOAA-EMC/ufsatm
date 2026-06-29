@@ -77,8 +77,6 @@ module ufs_mpas_io
        var_info_type('bdyMaskEdge'                     , 'integer'   , 1), &
        var_info_type('bdyMaskVertex'                   , 'integer'   , 1), &
        var_info_type('cellTangentPlane'                , 'real'      , 3), &
-       var_info_type('cell_gradient_coef_x'            , 'real'      , 2), &
-       var_info_type('cell_gradient_coef_y'            , 'real'      , 2), &
        var_info_type('cellsOnCell'                     , 'integer'   , 2), &
        var_info_type('cellsOnEdge'                     , 'integer'   , 2), &
        var_info_type('cellsOnVertex'                   , 'integer'   , 2), &
@@ -219,7 +217,6 @@ module ufs_mpas_io
        var_info_type('snoalb'                          , 'real'      , 1), &
        var_info_type('greenfrac'                       , 'real'      , 2), &
        var_info_type('albedo12m'                       , 'real'      , 2), &
-       var_info_type('soilcomp'                        , 'real'      , 2), &
        var_info_type('soilcl1'                         , 'real'      , 1), &
        var_info_type('soilcl2'                         , 'real'      , 1), &
        var_info_type('soilcl3'                         , 'real'      , 1), &
@@ -273,6 +270,8 @@ module ufs_mpas_io
   !> Only variables that are specific to the "output" stream are included.
   !> #########################################################################################
   type(var_info_type), parameter :: history_var_info_list(*) = [ &
+  var_info_type('stoch_pattern_sppt'              , 'real',       2), &
+       var_info_type('stoch_pattern_gg'                , 'real',       2), & 
        var_info_type('Time'                            , 'real'      , 0), &
        var_info_type('initial_time'                    , 'character' , 0), &
        var_info_type('divergence'                      , 'real'      , 2), &

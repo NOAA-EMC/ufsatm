@@ -25,7 +25,7 @@ endif()
 # Find C pre-processor
 if(CMAKE_C_COMPILER_ID MATCHES GNU)
   find_program(CPP_EXECUTABLE NAMES cpp REQUIRED)
-  set(CPP_EXTRA_FLAGS -traditional)
+  set(CPP_EXTRA_FLAGS -traditional -DMPAS_UFS_DYCORE)
 elseif(CMAKE_C_COMPILER_ID MATCHES "(Apple)?Clang" )
   find_program(CPP_EXECUTABLE NAMES cpp REQUIRED)
 else()
@@ -42,7 +42,6 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/${MPAS_MODULE_DIR}/ DESTINATION ${CMAKE_IN
 ###############################################################################
 # Build MPAS libraries...
 ###############################################################################
-add_definitions(-DMPAS_CAM_DYCORE)
 add_definitions(-DMPAS_UFS_DYCORE)
 
 # MPAS Utilities (Externals)
