@@ -3309,6 +3309,14 @@
   type = real
   kind = kind_phys
   active = (do_smoke_coupling)
+[settle3d]
+  standard_name = settle3d_mynn_pbl_transport
+  long_name = settling of smoke and dust
+  units = various
+  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_chemical_species_vertically_mixed)
+  type = real
+  kind = kind_phys
+  active = (do_smoke_coupling)
 [ddvel]
   standard_name = dry_deposition_velocity_mynn_pbl_transport
   long_name = dry deposition velocity by mynn pbl transport
@@ -7943,9 +7951,21 @@
   units = flag
   dimensions = ()
   type = integer
-[bl_mynn_output]
-  standard_name = control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme
-  long_name = flag initialize and output extra 3D variables
+[bl_mynn_mixscalars]
+  standard_name = control_for_additional_scalars_mixing_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag to activate mixing of additional scalars
+  units = flag
+  dimensions = ()
+  type = integer
+[bl_mynn_mixaerosols]
+  standard_name = control_for_aerosols_mixing_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag to activate mixing of aerosols
+  units = flag
+  dimensions = ()
+  type = integer
+[bl_mynn_mixnumcon]
+  standard_name = control_for_number_concentrations_mixing_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag to activate mixing of number concentrations
   units = flag
   dimensions = ()
   type = integer
@@ -7956,6 +7976,30 @@
   dimensions = ()
   type = real
   kind = kind_phys
+[bl_mynn_edmf_dd]
+  standard_name = control_for_downdrafts_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag to activate downdrafts
+  units = flag
+  dimensions = ()
+  type = integer
+[bl_mynn_ess]
+  standard_name = control_for_effective_static_stability_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag to determine which ess function to use
+  units = flag
+  dimensions = ()
+  type = integer
+[bl_mynn_diags2d]
+  standard_name = control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag initialize and output extra mynn 2d diagnostic variables
+  units = flag
+  dimensions = ()
+  type = integer
+[bl_mynn_diags3d]
+  standard_name = control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = flag initialize and output extra mynn 3d diagnostic variables
+  units = flag
+  dimensions = ()
+  type = integer
 [icloud_bl]
   standard_name = control_for_sgs_cloud_radiation_coupling_in_mellor_yamamda_nakanishi_niino_pbl_scheme
   long_name = flag for coupling sgs clouds to radiation
@@ -10117,7 +10161,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [edmf_w]
   standard_name = emdf_updraft_vertical_velocity
   long_name = updraft vertical velocity from mass flux scheme
@@ -10125,7 +10169,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [edmf_qt]
   standard_name = emdf_updraft_total_water
   long_name = updraft total water from mass flux scheme
@@ -10133,7 +10177,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [edmf_thl]
   standard_name = emdf_updraft_theta_l
   long_name = updraft theta-l from mass flux scheme
@@ -10141,7 +10185,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [edmf_ent]
   standard_name = emdf_updraft_entrainment_rate
   long_name = updraft entranment rate from mass flux scheme
@@ -10149,7 +10193,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [edmf_qc]
   standard_name = emdf_updraft_cloud_water
   long_name = updraft cloud water from mass flux scheme
@@ -10157,7 +10201,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [sub_thl]
   standard_name = theta_subsidence_tendency
   long_name = updraft theta subsidence tendency
@@ -10165,7 +10209,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [sub_sqv]
   standard_name = water_vapor_subsidence_tendency
   long_name = updraft water vapor subsidence tendency
@@ -10173,7 +10217,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [det_thl]
   standard_name = theta_detrainment_tendency
   long_name = updraft theta detrainment tendency
@@ -10181,7 +10225,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
 [det_sqv]
   standard_name = water_vapor_detrainment_tendency
   long_name = updraft water vapor detrainment tendency
@@ -10189,7 +10233,79 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_3d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+[lwp_bl]
+  standard_name = liquid_water_path_from_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = liquid water path from pbl scheme
+  units = kg m-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+[iwp_bl]
+  standard_name = ice_water_path_from_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = ice water path from pbl scheme
+  units = kg m-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+[swp_bl]
+  standard_name = snow_water_path_from_mellor_yamada_nakanishi_niino_pbl_scheme
+  long_name = snow water path from pbl scheme
+  units = kg m-2
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+[cldceil]
+  standard_name = cloud_ceiling
+  long_name = cloud ceiling
+  units = m
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme .ne. 0))
+[wspd10]
+  standard_name = wind_speed_at_10m
+  long_name = wind speed at 10m
+  units = m s-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme > 1))
+[wspd80]
+  standard_name = wind_speed_at_80m
+  long_name = wind speed at 80m
+  units = m s-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme > 1))
+[wspd160]
+  standard_name = wind_speed_at_160m
+  long_name = wind speed at 160m
+  units = m s-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme > 1))
+[maxcldfra]
+  standard_name = max_cloud_fraction
+  long_name = max cloud fraction
+  units = frac
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme > 1))
+[maxcldfra_bl]
+  standard_name = max_cloud_fraction_in_bl
+  long_name = max cloud fraction in boundary layer
+  units = frac
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme .and. (control_for_additional_2d_diagnostics_in_mellor_yamada_nakanishi_niino_pbl_scheme > 1))
 [dqke]
   standard_name = total_time_rate_of_change_of_tke
   long_name = total tke tendency
@@ -10260,6 +10376,62 @@
   units = count
   dimensions = (horizontal_dimension)
   type = integer
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[excess_h]
+  standard_name = max_heat_excess_of_plume_initialization
+  long_name = max heat excess of plume initialization
+  units = K
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[excess_q]
+  standard_name = max_moisture_excess_of_plume_initialization
+  long_name = max moisture excess of plume initialization
+  units = kg kg-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[maxmf_dd]
+  standard_name = max_mass_flux_of_downdraft
+  long_name = max mass flux of downdraft
+  units = m s-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[maxwidth_dd]
+  standard_name = max_downdraft_width
+  long_name = max downdraft width
+  units = m
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[maxtkeprod]
+  standard_name = max_tke_production_by_cloud_top_cooling
+  long_name = max tke production by cloud top cooling
+  units = m2 s-2 hr-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[cldtop_cooling]
+  standard_name = radiative_cooling_at_cloud_top
+  long_name = radiative cooling at cloud top
+  units = K hr-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
+[ent_eff]
+  standard_name = entrainment_efficiency_for_cloud_top
+  long_name = entrainment efficiency for cloud top
+  units = unitless
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
   active = (flag_for_mellor_yamada_nakanishi_niino_pbl_scheme)
 [exch_h]
   standard_name = atmosphere_heat_diffusivity_for_mynnedmf

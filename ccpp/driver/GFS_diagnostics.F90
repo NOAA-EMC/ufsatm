@@ -4055,7 +4055,7 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       ExtDiag(idx)%data%var3 => Tbd%QKE(:,:)
 
-      if (Model%bl_mynn_output > 0) then
+      if (Model%bl_mynn_diags3d > 0) then
 
         idx = idx + 1
         ExtDiag(idx)%axes = 3
@@ -4136,6 +4136,82 @@ module GFS_diagnostics
         ExtDiag(idx)%unit = 'kg kg-1 s-1'
         ExtDiag(idx)%mod_name = 'gfs_phys'
         ExtDiag(idx)%data%var3 => IntDiag%det_sqv(:,:)
+      endif
+      if (Model%bl_mynn_diags2d > 0) then
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'lwp_bl'
+        ExtDiag(idx)%desc = 'liquid water path (from mynn)'
+        ExtDiag(idx)%unit = 'kg m-2'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%lwp_bl(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'iwp_bl'
+        ExtDiag(idx)%desc = 'ice water path (from mynn)'
+        ExtDiag(idx)%unit = 'kg m-2'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%iwp_bl(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'swp_bl'
+        ExtDiag(idx)%desc = 'snow water path (from mynn)'
+        ExtDiag(idx)%unit = 'kg m-2'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%swp_bl(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'cldceil'
+        ExtDiag(idx)%desc = 'cloud ceiling (from mynn)'
+        ExtDiag(idx)%unit = 'm'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%cldceil(:)
+      endif
+      if (Model%bl_mynn_diags2d > 1) then
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'wspd10'
+        ExtDiag(idx)%desc = 'wind speed at 10m (from mynn)'
+        ExtDiag(idx)%unit = 'm s-1'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%wspd10(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'wspd80'
+        ExtDiag(idx)%desc = 'wind speed at 80m (from mynn)'
+        ExtDiag(idx)%unit = 'm s-1'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%wspd80(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'wspd160'
+        ExtDiag(idx)%desc = 'wind speed at 160m (from mynn)'
+        ExtDiag(idx)%unit = 'm s-1'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%wspd160(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'maxcldfra'
+        ExtDiag(idx)%desc = 'max cloud fraction (from mynn)'
+        ExtDiag(idx)%unit = 'fraction'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%maxcldfra(:)
+
+        idx = idx + 1
+        ExtDiag(idx)%axes = 2
+        ExtDiag(idx)%name = 'maxcldfra_bl'
+        ExtDiag(idx)%desc = 'max cloud fraction in boundary layer (from mynn)'
+        ExtDiag(idx)%unit = 'fraction'
+        ExtDiag(idx)%mod_name = 'gfs_phys'
+        ExtDiag(idx)%data%var2 => IntDiag%maxcldfra_bl(:)
       endif
     endif
 

@@ -647,6 +647,7 @@ module GFS_typedefs
 
     !--- For MYNN PBL transport of  smoke and dust
     real (kind=kind_phys), pointer :: chem3d  (:,:,:)   => null()  !< 3D aod array
+    real (kind=kind_phys), pointer :: settle3d(:,:,:)   => null()  !
     real (kind=kind_phys), pointer :: ddvel   (:,:  )   => null()  !< 2D dry deposition velocity
     !--- For convective wet removal of  smoke and dust
     real (kind=kind_phys), pointer :: wetdpc_flux (:,:) => null()  !< 2D wet deposition array
@@ -1335,9 +1336,15 @@ module GFS_typedefs
     integer              :: bl_mynn_edmf       !< flag to activate the mass-flux scheme
     integer              :: bl_mynn_edmf_mom   !< flag to activate the transport of momentum
     integer              :: bl_mynn_edmf_tke   !< flag to activate the transport of TKE
+    integer              :: bl_mynn_edmf_dd    !< flag to activate downdrafts
+    integer              :: bl_mynn_ess        !< flag to determine which effective static stability function to use
     integer              :: bl_mynn_cloudmix   !< flag to activate mixing of cloud species
     integer              :: bl_mynn_mixqt      !< flag to mix total water or individual species
-    integer              :: bl_mynn_output     !< flag to initialize and write out extra 3D arrays
+    integer              :: bl_mynn_mixscalars !< flag to activate mixing of additional scalars
+    integer              :: bl_mynn_mixaerosols!< flag to activate mixing of aerosols
+    integer              :: bl_mynn_mixnumcon  !< flag to activate mixing of number concentrations
+    integer              :: bl_mynn_diags3d    !< flag to initialize and write out extra 3D arrays
+    integer              :: bl_mynn_diags2d    !< flag to initialize and write out extra 2D arrays
     integer              :: icloud_bl          !< flag for coupling sgs clouds to radiation
     real(kind=kind_phys) :: bl_mynn_closure    !< flag to determine closure level of MYNN
     logical              :: sfclay_compute_flux!< flag for thermal roughness lengths over water in mynnsfclay
@@ -2087,10 +2094,26 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: sub_sqv    (:,:)   => null()  !
     real (kind=kind_phys), pointer :: det_thl    (:,:)   => null()  !
     real (kind=kind_phys), pointer :: det_sqv    (:,:)   => null()  !
+    real (kind=kind_phys), pointer :: lwp_bl      (:)    => null()  !
+    real (kind=kind_phys), pointer :: iwp_bl      (:)    => null()  !
+    real (kind=kind_phys), pointer :: swp_bl      (:)    => null()  !
+    real (kind=kind_phys), pointer :: cldceil     (:)    => null()  !
+    real (kind=kind_phys), pointer :: wspd10      (:)    => null()  !
+    real (kind=kind_phys), pointer :: wspd80      (:)    => null()  !
+    real (kind=kind_phys), pointer :: wspd160     (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxcldfra   (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxcldfra_bl(:)    => null()  !    
     real (kind=kind_phys), pointer :: maxMF       (:)    => null()  !
     real (kind=kind_phys), pointer :: maxwidth    (:)    => null()  !
     real (kind=kind_phys), pointer :: ztop_plume  (:)    => null()  !
     integer, pointer               :: ktop_plume  (:)    => null()  !
+    real (kind=kind_phys), pointer :: excess_h    (:)    => null()  !
+    real (kind=kind_phys), pointer :: excess_q    (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxwidth_dd (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxmf_dd    (:)    => null()  !
+    real (kind=kind_phys), pointer :: maxtkeprod  (:)    => null()  !
+    real (kind=kind_phys), pointer :: cldtop_cooling(:)  => null()  !
+    real (kind=kind_phys), pointer :: ent_eff     (:)    => null()  !
     real (kind=kind_phys), pointer :: exch_h     (:,:)   => null()  !
     real (kind=kind_phys), pointer :: exch_m     (:,:)   => null()  !
     real (kind=kind_phys), pointer :: dqke       (:,:)   => null()  !< timestep change of tke
@@ -3385,6 +3408,7 @@ module GFS_typedefs
     !--- needed for smoke aerosol option
       allocate (Coupling%ebu_smoke (IM,Model%levs))
       allocate (Coupling%chem3d    (IM,Model%levs,Model%nchem))
+      allocate (Coupling%settle3d  (IM,Model%levs,Model%nchem))
       allocate (Coupling%ddvel     (IM,Model%ndvel))
       allocate (Coupling%wetdpc_flux(IM,Model%nchem))
       allocate (Coupling%wetdpr_flux(IM,Model%nchem))
@@ -3398,6 +3422,7 @@ module GFS_typedefs
       allocate (Coupling%rrfs_hwp_ave  (IM))
       Coupling%ebu_smoke  = clear_val
       Coupling%chem3d     = clear_val
+      Coupling%settle3d   = clear_val
       Coupling%ddvel      = clear_val
       Coupling%wetdpc_flux = clear_val
       Coupling%wetdpr_flux = clear_val
@@ -3930,7 +3955,11 @@ module GFS_typedefs
     integer              :: bl_mynn_edmf_tke  = 0
     integer              :: bl_mynn_cloudmix  = 1
     integer              :: bl_mynn_mixqt     = 0
-    integer              :: bl_mynn_output    = 0
+    integer              :: bl_mynn_mixscalars= 0
+    integer              :: bl_mynn_mixaerosols=1
+    integer              :: bl_mynn_mixnumcon = 0
+    integer              :: bl_mynn_diags2d   = 0
+    integer              :: bl_mynn_diags3d   = 0
     integer              :: icloud_bl         = 1
     real(kind=kind_phys) :: bl_mynn_closure   = 2.6                   !<   <= 2.5  only prognose tke
                                                                       !<   2.5 < and < 3.0, prognose tke and q'2
@@ -4308,7 +4337,9 @@ module GFS_typedefs
                                ! DH* TODO - move to MYNN namelist section
                                bl_mynn_cloudpdf, bl_mynn_edmf, bl_mynn_edmf_mom,            &
                                bl_mynn_edmf_tke, bl_mynn_mixlength, bl_mynn_cloudmix,       &
-                               bl_mynn_mixqt, bl_mynn_output, icloud_bl, bl_mynn_tkeadvect, &
+                               bl_mynn_mixqt, bl_mynn_mixscalars, bl_mynn_mixaerosols,      &
+                               bl_mynn_mixnumcon, bl_mynn_diags2d, bl_mynn_diags3d,         &
+                               icloud_bl, bl_mynn_tkeadvect,                                &
                                bl_mynn_closure, tke_budget,                                 &
                                isftcflx, iz0tlnd, sfclay_compute_flux, sfclay_compute_diag, &
                                ! *DH
@@ -5324,8 +5355,11 @@ module GFS_typedefs
     Model%bl_mynn_edmf_mom  = bl_mynn_edmf_mom
     Model%bl_mynn_edmf_tke  = bl_mynn_edmf_tke
     Model%bl_mynn_cloudmix  = bl_mynn_cloudmix
-    Model%bl_mynn_mixqt     = bl_mynn_mixqt
-    Model%bl_mynn_output    = bl_mynn_output
+    Model%bl_mynn_mixscalars= bl_mynn_mixscalars
+    Model%bl_mynn_mixaerosols=bl_mynn_mixaerosols
+    Model%bl_mynn_mixnumcon = bl_mynn_mixnumcon
+    Model%bl_mynn_diags2d   = bl_mynn_diags2d
+    Model%bl_mynn_diags3d   = bl_mynn_diags3d
     Model%bl_mynn_tkeadvect = bl_mynn_tkeadvect
     Model%bl_mynn_closure   = bl_mynn_closure
     Model%tke_budget        = tke_budget
@@ -6192,7 +6226,7 @@ module GFS_typedefs
                                             ' bl_mynn_cloudpdf=',Model%bl_mynn_cloudpdf,         &
                                             ' bl_mynn_mixlength=',Model%bl_mynn_mixlength,       &
                                             ' bl_mynn_edmf=',Model%bl_mynn_edmf,                 &
-                                            ' bl_mynn_output=',Model%bl_mynn_output,             &
+                                            ' bl_mynn_diags3d=',Model%bl_mynn_diags3d,           &
                                             ' bl_mynn_closure=',Model%bl_mynn_closure
     endif
 
@@ -8399,7 +8433,7 @@ module GFS_typedefs
 
     !--- MYNN variables:
     if (Model%do_mynnedmf) then
-      if (Model%bl_mynn_output .ne. 0) then
+      if (Model%bl_mynn_diags3d .ne. 0) then
         allocate (Diag%edmf_a    (IM,Model%levs))
         allocate (Diag%edmf_w    (IM,Model%levs))
         allocate (Diag%edmf_qt   (IM,Model%levs))
@@ -8418,13 +8452,32 @@ module GFS_typedefs
         allocate (Diag%qbuoy     (IM,Model%levs))
         allocate (Diag%qdiss     (IM,Model%levs))
       endif
+      if (Model%bl_mynn_diags2d .gt. 0) then
+        allocate (Diag%lwp_bl    (IM))
+        allocate (Diag%iwp_bl    (IM))
+        allocate (Diag%swp_bl    (IM))
+        allocate (Diag%cldceil   (IM))
+      endif
+      if (Model%bl_mynn_diags2d .gt. 1) then
+        allocate (Diag%wspd10        (IM))
+        allocate (Diag%wspd80        (IM))
+        allocate (Diag%wspd160       (IM))
+        allocate (Diag%maxcldfra     (IM))
+        allocate (Diag%maxcldfra_bl (IM))
+      endif     
       allocate (Diag%maxwidth  (IM))
       allocate (Diag%maxmf     (IM))
       allocate (Diag%ztop_plume(IM))
-      allocate (Diag%ktop_plume(IM))
+      allocate (Diag%excess_h  (IM))
+      allocate (Diag%excess_q  (IM))
+      allocate (Diag%maxwidth_dd(IM))
+      allocate (Diag%maxmf_dd  (IM))
+      allocate (Diag%maxtkeprod(IM))
+      allocate (Diag%cldtop_cooling(IM))
+      allocate (Diag%ent_eff   (IM))
       allocate (Diag%exch_h    (IM,Model%levs))
       allocate (Diag%exch_m    (IM,Model%levs))
-      if (Model%bl_mynn_output .ne. 0) then
+      if (Model%bl_mynn_diags3d .ne. 0) then
         Diag%edmf_a        = clear_val
         Diag%edmf_w        = clear_val
         Diag%edmf_qt       = clear_val
@@ -8443,10 +8496,29 @@ module GFS_typedefs
         Diag%qbuoy         = clear_val
         Diag%qdiss         = clear_val
       endif
+      if (Model%bl_mynn_diags2d .gt. 0) then
+        Diag%lwp_bl        = clear_val
+        Diag%iwp_bl        = clear_val
+        Diag%swp_bl        = clear_val
+        Diag%cldceil       = clear_val
+      endif
+      if (Model%bl_mynn_diags2d .gt. 1) then
+        Diag%wspd10        = clear_val
+        Diag%wspd80        = clear_val
+        Diag%wspd160       = clear_val
+        Diag%maxcldfra     = clear_val
+        Diag%maxcldfra_bl  = clear_val
+      endif
       Diag%maxwidth      = clear_val
       Diag%maxmf         = clear_val
       Diag%ztop_plume    = clear_val
-      Diag%ktop_plume    = 0
+      Diag%excess_h      = clear_val
+      Diag%excess_q      = clear_val
+      Diag%maxwidth_dd   = clear_val
+      Diag%maxmf_dd      = clear_val
+      Diag%maxtkeprod    = clear_val
+      Diag%cldtop_cooling= clear_val
+      Diag%ent_eff       = clear_val
       Diag%exch_h        = clear_val
       Diag%exch_m        = clear_val
     endif
@@ -8656,7 +8728,7 @@ module GFS_typedefs
 
     !--- MYNN variables:
     if (Model%do_mynnedmf) then
-      if (Model%bl_mynn_output .ne. 0) then
+      if (Model%bl_mynn_diags3d .ne. 0) then
         Diag%edmf_a        = clear_val
         Diag%edmf_w        = clear_val
         Diag%edmf_qt       = clear_val
@@ -8668,10 +8740,29 @@ module GFS_typedefs
         Diag%det_thl       = clear_val
         Diag%det_sqv       = clear_val
       endif
+      if (Model%bl_mynn_diags2d .gt. 0) then
+        Diag%lwp_bl        = clear_val
+        Diag%iwp_bl        = clear_val
+        Diag%swp_bl        = clear_val
+        Diag%cldceil       = clear_val
+      endif
+      if (Model%bl_mynn_diags2d .gt. 1) then
+        Diag%wspd10        = clear_val
+        Diag%wspd80        = clear_val
+        Diag%wspd160       = clear_val
+        Diag%maxcldfra     = clear_val
+        Diag%maxcldfra_bl  = clear_val
+      endif
       Diag%maxwidth      = clear_val
       Diag%maxmf         = clear_val
       Diag%ztop_plume    = clear_val
-      Diag%ktop_plume    = 0
+      Diag%excess_h      = clear_val
+      Diag%excess_q      = clear_val
+      Diag%maxwidth_dd   = clear_val
+      Diag%maxmf_dd      = clear_val
+      Diag%maxtkeprod    = clear_val
+      Diag%cldtop_cooling= clear_val
+      Diag%ent_eff       = clear_val
       Diag%exch_h        = clear_val
       Diag%exch_m        = clear_val
     endif
