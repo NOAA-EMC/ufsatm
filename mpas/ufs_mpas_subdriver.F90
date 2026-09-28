@@ -821,6 +821,8 @@ contains
     logical                 :: mpas_print_global_minmax_vel        = .true.
     logical                 :: mpas_print_detailed_minmax_vel      = .true.
     logical                 :: mpas_print_global_minmax_sca        = .true.
+    logical                 :: mpas_print_global_minmax_tend_ps    = .false.
+    logical                 :: mpas_print_detailed_minmax_tend_ps  = .false.
     ! Namelist nam_stochy
     logical                 :: mpas_do_sppt                        = .false.
     logical                 :: mpas_do_skeb                        = .false.
@@ -871,7 +873,8 @@ contains
     namelist /mpas_restart/ mpas_do_restart
     !
     namelist /mpas_printout/ mpas_print_global_minmax_vel, mpas_print_detailed_minmax_vel,    &
-         mpas_print_global_minmax_sca
+         mpas_print_global_minmax_sca, mpas_print_global_minmax_tend_ps,                      &
+         mpas_print_detailed_minmax_tend_ps
     !
     namelist /mpas_nam_stochy/ mpas_do_sppt, mpas_do_skeb, mpas_spptint, mpas_sppt_1,         &
          mpas_sppt_2, mpas_sppt_3, mpas_sppt_tau_1, mpas_sppt_tau_2, mpas_sppt_tau_3,         &
@@ -995,6 +998,8 @@ contains
     call mpi_bcast(mpas_print_global_minmax_vel,        1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_detailed_minmax_vel,      1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_print_global_minmax_sca,        1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_print_global_minmax_tend_ps,    1, mpi_logical,   master, mpicomm, mpierr)
+    call mpi_bcast(mpas_print_detailed_minmax_tend_ps,  1, mpi_logical,   master, mpicomm, mpierr)
     !
     call mpi_bcast(mpas_do_sppt,                        1, mpi_logical,   master, mpicomm, mpierr)
     call mpi_bcast(mpas_do_skeb,                        1, mpi_logical,   master, mpicomm, mpierr)
@@ -1081,6 +1086,8 @@ contains
     call mpas_pool_add_config(configPool, 'config_print_global_minmax_vel',        mpas_print_global_minmax_vel)
     call mpas_pool_add_config(configPool, 'config_print_detailed_minmax_vel',      mpas_print_detailed_minmax_vel)
     call mpas_pool_add_config(configPool, 'config_print_global_minmax_sca',        mpas_print_global_minmax_sca)
+    call mpas_pool_add_config(configPool, 'config_print_global_minmax_tend_ps',    mpas_print_global_minmax_tend_ps)
+    call mpas_pool_add_config(configPool, 'config_print_detailed_minmax_tend_ps',  mpas_print_detailed_minmax_tend_ps)
     !
     call mpas_pool_add_config(configPool, 'do_sppt',                               mpas_do_sppt)
     call mpas_pool_add_config(configPool, 'do_skeb',                               mpas_do_skeb)
@@ -1166,6 +1173,8 @@ contains
        call mpas_log_write('   mpas_print_global_minmax_vel        = '//log2str(mpas_print_global_minmax_vel))
        call mpas_log_write('   mpas_print_detailed_minmax_vel      = '//log2str(mpas_print_detailed_minmax_vel))
        call mpas_log_write('   mpas_print_global_minmax_sca        = '//log2str(mpas_print_global_minmax_sca))
+       call mpas_log_write('   mpas_print_global_minmax_tend_ps    = '//log2str(mpas_print_global_minmax_tend_ps))
+       call mpas_log_write('   mpas_print_detailed_minmax_tend_ps  = '//log2str(mpas_print_detailed_minmax_tend_ps))
        call mpas_log_write('----------------------------- stochastic physics namelist -------------------------------')
        call mpas_log_write('   do_sppt                             = '//log2str(mpas_do_sppt))
        call mpas_log_write('   do_skeb                             = '//log2str(mpas_do_skeb))
