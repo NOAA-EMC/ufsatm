@@ -8,8 +8,8 @@
   branch = feature/capgen-v1
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  url = https://github.com/AndersJensen-NOAA/ccpp-physics.git
+  branch = diagnostic_aerosols
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
