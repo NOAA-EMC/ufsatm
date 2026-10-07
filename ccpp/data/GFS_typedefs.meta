@@ -3420,7 +3420,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_chemistry_coupling)
+  active = (flag_for_chemistry_coupling .or. flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
 [pfl_lsan]
   standard_name = liquid_flux_due_to_large_scale_precipitation
   long_name = instantaneous 3D flux of liquid water from nonconvective precipitation
@@ -3428,7 +3428,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_chemistry_coupling)
+  active = (flag_for_chemistry_coupling .or. flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
 [htrlw]
   standard_name = updated_tendency_of_air_temperature_due_to_longwave_heating_on_physics_timestep
   long_name = total sky longwave heating rate on physics time step
@@ -6110,6 +6110,12 @@
   units = none
   dimensions = ()
   type = integer
+[mlm]
+  standard_name = flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL
+  long_name = flag for mixed-layer model in TKE-EDMF PBL scheme
+  units = none
+  dimensions = ()
+  type = logical
 [conv_cf_opt]
   standard_name = option_for_convection_scheme_cloud_fraction_computation
   long_name = option for convection scheme cloud fraction computation
@@ -10729,4 +10735,36 @@
   type = real
   kind = kind_phys
   active = (do_lightning_threat_index_calculations)
+[eflux]
+  standard_name = total_energy_flux
+  long_name = total energy flux from mlm scheme
+  units = K m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
+[rflux]
+  standard_name = radiative_flux
+  long_name = radiative flux from mlm scheme
+  units = K m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
+[wflux]
+  standard_name = total_water_flux
+  long_name = total water flux from mlm scheme
+  units = kg kg-1 m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
+[pflux]
+  standard_name = precipitation_flux
+  long_name = precipitation flux from mlm scheme
+  units = kg kg-1 m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (flag_for_using_mixed_layer_model_in_TKE_EDMF_PBL)
 
