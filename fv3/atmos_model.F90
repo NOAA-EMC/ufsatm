@@ -276,7 +276,48 @@ subroutine update_atmos_radiation_physics (Atmos)
     ! SA-3D-TKE added GFS_Tbd (kyf)
     call atmos_phys_driver_statein (GFS_Control, GFS_Statein, GFS_Tbd, Atm_block, flip_vc)
     call mpp_clock_end(getClock)
+    
+    ! Calculate total non-physics tendencies by substracting old GFS Stateout
+    ! variables from new/updated GFS Statein variables (gives the tendencies
+    ! due to anything else than physics)
+    if (GFS_Control%ldiag3d) then
+      idtend = GFS_Control%dtidx(GFS_Control%index_of_x_wind,GFS_Control%index_of_process_non_physics)
+      if(idtend>=1) then
+        do nb = 1,Atm_block%nblks
+          GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
+               + (GFS_Statein%ugrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gu0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
+        enddo
+      endif
 
+      idtend = GFS_Control%dtidx(GFS_Control%index_of_y_wind,GFS_Control%index_of_process_non_physics)
+      if(idtend>=1) then
+        do nb = 1,Atm_block%nblks
+          GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
+               + (GFS_Statein%vgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gv0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
+        enddo
+      endif
+
+      idtend = GFS_Control%dtidx(GFS_Control%index_of_temperature,GFS_Control%index_of_process_non_physics)
+      if(idtend>=1) then
+        do nb = 1,Atm_block%nblks
+          GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
+               + (GFS_Statein%tgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gt0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
+        enddo
+      endif
+
+      if (GFS_Control%qdiag3d) then
+        do itrac=1,GFS_Control%ntrac
+          idtend = GFS_Control%dtidx(itrac+100,GFS_Control%index_of_process_non_physics)
+          if(idtend>=1) then
+            do nb = 1,Atm_block%nblks
+              GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
+                   + (GFS_Statein%qgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,itrac) - GFS_Stateout%gq0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,itrac))
+            enddo
+          endif
+        enddo
+      endif
+    endif
+    
 !--- if dycore only run, set up the dummy physics output state as the input state
     if (dycore_only) then
         GFS_Stateout%gu0 = GFS_Statein%ugrs
@@ -316,47 +357,6 @@ subroutine update_atmos_radiation_physics (Atmos)
       if (Atmos%isAtCapTime .and. Atmos%ngrids > 1) then
         if (GFS_control%cplocn2atm .or. GFS_control%cplwav2atm) then
           call atmosphere_fill_nest_cpl(Atm_block, GFS_control, GFS_sfcprop)
-        endif
-      endif
-
-      ! Calculate total non-physics tendencies by substracting old GFS Stateout
-      ! variables from new/updated GFS Statein variables (gives the tendencies
-      ! due to anything else than physics)
-      if (GFS_Control%ldiag3d) then
-        idtend = GFS_Control%dtidx(GFS_Control%index_of_x_wind,GFS_Control%index_of_process_non_physics)
-        if(idtend>=1) then
-          do nb = 1,Atm_block%nblks
-            GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
-                 + (GFS_Statein%ugrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gu0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
-          enddo
-        endif
-
-        idtend = GFS_Control%dtidx(GFS_Control%index_of_y_wind,GFS_Control%index_of_process_non_physics)
-        if(idtend>=1) then
-          do nb = 1,Atm_block%nblks
-            GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
-                 + (GFS_Statein%vgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gv0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
-          enddo
-        endif
-
-        idtend = GFS_Control%dtidx(GFS_Control%index_of_temperature,GFS_Control%index_of_process_non_physics)
-        if(idtend>=1) then
-          do nb = 1,Atm_block%nblks
-            GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
-                 + (GFS_Statein%tgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:) - GFS_Stateout%gt0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:))
-          enddo
-        endif
-
-        if (GFS_Control%qdiag3d) then
-          do itrac=1,GFS_Control%ntrac
-            idtend = GFS_Control%dtidx(itrac+100,GFS_Control%index_of_process_non_physics)
-            if(idtend>=1) then
-              do nb = 1,Atm_block%nblks
-                GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) = GFS_Intdiag%dtend(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,idtend) &
-                     + (GFS_Statein%qgrs(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,itrac) - GFS_Stateout%gq0(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb),:,itrac))
-              enddo
-            endif
-          enddo
         endif
       endif
 
