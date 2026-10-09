@@ -424,6 +424,38 @@ if(RRTMGP_32BIT)
 endif()
 
 #------------------------------------------------------------------------------
+# Set flags for SAMF Convection (32-bit option)
+#------------------------------------------------------------------------------
+option(SAMFCNV_32BIT "Compile SAMF Convection with 32-bit precision" OFF)
+
+if(SAMFCNV_32BIT)
+  message(STATUS "Compile CCPP SAMFCNV with 32-bit precision")
+
+  set(SAMF_NAMES
+    mo_conv_kind.F90
+    samfdeepcnv.f
+    samfshalcnv.f
+    progomega_calc.f90
+    progsigma_calc.f90
+  )
+  set(SAMF_FORTRAN_FILES)
+
+  foreach(NAME IN LISTS SAMF_NAMES)
+    set(TMP_LIST ${SCHEME_FORTRAN_FILES})
+    list(FILTER TMP_LIST INCLUDE REGEX ".*${NAME}$")
+    list(APPEND SAMF_FORTRAN_FILES ${TMP_LIST})
+  endforeach()
+
+  if(SAMF_FORTRAN_FILES)
+    if(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+      set_property(SOURCE ${SAMF_FORTRAN_FILES} APPEND PROPERTY COMPILE_OPTIONS "-real-size;32;-DSAMFCNV_USE_SP")
+    elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+      set_property(SOURCE ${SAMF_FORTRAN_FILES} APPEND PROPERTY COMPILE_OPTIONS "-fno-default-real-8;-fdefault-double-8;-DSAMFCNV_USE_SP")
+    endif()
+  endif()
+endif()
+
+#------------------------------------------------------------------------------
 # For CAPS, remove bounds checks with Intel Classic (ifort), Intel LLVM (ifx),
 # and GNU (gfortran) to avoid the compilation being killed or taking forever
 #------------------------------------------------------------------------------
