@@ -117,7 +117,7 @@ set(SCHEME_METADATA_FILES
   "${SCHEME_FILES_DIR}/smoke_dust/rrfs_smoke_wrapper.meta"
   "${SCHEME_FILES_DIR}/smoke_dust/rrfs_smoke_postpbl.meta"
   "${SCHEME_FILES_DIR}/GWD/drag_suite.meta"
-  "${SCHEME_FILES_DIR}/SFC_Layer/MYNN/MYNN/CCPP/module_sf_mynnsfc_driver.meta"
+  "${SCHEME_FILES_DIR}/SFC_Layer/MYNN/mynnsfc_wrapper.meta"
   "${SCHEME_FILES_DIR}/SFC_Models/Lake/CLM/clm_lake.meta"
   "${SCHEME_FILES_DIR}/SFC_Models/Lake/Flake/flake_driver.meta"
   "${SCHEME_FILES_DIR}/CONV/Chikira_Sugiyama/cs_conv_pre.meta"
