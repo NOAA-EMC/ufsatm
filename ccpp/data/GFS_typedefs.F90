@@ -5575,6 +5575,7 @@ module GFS_typedefs
        Model%ntsw             = get_physics_tracer_index('qs', Model)
        Model%ntgl             = get_physics_tracer_index('qg', Model)
        Model%nthl             = get_physics_tracer_index('qh', Model)
+       Model%ntlnc            = get_physics_tracer_index('nc', Model)
        Model%ntinc            = get_physics_tracer_index('ni', Model)
        Model%ntrnc            = get_physics_tracer_index('nr', Model)
        Model%ntsnc            = get_physics_tracer_index('ns', Model)
