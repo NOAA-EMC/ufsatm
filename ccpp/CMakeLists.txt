@@ -372,32 +372,33 @@ endif()
 #------------------------------------------------------------------------------
 message(STATUS "Disabling OpenMP for rte-rrtmgp radiation")
 set(RRTMGP_SOURCES
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/gas-optics/mo_gas_optics.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/gas-optics/mo_gas_optics_constants.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/gas-optics/mo_gas_concentrations.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/gas-optics/mo_gas_optics_util_string.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp-frontend/mo_gas_optics_rrtmgp.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp-kernels/mo_gas_optics_rrtmgp_kernels.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp-frontend/mo_cloud_optics_rrtmgp.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_rrtmgp_clr_all_sky.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_fluxes_byband.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/solar_variability/mo_solar_variability.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_heating_rates.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_fluxes_bygpoint.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_compute_bc.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/extensions/mo_cloud_sampling.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_rte_util_array_validation.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_rte_config.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_source_functions.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_rte_sw.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_fluxes.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_rte_lw.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-kernels/mo_rte_util_array.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-kernels/mo_rte_solver_kernels.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-kernels/mo_optical_props_kernels.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-kernels/mo_fluxes_broadband_kernels.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_rte_kind.F90
-    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte-frontend/mo_optical_props.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp/frontend/mo_cloud_optics_rrtmgp.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp/frontend/mo_gas_optics_rrtmgp.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp/kernels/mo_cloud_optics_rrtmgp_kernels.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rrtmgp/kernels/mo_gas_optics_rrtmgp_kernels.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/gas-optics-template/mo_gas_optics.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/gas-optics-template/mo_gas_concentrations.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/gas-optics-template/mo_gas_optics_util_string.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/gas-optics-template/mo_gas_optics_constants.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_rte_util_array_validation.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_rte_config.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_source_functions.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_rte_sw.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_fluxes.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_rte_lw.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/frontend/mo_optical_props.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/kernels/mo_fluxes_broadband_kernels.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/kernels/mo_optical_props_kernels.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/kernels/mo_rte_kind.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/kernels/mo_rte_solver_kernels.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/kernels/mo_rte_util_array.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_fluxes_byband.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_heating_rates.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_rrtmgp_clr_all_sky.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_fluxes_bygpoint.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_compute_bc.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/mo_cloud_sampling.F90
+    ${SCHEME_FILES_DIR}/Radiation/RRTMGP/rte-rrtmgp/rte/extensions/solar_variability/mo_solar_variability.F90
 )
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
