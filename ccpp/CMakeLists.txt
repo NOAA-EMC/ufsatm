@@ -499,6 +499,17 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQU
 endif()
 
 #------------------------------------------------------------------------------
+# Thompson MP can be sped up with more aggresive compiler flags;
+# HAFS will have this in 2.2 production. This is Intel/IntelLLVM only.
+#------------------------------------------------------------------------------
+if (CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
+	message(STATUS "Add speed up flags to Thompson MP with Intel")
+  set_property(SOURCE
+    ${SCHEME_FILES_DIR}/MP/Thompson/module_mp_thompson.F90
+    APPEND PROPERTY COMPILE_OPTIONS -fp-model=fast -fprotect-parens -fimf-precision=high)
+endif()
+
+#------------------------------------------------------------------------------
 # Build CCPP_TARGET
 #------------------------------------------------------------------------------
 set(BUILD_SHARED_LIBS OFF)
