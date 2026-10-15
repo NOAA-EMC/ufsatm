@@ -8,13 +8,15 @@
   branch = feature/capgen-v1
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+  url = https://github.com/dustinswales/ccpp-physics
+  branch = feature/phys2dyn
 [submodule "upp"]
   path = upp
   url = https://github.com/NOAA-EMC/UPP
   branch = develop
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
-  url = https://github.com/ufs-community/MPAS-Model.git
-  branch = noaa/develop
+  #url = https://github.com/ufs-community/MPAS-Model.git
+  #branch = noaa/develop
+  url = https://github.com/dustinswales/MPAS-Model.git
+  branch = feature/phys2dyn

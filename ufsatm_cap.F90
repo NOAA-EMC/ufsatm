@@ -39,7 +39,7 @@ module ufsatm_cap_mod
   use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
                                     pio_subsystem_ic, pio_stride, pio_subsystem_lbc, &
-                                    pio_subsystem_output, &
+                                    pio_subsystem_output, pio_subsystem_oro, &
                                     pio_numiotasks, pio_iodesc, cpl_grid_id, &
                                     cplprint_flag, first_kdt, quilting,      &
                                     quilting_restart
@@ -476,6 +476,8 @@ module ufsatm_cap_mod
     ! Initialize PIO
     allocate(pio_subsystem_ic)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_ic, base=pio_root)
+    allocate(pio_subsystem_oro)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_oro, base=pio_root)
     allocate(pio_subsystem_lbc)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_lbc, base=pio_root)
 

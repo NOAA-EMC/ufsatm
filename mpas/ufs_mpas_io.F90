@@ -15,12 +15,13 @@
 module ufs_mpas_io
   use mpas_derived_types,  only : core_type, domain_type, mpas_Clock_type
   use mpas_derived_types,  only : MPAS_Time_Type
-  use mpas_kind_types,     only : StrKIND
+  use mpas_kind_types,     only : StrKIND,RKIND
   use mpas_log,            only : mpas_log_write
   use mpas_derived_types,  only : MPAS_LOG_CRIT, MPAS_LOG_WARN
   use module_mpas_config,  only : pio_iotype, pio_stride, pio_numiotasks, pio_iodesc
   use module_mpas_config,  only : lbc_filename,        pioid_lbc,      pio_subsystem_lbc
   use module_mpas_config,  only : ic_filename,         pioid_ic,       pio_subsystem_ic
+  use module_mpas_config,  only : oro_filename,        pioid_oro,      pio_subsystem_oro
   use module_mpas_config,  only :                      pioid_restart,  pio_subsystem_restart
   use module_mpas_config,  only :                      pioid_output,   pio_subsystem_output
   use module_mpas_config,  only : stream_list_history, stream_list_history_funit
@@ -58,6 +59,7 @@ module ufs_mpas_io
   !> It consists of variables that are members of the "lbc" structure.
   !> #########################################################################################
   type(var_info_type), parameter :: lbc_in_var_info_list(*) = [ &
+       var_info_type('xtime'                           , 'character' , 0), &
        var_info_type('lbc_u'                           , 'real'      , 2), &
        var_info_type('lbc_w'                           , 'real'      , 2), &
        var_info_type('lbc_rho'                         , 'real'      , 2), &
@@ -115,6 +117,7 @@ module ufs_mpas_io
        var_info_type('qv_init'                         , 'real'      , 1), &
        var_info_type('rdzu'                            , 'real'      , 1), &
        var_info_type('rdzw'                            , 'real'      , 1), &
+       var_info_type('soiltemp'                        , 'real'      , 1), &
        var_info_type('t_init'                          , 'real'      , 2), &
        var_info_type('u_init'                          , 'real'      , 1), &
        var_info_type('v_init'                          , 'real'      , 1), &
@@ -145,9 +148,11 @@ module ufs_mpas_io
   type(var_info_type), parameter :: input_var_info_list(*) = [ &
        var_info_type('Time'                            , 'real'      , 0), &
        var_info_type('initial_time'                    , 'character' , 0), &
+       var_info_type('relhum'                          , 'real'      , 2), &
        var_info_type('rho'                             , 'real'      , 2), &
        var_info_type('rho_base'                        , 'real'      , 2), &
        var_info_type('scalars'                         , 'real'      , 3), &
+       var_info_type('surface_pressure'                , 'real'      , 1), &
        var_info_type('theta'                           , 'real'      , 2), &
        var_info_type('theta_base'                      , 'real'      , 2), &
        var_info_type('u'                               , 'real'      , 2), &
@@ -202,6 +207,7 @@ module ufs_mpas_io
        var_info_type('xice'                            , 'real'      , 1), &
        var_info_type('xland'                           , 'real'      , 1), &
        var_info_type('dzs'                             , 'real'      , 2), &
+       var_info_type('zs'                              , 'real'      , 2), &
        var_info_type('sh2o'                            , 'real'      , 2), &
        var_info_type('smois'                           , 'real'      , 2), &
        var_info_type('tslb'                            , 'real'      , 2), &
@@ -213,8 +219,13 @@ module ufs_mpas_io
        var_info_type('shdmin'                          , 'real'      , 1), &
        var_info_type('shdmax'                          , 'real'      , 1), &
        var_info_type('snoalb'                          , 'real'      , 1), &
+       var_info_type('soiltemp'                        , 'real'      , 1), &
        var_info_type('greenfrac'                       , 'real'      , 2), &
        var_info_type('albedo12m'                       , 'real'      , 2), &
+       var_info_type('landusef'                        , 'real'      , 2), &
+       var_info_type('soilf'                           , 'real'      , 2), &
+       var_info_type('lai12m'                          , 'real'      , 2), &
+       var_info_type('canwat'                          , 'real'      , 1), &
        var_info_type('soilcl1'                         , 'real'      , 1), &
        var_info_type('soilcl2'                         , 'real'      , 1), &
        var_info_type('soilcl3'                         , 'real'      , 1), &
@@ -285,9 +296,135 @@ module ufs_mpas_io
        var_info_type('w'                               , 'real'      , 2), &
        var_info_type('zz'                              , 'real'      , 2)  &
     ]
-  
+
+  !> #########################################################################################
+  !> This list contains physics diagnostics.
+  !> It consists of variables that are members of the MPAS "diag_phys" structure.
+  !> For the UWM, we include these diagnostics in the MPAS "output" stream.
+  !> #########################################################################################
+  type(var_info_type), parameter :: diag_phys_var_info_list(*) = [ &
+       var_info_type('Time'                            , 'real'      , 0), &
+       var_info_type('initial_time'                    , 'character' , 0), &
+       var_info_type('swdnb'                           , 'real'      , 1), & !RAD
+       var_info_type('swdnbc'                          , 'real'      , 1), & !RAD
+       var_info_type('swdnt'                           , 'real'      , 1), & !RAD
+       var_info_type('swdntc'                          , 'real'      , 1), & !RAD
+       var_info_type('swupb'                           , 'real'      , 1), & !RAD
+       var_info_type('swupbc'                          , 'real'      , 1), & !RAD
+       var_info_type('swupt'                           , 'real'      , 1), & !RAD
+       var_info_type('swuptc'                          , 'real'      , 1), & !RAD
+       var_info_type('lwdnb'                           , 'real'      , 1), & !RAD
+       var_info_type('lwdnbc'                          , 'real'      , 1), & !RAD
+       var_info_type('lwdnt'                           , 'real'      , 1), & !RAD
+       var_info_type('lwdntc'                          , 'real'      , 1), & !RAD
+       var_info_type('lwupb'                           , 'real'      , 1), & !RAD
+       var_info_type('lwupbc'                          , 'real'      , 1), & !RAD
+       var_info_type('lwupt'                           , 'real'      , 1), & !RAD
+       var_info_type('lwuptc'                          , 'real'      , 1), & !RAD
+       !
+       var_info_type('refl10cm'                        , 'real'      , 2), & !MP
+       var_info_type('rainncv'                         , 'real'      , 1), & !MP
+       var_info_type('raincv'                          , 'real'      , 1), & !MP
+       var_info_type('snowncv'                         , 'real'      , 1), & !MP
+       var_info_type('graupelncv'                      , 'real'      , 1), & !MP
+       var_info_type('rainnc'                          , 'real'      , 1), & !MP
+       var_info_type('rainc'                           , 'real'      , 1), & !MP
+       var_info_type('frainnc'                         , 'real'      , 1), & !MP
+       var_info_type('sr'                              , 'real'      , 1), & !MP
+       var_info_type('snownc'                          , 'real'      , 1), & !MP
+       var_info_type('graupelnc'                       , 'real'      , 1), & !MP
+       var_info_type('re_cloud'                        , 'real'      , 2), & !MP
+       var_info_type('re_ice'                          , 'real'      , 2), & !MP
+       var_info_type('re_snow'                         , 'real'      , 2), & !MP
+       !
+       var_info_type('sfc_emibck'                      , 'real'      , 1), & !LSM
+       var_info_type('mavail'                          , 'real'      , 1), & !LSM
+       var_info_type('sfc_albedo'                      , 'real'      , 1), & !LSM/RAD
+       var_info_type('sfc_emiss'                       , 'real'      , 1), & !LSM/RAD
+       var_info_type('thc'                             , 'real'      , 1), & !LSM
+       var_info_type('xicem'                           , 'real'      , 1), & !LSM
+       var_info_type('z0'                              , 'real'      , 1), & !LSM
+       var_info_type('znt'                             , 'real'      , 1), & !LSM
+       !
+       var_info_type('ust'                             , 'real'      , 1), & !SFC
+       var_info_type('ustm'                            , 'real'      , 1), & !SFC
+       var_info_type('qsfc'                            , 'real'      , 1), & !SFC
+       var_info_type('hfx'                             , 'real'      , 1), & !SFC
+       var_info_type('qfx'                             , 'real'      , 1), & !SFC
+       var_info_type('fm'                              , 'real'      , 1), & !SFC
+       var_info_type('fh'     	      	      	       , 'real'      , 1), & !SFC
+       var_info_type('chs'                             , 'real'      , 1), & !SFC
+       var_info_type('cqs'                             , 'real'      , 1), & !SFC
+       var_info_type('chs2'                            , 'real'      , 1), & !SFC
+       var_info_type('cqs2'                            , 'real'      , 1), & !SFC
+       var_info_type('zol'                             , 'real'      , 1), & !SFC
+       var_info_type('mol'                             , 'real'      , 1), & !SFC
+       var_info_type('rmol'                            , 'real'      , 1), & !SFC
+       var_info_type('lh'                              , 'real'      , 1), & !SFC
+       var_info_type('t2m'                             , 'real'      , 1), & !SFC
+       var_info_type('q2'                              , 'real'      , 1), & !SFC
+       var_info_type('skintemp'                        , 'real'      , 1), & !SFC
+       var_info_type('sst'                             , 'real'      , 1), & !SFC
+       var_info_type('precipw'                         , 'real'      , 1), & !DIAG
+       !
+       var_info_type('hpbl'                            , 'real'      , 1), & !PBL
+       var_info_type('kpbl'                            , 'integer'   , 1), & !PBL
+       var_info_type('kzm'                             , 'real'      , 2), & !PBL
+       var_info_type('kzh'                             , 'real'      , 2), & !PBL
+       var_info_type('kzq'                             , 'real'      , 2), & !PBL
+       var_info_type('cldfrac_bl'                      , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('qc_bl'                           , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('qi_bl'                           , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('el_pbl'                          , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('sh3d'                            , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('sm3d'                            , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('qke'                             , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('tsq'                             , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('qsq'                             , 'real'      , 2), & !PBL (MYNN)
+       var_info_type('cov'                             , 'real'      , 2), & !PBL (MYNN)
+       !
+       var_info_type('dusfcg'                          , 'real'      , 1), & !GWD
+       var_info_type('dvsfcg'                          , 'real'      , 1), & !GWD
+       var_info_type('dusfc_ls'                        , 'real'      , 1), & !GWD
+       var_info_type('dvsfc_ls'                        , 'real'      , 1), & !GWD
+       var_info_type('dusfc_bl'                        , 'real'      , 1), & !GWD
+       var_info_type('dvsfc_bl'                        , 'real'      , 1), & !GWD
+       var_info_type('dusfc_ss'                        , 'real'      , 1), & !GWD
+       var_info_type('dvsfc_ss'                        , 'real'      , 1), & !GWD
+       var_info_type('dusfc_fd'                        , 'real'      , 1), & !GWD
+       var_info_type('dvsfc_fd'                        , 'real'      , 1), & !GWD
+       var_info_type('dtaux3d'                         , 'real'      , 2), & !GWD
+       var_info_type('dtauy3d'                         , 'real'      , 2), & !GWD
+       var_info_type('dtaux3d_ls'                      , 'real'      , 2), & !GWD
+       var_info_type('dtauy3d_ls'                      , 'real'      , 2), & !GWD
+       var_info_type('dtauy3d_bl'                      , 'real'      , 2), & !GWD
+       var_info_type('dtaux3d_bl'                      , 'real'      , 2), & !GWD
+       var_info_type('dtaux3d_ss'                      , 'real'      , 2), & !GWD
+       var_info_type('dtauy3d_ss'                      , 'real'      , 2), & !GWD
+       var_info_type('dtaux3d_fd'                      , 'real'      , 2), & !GWD
+       var_info_type('dtauy3d_fd'                      , 'real'      , 2)  & !GWD
+       ]
+
+  !> #########################################################################################
+  !> Data from MPAS LANDUSE.TBL (read in during init)
+  !> #########################################################################################
+  integer :: lucats,lumatch,luseas,io,ic,is
+  character(len=StrKIND) :: lutype
+  real(kind=RKIND) :: li
+  real(kind=RKIND),dimension(:,:),allocatable :: albd,slmo,sfem,sfz0,therin,scfx,sfhc
+
+  !> #########################################################################################
+  !> Data from MPAS GENPARM.TBL (read in during init)
+  !> #########################################################################################
+  integer :: num_slope
+  real(kind=RKIND),dimension(:),allocatable :: slope_data
+  real(kind=RKIND) :: sbeta_data, fxexp_data, csoil_data, salp_data, refdk_data, refkdt_data
+  real(kind=RKIND) :: frzk_data, zbot_data, czil_data, smlow_data, smhigh_data
+
 contains
 
+  !> DJS: ToDo. Combine the PIO open routines below.
+  
   !> #########################################################################################
   !> Procedure to open MPAS IC file.
   !>
@@ -313,7 +450,7 @@ contains
   !>
   !> #########################################################################################
   subroutine ufs_mpas_open_lbc(ierr)
-    use pio, only : pio_openfile, pio_nowrite
+    use pio, only : pio_openfile, pio_nowrite, pio_seterrorhandling, PIO_BCAST_ERROR
     integer, intent(out) :: ierr
     logical :: file_exists
 
@@ -322,11 +459,517 @@ contains
     INQUIRE(FILE=lbc_filename, EXIST=file_exists)
     if (file_exists) then
        ierr = pio_openfile(pio_subsystem_lbc, pioid_lbc, pio_iotype, lbc_filename, pio_nowrite)
+       if (ierr == 0) call pio_seterrorhandling(pioid_lbc, PIO_BCAST_ERROR)
     else
        ierr = -1
     end if
 
   end subroutine ufs_mpas_open_lbc
+
+  !> #########################################################################################
+  !> Procedure to open MPAS GWD data file.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_open_oro(ierr)
+    use pio, only : pio_openfile, pio_nowrite
+    integer, intent(out) :: ierr
+    logical :: file_exists
+
+    ! Open MPAS orography GWD file.
+    ierr = 0
+    INQUIRE(FILE=oro_filename, EXIST=file_exists)
+    if (file_exists) then
+       ierr = pio_openfile(pio_subsystem_oro, pioid_oro, pio_iotype, oro_filename, pio_nowrite)
+    else
+       ierr = -1
+    end if
+
+  end subroutine ufs_mpas_open_oro
+
+  !> #########################################################################################
+  !>  Procedure to read in file containing surface properties, LANDUSE.TBL.
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_landuse_read(mpicomm, me, master)
+    use module_mpas_config,  only : mpas_landuse_file, mpas_land_funit
+    use mpas_derived_types,  only : mpas_pool_type
+    use mpas_pool_routines,  only : mpas_pool_get_subpool, mpas_pool_get_array
+    use mpas_log,            only : mpas_log_write
+    use mpas_derived_types,  only : MPAS_LOG_ERR, MPAS_LOG_WARN, MPAS_LOG_CRIT
+    type(MPI_Comm), intent(in) :: mpicomm
+    integer,        intent(in) :: me, master
+    integer :: io,ic,is
+    character(len=StrKIND),pointer :: mminlu
+    type(mpas_pool_type), pointer :: sfc_input
+    character(len=*), parameter :: subname = 'atmos_coupling::ufs_mpas_landuse_read'
+
+    call mpas_log_write(subname //'   Reading/broadcasting MPAS landuse data ')
+
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'sfc_input',    sfc_input)
+    call mpas_pool_get_array(sfc_input,'mminlu'    ,mminlu  )
+
+    ! Read in data dimensions (master processor)
+    if (me == master) then
+       open(newunit = mpas_land_funit,file=trim(mpas_landuse_file),action='READ',status='OLD',iostat=io)
+       if (io /= 0) then
+          call mpas_log_write(subname // " failed to open LANDUSE.TBL", messageType=MPAS_LOG_CRIT)
+       endif
+
+       lumatch=0
+       find_lutype : do while (lumatch == 0)
+          read(unit=mpas_land_funit,fmt='(a35)') lutype
+          read(unit=mpas_land_funit,fmt=*) lucats,luseas
+
+          if(lutype .eq. mminlu)then
+             call mpas_log_write(subname //'   landuse type = ' // trim (lutype) // ' found '// stringify([lucats]) &
+                  // ' categories '// stringify([luseas])//' seasons')
+             lumatch=1
+          else
+             call mpas_log_write(subname //'   skipping over lutype = ' // trim (lutype))
+             do is = 1,luseas
+                read(unit=mpas_land_funit,fmt=*,iostat=io)
+                do ic = 1,lucats
+                   read(unit=mpas_land_funit,fmt=*,iostat=io)
+                enddo
+             enddo
+          endif
+       enddo find_lutype
+    endif
+
+    ! Broadcast data dimensions (all processors)
+    call mpi_barrier(mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure waiting for other MPI processes", messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(lutype,  strKIND,      MPI_CHARACTER, master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of lutype",  messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(luseas,  1,            MPI_INTEGER,   master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of luseas",  messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(lucats,  1,            MPI_INTEGER,   master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of lucats",  messageType=MPAS_LOG_CRIT)
+
+    ! Allocate space (all processors)
+    allocate(albd(lucats,luseas))
+    allocate(slmo(lucats,luseas))
+    allocate(sfem(lucats,luseas))
+    allocate(sfz0(lucats,luseas))
+    allocate(therin(lucats,luseas))
+    allocate(scfx(lucats,luseas))
+    allocate(sfhc(lucats,luseas))
+
+    ! Read data (master processor)
+    if (me == master) then
+       do is = 1, luseas
+          read(unit=mpas_land_funit,fmt=*,iostat=io)
+          if (io /= 0) then
+             call mpas_log_write(subname // " failure reading LANDUSE.TBL", messageType=MPAS_LOG_CRIT)
+          end if
+          do ic = 1, lucats
+             read(unit=mpas_land_funit,fmt=*) li,albd(ic,is),slmo(ic,is),sfem(ic,is),sfz0(ic,is), &
+                  therin(ic,is),scfx(ic,is),sfhc(ic,is)
+          end do
+       end do
+       close(mpas_land_funit)
+    end if
+
+    ! Broadcast data (all processors)
+    call mpi_barrier(mpicomm, io)
+    call mpi_bcast(albd,    size(albd),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of albd",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(slmo,    size(slmo),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of slmo",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(sfem,    size(sfem),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of sfem",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(sfz0,    size(sfz0),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of sfz0",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(therin,  size(therin), mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of therin",  messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(sfhc,    size(sfhc),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of sfhc",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(scfx,    size(scfx),   mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of scfx",    messageType=MPAS_LOG_CRIT)
+
+    call mpas_log_write(subname //'   Finished reading/broadcasting MPAS landuse data ')
+
+  end subroutine ufs_mpas_landuse_read
+
+  !> #########################################################################################
+  !> Procedure to read in slope data needed by RUC LSM.
+  !>
+  !> #########################################################################################
+  subroutine use_mpas_slopedata_read(mpicomm, me, master)
+    use module_mpas_config,  only : mpas_genparm_file, mpas_gprm_funit
+    use mpas_log,            only : mpas_log_write
+    use mpas_derived_types,  only : MPAS_LOG_ERR, MPAS_LOG_WARN, MPAS_LOG_CRIT
+    !
+    type(MPI_Comm), intent(in) :: mpicomm
+    integer,        intent(in) :: me, master
+    ! Locals
+    integer :: io, lc, slpcats
+    character(len=*), parameter :: subname = 'atmos_coupling::ufs_mpas_genparm_read'
+
+    call mpas_log_write(subname //'   Reading/broadcasting MPAS RUC LSM slope data ')
+
+    ! Read in data dimensions (master processor)
+    if (me == master) then
+       open(newunit=mpas_gprm_funit,file=trim(mpas_genparm_file),form='FORMATTED',status='OLD',iostat=io)
+       if (io /= 0) then
+          call mpas_log_write(subname // " failed to open GENPARM.TBL", messageType=MPAS_LOG_CRIT)
+       endif
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) num_slope
+
+       slpcats=num_slope
+    end if
+
+    ! Broadcast data dimensions (all processors)
+    call mpi_barrier(mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure waiting for other MPI processes",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(num_slope,  1, mpi_real, master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of num_slope", messageType=MPAS_LOG_CRIT)
+
+    ! Allocate space (all processors)
+    allocate(slope_data(num_slope))
+
+    ! Read data (master processor)
+    if (me == master) then
+       do lc = 1, slpcats
+          read(mpas_gprm_funit,*) slope_data(lc)
+       enddo
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) sbeta_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) fxexp_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) csoil_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) salp_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) refdk_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) refkdt_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) frzk_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) zbot_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) czil_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) smlow_data
+       read(mpas_gprm_funit,*)
+       read(mpas_gprm_funit,*) smhigh_data
+       close(mpas_gprm_funit)
+    end if
+
+    ! Broadcast data (all processors)
+    call mpi_barrier(mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure waiting for other MPI processes",      messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(slope_data,   size(slope_data),  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of slope_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(sbeta_data,   1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of sbeta_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(fxexp_data,   1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of fxexp_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(csoil_data,   1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of csoil_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(salp_data,    1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of salp_data",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(refdk_data,   1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of refdk_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(refkdt_data,  1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of refkdt_data",  messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(frzk_data,    1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of frzk_data",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(zbot_data,    1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of zbot_data",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(czil_data,    1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of czil_data",    messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(smlow_data,   1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of smlow_data",   messageType=MPAS_LOG_CRIT)
+    call mpi_bcast(smhigh_data,  1,  mpi_real,     master, mpicomm, io)
+    if (io /= 0) call mpas_log_write(subname // " failure during MPI Broadcast of smhigh_data",  messageType=MPAS_LOG_CRIT)
+
+    call mpas_log_write(subname //'   Finished reading/broadcasting MPAS RUC LSM slope data ')
+  end subroutine use_mpas_slopedata_read
+
+  !> #########################################################################################
+  !> Procedure to populate MPAS diag_phys pool with CCPP data.
+  !>
+  !> The fields from diag_phys are allocated by MPAS, populated with CCPP Physics data, and
+  !> written to output. So essentially we copy physics arrays back into MPAS memory to use
+  !> MPAS's native output functionality.
+  !>
+  !> CAN BE REMOVED/NOT-CALLED WHEN ESMF WRITE GRID COMPONENT IMPLEMENTED.
+  !> #########################################################################################
+  subroutine ufs_mpas_phys_diag(statein, control, radiation, diagnostics, tbd, surface)
+    use GFS_typedefs,         only : GFS_statein_type
+    use GFS_typedefs,         only : GFS_control_type
+    use GFS_typedefs,         only : GFS_radtend_type
+    use GFS_typedefs,         only : GFS_diag_type
+    use GFS_typedefs,         only : GFS_tbd_type
+    use GFS_typedefs,         only : GFS_sfcprop_type
+    use mpas_derived_types,   only : mpas_pool_type
+    use mpas_pool_routines,   only : mpas_pool_get_subpool, mpas_pool_get_dimension
+    use mpas_pool_routines,   only : mpas_pool_get_array, mpas_pool_get_config
+
+    ! Arguments
+    type(GFS_statein_type), intent(in) :: statein
+    type(GFS_control_type), intent(in) :: control
+    type(GFS_radtend_type), intent(in) :: radiation
+    type(GFS_diag_type),    intent(in) :: diagnostics
+    type(GFS_tbd_type),     intent(in) :: tbd
+    type(GFS_sfcprop_type), intent(in) :: surface
+    ! Locals
+    type(mpas_pool_type), pointer :: diag_phys, sfc_input
+    real(RKIND), pointer :: t2m(:), q2(:), skintemp(:), sst(:), precipw(:)
+    real(RKIND), pointer :: swdnb(:),swdnbc(:),swupb(:),swupbc(:)
+    real(RKIND), pointer :: lwdnb(:),lwdnbc(:),lwupb(:),lwupbc(:)
+    real(RKIND), pointer :: swdnt(:),swdntc(:),swupt(:),swuptc(:)
+    real(RKIND), pointer :: lwdnt(:),lwdntc(:),lwupt(:),lwuptc(:)
+    real(RKIND), pointer :: re_cloud(:,:),re_ice(:,:),re_snow(:,:)
+    real(RKIND), pointer :: sr(:),hfx(:),qfx(:),ust(:),znt(:),qsfc(:), ustm(:)
+    real(RKIND), pointer :: fm(:),fh(:),chs(:),cqs(:),chs2(:),cqs2(:),lh(:)
+    real(RKIND), pointer :: mol(:), rmol(:),zol(:),hpbl(:),kzm(:,:),kzh(:,:),kzq(:,:)
+    real(RKIND), pointer :: sh3d(:,:),sm3d(:,:),cldfrac_bl(:,:),qc_bl(:,:),qi_bl(:,:),el_pbl(:,:),qke(:,:),tsq(:,:),qsq(:,:),cov(:,:)
+    real(RKIND), pointer :: refl10cm(:,:),mavail(:)
+    real(RKIND), pointer :: rainc(:),rainnc(:),frainnc(:),snownc(:),graupelnc(:)
+    real(RKIND), pointer :: raincv(:),rainncv(:),snowncv(:),graupelncv(:)
+    real(RKIND), pointer :: dusfcg(:),dvsfcg(:),dusfc_ls(:),dvsfc_ls(:)
+    real(RKIND), pointer :: dusfc_bl(:),dvsfc_bl(:),dusfc_ss(:),dvsfc_ss(:)
+    real(RKIND), pointer :: dusfc_fd(:),dvsfc_fd(:)
+    real(RKIND), pointer :: dtaux3d(:,:), dtauy3d(:,:)
+    real(RKIND), pointer :: dtaux3d_ls(:,:), dtauy3d_ls(:,:), dtaux3d_ss(:,:), dtauy3d_ss(:,:)
+    real(RKIND), pointer :: dtaux3d_fd(:,:), dtauy3d_fd(:,:), dtaux3d_bl(:,:), dtauy3d_bl(:,:)
+    integer,     pointer :: nThreads, cellSolveThreadStart(:), cellSolveThreadEnd(:), kpbl(:)
+    integer :: iCol, ithread
+    real(RKIND), parameter :: m2mm = 1000._RKIND, um2m = 1.e-6_RKIND
+    real(RKIND), parameter :: cp = 1004.5_RKIND, rd = 287.05_RKIND, rv = 461.5_RKIND, hvap = 2.5e6_RKIND
+    real(RKIND) :: rho_sfc
+    character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_phys_diag'
+
+    ! Get openMP information
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'nThreads',             nThreads)
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'cellSolveThreadStart', cellSolveThreadStart)
+    call mpas_pool_get_dimension(domain_ptr % blocklist % dimensions,  'cellSolveThreadEnd',   cellSolveThreadEnd)
+
+    ! Access MPAS data pools.
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag_physics',  diag_phys)
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'sfc_input', sfc_input)
+
+    ! Grab fields from MPAS pools
+    call mpas_pool_get_array(diag_phys,'t2m'       , t2m       )
+    call mpas_pool_get_array(diag_phys,'q2'        , q2        )
+    call mpas_pool_get_array(diag_phys,'precipw'   , precipw   )
+    call mpas_pool_get_array(sfc_input,'skintemp'  , skintemp  )
+    call mpas_pool_get_array(sfc_input,'sst'       , sst       )
+    call mpas_pool_get_array(diag_phys,'swdnb'     , swdnb     )
+    call mpas_pool_get_array(diag_phys,'swdnbc'    , swdnbc    )
+    call mpas_pool_get_array(diag_phys,'swupb'     , swupb     )
+    call mpas_pool_get_array(diag_phys,'swupbc'    , swupbc    )
+    call mpas_pool_get_array(diag_phys,'lwdnb'     , lwdnb     )
+    call mpas_pool_get_array(diag_phys,'lwdnbc'    , lwdnbc    )
+    call mpas_pool_get_array(diag_phys,'lwupb'     , lwupb     )
+    call mpas_pool_get_array(diag_phys,'lwupbc'    , lwupbc    )
+    call mpas_pool_get_array(diag_phys,'swdnt'     , swdnt     )
+    call mpas_pool_get_array(diag_phys,'swdntc'    , swdntc    )
+    call mpas_pool_get_array(diag_phys,'swupt'     , swupt     )
+    call mpas_pool_get_array(diag_phys,'swuptc'    , swuptc    )
+    call mpas_pool_get_array(diag_phys,'lwdnt'     , lwdnt     )
+    call mpas_pool_get_array(diag_phys,'lwdntc'    , lwdntc    )
+    call mpas_pool_get_array(diag_phys,'lwupt'     , lwupt     )
+    call mpas_pool_get_array(diag_phys,'lwuptc'    , lwuptc    )
+    
+    call mpas_pool_get_array(diag_phys,'refl10cm'  , refl10cm  )
+    call mpas_pool_get_array(diag_phys,'rainc'     , rainc     )
+    call mpas_pool_get_array(diag_phys,'rainnc'    , rainnc    )
+    call mpas_pool_get_array(diag_phys,'frainnc'   , frainnc   )
+    call mpas_pool_get_array(diag_phys,'snownc'    , snownc    )
+    call mpas_pool_get_array(diag_phys,'graupelnc' , graupelnc )
+    call mpas_pool_get_array(diag_phys,'sr'        , sr        )
+    call mpas_pool_get_array(diag_phys,'raincv'    , raincv    )
+    call mpas_pool_get_array(diag_phys,'rainncv'   , rainncv   )
+    call mpas_pool_get_array(diag_phys,'snowncv'   , snowncv   )
+    call mpas_pool_get_array(diag_phys,'graupelncv', graupelncv)
+    call mpas_pool_get_array(diag_phys,'re_cloud'  , re_cloud  )
+    call mpas_pool_get_array(diag_phys,'re_ice'    , re_ice    )
+    call mpas_pool_get_array(diag_phys,'re_snow'   , re_snow   )
+    call mpas_pool_get_array(diag_phys,'hfx'       , hfx       )
+    call mpas_pool_get_array(diag_phys,'qfx'       , qfx       )
+    call mpas_pool_get_array(diag_phys,'ust'       , ust       )
+    call mpas_pool_get_array(diag_phys,'ustm'      , ustm      )
+    call mpas_pool_get_array(diag_phys,'znt'       , znt       )
+    call mpas_pool_get_array(diag_phys,'qsfc'      , qsfc      )
+    call mpas_pool_get_array(diag_phys,'mavail'    , mavail    )
+    call mpas_pool_get_array(diag_phys,'fm'        , fm        )
+    call mpas_pool_get_array(diag_phys,'fh'        , fh        )
+    if (control % do_mynnedmf) then
+       call mpas_pool_get_array(diag_phys,'sh3d'      , sh3d      )
+       call mpas_pool_get_array(diag_phys,'sm3d'      , sm3d      )
+       call mpas_pool_get_array(diag_phys,'cldfrac_bl', cldfrac_bl)
+       call mpas_pool_get_array(diag_phys,'qc_bl'     , qc_bl     )
+       call mpas_pool_get_array(diag_phys,'qi_bl'     , qi_bl     )
+       call mpas_pool_get_array(diag_phys,'el_pbl'    , el_pbl    )
+       call mpas_pool_get_array(diag_phys,'qke'       , qke       )
+       call mpas_pool_get_array(diag_phys,'tsq'       , tsq       )
+       call mpas_pool_get_array(diag_phys,'qsq'       , qsq       )
+       call mpas_pool_get_array(diag_phys,'cov'       , cov       )
+    endif
+    call mpas_pool_get_array(diag_phys,'chs'       , chs       )
+    call mpas_pool_get_array(diag_phys,'cqs'       , cqs       )
+    call mpas_pool_get_array(diag_phys,'chs2'      , chs2      )
+    call mpas_pool_get_array(diag_phys,'cqs2'      , cqs2      )
+    call mpas_pool_get_array(diag_phys,'zol'       , zol       )
+    call mpas_pool_get_array(diag_phys,'mol'       , mol       )
+    call mpas_pool_get_array(diag_phys,'rmol'      , rmol      )
+    call mpas_pool_get_array(diag_phys,'lh'        , lh        )
+    call mpas_pool_get_array(diag_phys,'hpbl'      , hpbl      )
+    call mpas_pool_get_array(diag_phys,'kpbl'      , kpbl      )
+    call mpas_pool_get_array(diag_phys,'kzm'       , kzm       )
+    call mpas_pool_get_array(diag_phys,'kzh'       , kzh       )
+    call mpas_pool_get_array(diag_phys,'kzq'       , kzq       )
+    ! UFS GWD diagnostics are conditionally allocated.
+    if (control % ldiag_ugwp .or. control % do_ugwp_v1) then
+       call mpas_pool_get_array(diag_phys,'dusfcg'    , dusfcg    )
+       call mpas_pool_get_array(diag_phys,'dvsfcg'    , dvsfcg    )
+       call mpas_pool_get_array(diag_phys,'dusfc_ls'  , dusfc_ls  )
+       call mpas_pool_get_array(diag_phys,'dvsfc_ls'  , dvsfc_ls  )
+       call mpas_pool_get_array(diag_phys,'dusfc_bl'  , dusfc_bl  )
+       call mpas_pool_get_array(diag_phys,'dvsfc_bl'  , dvsfc_bl  )
+       call mpas_pool_get_array(diag_phys,'dusfc_ss'  , dusfc_ss  )
+       call mpas_pool_get_array(diag_phys,'dvsfc_ss'  , dvsfc_ss  )
+       call mpas_pool_get_array(diag_phys,'dusfc_fd'  , dusfc_fd  )
+       call mpas_pool_get_array(diag_phys,'dvsfc_fd'  , dvsfc_fd  )
+       call mpas_pool_get_array(diag_phys,'dtaux3d'   , dtaux3d   )
+       call mpas_pool_get_array(diag_phys,'dtauy3d'   , dtauy3d   )
+       call mpas_pool_get_array(diag_phys,'dtaux3d_ls', dtaux3d_ls)
+       call mpas_pool_get_array(diag_phys,'dtauy3d_ls', dtauy3d_ls)
+       call mpas_pool_get_array(diag_phys,'dtaux3d_ss', dtaux3d_ss)
+       call mpas_pool_get_array(diag_phys,'dtauy3d_ss', dtauy3d_ss)
+       call mpas_pool_get_array(diag_phys,'dtaux3d_bl', dtaux3d_bl)
+       call mpas_pool_get_array(diag_phys,'dtauy3d_bl', dtauy3d_bl)
+       call mpas_pool_get_array(diag_phys,'dtaux3d_fd', dtaux3d_fd)
+       call mpas_pool_get_array(diag_phys,'dtauy3d_fd', dtauy3d_fd)
+    end if
+
+    do ithread = 1,nThreads
+       do iCol = cellSolveThreadStart(ithread),cellSolveThreadEnd(ithread)
+          ! --- Radiation fluxes at surface
+          swdnb(iCol)  = radiation%sfcfsw(iCol)%dnfxc
+          swdnbc(iCol) = radiation%sfcfsw(iCol)%dnfx0
+          swupb(iCol)  = radiation%sfcfsw(iCol)%upfxc
+          swupbc(iCol) = radiation%sfcfsw(iCol)%upfx0
+          lwdnb(iCol)  = radiation%sfcflw(iCol)%dnfxc
+          lwdnbc(iCol) = radiation%sfcflw(iCol)%dnfx0
+          lwupb(iCol)  = radiation%sfcflw(iCol)%upfxc
+          lwupbc(iCol) = radiation%sfcflw(iCol)%upfx0
+
+          ! --- TOA fluxes (RRTMG: no clear-sky SW-down at TOA separate from all-sky; no LW-down at TOA)
+          swdnt(iCol)  = diagnostics%topfsw(iCol)%dnfxc
+          swdntc(iCol) = diagnostics%topfsw(iCol)%dnfxc
+          swupt(iCol)  = diagnostics%topfsw(iCol)%upfxc
+          swuptc(iCol) = diagnostics%topfsw(iCol)%upfx0
+          lwdnt(iCol)  = 0._RKIND
+          lwdntc(iCol) = 0._RKIND
+          lwupt(iCol)  = diagnostics%topflw(iCol)%upfxc
+          lwuptc(iCol) = diagnostics%topflw(iCol)%upfx0
+
+          ! --- Other
+          refl10cm(:,iCol) = diagnostics%refl_10cm(iCol,:)
+          sr(iCol)         = diagnostics%sr(iCol)
+
+          ! --- Precipitation: UFS m (lwe) -> MPAS mm
+          !     (totsnw/totgrp are declared kg m-2 in GFS_typedefs.meta, but GFS_MP_generic_post
+          !      accumulates Diag%snow/graupel, which are m -> same factor)
+          raincv(iCol)     = m2mm * diagnostics%rainc(iCol)
+          rainncv(iCol)    = m2mm * max(0._RKIND, diagnostics%rain(iCol) - diagnostics%rainc(iCol))
+          snowncv(iCol)    = m2mm * diagnostics%snow(iCol)
+          graupelncv(iCol) = m2mm * diagnostics%graupel(iCol)
+          rainc(iCol)      = m2mm * diagnostics%cnvprcp(iCol)
+          rainnc(iCol)     = m2mm * max(0._RKIND, diagnostics%totprcp(iCol) - diagnostics%cnvprcp(iCol))
+          frainnc(iCol)    = m2mm * diagnostics%frzr(iCol)
+          snownc(iCol)     = m2mm * diagnostics%totsnw(iCol)
+          graupelnc(iCol)  = m2mm * diagnostics%totgrp(iCol)
+
+          ! --- Effective radii: UFS micron -> MPAS m
+          re_cloud(:,iCol) = um2m * tbd%phy_f3d(iCol,:,control%nleffr)
+          re_ice(:,iCol)   = um2m * tbd%phy_f3d(iCol,:,control%nieffr)
+          re_snow(:,iCol)  = um2m * tbd%phy_f3d(iCol,:,control%nseffr)
+
+          ! Gravity-wave physics diagnostics (conditionally allocated)
+          if (control % ldiag_ugwp .or. control % do_ugwp_v1) then
+             dusfcg(iCol)       = diagnostics%dusfcg(iCol)
+             dvsfcg(iCol)       = diagnostics%dvsfcg(iCol)
+             dusfc_ls(iCol)     = diagnostics%du_ogwcol(iCol)
+             dvsfc_ls(iCol)     = diagnostics%dv_ogwcol(iCol)
+             dusfc_bl(iCol)     = diagnostics%du_oblcol(iCol)
+             dvsfc_bl(iCol)     = diagnostics%dv_oblcol(iCol)
+             dusfc_ss(iCol)     = diagnostics%du_osscol(iCol)
+             dvsfc_ss(iCol)     = diagnostics%dv_osscol(iCol)
+             dusfc_fd(iCol)     = diagnostics%du_ofdcol(iCol)
+             dvsfc_fd(iCol)     = diagnostics%dv_ofdcol(iCol)
+             dtaux3d(:,iCol)    = diagnostics%dudt_gw(iCol,:)
+             dtauy3d(:,iCol)    = diagnostics%dvdt_gw(iCol,:)
+             dtaux3d_ls(:,iCol) = diagnostics%dudt_ogw(iCol,:)
+             dtauy3d_ls(:,iCol) = diagnostics%dvdt_ogw(iCol,:)
+             dtaux3d_ss(:,iCol) = diagnostics%dudt_oss(iCol,:)
+             dtauy3d_ss(:,iCol) = diagnostics%dvdt_oss(iCol,:)
+             dtaux3d_bl(:,iCol) = diagnostics%dudt_obl(iCol,:)
+             dtauy3d_bl(:,iCol) = diagnostics%dvdt_obl(iCol,:)
+             dtaux3d_fd(:,iCol) = diagnostics%dudt_ofd(iCol,:)
+             dtauy3d_fd(:,iCol) = diagnostics%dvdt_ofd(iCol,:)
+          end if
+          ! --- Surface layer: convert kinematic / rho-weighted UFS fields to MPAS units
+          rho_sfc = statein%prsl(iCol,1) / (rd * statein%tgrs(iCol,1) * &
+                    (1._RKIND + (rv/rd - 1._RKIND) * statein%qgrs(iCol,1,control%ntqv)))
+          hfx(iCol)      = rho_sfc * cp * surface%hflx(iCol)       ! K m s-1        -> W m-2
+          qfx(iCol)      = rho_sfc * surface%evap(iCol)            ! kg kg-1 m s-1  -> kg m-2 s-1
+          znt(iCol)      = 0.01_RKIND * surface%zorl(iCol)         ! cm             -> m
+          chs(iCol)      = surface%flhc(iCol) / (rho_sfc * cp)     ! W m-2 K-1      -> m s-1
+          cqs(iCol)      = surface%flqc(iCol) / rho_sfc            ! kg m-2 s-1     -> m s-1
+          rmol(iCol)     = surface%rmol(iCol)
+          ust(iCol)      = surface%uustar(iCol)
+          qsfc(iCol)     = surface%qss(iCol)
+          t2m(iCol)      = surface%t2m(iCol)
+          q2(iCol)       = surface%q2m(iCol)
+          skintemp(iCol) = surface%tsfc(iCol)
+          sst(iCol)      = surface%tsfco(iCol)
+          precipw(iCol)  = diagnostics%pwat(iCol)
+          ! LSM (RUC)
+          if (control % lsm == control % lsm_ruc) then
+             if (nint(surface%slmsk(iCol)) == 1) mavail(iCol) = surface%wetness(iCol)
+          end if
+          ! MONIN-OBUKHOV
+          fm(iCol)     = surface%ffmm(iCol)
+          fh(iCol)     = surface%ffhh(iCol)
+          ! MYNN (surface-layer model)
+          if (control % do_mynnsfclay) then
+             ustm(iCol)   = surface%ustm(iCol)
+             chs2(iCol)   = surface%chs2(iCol)
+             cqs2(iCol)   = surface%cqs2(iCol)
+             zol(iCol)    = surface%zol(iCol)
+             mol(iCol)    = surface%mol(iCol)
+             lh(iCol)     = 2.5e6_RKIND * qfx(iCol)
+          endif
+          ! MYNN (PBL)
+          if (control % do_mynnedmf) then
+             sh3d(:,iCol)       = tbd%sh3d(iCol,:)
+             sm3d(:,iCol)       = tbd%sm3d(iCol,:)
+             cldfrac_bl(:,iCol) = tbd%cldfra_bl(iCol,:)
+             qc_bl(:,iCol)      = tbd%qc_bl(iCol,:)
+             qi_bl(:,iCol)      = tbd%qi_bl(iCol,:)
+             el_pbl(:,iCol)     = tbd%el_pbl(iCol,:)
+             qke(:,iCol)        = tbd%qke(iCol,:)
+             tsq(:,iCol)        = tbd%tsq(iCol,:)
+             qsq(:,iCol)        = tbd%qsq(iCol,:)
+             cov(:,iCol)        = tbd%cov(iCol,:)
+          endif
+          hpbl(iCol) = tbd%hpbl(iCol)
+          kpbl(iCol) = tbd%kpbl(iCol)
+          !kzm(:,iCol)  =
+          !kzh(:,iCol)  =
+          !kzq(:,iCol)  =
+       end do
+    end do
+  end subroutine ufs_mpas_phys_diag
 
   !> #########################################################################################
   !> Procedure to read in stream_list (a.k.a File with fields to include in output stream)
@@ -339,14 +982,9 @@ contains
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_io::ufs_mpas_read_stream_list'
     
-    ! Output stream
-    call read_stream_list(me, master, mpicomm, stream_list_history,  stream_list_history_funit,  'history')
-
-    ! Diag stream
-    !call read_stream_list(me, master, mpicomm, stream_list_diag,  stream_list_diag_funit,  'diag')
- 
-    ! Restart stream
-    !call read_stream_list(me, master, mpicomm, stream_list_restart, stream_list_restart_funit, 'restart')
+    call read_stream_list(me, master, mpicomm, stream_list_history,  stream_list_history_funit, 'history')
+    call read_stream_list(me, master, mpicomm, stream_list_diag,     stream_list_diag_funit,    'diag_phys')
+    call read_stream_list(me, master, mpicomm, stream_list_restart,  stream_list_restart_funit, 'restart')
 
   end subroutine ufs_mpas_read_stream_lists
 
@@ -365,6 +1003,7 @@ contains
     integer, intent(inout) :: funit
     character(len=*), intent(in) :: stream_name
     integer :: nvars, ivar, io, i, nvar_av, count, mpierr
+    integer :: nvars_hist, nvars_rstr,nvars_diag
     logical :: file_exists, found
     character(len=128) :: line_buffer
     character(len=128), allocatable :: var_list(:)
@@ -387,8 +1026,13 @@ contains
        allocate(var_info_list(0))
     case ('restart')
        allocate(var_info_list, source=restart_var_info_list)
+       nvars_rstr = size(restart_var_info_list)
     case ('history')
        allocate(var_info_list, source=history_var_info_list)
+       nvars_hist = size(history_var_info_list)
+    case ('diag_phys')
+       allocate(var_info_list, source=diag_phys_var_info_list)
+       nvars_diag = size(diag_phys_var_info_list)
     end select
 
     ! On master process...
@@ -456,14 +1100,26 @@ contains
     call mpi_barrier(mpicomm, mpierr)
 
     ! Broadcast dimension
-    call mpi_bcast(nvars, 1, MPI_INTEGER, master, mpicomm, mpierr)
+    select case (trim(adjustl(stream_name)))
+    case ('restart')
+       nvars_rstr = nvars
+       call mpi_bcast(nvars_rstr, 1, MPI_INTEGER, master, mpicomm, mpierr)
+    case ('history')
+       nvars_hist = nvars
+       call mpi_bcast(nvars_hist, 1, MPI_INTEGER, master, mpicomm, mpierr)
+    case ('diag_phys')
+       nvars_diag = nvars
+       call mpi_bcast(nvars_diag, 1, MPI_INTEGER, master, mpicomm, mpierr)
+    end select
     
     ! Allocate
     select case (trim(adjustl(stream_name)))
     case ('restart')
-       allocate(stream_list_restart_indices(nvars))
+       allocate(stream_list_restart_indices(nvars_rstr))
     case ('history')
-       allocate(stream_list_history_indices(nvars))
+       allocate(stream_list_history_indices(nvars_hist))
+    case ('diag_phys')
+       allocate(stream_list_diag_indices(nvars_diag))
     end select
     
     ! Set
@@ -473,15 +1129,19 @@ contains
           stream_list_restart_indices = indices
        case ('history')
           stream_list_history_indices = indices
+       case ('diag_phys')
+          stream_list_diag_indices = indices
        end select
     end if
     
     ! Broadcast data
     select case (trim(adjustl(stream_name)))
     case ('restart')
-       call mpi_bcast(stream_list_restart_indices, nvars, MPI_INTEGER, master, mpicomm, mpierr)
+       call mpi_bcast(stream_list_restart_indices, nvars_rstr, MPI_INTEGER, master, mpicomm, mpierr)
     case ('history')
-       call mpi_bcast(stream_list_history_indices, nvars, MPI_INTEGER, master, mpicomm, mpierr)
+       call mpi_bcast(stream_list_history_indices, nvars_hist, MPI_INTEGER, master, mpicomm, mpierr)
+    case ('diag_phys')
+       call mpi_bcast(stream_list_diag_indices,    nvars_diag, MPI_INTEGER, master, mpicomm, mpierr)
     end select
 
   end subroutine read_stream_list
@@ -508,13 +1168,17 @@ contains
 
     if (trim(stream_name) == "output") then
        filename = 'history.'//trim(timestamp)//'.nc'
+    else if (trim(stream_name) == "output+diag_phys") then
+       filename = 'history.'//trim(timestamp)//'.nc'
     else if (trim(stream_name) == "restart") then
        filename = 'restart.'//trim(timestamp)//'.nc'
     else if (trim(stream_name) == "input") then
        filename = 'input.'//trim(timestamp)//'.nc'
+    else if (trim(stream_name) == "diag_phys") then
+       filename = 'diag_phys.'//trim(timestamp)//'.nc'
     else
-       call mpas_log_write(subname // " Invalid stream_name to ufs_mpas_write: stream_name ="// &
-                           trim(stream_name), messageType=MPAS_LOG_CRIT)
+       stop "Invalid stream_name to ufs_mpas_write: stream_name =" &
+            //trim(stream_name)
     end if
 
     if (debug) call mpas_log_write(subname // " entering ufs_mpas_write")
@@ -561,7 +1225,7 @@ contains
    use mpas_derived_types,     only : mpas_pool_type
    use mpas_kind_types,        only : RKIND
    use mpas_vector_operations, only : mpas_initialize_vectors
-   use module_mpas_config, only : nCellsSolve, latCell, lonCell
+   use module_mpas_config,     only : latCell, lonCell
    
    type (mpas_pool_type), pointer :: meshPool
    real(kind=RKIND), dimension(:,:), pointer :: east, north
@@ -748,7 +1412,7 @@ contains
  !> \update: Dustin Swales April 2025 - Modified for use in UWM
  !>
  !> ########################################################################################
- subroutine dyn_mpas_exchange_halo(field_name, debug)
+ subroutine dyn_mpas_exchange_halo(field_name, debug, timeLevel)
    ! Module(s) from MPAS.
    use mpas_derived_types, only : field1dinteger, field2dinteger, field3dinteger,           &
                                   field1dreal, field2dreal, field3dreal, field4dreal,       &
@@ -756,10 +1420,12 @@ contains
                                   mpas_pool_real
    use mpas_dmpar,         only : mpas_dmpar_exch_halo_field
    use mpas_pool_routines, only : mpas_pool_get_field, mpas_pool_get_field_info
-   character(*), intent(in) :: field_name
-   logical, intent(in)      :: debug
-
-   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_exchange_halo'
+   ! Arguments
+   character(*), intent(in)           :: field_name
+   logical,      intent(in)           :: debug
+   integer,      intent(in), optional :: timeLevel
+   ! Locals
+   integer :: tl
    type(field1dinteger), pointer :: field_1d_integer
    type(field2dinteger), pointer :: field_2d_integer
    type(field3dinteger), pointer :: field_3d_integer
@@ -769,8 +1435,12 @@ contains
    type(field4dreal), pointer :: field_4d_real
    type(field5dreal), pointer :: field_5d_real
    type(mpas_pool_field_info_type) :: mpas_pool_field_info
+   character(*), parameter :: subname = 'dyn_mpas_io::dyn_mpas_exchange_halo'
 
    if (debug) call mpas_log_write(subname // ' entered')
+
+   tl = 1
+   if (present(timeLevel)) tl = timeLevel
 
    nullify(field_1d_integer)
    nullify(field_2d_integer)
@@ -805,7 +1475,7 @@ contains
       select case (mpas_pool_field_info % ndims)
       case (1)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_1d_integer, timelevel=1)
+              trim(adjustl(field_name)), field_1d_integer, timelevel=tl)
 
          if (.not. associated(field_1d_integer)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -816,7 +1486,7 @@ contains
          nullify(field_1d_integer)
       case (2)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_2d_integer, timelevel=1)
+              trim(adjustl(field_name)), field_2d_integer, timelevel=tl)
 
          if (.not. associated(field_2d_integer)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -827,7 +1497,7 @@ contains
          nullify(field_2d_integer)
       case (3)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_3d_integer, timelevel=1)
+              trim(adjustl(field_name)), field_3d_integer, timelevel=tl)
 
          if (.not. associated(field_3d_integer)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -843,7 +1513,7 @@ contains
       select case (mpas_pool_field_info % ndims)
       case (1)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_1d_real, timelevel=1)
+              trim(adjustl(field_name)), field_1d_real, timelevel=tl)
 
          if (.not. associated(field_1d_real)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -854,7 +1524,7 @@ contains
          nullify(field_1d_real)
       case (2)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_2d_real, timelevel=1)
+              trim(adjustl(field_name)), field_2d_real, timelevel=tl)
 
          if (.not. associated(field_2d_real)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -863,7 +1533,7 @@ contains
          nullify(field_2d_real)
       case (3)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_3d_real, timelevel=1)
+              trim(adjustl(field_name)), field_3d_real, timelevel=tl)
 
          if (.not. associated(field_3d_real)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -874,7 +1544,7 @@ contains
          nullify(field_3d_real)
       case (4)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_4d_real, timelevel=1)
+              trim(adjustl(field_name)), field_4d_real, timelevel=tl)
 
          if (.not. associated(field_4d_real)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -885,7 +1555,7 @@ contains
          nullify(field_4d_real)
       case (5)
          call mpas_pool_get_field(domain_ptr % blocklist % allfields, &
-              trim(adjustl(field_name)), field_5d_real, timelevel=1)
+              trim(adjustl(field_name)), field_5d_real, timelevel=tl)
 
          if (.not. associated(field_5d_real)) then
             call mpas_log_write(subname // ' Failed to find field "' // trim(adjustl(field_name)) // '"', messageType=MPAS_LOG_CRIT)
@@ -980,7 +1650,7 @@ contains
       var_info_list = parse_stream_name(stream_name)
 
       do i = 1, size(var_info_list)
-         call dyn_mpas_exchange_halo(var_info_list(i) % name, debug)
+         call dyn_mpas_exchange_halo(var_info_list(i) % name, debug, timeLevel=timeLevel)
          if ( ierr /= 0 ) then
             call mpas_log_write(subname // ' Failed to exchange halo layers for group '//var_info_list(i) % name, messageType=MPAS_LOG_CRIT)
          end if
@@ -1047,6 +1717,7 @@ contains
    call MPAS_readStream(stream, nRecord, ierr=ierr)
    if (present(actualWhen)) then
       call MPAS_streamTime(stream, nRecord, actualWhen, ierr=ierr)
+      call mpas_log_write('MPAS_streamTime ierr = $i, nRecord = $i', intArgs=[ierr, nRecord])
    endif
    
  end subroutine read_stream
@@ -1082,7 +1753,6 @@ contains
                                   mpas_stream_type
    use mpas_io_streams,    only : mpas_createstream, mpas_streamaddfield
    use mpas_pool_routines, only : mpas_pool_add_config, mpas_pool_create_pool, mpas_pool_get_field
-   use mpas_kind_types,    only : StrKIND, RKIND
 
    type(mpas_pool_type), pointer, intent(out) :: mpas_pool
    type(mpas_stream_type), pointer, intent(out) :: mpas_stream
@@ -1656,6 +2326,14 @@ contains
       allocate(var_info_list, source=sfc_input_var_info_list)
    case ('ugwp_oro_data')
       allocate(var_info_list, source=ugwp_oro_data_var_info_list)
+   case ('diag_phys')
+      ! If stream_list provided at runtime, only include requested fields.
+      if (allocated(stream_list_diag_indices)) then
+         allocate(var_info_list, source=diag_phys_var_info_list(stream_list_diag_indices))
+         ! Otherwise, include all available fields from stream (default).
+      else
+         allocate(var_info_list, source=diag_phys_var_info_list)
+      end if
    case default
       allocate(var_info_list(0))
 
@@ -1691,6 +2369,20 @@ contains
 
       if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
          var_info_list_buffer = pack(lbc_in_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+
+      var_name_list = ugwp_oro_data_var_info_list % name
+
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(ugwp_oro_data_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+         var_info_list = [var_info_list, var_info_list_buffer]
+      end if
+
+      var_name_list = diag_phys_var_info_list % name
+
+      if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
+         var_info_list_buffer = pack(diag_phys_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
          var_info_list = [var_info_list, var_info_list_buffer]
       end if
    end select
@@ -1811,7 +2503,6 @@ contains
                                   field2dreal, field3dreal, field4dreal, field5dreal
    use mpas_kind_types,    only : r4kind, r8kind
    use mpas_pool_routines, only : mpas_pool_get_field
-   use mpas_kind_types,    only : StrKIND, RKIND
 
    logical, allocatable, intent(out) :: var_is_present(:)
    logical, allocatable, intent(out) :: var_is_tkr_compatible(:)
