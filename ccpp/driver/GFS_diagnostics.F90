@@ -2081,7 +2081,7 @@ module GFS_diagnostics
       ExtDiag(idx)%mod_name = 'gfs_phys'
       ExtDiag(idx)%data%var3 => Coupling%sfc_wts(:,:)
     endif
-
+    
     if (Model%do_ca) then
       idx = idx + 1
       ExtDiag(idx)%axes = 2
@@ -2130,8 +2130,43 @@ module GFS_diagnostics
       ExtDiag(idx)%unit = '%'
       ExtDiag(idx)%mod_name = 'gfs_phys'      
       ExtDiag(idx)%data%var2 => Coupling%ca_micro(:)
-    endif
+   endif
 
+   if(Model%mlm)then
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'eflux'
+      ExtDiag(idx)%desc = 'total_energy_flux'
+      ExtDiag(idx)%unit = 'K m s-1'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      ExtDiag(idx)%data%var3 => IntDiag%eflux(:,:)
+
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'rflux'
+      ExtDiag(idx)%desc = 'radiative flux'
+      ExtDiag(idx)%unit = 'K m s-1'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      ExtDiag(idx)%data%var3 => IntDiag%rflux(:,:)
+
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'wflux'
+      ExtDiag(idx)%desc = 'total water flux'
+      ExtDiag(idx)%unit = 'kg kg-1 m s-1'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      ExtDiag(idx)%data%var3 => IntDiag%wflux(:,:)
+      
+      idx = idx + 1
+      ExtDiag(idx)%axes = 3
+      ExtDiag(idx)%name = 'pflux'
+      ExtDiag(idx)%desc = 'precipitation flux'
+      ExtDiag(idx)%unit = 'kg kg-1 m s-1'
+      ExtDiag(idx)%mod_name = 'gfs_phys'
+      ExtDiag(idx)%data%var3 => IntDiag%pflux(:,:)
+      
+   endif
+   
   if (Model%lkm/=0) then
 
       idx = idx + 1
