@@ -37,8 +37,8 @@ module fv_moving_nest_main_mod
 #endif
   use time_manager_mod,       only: time_type, get_time, get_date, set_time, operator(+), &
       operator(-), operator(/), time_type_to_real
-  use fms_mod,                only: file_exist, open_namelist_file,    &
-      close_file, error_mesg, FATAL,     &
+  use fms_mod,                only: &
+      error_mesg, FATAL,     &
       check_nml_error, stdlog,           &
       write_version_number,              &
       mpp_clock_id, mpp_clock_begin,     &
