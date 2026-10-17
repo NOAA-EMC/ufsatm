@@ -832,7 +832,7 @@ module post_fv3
 
        if (grid_id /= bundle_grid_id) cycle
 
-! find lans sea mask
+! find land sea mask
         found = .false.
         call ESMF_FieldBundleGet(wrt_int_state%wrtFB(ibdl),fieldName='land',isPresent=found, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -864,6 +864,38 @@ module post_fv3
           foundland = .true.
         endif
 
+! find land fraction mask
+        found = .false.
+        call ESMF_FieldBundleGet(wrt_int_state%wrtFB(ibdl),fieldName='lfrac',isPresent=found, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+!        if(mype==0) print *,'ibdl=',ibdl,'lfrac, found=',found
+        if (found) then
+          call ESMF_FieldBundleGet(wrt_int_state%wrtFB(ibdl),'lfrac',field=theField, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+          call ESMF_FieldGet(theField, localDe=0, farrayPtr=arrayr42d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+          call ESMF_AttributeGet(theField, convention="NetCDF", purpose="FV3", &
+                   name='_FillValue', value=fillvalue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+!           print *,'in post_lam, get land fraction field value,fillvalue=',fillvalue
+
+          !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,arrayr42d,landfrac,fillValue)
+          do j=jsta, jend
+            do i=ista, iend
+              if (arrayr42d(i,j) /= spval .and. abs(arrayr42d(i,j)-fillValue)>small ) then
+                landfrac(i,j) = arrayr42d(i,j)
+              else
+                landfrac(i,j) = spval
+              endif
+            enddo
+          enddo
+        endif
+
+
 ! find ice fraction
         found = .false.
         call ESMF_FieldBundleGet(wrt_int_state%wrtFB(ibdl),'icec',isPresent=found, rc=rc)
@@ -883,12 +915,12 @@ module post_fv3
                 line=__LINE__, file=__FILE__)) return  ! bail out
 !           if(mype==0) print *,'in post_lam, get icec  field value,fillvalue=',fillvalue
 
-          !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,sice,arrayr42d,sm,fillValue)
+          !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,sice,arrayr42d,landfrac,fillValue)
           do j=jsta, jend
             do i=ista, iend
               sice(i,j) = arrayr42d(i,j)
               if(abs(arrayr42d(i,j)-fillvalue)<small) sice(i,j) = spval
-              if (sm(i,j) /= spval .and. sm(i,j) == 0.0) sice(i,j) = 0.0
+              if (landfrac(i,j) /= spval .and. landfrac(i,j) == 1.0) sice(i,j) = 0.0
             enddo
           enddo
           foundice = .true.
@@ -1556,17 +1588,6 @@ module post_fv3
                 do i=ista, iend
                   mxsnal(i,j) = arrayr42d(i,j)
                   if (abs(arrayr42d(i,j)-fillValue) < small) mxsnal(i,j) = spval
-                enddo
-              enddo
-            endif
-
-            !  land fraction
-            if(trim(fieldname)=='lfrac') then
-              !$omp parallel do default(none) private(i,j) shared(jsta,jend,ista,iend,spval,landfrac,arrayr42d,sm)
-              do j=jsta,jend
-                do i=ista, iend
-                  landfrac(i,j) = arrayr42d(i,j)
-                  if (sm(i,j) /= 0.0) landfrac(i,j) = spval
                 enddo
               enddo
             endif
