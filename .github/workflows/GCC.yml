@@ -36,6 +36,7 @@ jobs:
       run: |
         if [ ${{ matrix.mpi }} == mpich ]; then mpi_pkgs="mpich libmpich-dev"; fi
         if [ ${{ matrix.mpi }} == openmpi ]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
+        sudo apt-get update
         sudo apt-get install cmake git-lfs libopenblas-serial-dev libxml2-utils $mpi_pkgs
 
     - name: cache-spack
@@ -83,6 +84,7 @@ jobs:
       run: |
         if [ ${{ matrix.mpi }} == mpich ]; then mpi_pkgs="mpich libmpich-dev"; fi
         if [ ${{ matrix.mpi }} == openmpi ]; then mpi_pkgs="openmpi-bin libopenmpi-dev"; fi
+        sudo apt-get update
         sudo apt-get install cmake libopenblas-serial-dev libxml2-utils $mpi_pkgs
 
     # Only do Doxygen and gcovr build for one job
