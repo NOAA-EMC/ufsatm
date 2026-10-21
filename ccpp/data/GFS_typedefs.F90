@@ -3952,7 +3952,9 @@ module GFS_typedefs
     integer              :: bl_mynn_mixlength = 1
     integer              :: bl_mynn_edmf      = 1
     integer              :: bl_mynn_edmf_mom  = 1
+    integer              :: bl_mynn_edmf_dd   = 0
     integer              :: bl_mynn_edmf_tke  = 0
+    integer              :: bl_mynn_ess       = 0
     integer              :: bl_mynn_cloudmix  = 1
     integer              :: bl_mynn_mixqt     = 0
     integer              :: bl_mynn_mixscalars= 0
