@@ -10,7 +10,7 @@
   path = ccpp/physics
   #url = https://github.com/ufs-community/ccpp-physics
   #branch = ufs/dev
-  url = https://github.com/ufs-community/ccpp-physics
+  url = https://github.com/lisa-bengtsson/ccpp-physics
   branch = MLM
 [submodule "upp"]
   path = upp
