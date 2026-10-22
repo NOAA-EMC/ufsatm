@@ -153,13 +153,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-[def_1(:,1)]
-  standard_name = square_of_vertical_shear_due_to_dynamics_at_surface_adjacent_layer
-  long_name = square of vertical shear calculated from dynamics at lowest model layer
-  units = m2 s-2
-  dimensions = (horizontal_dimension)
-  type = real
-  kind = kind_phys
 [def_2]
   standard_name = square_of_horizontal_shear_due_to_dynamics
   long_name = square of horizontal shear calculated from dynamics
@@ -167,25 +160,53 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-[def_2(:,1)]
-  standard_name = square_of_horizontal_shear_due_to_dynamics_at_surface_adjacent_layer
-  long_name = square of horizontal shear calculated from dynamics at lowest model layer
-  units = m2 s-2
-  dimensions = (horizontal_dimension)
-  type = real
-  kind = kind_phys
 [def_3]
-  standard_name = horizontal_transfer_rate_of_tke_due_to_dynamics
-  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics
-  units = m2 s-3
+  standard_name = horizontal_turbulent_eddy_diffusion_for_temperature
+  long_name = horizontal turbulent eddy diffusion for temperature calculated from dynamics
+  units = K s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-[def_3(:,1)]
-  standard_name = horizontal_transfer_rate_tke_due_to_dynamics_at_surface_adjacent_layer
-  long_name = rate of horizontal TKE transfer and pressure correlation calculated from dynamics at lowest model layer
+[def_4]
+  standard_name = horizontal_turbulent_eddy_diffusion_for_tracers
+  long_name = horizontal turbulent eddy diffusion for tracers calculated from dynamics
+  units = kg kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
+  type = real
+  kind = kind_phys
+[leo_u]
+  standard_name = leonard_term_for_u_velocity
+  long_name = leonard term for u velocity calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[leo_v]
+  standard_name = leonard_term_for_v_velocity
+  long_name = leonard term for v velocity calculated from dynamics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[leo_t]
+  standard_name = leonard_term_for_temperature
+  long_name = leonard term for temperature calculated from dynamics
+  units = K m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[leo_q]
+  standard_name = leonard_term_for_tracers
+  long_name = leonard term for tracers calculated from dynamics
+  units = kg kg-1 m s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_tracers)
+  type = real
+  kind = kind_phys
+[cpadv]
+  standard_name = cold_pool_propagation_term
+  long_name = cold pool propagation term calculated from dynamics
   units = m2 s-3
-  dimensions = (horizontal_dimension)
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [vvl]
@@ -426,6 +447,14 @@
   type = real
   kind = kind_phys
   active = (index_of_updraft_velocity_in_tracer_concentration_array > 0 )
+[qgrs(:,:,index_of_downdraft_buoyancy_excess_in_tracer_concentration_array)]
+  standard_name = downdraft_buoyancy_excess_in_convection
+  long_name = downdraft buoyancy excess in convection
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = (index_of_downdraft_buoyancy_excess_in_tracer_concentration_array > 0 )
 [qgrs(:,:,index_for_smoke_in_tracer_concentration_array)]
   standard_name = physics_timestep_initial_smoke_tracer_concentration
   long_name = concentration of smoke at the beginning of the physics timestep
@@ -717,6 +746,14 @@
   type = real
   kind = kind_phys
   active = ( index_of_updraft_velocity_in_tracer_concentration_array > 0 )
+[gq0(:,:,index_of_downdraft_buoyancy_excess_in_tracer_concentration_array)]
+  standard_name = downdraft_buoyancy_excess_in_convection_updated_by_physics
+  long_name = downdraft buoyancy excess in convection updated by physics
+  units = m2 s-2
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  active = ( index_of_downdraft_buoyancy_excess_in_tracer_concentration_array > 0 )
 [gq0(:,:,index_of_turbulent_kinetic_energy_in_tracer_concentration_array)]
   standard_name = turbulent_kinetic_energy
   long_name = turbulent kinetic energy
@@ -5881,6 +5918,12 @@
   units = flag
   dimensions = ()
   type = logical
+[leonard]
+  standard_name = flag_for_leonard_term
+  long_name = flag for adding leonard term
+  units = flag
+  dimensions = ()
+  type = logical
 [hurr_pbl]
   standard_name = flag_hurricane_PBL
   long_name = flag for hurricane-specific options in PBL scheme
@@ -6034,6 +6077,12 @@
 [progomega]
   standard_name = do_prognostic_updraft_velocity
   long_name = do_prognostic_updraft_velocity
+  units = flag
+  dimensions = ()
+  type = logical
+[coldpool]
+  standard_name = do_cold_pool_parameterization
+  long_name = do_cold_pool_parameterization
   units = flag
   dimensions = ()
   type = logical
@@ -6502,6 +6551,13 @@
   standard_name = maximum_allowed_dissipation_mixing_length_in_boundary_layer_mass_flux_scheme
   long_name = maximum allowed dissipation mixing length in boundary layer mass flux scheme
   units = m
+  dimensions = ()
+  type = real
+  kind = kind_phys
+[leofac]
+  standard_name = parameter_for_leonard_term
+  long_name = constant parameter for leonard term
+  units = none
   dimensions = ()
   type = real
   kind = kind_phys
@@ -7086,6 +7142,12 @@
 [ntomega]
   standard_name = index_of_updraft_velocity_in_tracer_concentration_array
   long_name = tracer index of updraft_velocity
+  units = index
+  dimensions = ()
+  type = integer
+[ntbuexs]
+  standard_name = index_of_downdraft_buoyancy_excess_in_tracer_concentration_array
+  long_name = tracer index of downdraft_buoyancy_excess
   units = index
   dimensions = ()
   type = integer
@@ -8470,6 +8532,20 @@
   long_name = horizontal atmospheric tke diffusivity for dynamics
   units = m2 s-1
   dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ucp]
+  standard_name = cold_pool_propagation_speed_in_east_west_direction
+  long_name = cold pool propagation speed in east west direction
+  units = m s-1
+  dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[vcp]
+  standard_name = cold_pool_propagation_speed_in_north_south_direction
+  long_name = cold pool propagation speed in north south direction
+  units = m s-1
+  dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
 [ud_mf]

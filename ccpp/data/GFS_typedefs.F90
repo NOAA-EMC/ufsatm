@@ -166,7 +166,15 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: def_1 (:,:)   => null()  !< deformation
     real (kind=kind_phys), pointer :: def_2 (:,:)   => null()  !< deformation
     real (kind=kind_phys), pointer :: def_3 (:,:)   => null()  !< deformation
+    real (kind=kind_phys), pointer :: def_4 (:,:,:) => null()  !< deformation
 !SA-3D-TKE-end
+!Leonard term
+    real (kind=kind_phys), pointer :: leo_u (:,:)   => null()  !< leonard term for u
+    real (kind=kind_phys), pointer :: leo_v (:,:)   => null()  !< leonard term for v
+    real (kind=kind_phys), pointer :: leo_t (:,:)   => null()  !< leonard term for t
+    real (kind=kind_phys), pointer :: leo_q (:,:,:) => null()  !< leonard term for q & tracers
+!Cold pool variable passing from dycore to physics
+    real (kind=kind_phys), pointer :: cpadv(:,:) => null()  !< cold pool propagation term calculated from dynamics
 ! dissipation estimate
     real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< model layer mean temperature in k
     ! soil state variables - for soil SPPT - sfc-perts, mgehne
@@ -1237,6 +1245,7 @@ module GFS_typedefs
     logical              :: do_ysu          !< flag for YSU turbulent mixing scheme
     logical              :: dspheat         !< flag for tke dissipative heating
     logical              :: sa3dtke         !< flag for scale-aware 3D tke scheme
+    logical              :: leonard         !< flag for leonard term in subgrid turbulent fluxes
     logical              :: hurr_pbl        !< flag for hurricane-specific options in PBL scheme
     logical              :: lheatstrg       !< flag for canopy heat storage parameterization
     logical              :: lseaspray       !< flag for sea spray parameterization
@@ -1261,6 +1270,7 @@ module GFS_typedefs
     logical              :: hwrf_samfdeep           !< flag for HWRF SAMF deepcnv scheme (HWRF)
     logical              :: progsigma               !< flag for prognostic area fraction in samf ddepcnv scheme (GFS)
     logical              :: progomega               !< flag for prognostic vertical velocity in samf ddepcnv scheme (GFS)
+    logical              :: coldpool                !< flag for cold pool parameterization in samf ddepcnv scheme (GFS)
     integer              :: imfdeepcnv      !< flag for mass-flux deep convection scheme
                                             !<     1: July 2010 version of SAS conv scheme
                                             !<           current operational version as of 2016
@@ -1437,6 +1447,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: bl_dnfr         !< downdraft fraction in boundary layer mass flux scheme
     real(kind=kind_phys) :: rlmx            !< maximum allowed mixing length in boundary layer mass flux scheme
     real(kind=kind_phys) :: elmx            !< maximum allowed dissipation mixing length in boundary layer mass flux scheme
+    real(kind=kind_phys) :: leofac          !< parameter for leonard term
     integer              :: sfc_rlm         !< choice of near surface mixing length in boundary layer mass flux scheme
     integer              :: tc_pbl          !< control for TC applications in the PBL scheme
     integer              :: use_lpt         !< control for using Liquid Potential Temp for TC applications in the GFSPBL scheme
@@ -1569,6 +1580,7 @@ module GFS_typedefs
     integer              :: ntke            !< tracer index for kinetic energy
     integer              :: ntsigma         !< tracer index for updraft area fraction
     integer              :: ntomega         !< tracer index for updraft velocity
+    integer              :: ntbuexs         !< tracer index for downdraft buoyancy excess in cold pool parameterization
     integer              :: nto             !< tracer index for oxygen ion
     integer              :: nto2            !< tracer index for oxygen
     integer              :: ntwa            !< tracer index for water friendly aerosol
@@ -1875,7 +1887,11 @@ module GFS_typedefs
 
 !-- Diagnostic variable that passes to dyn_core (SA-3D-TKE)
     real (kind=kind_phys), pointer :: dku3d_h  (:,:)     => null()  !< Horizontal eddy diffusitivity for momentum
-    real (kind=kind_phys), pointer :: dku3d_e  (:,:)     => null()  !< Eddy diffusitivity for momentum for tke
+    real (kind=kind_phys), pointer :: dku3d_e  (:,:)     => null()  !< Eddy diffusitivity for tke
+
+!-- Cold pool variables passing from physics to dycore
+    real (kind=kind_phys), pointer :: ucp (:)   => null()  !< cold pool propagation speed in east west direction
+    real (kind=kind_phys), pointer :: vcp (:)   => null()  !< cold pool propagation speed in north south direction
 
     !--- dynamical forcing variables for Grell-Freitas convection
     real (kind=kind_phys), pointer :: forcet (:,:)     => null()  !<
@@ -2375,7 +2391,15 @@ module GFS_typedefs
     allocate (Statein%def_1   (IM,Model%levs))
     allocate (Statein%def_2   (IM,Model%levs))
     allocate (Statein%def_3   (IM,Model%levs))
+    allocate (Statein%def_4   (IM,Model%levs,Model%ntrac))
 !SA-3D-TKE-end
+!Leonard term
+    allocate (Statein%leo_u   (IM,Model%levs))
+    allocate (Statein%leo_v   (IM,Model%levs))
+    allocate (Statein%leo_t   (IM,Model%levs))
+    allocate (Statein%leo_q   (IM,Model%levs,Model%ntrac))
+!Cold pool variable
+    allocate (Statein%cpadv  (IM,Model%levs))
 
     Statein%qgrs   = clear_val
     Statein%pgr    = clear_val
@@ -2385,7 +2409,15 @@ module GFS_typedefs
     Statein%def_1   = clear_val
     Statein%def_2   = clear_val
     Statein%def_3   = clear_val
+    Statein%def_4   = clear_val
 !SA-3D-TKE-end
+!Leonard term
+    Statein%leo_u   = clear_val
+    Statein%leo_v   = clear_val
+    Statein%leo_t   = clear_val
+    Statein%leo_q   = clear_val
+!Cold pool variable
+    Statein%cpadv  = clear_val
 
     if(Model%lightning_threat) then
       Statein%wgrs = clear_val
@@ -3887,6 +3919,7 @@ module GFS_typedefs
     logical              :: do_ysu         = .false.                  !< flag for YSU vertical turbulent mixing scheme
     logical              :: dspheat        = .false.                  !< flag for tke dissipative heating
     logical              :: sa3dtke        = .false.                  !< flag for scale-aware 3D tke scheme
+    logical              :: leonard        = .false.                  !< flag for leonard term in subgrid turbulent flux
     logical              :: hurr_pbl       = .false.                  !< flag for hurricane-specific options in PBL scheme
     logical              :: lheatstrg      = .false.                  !< flag for canopy heat storage parameterization
     logical              :: lseaspray      = .false.                  !< flag for sea spray parameterization
@@ -3917,6 +3950,7 @@ module GFS_typedefs
     logical              :: hwrf_samfshal     = .false.               !< flag for HWRF SAMF shalcnv scheme
     logical              :: progsigma         = .false.               !< flag for prognostic updraft area fraction closure in saSAS or C3
     logical              :: progomega         = .false.               !< flag for prognostic updraft velocity in saSAS or C3
+    logical              :: coldpool          = .false.               !< flag for cold pool parameterization in samfdeepcnv
     integer              :: conv_cf_opt       =  0                    !< option for convection scheme cloud fraction computation
     logical              :: do_mynnedmf       = .false.               !< flag for MYNN-EDMF
     logical              :: do_mynnsfclay     = .false.               !< flag for MYNN Surface Layer Scheme
@@ -4073,6 +4107,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: bl_dnfr        = 0.1             !< downdraft fraction in boundary layer mass flux scheme
     real(kind=kind_phys) :: rlmx           = 300.            !< maximum allowed mixing length in boundary layer mass flux scheme
     real(kind=kind_phys) :: elmx           = 300.            !< maximum allowed dissipation mixing length in boundary layer mass flux scheme
+    real(kind=kind_phys) :: leofac         = 2.0             !< parameter for leonard term
     integer              :: sfc_rlm        = 0               !< choice of near surface mixing length in boundary layer mass flux scheme
     integer              :: tc_pbl         = 0               !< control for TC applications in the PBL scheme
     integer              :: use_lpt        = 0               !< control for using Liquid Potential Temp for TC applications in the GFSPBL scheme
@@ -4319,9 +4354,9 @@ module GFS_typedefs
                                do_ugwp_v1, do_ugwp_v1_orog_only,  do_ugwp_v1_w_gsldrag,     &
                                ugwp_seq_update, var_ric, coef_ric_l, coef_ric_s, hurr_pbl,  &
                                do_myjsfc, do_myjpbl,                                        &
-                               hwrf_samfdeep, hwrf_samfshal,progsigma,progomega,betascu,    &
-                               betamcu, betadcu, lbb1, lbb2, lbb3, dt_decay, h2o_phys,      &
-                               pdfcld, shcnvcw, redrag,                                     &
+                               hwrf_samfdeep, hwrf_samfshal,progsigma,progomega,coldpool,   &
+                               betascu, betamcu, betadcu, lbb1, lbb2, lbb3, dt_decay,       &
+                               h2o_phys, pdfcld, shcnvcw, redrag,                           &
                                hybedmf, satmedmf, tte_edmf, sigmab_coldstart,               &
                                shinhong, do_ysu, dspheat, lheatstrg, lseaspray, cnvcld,     &
                                xr_cnvcld, random_clds, shal_cnv, imfshalcnv, imfdeepcnv,    &
@@ -4336,6 +4371,8 @@ module GFS_typedefs
                                pert_mp,pert_clds,pert_radtend,                              &
                           !--- Scale-aware 3D TKE scheme
                                sa3dtke,                                                     &
+                          !--- Leonard term
+                               leonard,                                                     &
                           !--- Rayleigh friction
                                prslrd0, ral_ts,  ldiag_ugwp, do_ugwp, do_tofd,              &
                           ! --- Ferrier-Aligo
@@ -4359,7 +4396,8 @@ module GFS_typedefs
                                diag_flux, diag_log,                                         &
                           !    vertical diffusion
                                xkzm_m, xkzm_h, xkzm_s, xkzminv, moninq_fac, dspfac,         &
-                               bl_upfr, bl_dnfr, rlmx, elmx, sfc_rlm, tc_pbl, use_lpt,      &
+                               bl_upfr, bl_dnfr, rlmx, elmx, leofac,                        &
+                               sfc_rlm, tc_pbl, use_lpt,                                    &
                           !--- canopy heat storage parameterization
                                h0facu, h0facs,                                              &
                           !--- cellular automata
@@ -5265,7 +5303,10 @@ module GFS_typedefs
     Model%lbb2 = lbb2
     Model%lbb3 = lbb3
     Model%dt_decay = dt_decay
-    
+!
+!  cold pool parameterization
+    Model%coldpool = coldpool
+
     if (oz_phys .and. oz_phys_2015) then
        write(*,*) 'Logic error: can only use one ozone physics option (oz_phys or oz_phys_2015), not both. Exiting.'
        stop
@@ -5426,6 +5467,8 @@ module GFS_typedefs
     Model%diag_log         = diag_log
 !--- SA-3D-TKE option
     Model%sa3dtke          = sa3dtke
+!--- Leonard term
+    Model%leonard          = leonard
 
 !--- vertical diffusion
     Model%xkzm_m           = xkzm_m
@@ -5438,6 +5481,7 @@ module GFS_typedefs
     Model%bl_dnfr          = bl_dnfr
     Model%rlmx             = rlmx
     Model%elmx             = elmx
+    Model%leofac           = leofac
     Model%sfc_rlm          = sfc_rlm
     Model%tc_pbl           = tc_pbl
     Model%use_lpt          = use_lpt
@@ -5586,6 +5630,7 @@ module GFS_typedefs
     Model%ntke             = get_physics_tracer_index('sgs_tke', Model)
     Model%ntsigma          = get_physics_tracer_index('sigmab', Model)
     Model%ntomega          = get_physics_tracer_index('omegab', Model)
+    Model%ntbuexs          = get_physics_tracer_index('buoyexcs',Model)
     Model%nqrimef          = get_physics_tracer_index('q_rimef', Model)
     Model%ntwa             = get_physics_tracer_index('liq_aero', Model)
     Model%ntia             = get_physics_tracer_index('ice_aero', Model)
@@ -7284,6 +7329,7 @@ module GFS_typedefs
       print *, ' do_ysu            : ', Model%do_ysu
       print *, ' dspheat           : ', Model%dspheat
       print *, ' sa3dtke           : ', Model%sa3dtke
+      print *, ' leonard           : ', Model%leonard
       print *, ' lheatstrg         : ', Model%lheatstrg
       print *, ' lseaspray         : ', Model%lseaspray
       print *, ' cnvcld            : ', Model%cnvcld
@@ -7382,6 +7428,7 @@ module GFS_typedefs
       print *, ' bl_dnfr           : ', Model%bl_dnfr
       print *, ' rlmx              : ', Model%rlmx
       print *, ' elmx              : ', Model%elmx
+      print *, ' leofac            : ', Model%leofac
       print *, ' sfc_rlm           : ', Model%sfc_rlm
       print *, ' tc_pbl            : ', Model%tc_pbl
       print *, ' use_lpt           : ', Model%use_lpt
@@ -7469,6 +7516,7 @@ module GFS_typedefs
       print *, ' ntke              : ', Model%ntke
       print *, ' ntsigma           : ', Model%ntsigma
       print *, ' ntomega           : ', Model%ntomega
+      print *, ' ntbuexs           : ', Model%ntbuexs
       print *, ' nto               : ', Model%nto
       print *, ' nto2              : ', Model%nto2
       print *, ' ntwa              : ', Model%ntwa
@@ -7750,6 +7798,11 @@ module GFS_typedefs
     Tbd%dku3d_h    = clear_val
     allocate (Tbd%dku3d_e (IM,Model%levs))
     Tbd%dku3d_e    = clear_val
+! Allocate variables for cold pool
+    allocate (Tbd%ucp (IM))
+    Tbd%ucp    = clear_val
+    allocate (Tbd%vcp (IM))
+    Tbd%vcp    = clear_val
 
     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_ntiedtke .or. Model%imfdeepcnv == Model%imfdeepcnv_samf .or. Model%imfshalcnv == Model%imfshalcnv_samf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3 .or. Model%imfshalcnv == Model%imfshalcnv_c3) then
        allocate (Tbd%prevsq(IM, Model%levs))
