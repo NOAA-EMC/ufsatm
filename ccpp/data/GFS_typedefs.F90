@@ -153,6 +153,13 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: phil  (:,:) => null()   !< layer geopotential height
     real (kind=kind_phys), pointer :: prsl  (:,:) => null()   !< model layer mean pressure Pa
     real (kind=kind_phys), pointer :: prslk (:,:) => null()   !< exner function = (p/p0)**rocp
+    real (kind=kind_phys), pointer :: dp    (:,:) => null()   !< model layer thickness (Pa)
+    real (kind=kind_phys), pointer :: dpc   (:,:) => null()   !< air pressure difference between midlayers (Pa)
+
+!--- layer and level heights
+    real (kind=kind_phys), pointer :: zgrid (:,:) => null()   !< layer height (m)
+    real (kind=kind_phys), pointer :: zigrid(:,:) => null()   !< level height (m)
+    real (kind=kind_phys), pointer :: dzgrid(:,:) => null()   !< layer thickness (m)
 
 !--- prognostic variables
     real (kind=kind_phys), pointer :: pgr  (:)     => null()  !< surface pressure (Pa) real
@@ -160,7 +167,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: vgrs (:,:)   => null()  !< v component of layer wind
     real (kind=kind_phys), pointer :: wgrs (:,:)   => null()  !< w component of layer wind
     real (kind=kind_phys), pointer :: vvl  (:,:)   => null()  !< layer mean vertical velocity in pa/sec
-    real (kind=kind_phys), pointer :: tgrs (:,:)   => null()  !< model layer mean temperature in k
+    real (kind=kind_phys), pointer :: tgrs (:,:)   => null()  !< layer mean temperature in k
+    real (kind=kind_phys), pointer :: tgri (:,:)   => null()  !< level (interface) temperature in k
     real (kind=kind_phys), pointer :: qgrs (:,:,:) => null()  !< layer mean tracer concentration
 !SA-3D-TKE
     real (kind=kind_phys), pointer :: def_1 (:,:)   => null()  !< deformation
@@ -188,19 +196,29 @@ module GFS_typedefs
 !!
   type GFS_stateout_type
 
-    !-- Out (physics only)
-    real (kind=kind_phys), pointer :: gu0 (:,:)   => null()  !< updated zonal wind
-    real (kind=kind_phys), pointer :: gv0 (:,:)   => null()  !< updated meridional wind
-    real (kind=kind_phys), pointer :: gt0 (:,:)   => null()  !< updated temperature
-    real (kind=kind_phys), pointer :: gq0 (:,:,:) => null()  !< updated tracers
+    !-- State variables
+    real (kind=kind_phys), pointer :: gu0 (:,:   )    => null()  !< updated zonal wind
+    real (kind=kind_phys), pointer :: gv0 (:,:)       => null()  !< updated meridional wind
+    real (kind=kind_phys), pointer :: gt0 (:,:)       => null()  !< updated temperature
+    real (kind=kind_phys), pointer :: gq0 (:,:,:)     => null()  !< updated tracers
 
-    !-- Out (process tendencies)
-    !-- PBL
-    real (kind=kind_phys), pointer :: ten_u_pbl(:,:)   => null()  !< Zonal-wind tendency ...
-    real (kind=kind_phys), pointer :: ten_v_pbl(:,:)   => null()  !< Meridional-wind tendency ...
-    !-- Convection
-    real (kind=kind_phys), pointer :: ten_u_conv(:,:)  => null()  !< Zonal-wind tendency due to convection scheme
-    real (kind=kind_phys), pointer :: ten_v_conv(:,:)  => null()  !< Meridional-wind tendency ...
+    !-- Accumulated state tendencies 
+    real (kind=kind_phys), pointer :: dudt(:,:)       => null()  !< Accumulated zonal wind tendency
+    real (kind=kind_phys), pointer :: dvdt(:,:)       => null()  !< Accumulated meridional wind tendency
+    real (kind=kind_phys), pointer :: dtdt(:,:)       => null()  !< Accumulated temperature tendency
+    real (kind=kind_phys), pointer :: dqdt(:,:,:)     => null()  !< Accumulated tracers tendency
+
+    !-- Instantaneous state tendencies
+    real (kind=kind_phys), pointer :: ten_u(:,:)      => null()  !< Instantaneous zonal wind tendency
+    real (kind=kind_phys), pointer :: ten_v(:,:)      => null()  !< Instantaneous meridional wind tendency
+    real (kind=kind_phys), pointer :: ten_t(:,:)      => null()  !< Instantaneous temperature tendency
+    real (kind=kind_phys), pointer :: ten_q(:,:,:)    => null()  !< Instantaneous tracers tendency
+
+    !-- Instantaneous state tendencies for physics processes
+    real (kind=kind_phys), pointer :: ten_u_pbl(:,:)  => null()  !< Instantaneous zonal-wind tendency (PBL)
+    real (kind=kind_phys), pointer :: ten_v_pbl(:,:)  => null()  !< Instantaneous meridional-wind tendency (PBL)
+    real (kind=kind_phys), pointer :: ten_u_conv(:,:) => null()  !< Instantaneous zonal-wind tendency (convection)
+    real (kind=kind_phys), pointer :: ten_v_conv(:,:) => null()  !< Instantaneous meridional-wind tendency (convection)
 
     contains
       procedure :: create  => stateout_create  !<   allocate array data
@@ -262,6 +280,17 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: snodi  (:)   => null()  !< snow depth over ice
     real (kind=kind_phys), pointer :: weasdi (:)   => null()  !< weasd over ice
     real (kind=kind_phys), pointer :: hprime (:,:) => null()  !< orographic metrics
+    real (kind=kind_phys), pointer :: clx(:,:)     => null()  !< frac. of grid box with by subgrid HAMSL higher than critical height
+    real (kind=kind_phys), pointer :: oa4(:,:)     => null()  !< asymmetry of subgrid height_above_mean_sea_level
+    real (kind=kind_phys), pointer :: oc(:)        => null()  !< convexity of subgrid height_above_mean_sea_level
+    real (kind=kind_phys), pointer :: varss(:)     => null()  !< standard deviation of subgrid height_above_mean_sea_level
+    real (kind=kind_phys), pointer :: ocss(:)      => null()  !< convexity of subgrid height_above_mean_sea_level
+    real (kind=kind_phys), pointer :: oa4ss(:,:)   => null()  !< asymmetry of subgrid height_above_mean_sea_level
+    real (kind=kind_phys), pointer :: clxss(:,:)   => null()  !< frac. of grid box with by subgrid HAMSL higher than critical height
+    real (kind=kind_phys), pointer :: gamma(:)     => null()  !<
+    real (kind=kind_phys), pointer :: sigma(:)     => null()  !<
+    real (kind=kind_phys), pointer :: theta(:)     => null()  !<
+    real (kind=kind_phys), pointer :: elvmax(:)    => null()  !< 
     real (kind=kind_phys), pointer :: dust12m_in  (:,:,:) => null()  !< fengsha dust input
     real (kind=kind_phys), pointer :: emi_in (:,:) => null()  !< anthropogenic background input
     real (kind=kind_phys), pointer :: smoke_RRFS(:,:,:) => null()  !< RRFS fire input hourly
@@ -756,9 +785,11 @@ module GFS_typedefs
     integer              :: nx              !< number of points in the i-dir for this MPI-domain
     integer              :: ny              !< number of points in the j-dir for this MPI-domain
     integer              :: levs            !< number of vertical levels
-    !--- ak/bk for pressure level calculations
-    real(kind=kind_phys), pointer :: ak(:)  !< from surface (k=1) to TOA (k=levs)
-    real(kind=kind_phys), pointer :: bk(:)  !< from surface (k=1) to TOA (k=levs)
+    !--- ak/bk for pressure level calculations (FV3 only -- its native hybrid coordinate)
+    real(kind=kind_phys), pointer :: ak(:) => null()  !< from surface (k=1) to TOA (k=levs)
+    real(kind=kind_phys), pointer :: bk(:) => null()  !< from surface (k=1) to TOA (k=levs)
+    !--- dycore-neutral reference (background) pressure profile at layer interfaces, Pa. (MPAS only)
+    real(kind=kind_phys), pointer :: p_ref(:) => null()
     integer              :: levsp1          !< number of vertical levels plus one
     integer              :: levsm1          !< number of vertical levels minus one
     integer              :: cnx             !< number of points in the i-dir for this cubed-sphere face
@@ -1871,6 +1902,7 @@ module GFS_typedefs
 
 !--- Diagnostic that needs to be carried over to the next time step (removed from diag_type)
     real (kind=kind_phys), pointer :: hpbl     (:)     => null()  !< Planetary boundary layer height
+    integer,               pointer :: kpbl     (:)     => null()  !< Vertical index level of PBL top
     real (kind=kind_phys), pointer :: ud_mf  (:,:)     => null()  !< updraft mass flux
 
 !-- Diagnostic variable that passes to dyn_core (SA-3D-TKE)
@@ -1974,6 +2006,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: coszen(:)    => null()  !< mean cos of zenith angle over rad call period
     real (kind=kind_phys), pointer :: tsflw (:)    => null()  !< surface air temp during lw calculation in k
     real (kind=kind_phys), pointer :: semis (:)    => null()  !< surface lw emissivity in fraction
+    real (kind=kind_phys), pointer :: salb  (:)    => null()  !< surface sw albedo 
     real (kind=kind_phys), pointer :: ext550 (:,:) => null()  !< aerosol optical extinction from radiation
 
 !--- In/Out (???) (radiaition only)
@@ -2207,6 +2240,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dv3_osscol(:)  => null()  !< time-averaged sfc v-momentum flux from SSGWD
     real (kind=kind_phys), pointer :: du3_ofdcol(:)  => null()  !< time-averaged sfc u-momentum flux from TOFD
     real (kind=kind_phys), pointer :: dv3_ofdcol(:)  => null()  !< time-averaged sfc v-momentum flux from TOFD
+    real (kind=kind_phys), pointer :: dusfcg(:)      => null()  !< instantaneous sfc u-momentum flux from GWD
+    real (kind=kind_phys), pointer :: dvsfcg(:)      => null()  !< instantaneous sfc v-momentum flux from GWD
 !
 !---vay-2018 UGWP-diagnostics daily mean
 !
@@ -2349,17 +2384,32 @@ module GFS_typedefs
     allocate (Statein%phil  (IM,Model%levs))
     allocate (Statein%prsl  (IM,Model%levs))
     allocate (Statein%prslk (IM,Model%levs))
+    allocate (Statein%dp    (IM,Model%levs))
+    allocate (Statein%dpc   (IM,Model%levs))
 
     Statein%phil  = clear_val
     Statein%prsl  = clear_val
     Statein%prslk = clear_val
+    Statein%dp    = clear_val
+    Statein%dpc   = clear_val
+
+    !--- layer and level heights
+    allocate (Statein%zgrid  (IM,Model%levs))
+    allocate (Statein%zigrid (IM,Model%levs+1))
+    allocate (Statein%dzgrid (IM,Model%levs))
+
+    Statein%zgrid  = clear_val
+    Statein%zigrid = clear_val
+    Statein%dzgrid = clear_val
 
     !--- shared radiation and physics variables
     allocate (Statein%vvl  (IM,Model%levs))
     allocate (Statein%tgrs (IM,Model%levs))
+    allocate (Statein%tgri (IM,Model%levs+1))
 
     Statein%vvl  = clear_val
     Statein%tgrs = clear_val
+    Statein%tgri = clear_val
 ! stochastic physics SKEB variable
     allocate (Statein%diss_est(IM,Model%levs))
     Statein%diss_est= clear_val
@@ -2420,11 +2470,27 @@ module GFS_typedefs
     allocate (Stateout%gv0 (IM,Model%levs))
     allocate (Stateout%gt0 (IM,Model%levs))
     allocate (Stateout%gq0 (IM,Model%levs,Model%ntrac))
+    allocate (Stateout%dudt(IM,Model%levs))
+    allocate (Stateout%dvdt(IM,Model%levs))
+    allocate (Stateout%dtdt(IM,Model%levs))
+    allocate (Stateout%dqdt(IM,Model%levs,Model%ntrac))
+    allocate (Stateout%ten_u(IM,Model%levs))
+    allocate (Stateout%ten_v(IM,Model%levs))
+    allocate (Stateout%ten_t(IM,Model%levs))
+    allocate (Stateout%ten_q(IM,Model%levs,Model%ntrac))
 
     Stateout%gu0 = clear_val
     Stateout%gv0 = clear_val
     Stateout%gt0 = clear_val
     Stateout%gq0 = clear_val
+    Stateout%dudt = clear_val
+    Stateout%dvdt = clear_val
+    Stateout%dtdt = clear_val
+    Stateout%dqdt = clear_val
+    Stateout%ten_u = clear_val
+    Stateout%ten_v = clear_val
+    Stateout%ten_t = clear_val
+    Stateout%ten_q = clear_val
 
     ! Physics tendencies for coupling
     allocate (Stateout%ten_u_pbl  (IM,Model%levs))
@@ -2502,7 +2568,22 @@ module GFS_typedefs
     allocate (Sfcprop%weasdl   (IM))
     allocate (Sfcprop%snodi    (IM))
     allocate (Sfcprop%weasdi   (IM))
+    ! GWD
     allocate (Sfcprop%hprime   (IM,Model%nmtvr))
+    allocate (Sfcprop%oc       (IM))
+    allocate (Sfcprop%oa4      (IM,4))
+    allocate (Sfcprop%clx      (IM,4))
+    allocate (Sfcprop%gamma    (IM))
+    allocate (Sfcprop%sigma    (IM))
+    allocate (Sfcprop%theta    (IM))
+    allocate (Sfcprop%elvmax   (IM))
+    if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
+        Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
+       allocate (Sfcprop%varss  (IM))
+       allocate (Sfcprop%ocss   (IM))
+       allocate (Sfcprop%oa4ss  (IM,4))
+       allocate (Sfcprop%clxss  (IM,4))
+    end if
     allocate (Sfcprop%dust12m_in  (IM,12,5))
     allocate (Sfcprop%smoke_RRFS(IM,24,2))
     allocate (Sfcprop%smoke2d_RRFS(IM,5))
@@ -2559,7 +2640,22 @@ module GFS_typedefs
     Sfcprop%weasdl    = clear_val
     Sfcprop%snodi     = clear_val
     Sfcprop%weasdi    = clear_val
+    ! GWD
     Sfcprop%hprime    = clear_val
+    Sfcprop%oc        = clear_val
+    Sfcprop%oa4       = clear_val
+    Sfcprop%clx       = clear_val
+    Sfcprop%gamma     = clear_val
+    Sfcprop%sigma     = clear_val
+    Sfcprop%theta     = clear_val
+    Sfcprop%elvmax    = clear_val
+    if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
+        Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
+       Sfcprop%varss = clear_val
+       Sfcprop%ocss  = clear_val
+       Sfcprop%oa4ss = clear_val
+       Sfcprop%clxss = clear_val
+    end if
     Sfcprop%dust12m_in= clear_val
     Sfcprop%emi_in    = clear_val
     Sfcprop%smoke_RRFS= clear_val
@@ -3442,7 +3538,7 @@ module GFS_typedefs
                                  input_nml_file, blksz, restart,    &
                                  communicator, ntasks, nthreads,    &
                                  tile_num, isc, jsc, nx, ny,  cnx,  &
-                                 cny, gnx, gny, ak, bk, hydrostatic)
+                                 cny, gnx, gny, ak, bk, p_ref, hydrostatic)
 
 !--- modules
     use physcons,         only: con_rerth, con_pi, con_p0
@@ -3485,6 +3581,10 @@ module GFS_typedefs
     logical, optional,      intent(in) :: hydrostatic
     real(kind_phys), optional, dimension(:), intent(in) :: ak
     real(kind_phys), optional, dimension(:), intent(in) :: bk
+    ! Dycore-neutral reference pressure profile (see Model%p_ref). FV3 does not pass
+    ! this -- it is derived below from its ak/bk. MPAS passes it directly and does not
+    ! pass ak/bk at all.
+    real(kind_phys), optional, dimension(:), intent(in) :: p_ref
 
     !--- local variables
     integer :: i, j, n
@@ -4633,18 +4733,35 @@ module GFS_typedefs
        Model%jsc              = jsc
        Model%nx               = nx
        Model%ny               = ny
-       allocate (Model%ak(1:size(ak)))
-       allocate (Model%bk(1:size(bk)))
-       Model%ak               = ak
-       Model%bk               = bk
        Model%cnx              = cnx
        Model%cny              = cny
        Model%lonr             = gnx         ! number longitudinal points
        Model%latr             = gny         ! number of latitudinal points from pole to pole
+       !--- FV3's native hybrid sigma-pressure coordinate
+       allocate (Model%ak(1:size(ak)))
+       allocate (Model%bk(1:size(bk)))
+       Model%ak               = ak
+       Model%bk               = bk
     endif
-    if (Model%dycore_active == Model%dycore_mpas) then
 
+    !--- MPAS grid extent parameters
+    if (Model%dycore_active == Model%dycore_mpas) then
+       Model%nx = sum(blksz)
+       Model%ny = 1
+       ! lonr/latr have no default; the MPAS host supplies an equivalent Gaussian-grid
+       ! count (see atmos_model.F90). drag_suite uses lonr to scale cleff.
+       if (present(gnx)) Model%lonr = gnx
+       if (present(gny)) Model%latr = gny
+       !--- Reference (background) pressure profile at layer interfaces, dycore neutral.
+       !    This -- not ak/bk -- is what UGWPv1 and any other multi-dycore-capable consumer
+       !    should use. FV3 has no reason to supply this directly: it is derived here from
+       !    the ak/bk it already passes above. MPAS has no hybrid coordinate to derive it
+       !    from, so it computes the profile itself
+       !    (atmos_coupling::ufs_mpas_reference_pressure) and passes it as p_ref.
+       allocate (Model%p_ref(1:size(p_ref)))
+       Model%p_ref = p_ref
     end if
+
     Model%levs             = levs
     Model%levsp1           = Model%levs + 1
     Model%levsm1           = Model%levs - 1
@@ -5036,9 +5153,15 @@ module GFS_typedefs
     Model%fs_fac_snow      = fs_fac_snow
 
 !--- TEMPO MP parameters
-    ! DJS to Anders: Maybe we put more of these nml options into the TEMPO configuration type?
     Model%tempo_cfgs%aerosolaware_flag = ltaerosol
     Model%tempo_cfgs%hailaware_flag    = lthailaware
+    ! When using MPAS in the UFS, the radiation needs the effective radii from the microphysics.
+    ! Set these falgs to true so that TEMPO provides these as part of its diagnostics DDT.
+    if (Model%dycore_active == Model%dycore_mpas) then
+       Model%tempo_cfgs%re_cloud_flag = .true.
+       Model%tempo_cfgs%re_snow_flag  = .true.
+       Model%tempo_cfgs%re_ice_flag   = .true.
+    end if
 
 !--- F-A MP parameters
     Model%rhgrd            = rhgrd
@@ -5575,6 +5698,7 @@ module GFS_typedefs
        Model%ntsw             = get_physics_tracer_index('qs', Model)
        Model%ntgl             = get_physics_tracer_index('qg', Model)
        Model%nthl             = get_physics_tracer_index('qh', Model)
+       Model%ntlnc            = get_physics_tracer_index('nc', Model)
        Model%ntinc            = get_physics_tracer_index('ni', Model)
        Model%ntrnc            = get_physics_tracer_index('nr', Model)
        Model%ntsnc            = get_physics_tracer_index('ns', Model)
@@ -6103,7 +6227,7 @@ module GFS_typedefs
     if (Model%dycore_active == Model%dycore_fv3) then
        Model%si(1:Model%levs+1) = (ak(1:Model%levs+1) + bk(1:Model%levs+1) * con_p0 - ak(Model%levs+1)) / (con_p0 - ak(Model%levs+1))
     end if
-    ! DJS2025: NOT YET IMPLEMENTED
+    ! DJS2025: Needed for HML cloud diagnostics. Need to revisit for MPAS dynamical core.
     if (Model%dycore_active == Model%dycore_mpas) then
        Model%si(1:Model%levs+1) = 1._kind_phys
     endif
@@ -7744,6 +7868,8 @@ module GFS_typedefs
 
     allocate (Tbd%hpbl (IM))
     Tbd%hpbl     = clear_val
+    allocate (Tbd%kpbl (IM))
+    Tbd%kpbl     = clear_val
 
 ! Allocate horizontal component of dku for dyn_core (SA-3D-TKE)
     allocate (Tbd%dku3d_h (IM,Model%levs))
@@ -7896,6 +8022,7 @@ module GFS_typedefs
     allocate (Radtend%coszen (IM))
     allocate (Radtend%tsflw  (IM))
     allocate (Radtend%semis  (IM))
+    allocate (Radtend%salb   (IM))
     allocate (Radtend%ext550 (IM,Model%levs))
 
     Radtend%htrsw  = clear_val
@@ -7904,6 +8031,7 @@ module GFS_typedefs
     Radtend%coszen = clear_val
     Radtend%tsflw  = clear_val
     Radtend%semis  = clear_val
+    Radtend%salb   = clear_val
     Radtend%ext550 = clear_val
 
 !--- In/Out (???) (radiation only)
@@ -8373,6 +8501,8 @@ module GFS_typedefs
       allocate (Diag%du3_ofdcol (IM)          )
       allocate (Diag%dv3_ofdcol (IM)          )
     endif
+    allocate (Diag%dusfcg (IM)                )
+    allocate (Diag%dvsfcg (IM)                )
 
     !--- 3D diagnostics for Thompson MP / GFDL MP
     allocate (Diag%refl_10cm(IM,Model%levs))
@@ -8737,6 +8867,8 @@ module GFS_typedefs
       Diag%du3_ofdcol  = zero
       Diag%dv3_ofdcol  = zero
     end if
+    Diag%dusfcg      = zero
+    Diag%dvsfcg      = zero
 
     if (Model%ldiag_ugwp) then
       Diag%du3dt_ogw   = zero

@@ -63,6 +63,9 @@ module module_mpas_config
   !> MPAS Lateral Boundary Condition file (via UFSATM NML)
   character(len=256) :: lbc_filename=""
 
+  !> MPAS GWD file
+  character(len=256) :: oro_filename=""
+
   !> MPAS stream_list files (i.e. runtime contol over which fields to write)
   character(len=256) :: stream_list_history=""
   character(len=256) :: stream_list_restart=""
@@ -82,15 +85,23 @@ module module_mpas_config
   integer :: mpas_errfile_funit
   character(len=256) :: mpas_logfilename = "mpas_out.log"
   integer :: mpas_logfile_funit
+  !>
+  character(len=256) :: mpas_landuse_file = "LANDUSE.TBL"
+  integer :: mpas_land_funit
+  character(len=256) :: mpas_genparm_file = "GENPARM.TBL"
+  integer :: mpas_gprm_funit
+  !>
+  character(len=256) :: constituents_file = "constituents.xml"
 
-  
   !> PIO
   type(iosystem_desc_t), pointer :: pio_subsystem_ic
   type(iosystem_desc_t), pointer :: pio_subsystem_lbc
+  type(iosystem_desc_t), pointer :: pio_subsystem_oro
   type(iosystem_desc_t), pointer :: pio_subsystem_output
   type(iosystem_desc_t), pointer :: pio_subsystem_restart
   type(file_desc_t), target :: pioid_ic
   type(file_desc_t), target :: pioid_lbc
+  type(file_desc_t), target :: pioid_oro
   type(file_desc_t), target :: pioid_output
   type(file_desc_t), target :: pioid_restart
   type(io_desc_t) :: pio_iodesc
