@@ -2007,7 +2007,7 @@ end subroutine update_atmos_chemistry
         endif
 !
         if (found) then
-         if (datar8(isc,jsc) > -99998.0) then
+!         if (datar8(isc,jsc) > -99998.0) then
 !
         ! get sea land mask: in order to update the coupling fields over the ocean/ice
 !        fldname = 'land_mask'
@@ -2816,7 +2816,7 @@ end subroutine update_atmos_chemistry
             endif
           endif
 
-        endif ! if (datar8(isc,jsc) > -99999.0) then
+!        endif ! if (datar8(isc,jsc) > -99999.0) then
 
 !-------------------------------------------------------
 
