@@ -2837,7 +2837,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. flag_for_lm4_coupling)
 [dnirdfi_cpl]
   standard_name = surface_downwelling_diffuse_nir_shortwave_flux_for_coupling
   long_name = instantaneous sfc nir diff downward sw flux
@@ -2845,7 +2845,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. flag_for_lm4_coupling)
 [dvisbmi_cpl]
   standard_name = surface_downwelling_direct_uv_and_vis_shortwave_flux_for_coupling
   long_name = instantaneous sfc uv+vis beam downward sw flux
@@ -2853,7 +2853,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. flag_for_lm4_coupling)
 [dvisdfi_cpl]
   standard_name = surface_downwelling_diffuse_uv_and_vis_shortwave_flux_for_coupling
   long_name = instantaneous sfc uv+vis diff downward sw flux
@@ -2861,7 +2861,7 @@
   dimensions = (horizontal_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_surface_flux_coupling .or. do_fire_coupling)
+  active = (flag_for_surface_flux_coupling .or. do_fire_coupling .or. flag_for_lm4_coupling)
 [nlwsfci_cpl]
   standard_name = surface_net_downwelling_longwave_flux_for_coupling
   long_name = instantaneous net sfc downward lw flux
@@ -3818,6 +3818,12 @@
   units = flag
   dimensions = ()
   type = logical
+[cpllm4]
+  standard_name = flag_for_lm4_coupling
+  long_name = flag controlling cpllm4 collection (default off)
+  units = flag
+  dimensions = ()
+  type = logical  
 [cpllnd2atm]
   standard_name = flag_for_one_way_land_coupling_to_atmosphere
   long_name = flag controlling land coupling to the atmosphere (default off)
