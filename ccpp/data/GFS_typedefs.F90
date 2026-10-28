@@ -1231,8 +1231,10 @@ module GFS_typedefs
     logical              :: hybedmf         !< flag for hybrid edmf pbl scheme
     logical              :: satmedmf        !< flag for scale-aware TKE-based moist edmf
                                             !< vertical turbulent mixing scheme
-    logical              :: tte_edmf        !< flag for scale-aware TTE-based moist edmf
-                                            !< vertical turbulent mixing scheme
+    logical              :: tte_edmf        !< flag for scale-aware TTE-based moist edmf                                                                                           !< vertical turbulent mixing scheme
+!+mlm
+    logical              :: mlm             !< flag to use the Mixed-Layer Model downdraft mixing                                                                                  !< in satmedmfvdifq
+!-mlm
     logical              :: shinhong        !< flag for scale-aware Shinhong vertical turbulent mixing scheme
     logical              :: do_ysu          !< flag for YSU turbulent mixing scheme
     logical              :: dspheat         !< flag for tke dissipative heating
@@ -2100,6 +2102,13 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: qdiss      (:,:)   => null()  !< dissipation of tke
 
 ! Output - only in physics
+!+mlm
+    !--- mfscuq_mlm Diagnostic variables
+    real (kind=kind_phys), pointer :: eflux  (:,:)     => null()  !< total energy fluxfrom mlm closure
+    real (kind=kind_phys), pointer :: rflux  (:,:)     => null()  !< radiation flux from mlm closure
+    real (kind=kind_phys), pointer :: wflux  (:,:)     => null()  !< total water flux from mlm closure
+    real (kind=kind_phys), pointer :: pflux  (:,:)     => null()  !< preciptation flux from mlm closure
+!-mlm
     real (kind=kind_phys), pointer :: u10m   (:)     => null()   !< 10 meter u/v wind speed
     real (kind=kind_phys), pointer :: v10m   (:)     => null()   !< 10 meter u/v wind speed
     real (kind=kind_phys), pointer :: dpt2m  (:)     => null()   !< 2 meter dew point temperature
@@ -3297,16 +3306,21 @@ module GFS_typedefs
       Coupling%ca_micro  = clear_val
     endif
 
+    !+mlm
+    if (Model%mlm .or. Model%cplchm) then
+      allocate (Coupling%pfi_lsan  (IM,Model%levs))
+      allocate (Coupling%pfl_lsan  (IM,Model%levs))
+      Coupling%pfi_lsan  = clear_val
+      Coupling%pfl_lsan  = clear_val
+    endif
+    !-mlm
+    
     ! -- Aerosols coupling options
     if (Model%cplchm) then
       !--- outgoing instantaneous quantities
       allocate (Coupling%ushfsfci  (IM))
       ! -- instantaneous 3d fluxes of nonconvective ice and liquid precipitations
-      allocate (Coupling%pfi_lsan  (IM,Model%levs))
-      allocate (Coupling%pfl_lsan  (IM,Model%levs))
       Coupling%ushfsfci  = clear_val
-      Coupling%pfi_lsan  = clear_val
-      Coupling%pfl_lsan  = clear_val
     endif
 
     if (Model%cplchm .or. Model%cplflx .or. Model%cpllnd .or. Model%cpl_fire) then
@@ -3911,6 +3925,9 @@ module GFS_typedefs
     integer              :: isatmedmf      =  0                       !< flag for scale-aware TKE-based moist edmf scheme
                                                                       !<     0: initial version of satmedmf (Nov. 2018)
                                                                       !<     1: updated version of satmedmf (as of May 2019)
+!+mlm
+    logical              :: mlm              = .false.                !< flag for Mixed-Layer Model downdraft in PBL
+!-mlm
     logical              :: do_deep        = .true.                   !< whether to do deep convection
 
     logical              :: hwrf_samfdeep     = .false.               !< flag for HWRF SAMF deepcnv scheme
@@ -4062,7 +4079,7 @@ module GFS_typedefs
                                                              !<.false. means use reference pressure of 1000 hPa to define potential temperature
                                                              !<       this is the alternative method proposed by GSL
 
-!--- vertical diffusion
+!--- vertical diffusion    
     real(kind=kind_phys) :: xkzm_m         = 1.0d0           !< [in] bkgd_vdif_m  background vertical diffusion for momentum
     real(kind=kind_phys) :: xkzm_h         = 1.0d0           !< [in] bkgd_vdif_h  background vertical diffusion for heat q
     real(kind=kind_phys) :: xkzm_s         = 1.0d0           !< [in] bkgd_vdif_s  sigma threshold for background mom. diffusion
@@ -4336,7 +4353,9 @@ module GFS_typedefs
                                pert_mp,pert_clds,pert_radtend,                              &
                           !--- Scale-aware 3D TKE scheme
                                sa3dtke,                                                     &
-                          !--- Rayleigh friction
+!+mlm                     !--- Mixed-layer closure in TKE-EDMF PBL
+                               mlm,                                                         &
+!-mlm                     !--- Rayleigh friction
                                prslrd0, ral_ts,  ldiag_ugwp, do_ugwp, do_tofd,              &
                           ! --- Ferrier-Aligo
                                spec_adv, rhgrd, icloud,                                     &
@@ -5265,6 +5284,15 @@ module GFS_typedefs
     Model%lbb2 = lbb2
     Model%lbb3 = lbb3
     Model%dt_decay = dt_decay
+    
+    !--MLM closure check in PBL
+    if(mlm .and. imp_physics/=8) then
+       write(*,*) 'Logical error: Flag mlm in PBL scheme requires Thompson MP'
+       stop
+    end if
+    !+mlm
+    Model%mlm = mlm
+    !-mlm
     
     if (oz_phys .and. oz_phys_2015) then
        write(*,*) 'Logic error: can only use one ozone physics option (oz_phys or oz_phys_2015), not both. Exiting.'
@@ -7280,6 +7308,12 @@ module GFS_typedefs
       print *, ' satmedmf          : ', Model%satmedmf
       print *, ' tte_edmf          : ', Model%tte_edmf
       print *, ' isatmedmf         : ', Model%isatmedmf
+!+mlm
+      print *, ' mlm               : ', Model%mlm
+      print *, ' xkzm_m            : ', Model%xkzm_m
+      print *, ' xkzm_h            : ', Model%xkzm_h
+      print *, ' xkzm_s            : ', Model%xkzm_s
+!-mlm
       print *, ' shinhong          : ', Model%shinhong
       print *, ' do_ysu            : ', Model%do_ysu
       print *, ' dspheat           : ', Model%dspheat
@@ -8282,6 +8316,16 @@ module GFS_typedefs
       allocate (Diag%pahi    (IM))
     endif
 
+    !MLM scheme in PBL:
+!+mlm
+    if (Model%mlm) then
+      allocate (Diag%eflux   (IM,Model%levs))
+      allocate (Diag%rflux   (IM,Model%levs))
+      allocate (Diag%wflux   (IM,Model%levs))
+      allocate (Diag%pflux   (IM,Model%levs))
+    endif
+!-mlm
+    
     ! F-A MP scheme
     if (Model%imp_physics == Model%imp_physics_fer_hires) then
      allocate (Diag%train     (IM,Model%levs))
@@ -8592,6 +8636,14 @@ module GFS_typedefs
     Diag%graupel    = zero
 
     !--- Out
+    !+mlm
+    if (Model%mlm) then
+      Diag%eflux      = zero
+      Diag%rflux      = zero
+      Diag%wflux      = zero
+      Diag%pflux      = zero
+    end if
+    !-mlm
     Diag%u10m       = zero
     Diag%v10m       = zero
     Diag%dpt2m      = zero
