@@ -253,9 +253,9 @@ module GFS_diagnostics
     
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'DSWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos downward shortwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'DSWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos downward shortwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -263,9 +263,9 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'USWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos upward shortwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'USWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos upward shortwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'
@@ -273,9 +273,9 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'ULWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos upward longwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'ULWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos upward longwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -905,15 +905,10 @@ module GFS_diagnostics
 !rab      ExtDiag(idx)%data%var2 => IntDiag%uswcmp(:,num)
 !rab    enddo
 
-! DH gfortran cannot point to members of arrays of derived types such
-! as IntDiag(1)%topfsw(:)%upfxc (the compilation succeeds, but the
-! pointers do not reference the correct data and the output either
-! contains garbage (Inf, NaN), or the netCDF I/O layer crashes.
-#ifndef __GFORTRAN__
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_upfxc'
-    ExtDiag(idx)%desc = 'total sky upward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky upward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -922,7 +917,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_dnfxc'
-    ExtDiag(idx)%desc = 'total sky downward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky downward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -931,7 +926,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_upfx0'
-    ExtDiag(idx)%desc = 'clear sky upward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous clear sky upward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -940,7 +935,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'lw_upfxc'
-    ExtDiag(idx)%desc = 'total sky upward lw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky upward lw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -949,12 +944,11 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'lw_upfx0'
-    ExtDiag(idx)%desc = 'clear sky upward lw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous clear sky upward lw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
     ExtDiag(idx)%data%var2 => IntDiag%topflw(:)%upfx0
-#endif
 
 !--- physics accumulated diagnostics ---
     idx = idx + 1
