@@ -471,9 +471,9 @@ module stochastic_physics_wrapper_mod
              ca_turb_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%ca_turb(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
              ca_shal_cpl(nb,1:GFS_Control%blksz(nb)) = GFS_Coupling%ca_shal(GFS_Control%chunk_begin(nb):GFS_Control%chunk_end(nb))
           enddo
-          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%ugrs, uwind)
-          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%vgrs, vwind)
-          call transfer_field_to_stochastics_3d(GFS_Control%blksz, GFS_Statein%phil, height)
+          call transfer_field_to_stoch_3d(GFS_Control%blksz, GFS_Statein%ugrs, uwind)
+          call transfer_field_to_stoch_3d(GFS_Control%blksz, GFS_Statein%vgrs, vwind)
+          call transfer_field_to_stoch_3d(GFS_Control%blksz, GFS_Statein%phil, height)
          call transfer_field_to_stochastics(GFS_Control%blksz, GFS_Grid%dx, dx)
          call cellular_automata_sgs(GFS_Control%kdt,GFS_control%dtp,GFS_control%restart,GFS_Control%first_time_step,              &
             sst,lmsk,lake,uwind,vwind,height,dx,condition,ca_deep_cpl,ca_turb_cpl,ca_shal_cpl, Atm(mygrid)%domain_for_coupler,nblks,      &
@@ -551,7 +551,7 @@ module stochastic_physics_wrapper_mod
     !> @param[out] data_out The output 3D field data after processing.
     !>
     !> @author Dominikus Heinzeller @date 8/6/21
-    subroutine transfer_field_to_stochastics_3d(blksz, data_in, data_out)
+    subroutine transfer_field_to_stoch_3d(blksz, data_in, data_out)
 
       integer, dimension(:), intent(in) :: blksz
       real(kind=kind_phys), dimension(:,:), intent(in) :: data_in
@@ -562,7 +562,7 @@ module stochastic_physics_wrapper_mod
          call transfer_field_to_stochastics(blksz, data_in(:,j), data_out(:,:,j))
       end do
 
-    end subroutine transfer_field_to_stochastics_3d
+    end subroutine transfer_field_to_stoch_3d
 
     !> Transfers a 3D field from the stochastic physics module.
     !>
