@@ -1,7 +1,22 @@
+########################################################################
+[ccpp-table-properties]
+  name = CCPP_typedefs
+  type = host
+  dependencies_path = ../../ccpp/physics/physics
+  dependencies = hooks/machine.F,photochem/module_ozphys.F90
+  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
+
+[ccpp-arg-table]
+  name = CCPP_typedefs
+  type = host
+
+########################################################################
 [ccpp-table-properties]
   name = GFS_interstitial_type
   type = ddt
-  dependencies =
+  dependencies_path = ../../ccpp/physics/physics
+  dependencies = hooks/machine.F,photochem/module_ozphys.F90
+  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
 
 [ccpp-arg-table]
   name = GFS_interstitial_type
@@ -661,6 +676,20 @@
   long_name = x momentum flux
   units = Pa
   dimensions = (horizontal_dimension)
+  type = real
+  kind = kind_phys
+[ten_t_pbl]
+  standard_name = tendency_of_air_temperature_due_to_PBL
+  long_name = tendency of air temperature calculated by the PBL scheme
+  units = K s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+[ten_q_pbl]
+  standard_name = tendency_of_specific_humidity_concentration_due_to_PBL
+  long_name = tendency of tracer concentration calculated by one physics scheme
+  units = kg kg-1 s-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
 [dvdftra]
@@ -1695,13 +1724,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-[rho1]
-  standard_name = air_density_at_lowest_model_layer
-  long_name = air density at lowest model layer
-  units = kg m-3
-  dimensions = (horizontal_dimension)
-  type = real
-  kind = kind_phys
 [runoff]
   standard_name = surface_runoff_flux
   long_name = surface runoff flux
@@ -1758,6 +1780,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array > 0)
 [save_q(:,:,index_of_mass_number_concentration_of_cloud_ice_in_tracer_concentration_array)]
   standard_name = ice_cloud_number_concentration_save
   long_name = ice cloud number concentration before entering a physics scheme
@@ -1765,6 +1788,7 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  active = (index_of_mass_number_concentration_of_cloud_droplets_in_tracer_concentration_array > 0)
 [save_q]
   standard_name = tracer_concentration_save
   long_name = tracer concentration before entering a physics scheme
@@ -2522,7 +2546,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_rrtmgp_radiation_scheme)
 [q_lay]
   standard_name = water_vapor_mixing_ratio
   long_name = water vaport mixing ratio
@@ -2570,7 +2593,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_rrtmgp_radiation_scheme)
 [relhum]
   standard_name = relative_humidity
   long_name = layer relative humidity
@@ -2578,7 +2600,6 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (flag_for_rrtmgp_radiation_scheme)
 [deltaZ]
   standard_name = layer_thickness
   long_name = layer_thickness
@@ -3371,27 +3392,3 @@
   units = index
   dimensions = ()
   type = integer
-
-########################################################################
-[ccpp-table-properties]
-  name = CCPP_typedefs
-  type = module
-  dependencies_path = ../physics/physics
-  dependencies = hooks/machine.F,photochem/module_ozphys.F90
-  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
-
-[ccpp-arg-table]
-  name = CCPP_typedefs
-  type = module
-[GFS_interstitial_type]
-  standard_name = GFS_interstitial_type
-  long_name = definition of type GFS_interstitial_type
-  units = DDT
-  dimensions = ()
-  type = GFS_interstitial_type
-[GFDL_interstitial_type]
-  standard_name = GFDL_interstitial_type
-  long_name = definition of type GFDL_interstitial_type
-  units = DDT
-  dimensions = ()
-  type = GFDL_interstitial_type

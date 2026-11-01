@@ -1,17 +1,11 @@
 [ccpp-table-properties]
   name = CCPP_data
-  type = module
-  dependencies = ../framework/src/ccpp_types.F90,CCPP_typedefs.F90,GFS_typedefs.F90
+  type = host
+  dependencies = CCPP_typedefs.F90,GFS_typedefs.F90
 
 [ccpp-arg-table]
   name = CCPP_data
-  type = module
-[cdata]
-  standard_name = ccpp_t_instance
-  long_name = instance of derived data type ccpp_t
-  units = DDT
-  dimensions = ()
-  type = ccpp_t
+  type = host
 [GFDL_interstitial]
   standard_name = GFDL_interstitial_type_instance
   long_name = instance of derived type GFDL_interstitial_type
@@ -78,15 +72,9 @@
   units = DDT
   dimensions = ()
   type = GFS_diag_type
-[GFS_Interstitial(ccpp_thread_number)]
+[GFS_Interstitial]
   standard_name = GFS_interstitial_type_instance
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
-  dimensions = ()
-  type = GFS_interstitial_type
-[GFS_Interstitial]
-  standard_name = GFS_interstitial_type_instance_all_threads
-  long_name = instance of derived type GFS_interstitial_type
-  units = DDT
-  dimensions = (number_of_openmp_threads)
+  dimensions = (number_of_threads)
   type = GFS_interstitial_type

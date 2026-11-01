@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_HAFS_v1_gfdlmp_tedmf" version="1">
+<suite name="FV3_HAFS_v1_gfdlmp_tedmf" version="1.0">
   <!-- <init></init> -->
   <group name="fast_physics">
     <subcycle loop="1">

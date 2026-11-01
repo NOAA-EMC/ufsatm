@@ -22,15 +22,59 @@ if(BUILD_UFSATM_TESTING)
     project(ufsatm_mpas VERSION 1.0 LANGUAGES C CXX Fortran)
   endif()
   include(ci/CMakeLists.txt)
+else()
+  set(PARENT_DIR "UFSATM")
 endif()
 
-# Set variables for all dycore build options in UFSATM.
-set(DYCORE_TARGET_MPAS ufsatm_mpas)
-set(DYCORE_TARGET_FV3  ufsatm_fv3)
+include(cmake/ccpp_capgen.cmake)
+
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules/Modules)
+
+###############################################################################
+# Set a default build type if none was specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to 'Release' as none was specified.")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+endif()
+
+###############################################################################
+# Add required preprocessor flags for build type
+if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+  ADD_DEFINITIONS(-DDEBUG)
+endif ()
+
+# Add -DCCPP preprocessor flag (needed to preprocess GFS_typedefs.F90 from FV3)
+ADD_DEFINITIONS(-DCCPP)
+
+# Set MPI flags for C/C++/Fortran preprocessor
+ADD_DEFINITIONS(-DMPI)
+
+if(NOT HYDRO)
+  add_definitions(-DMOIST_CAPPA -DUSE_COND -DNEMS_GSM)
+endif()
+add_definitions(-DNEMS_GSM)
+
+if (FV3)
+  add_definitions(-DINTERNAL_FILE_NML)
+endif()
+
+if(MULTI_GASES)
+  add_definitions(-DMULTI_GASES)
+endif()
+
+if(IDEA_PHYS)
+  add_definitions(-DIDEA_PHYS)
+endif()
 
 ###############################################################################
 ### Dynamical Cores
 ###############################################################################
+# Set variables for all dycore build options in UFSATM.
+set(DYCORE_TARGET_MPAS ufsatm_mpas)
+set(DYCORE_TARGET_FV3  ufsatm_fv3)
 
 # CCPP
 set(MPI ON)
@@ -81,6 +125,9 @@ list(APPEND io_srcs
 
 # Eventually these could be shared by MPAS, and merged with {io_srcs} list.
 list(APPEND fv3_io_srcs
+  ccpp/driver/GFS_diagnostics.F90
+  ccpp/driver/GFS_restart.F90
+  ccpp/driver/GFS_init.F90
   io/fv3atm_common_io.F90
   io/fv3atm_clm_lake_io.F90
   io/fv3atm_rrfs_sd_io.F90
@@ -176,6 +223,9 @@ if (FV3)
     list(APPEND cdeps_inline_srcs "")
   endif()
 
+  # Set compiler options for specific files
+  set_property(SOURCE ccpp/driver/GFS_diagnostics.F90 APPEND PROPERTY COMPILE_OPTIONS "-O0")
+
   # FV3 drivers and dependencies
   add_library(${DYCORE_TARGET}
     ufsatm_cap.F90
@@ -223,11 +273,9 @@ if (MPAS)
     string(REPLACE " " ";" MPAS_CORES ${MPAS_CORES})
     set(MPAS_CORES ${MPAS_CORES} CACHE STRING "MPAS cores to build. Options: ${MPAS_ALL_CORES}" FORCE)
   endif()
-  set(MPAS_CAM_DYCORE TRUE)
   set(MPAS_USE_PIO TRUE)
   add_definitions(-DMPAS_USE_MPI_F08)
   add_definitions(-DMPAS_PIO_SUPPORT)
-  add_definitions(-DMPAS_CAM_DYCORE)
   add_definitions(-DMPAS_UFS_DYCORE)
   add_definitions(-DSINGLE_PRECISION)
 
@@ -257,7 +305,10 @@ if (MPAS)
     ccpp/data/MPAS_typedefs.F90
     ccpp/driver/MPAS_init.F90
     )
-  add_dependencies(${DYCORE_TARGET} mpas mpasccpp)
+  add_dependencies(${DYCORE_TARGET} mpas mpasccpp stochastic_physics)
+  target_include_directories(${DYCORE_TARGET} PRIVATE
+    ${CMAKE_BINARY_DIR}/stochastic_physics/mod
+  )
 
   if(NOT MPAS_GIT_VERSION)
     find_package(Git QUIET)
@@ -306,6 +357,7 @@ endif()
 if (MPAS)
   target_link_libraries(${DYCORE_TARGET} PUBLIC mpas
                                          mpasccpp
+                                         stochastic_physics
 					 fms)
 endif()
 

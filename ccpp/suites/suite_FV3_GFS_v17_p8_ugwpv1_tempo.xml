@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_v17_p8_ugwpv1_tempo" version="1">
+<suite name="FV3_GFS_v17_p8_ugwpv1_tempo" version="1.0">
   <!-- <init></init> -->
+  <group name="fast_physics">
+    <subcycle loop="1">    
+      <scheme>mp_tempo_condensation</scheme>
+    </subcycle>
+  </group>  
   <group name="time_vary">
     <subcycle loop="1">
       <scheme>GFS_time_vary_pre</scheme>
@@ -76,7 +81,7 @@
         <scheme>mp_tempo</scheme>
       </subcycle>
         <subcycle loop="1">
-        <scheme>mp_tempo_post</scheme>
+        <scheme>mp_tempo_post</scheme>      
         <scheme>GFS_MP_generic_post</scheme>
         <scheme>maximum_hourly_diagnostics</scheme>
       </subcycle>
@@ -87,5 +92,6 @@
       <scheme>GFS_physics_post</scheme>
     </subcycle>
   </group>
+
   <!-- <finalize></finalize> -->
 </suite>

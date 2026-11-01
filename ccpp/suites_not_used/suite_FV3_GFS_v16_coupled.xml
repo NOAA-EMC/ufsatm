@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_v16_coupled" version="1">
+<suite name="FV3_GFS_v16_coupled" version="1.0">
   <!-- <init></init> -->
   <group name="fast_physics">
     <subcycle loop="1">

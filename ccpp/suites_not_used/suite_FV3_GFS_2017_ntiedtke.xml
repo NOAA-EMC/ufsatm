@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_GFS_2017_ntiedtke" version="1">
+<suite name="FV3_GFS_2017_ntiedtke" version="1.0">
   <!-- <init></init> -->
   <group name="fast_physics">
     <subcycle loop="1">
@@ -80,8 +80,8 @@
       <scheme>GFS_MP_generic_pre</scheme>
       <scheme>gfdl_cloud_microphys</scheme>
       <scheme>GFS_MP_generic_post</scheme>
-      <scheme>cu_ntiedtke_post</scheme>
       <scheme>maximum_hourly_diagnostics</scheme>
+      <scheme>GFS_physics_post</scheme>
       <scheme>phys_tend</scheme>
     </subcycle>
   </group>

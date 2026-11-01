@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_RAP_cires_ugwp" version="1">
+<suite name="FV3_RAP_cires_ugwp" version="1.0">
   <!-- <init></init> -->
   <group name="time_vary">
     <subcycle loop="1">

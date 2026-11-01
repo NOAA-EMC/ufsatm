@@ -5,7 +5,7 @@
 ! #########################################################################################
 module module_mpas_config
   use MPAS_typedefs, only: r8 => kind_dbl_prec, r4 => kind_sngl_prec
-  use GFS_typedefs, only: pi => con_pi
+  use physcons, only: pi => con_pi
   use mpi_f08
   use pio, only : iosystem_desc_t, file_desc_t, io_desc_t
   use esmf

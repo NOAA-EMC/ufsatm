@@ -1,0 +1,65 @@
+[ccpp-table-properties]
+  name = CCPP_driver
+  type = control
+  dependencies = 
+
+[ccpp-arg-table]
+  name = CCPP_driver
+  type = control
+[ ccpp_suite ]
+  standard_name = suite_name
+  long_name = name of the CCPP suite to dispatch to
+  units = none
+  dimensions = ()
+  type = character
+  kind = len=256
+[ group_name ]
+  standard_name = group_name
+  long_name = name of the CCPP group to dispatch to
+  units = none
+  dimensions = ()
+  type = character
+  kind = len=256
+[ lb ]
+  standard_name = horizontal_loop_begin
+  long_name = start of horizontal range for this phase
+  units = index
+  dimensions = ()
+  type = integer
+[ ub ]
+  standard_name = horizontal_loop_end
+  long_name = end of horizontal range for this phase
+  units = index
+  dimensions = ()
+  type = integer
+[ mythread ]
+  standard_name = thread_number
+  long_name = current thread number
+  units = index
+  dimensions = ()
+  type = integer
+[ nthreads ]
+  standard_name = number_of_threads
+  long_name = total number of OpenMP threads
+  units = count
+  dimensions = ()
+  type = integer
+[ nphys_threads ]
+  standard_name = number_of_physics_threads
+  long_name = thread budget for physics-internal OpenMP
+  units = count
+  dimensions = ()
+  type = integer
+[ errmsg ]
+  standard_name = ccpp_error_message
+  long_name = error message for CCPP error handling
+  units = none
+  dimensions = ()
+  type = character
+  kind = len=512
+[ errflg ]
+  standard_name = ccpp_error_code
+  long_name = error flag for CCPP error handling
+  units = 1
+  dimensions = ()
+  type = integer

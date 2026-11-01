@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="FV3_global_nest_v1" version="1">
+<suite name="FV3_global_nest_v1" version="1.0">
   <!-- <init></init> -->
   <group name="time_vary">
     <subcycle loop="1">
@@ -66,7 +66,7 @@
       <scheme>get_phi_fv3</scheme>
       <scheme>GFS_suite_interstitial_3</scheme>
       <scheme>cu_c3_driver_pre</scheme>
-      <scheme>cu_c3_driver</scheme>
+      <scheme>cu_c3_driver_ccpp</scheme>
       <scheme>GFS_DCNV_generic_post</scheme>
       <scheme>GFS_suite_interstitial_4</scheme>
       <scheme>cnvc90</scheme>

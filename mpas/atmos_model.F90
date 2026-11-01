@@ -23,7 +23,7 @@ module atmos_model_mod
   use CCPP_data,             only : UFSATM_cldprop      => GFS_cldprop
   use CCPP_data,             only : UFSATM_radtend      => GFS_radtend
   use CCPP_data,             only : UFSATM_coupling     => GFS_coupling
-  use CCPP_data,             only : ccpp_suite
+  use CCPP_driver,           only : ccpp_suite
   use CCPP_driver,           only : CCPP_step
   ! MPAS
   use mpas_log,              only : mpas_log_write
@@ -275,6 +275,10 @@ contains
     !
     call ufs_mpas_to_physics(UFSATM_statein, UFSATM_sfcprop)
 
+    ! Register CCPP
+    call CCPP_step (step="register", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP register step failed",messageType=MPAS_LOG_CRIT)
+
     ! Initialize the CCPP framework
     call CCPP_step (step="init", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
     if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP init step failed",messageType=MPAS_LOG_CRIT)
@@ -306,8 +310,8 @@ contains
     character(len=*), parameter :: subname = 'atmos_model::atmos_model_end'
 
     ! Finalize the CCPP physics.
-    call CCPP_step (step="finalize", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
-    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP finalize step failed",messageType=MPAS_LOG_CRIT)
+    call CCPP_step (step="final", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP final step failed",messageType=MPAS_LOG_CRIT)
 
     call mpas_log_write('------------------------------------------------------------------')
     call mpas_log_write('UFSATM-MPAS Timing Information (seconds):')
@@ -385,7 +389,7 @@ contains
     
     ! Prepare MPAS dycore inputs with CCPP physics outputs.
     ! NOT YET IMPLEMENTED
-    call ufs_physics_to_mpas()
+    call ufs_physics_to_mpas(UFSATM_stateout, UFSATM_control)
     
     ! Call MPAS dycore
     call ufs_mpas_run(mpasClock, outClock, debug)
@@ -416,10 +420,10 @@ contains
     stop_time = MPI_Wtime()
     mpClock = mpClock + (stop_time - start_time)
 
-    ! Call CCPP Timestep_finalize Group
+    ! Call CCPP Timestep_final Group
     start_time = MPI_Wtime()
-    call CCPP_step (step="timestep_finalize", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
-    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP timestep_finalize step failed",messageType=MPAS_LOG_CRIT)
+    call CCPP_step (step="timestep_final", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP timestep_final step failed",messageType=MPAS_LOG_CRIT)
     stop_time = MPI_Wtime()
     setupClock = setupClock + (stop_time - start_time)
   
