@@ -6,10 +6,8 @@
   branch = feature/ss2.x
 [submodule "ccpp/framework"]
   path = ccpp/framework
-  #url = https://github.com/NCAR/ccpp-framework
-  #branch = feature/capgen-v1
-  url = https://github.com/climbfuji/ccpp-framework.git
-  branch = feature/bugfix_intel_symbol_mangling_length
+  url = https://github.com/NCAR/ccpp-framework
+  branch = feature/capgen-v1
 [submodule "ccpp/physics"]
   path = ccpp/physics
   #url = https://github.com/ufs-community/ccpp-physics
