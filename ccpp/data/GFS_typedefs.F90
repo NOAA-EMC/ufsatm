@@ -4372,7 +4372,7 @@ module GFS_typedefs
                                lndp_type,  n_var_lndp, lndp_each_step,                      &
                                pert_mp,pert_clds,pert_radtend,                              &
                           !--- Scale-aware 3D TKE scheme
-                               sa3dtke, hdiffq                                              &
+                               sa3dtke, hdiffq,                                             &
                           !--- Leonard term
                                leonard,                                                     &
                           !--- Rayleigh friction
