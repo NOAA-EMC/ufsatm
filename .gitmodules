@@ -16,10 +16,8 @@
   branch = feature/ss2.x
 [submodule "upp"]
   path = upp
-  #url = https://github.com/NOAA-EMC/UPP
-  #branch = develop
-  url = https://github.com/gspetro-NOAA/UPP
-  branch = feature/ss2.x-inline-post
+  url = https://github.com/NOAA-EMC/UPP
+  branch = develop
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
   url = https://github.com/ufs-community/MPAS-Model.git
