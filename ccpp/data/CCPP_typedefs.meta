@@ -4,7 +4,7 @@
   type = host
   dependencies_path = ../../ccpp/physics/physics
   dependencies = hooks/machine.F,photochem/module_ozphys.F90
-  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
+  dependencies = Radiation/RRTMG/radlw_param.F90,Radiation/RRTMG/radsw_param.F90
 
 [ccpp-arg-table]
   name = CCPP_typedefs
@@ -16,7 +16,7 @@
   type = ddt
   dependencies_path = ../../ccpp/physics/physics
   dependencies = hooks/machine.F,photochem/module_ozphys.F90
-  dependencies = Radiation/RRTMG/radlw_param.f,Radiation/RRTMG/radsw_param.f
+  dependencies = Radiation/RRTMG/radlw_param.F90,Radiation/RRTMG/radsw_param.F90
 
 [ccpp-arg-table]
   name = GFS_interstitial_type
