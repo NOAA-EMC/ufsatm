@@ -139,7 +139,7 @@ module module_cplfields
 
 ! Import Fields ----------------------------------------
   !> Number of import fields (IVAI: add 3 inst_tracer_diag)
-  integer,          public, parameter :: NimportFields = 42 + 3 + 5
+  integer,          public, parameter :: NimportFields = 47 + 3 + 5
   !> Logicals to inidicate if field is valid
   logical,          public            :: importFieldsValid(NimportFields)
   !> ESMF array for import fields
@@ -185,10 +185,11 @@ module module_cplfields
     FieldInfo("sensi_heat_flx_atm_into_ocn              ", "s"), &
     FieldInfo("lwup_flx_ocn                             ", "s"), &
 
-    ! For receiving fluxes from external land component
+    ! For receiving fluxes and states from external land component
     FieldInfo("land_fraction                            ", "s"), &
     FieldInfo("inst_snow_area_fraction_lnd              ", "s"), &
     FieldInfo("inst_spec_humid_lnd                      ", "s"), &
+    FieldInfo("inst_temp_lnd                            ", "s"), &
     FieldInfo("inst_laten_heat_flx_lnd                  ", "s"), &
     FieldInfo("inst_sensi_heat_flx_lnd                  ", "s"), &
     FieldInfo("inst_potential_laten_heat_flx_lnd        ", "s"), &
@@ -200,6 +201,10 @@ module module_cplfields
     FieldInfo("inst_drag_wind_speed_for_momentum        ", "s"), &
     FieldInfo("inst_drag_mass_flux_for_heat_and_moisture", "s"), &
     FieldInfo("inst_func_of_roughness_length_and_vfrac  ", "s"), &
+    FieldInfo("inst_lnd_ir_dif_albedo                   ", "s"), &
+    FieldInfo("inst_lnd_ir_dir_albedo                   ", "s"), &
+    FieldInfo("inst_lnd_vis_dif_albedo                  ", "s"), &
+    FieldInfo("inst_lnd_vis_dir_albedo                  ", "s"), &
 
     ! For FIRE
     FieldInfo("hflx_fire                                ", "s"), &
