@@ -1,7 +1,7 @@
 module GFS_typedefs
 
    use mpi_f08
-   use machine,                  only: kind_phys, kind_dbl_prec, kind_sngl_prec
+   use ccpp_kinds,                  only: kind_phys, kind_dbl_prec, kind_sngl_prec
    use physcons,                 only: rhowater
    use module_radsw_parameters,  only: topfsw_type, sfcfsw_type, NBDSW
    use module_radlw_parameters,  only: topflw_type, sfcflw_type, NBDLW

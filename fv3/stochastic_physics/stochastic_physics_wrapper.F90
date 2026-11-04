@@ -3,7 +3,7 @@
 !> @author Dominikus Heinzeller @date 8/6/21
 module stochastic_physics_wrapper_mod
 
-  use machine, only: kind_phys
+  use ccpp_kinds, only: kind_phys
 
   implicit none
 
