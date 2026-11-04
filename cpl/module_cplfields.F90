@@ -139,7 +139,7 @@ module module_cplfields
 
 ! Import Fields ----------------------------------------
   !> Number of import fields (IVAI: add 3 inst_tracer_diag)
-  integer,          public, parameter :: NimportFields = 47 + 3 + 5
+  integer,          public, parameter :: NimportFields = 46 + 3 + 5
   !> Logicals to inidicate if field is valid
   logical,          public            :: importFieldsValid(NimportFields)
   !> ESMF array for import fields
@@ -189,7 +189,6 @@ module module_cplfields
     FieldInfo("land_fraction                            ", "s"), &
     FieldInfo("inst_snow_area_fraction_lnd              ", "s"), &
     FieldInfo("inst_spec_humid_lnd                      ", "s"), &
-    FieldInfo("inst_temp_lnd                            ", "s"), &
     FieldInfo("inst_laten_heat_flx_lnd                  ", "s"), &
     FieldInfo("inst_sensi_heat_flx_lnd                  ", "s"), &
     FieldInfo("inst_potential_laten_heat_flx_lnd        ", "s"), &
