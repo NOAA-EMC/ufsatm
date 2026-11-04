@@ -242,7 +242,7 @@ else()
     "${SUITE_FILES_DIR}/suite_FV3_ideal_mp_nssl.xml"
     "${SUITE_FILES_DIR}/suite_FV3_ideal_pbl_mp_nssl.xml"
     "${SUITE_FILES_DIR}/suite_FV3_lowres.xml"
-    "${SUITE_FILES_DIR}/suite_MPAS_RRFS.xml"
+    "${SUITE_FILES_DIR}/suite_MPAS_RRFSv2_alpha.xml"
     "${SUITE_FILES_DIR}/suite_RRFS_sas.xml"
     "${SUITE_FILES_DIR}/suite_RRFS_sas_nogwd.xml"
     "${SUITE_FILES_DIR}/suite_RRFSens_phy1.xml"

@@ -1,6 +1,6 @@
 #define ESMF_ERR_ABORT(rc) \
 if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundError(rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-! ###########################################################################################
+! ########################################################################################### 
 !> \file module_fcst_grid_comp.F90
 !>
 !> ESMF forecast gridded component for MPAS ATMosphere.
@@ -10,6 +10,7 @@ module module_fcst_grid_comp
   use mpi_f08
   use esmf
   use nuopc
+  use atmos_model_mod,    only: dycore_only
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
                                 atmos_model_microphysics, update_atmos_model_state
@@ -91,14 +92,13 @@ contains
     integer,intent(out)                    :: rc
 
     ! Locals
-    integer :: i, j, k, n
     type(ESMF_VM) :: VM
     type(ESMF_Time) :: CurrTime, StartTime, StopTime
     type(ESMF_Config) :: cf
     real(kind=8) :: tbeg1
     logical :: fexist
     integer :: io_unit, calendar_type_res, date_res(6), date_init_res(6)
-    integer,dimension(6) :: date, date_end, days
+    integer,dimension(6) :: date, date_end
 
     ! Initialize ESMF error message.
     rc = ESMF_SUCCESS
@@ -298,10 +298,14 @@ contains
     endif
     
     ! Call forecast integration subroutines...
-    call atmos_model_radiation_physics (Atmos)
-    call atmos_model_dynamics (Atmos)
-    call atmos_model_microphysics (Atmos)
-
+    if (dycore_only) then
+       call atmos_model_dynamics (Atmos)
+    else
+       call atmos_model_radiation_physics (Atmos)
+       call atmos_model_dynamics (Atmos)
+       call atmos_model_microphysics (Atmos)
+    endif
+    
     ! Timing info (debug mode)
     if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS(fcstRUN phase 1), n_atmsteps = ', &
                                                n_atmsteps,' time is ',mpi_wtime()-tbeg1
