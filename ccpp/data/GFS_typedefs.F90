@@ -1850,7 +1850,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: in_nm    (:,:)   => null()  !< IN number concentration
     real (kind=kind_phys), pointer :: ccn_nm   (:,:)   => null()  !< CCN number concentration
     real (kind=kind_phys), pointer :: aer_nm   (:,:,:) => null()  !< GOCART aerosol climo
-    real (kind=kind_phys), pointer :: aer_mr   (:,:,:) => null()  !< GOCART aerosol climo for mp
     real (kind=kind_phys), pointer :: tau_amf  (:    ) => null()  !< nonsta-gw monthly data
 
     integer,               pointer :: imap     (:)     => null()  !< map of local index ix to global index i for this block
@@ -4876,9 +4875,6 @@ module GFS_typedefs
       ntrcaer = ntrcaerm
     else if (iaer/1000 == 2) then
       ntrcaer = ntrcaerm
-      if (mraerosol) then
-      Model%iaerclm = .true.
-      endif
     else
       ntrcaer = 1
     endif
@@ -7752,9 +7748,6 @@ module GFS_typedefs
 !--- aerosol fields
     allocate (Tbd%aer_nm  (IM,Model%levs,ntrcaer))
     Tbd%aer_nm = clear_val
-
-    allocate (Tbd%aer_mr  (IM,Model%levs,ntrcaer))
-    Tbd%aer_mr = clear_val
 
 !--- tau_amf for  NGWs
     allocate (Tbd%tau_amf(im) )
