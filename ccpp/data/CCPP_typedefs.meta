@@ -2317,6 +2317,13 @@
   dimensions = (horizontal_dimension,vertical_layer_dimension,number_of_vertical_diffusion_tracers)
   type = real
   kind = kind_phys
+[def4q]
+  standard_name = horizontal_turbulent_eddy_diffusion_for_vertically_diffused_tracers
+  long_name = horizontal turbulent eddy diffusion for vertically diffused tracers calculated from dynamics
+  units = kg kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_vertical_diffusion_tracers)
+  type = real
+  kind = kind_phys
 [lndp_vgf]
   standard_name = magnitude_of_perturbation_of_vegetation_fraction
   long_name = magnitude of perturbation of vegetation fraction

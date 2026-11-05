@@ -292,6 +292,7 @@ module CCPP_typedefs
     real (kind=kind_phys), pointer      :: uustar_land(:)     => null()  !<
     real (kind=kind_phys), pointer      :: uustar_water(:)    => null()  !<
     real (kind=kind_phys), pointer      :: vdftra(:,:,:)      => null()  !<
+    real (kind=kind_phys), pointer      :: def4q(:,:,:)       => null()  !<
     real (kind=kind_phys), pointer      :: vegf1d(:)          => null()  !<
     real (kind=kind_phys)               :: lndp_vgf                      !<
 
@@ -707,6 +708,7 @@ contains
     allocate (Interstitial%uustar_land     (ixs:ixe))
     allocate (Interstitial%uustar_water    (ixs:ixe))
     allocate (Interstitial%vdftra          (ixs:ixe,Model%levs,Interstitial%nvdiff))  !GJF first dimension was set as 'IX' in GFS_physics_driver
+    allocate (Interstitial%def4q           (ixs:ixe,Model%levs,Interstitial%nvdiff))
     allocate (Interstitial%vegf1d          (ixs:ixe))
     allocate (Interstitial%wcbmax          (ixs:ixe))
     allocate (Interstitial%wind            (ixs:ixe))
@@ -1063,6 +1065,7 @@ contains
     deallocate (Interstitial%uustar_land)
     deallocate (Interstitial%uustar_water)
     deallocate (Interstitial%vdftra)
+    deallocate (Interstitial%def4q)
     deallocate (Interstitial%vegf1d)
     deallocate (Interstitial%wcbmax)
     deallocate (Interstitial%wind)
@@ -1377,7 +1380,7 @@ contains
                   n /= Model%nthl  .and. n /= Model%nthnc .and. n /= Model%ntgv    .and. &
                   n /= Model%nthv  .and. n /= Model%ntccn .and. n /= Model%ntccna  .and. &
                   n /= Model%ntrz  .and. n /= Model%ntgz  .and. n /= Model%nthz    .and. &
-                  n /= Model%ntsigma .and.  n /= Model%ntomega)
+                  n /= Model%ntsigma .and.  n /= Model%ntomega .and. n /= Model%ntbuexs)
         Interstitial%otsptflag(n) = ltest
         if ( ltest ) then
           tracers = tracers + 1
@@ -1630,6 +1633,7 @@ contains
     Interstitial%uustar_land     = Model%huge
     Interstitial%uustar_water    = Model%huge
     Interstitial%vdftra          = clear_val
+    Interstitial%def4q           = clear_val
     Interstitial%vegf1d          = clear_val
     Interstitial%wcbmax          = clear_val
     Interstitial%wind            = Model%huge
