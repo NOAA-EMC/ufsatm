@@ -1,6 +1,6 @@
 module GFS_restart
 
-  use machine,          only: kind_phys
+  use ccpp_kinds,          only: kind_phys
   use GFS_typedefs,     only: GFS_control_type,  GFS_statein_type,  &
                               GFS_stateout_type, GFS_sfcprop_type,  &
                               GFS_coupling_type, GFS_grid_type,     &
