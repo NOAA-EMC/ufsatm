@@ -7698,8 +7698,6 @@ module GFS_typedefs
     endif
 
 !--- DFI radar forcing
-    nullify(Tbd%dfi_radar_tten)
-    nullify(Tbd%cap_suppress)
     if(Model%num_dfi_radar>0) then
        allocate (Tbd%dfi_radar_tten(IM,Model%levs,Model%num_dfi_radar))
        Tbd%dfi_radar_tten = -20.0
