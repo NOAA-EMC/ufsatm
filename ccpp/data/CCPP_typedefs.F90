@@ -1082,7 +1082,7 @@ contains
     deallocate (Interstitial%relhum)
     deallocate (Interstitial%qs_lay)
 
-    
+
     ! RRTMGP
     if (Model%do_RRTMGP) then
        deallocate (Interstitial%tracer)
@@ -1156,7 +1156,7 @@ contains
       deallocate (Interstitial%dtdt_ngw)
       deallocate (Interstitial%kdis_ngw)
     end if
-    
+
     !-- GSL drag suite
     if (Model%gwd_opt==3 .or. Model%gwd_opt==33 .or. &
         Model%gwd_opt==2 .or. Model%gwd_opt==22 ) then
@@ -1225,7 +1225,7 @@ contains
     Interstitial%ntrwx            = 0
 
     ! perform aerosol convective transport and PBL diffusion
-    Interstitial%trans_aero = Model%cplchm .and. Model%trans_trac
+    Interstitial%trans_aero = (Model%cplchm .or. Model%cplchp) .and. Model%trans_trac
 
     if (Model%imp_physics == Model%imp_physics_thompson .or. &
          Model%imp_physics == Model%imp_physics_tempo) then
@@ -1233,7 +1233,7 @@ contains
 
       if (Model%ltaerosol) then
         Interstitial%nvdiff = Interstitial%nvdiff + 3
-      else if (Model%mraerosol .and. Model%imp_physics /= Model%imp_physics_tempo) then
+      else if ((Model%mraerosol .or. Model%gtaerosol) .and. Model%imp_physics /= Model%imp_physics_tempo) then
         Interstitial%nvdiff = Interstitial%nvdiff + 1
       endif
       if (Model%imp_physics == Model%imp_physics_tempo .and. Model%lthailaware) then
@@ -1309,7 +1309,7 @@ contains
       endif
     endif
 
-    if (Model%cplchm) then
+    if (Model%cplchm .or. Model%cplchp) then
       ! Only the following microphysics schemes are supported with coupled chemistry
       if (Model%imp_physics == Model%imp_physics_mg) then
         if (Model%ntgl > 0) then
@@ -1324,7 +1324,7 @@ contains
         Interstitial%nvdiff = 9
         if (Model%ltaerosol) then
            Interstitial%nvdiff = Interstitial%nvdiff + 3
-        else if (Model%mraerosol .and. Model%imp_physics /= Model%imp_physics_tempo) then
+        else if ((Model%mraerosol .or. Model%gtaerosol) .and. Model%imp_physics /= Model%imp_physics_tempo) then
            Interstitial%nvdiff = Interstitial%nvdiff + 1
         endif
         if (Model%imp_physics == Model%imp_physics_tempo .and. Model%lthailaware) then
@@ -1648,7 +1648,7 @@ contains
     Interstitial%tv_lay                      = clear_val
     Interstitial%relhum                      = clear_val
     Interstitial%qs_lay                      = clear_val
-    
+
     ! RRTMGP
     if (Model%do_RRTMGP) then
        Interstitial%tracer                      = clear_val

@@ -288,7 +288,7 @@ module post_nems_routines
       if (me == 0) then
         print*,'komax,kpo,kth,th,kpv,pv,popascal= ',komax,kpo            &
      &  ,kth,th(1:kth),kpv,pv(1:kpv),popascal,' gocart_on=',gocart_on    &
-     &  ,' rdaod=',rdaod
+     &  ,'gccpp_on=',gccpp_on, 'nasa_on=',nasa_on,' rdaod=',rdaod
        endif
 !
 ! set up pressure level from POSTGPVARS or DEFAULT

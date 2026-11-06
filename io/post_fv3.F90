@@ -2624,6 +2624,11 @@ module post_fv3
 
               do K = 1, nbin_du
                 write(VarName, '(A,I3.3)') 'duem', k
+                if ( K == 1) VarName='duem001'
+                if ( K == 2) VarName='duem002'
+                if ( K == 3) VarName='duem003'
+                if ( K == 4) VarName='duem004'
+                if ( K == 5) VarName='duem005'
                 if(trim(fieldname)==VarName) then
                   !$omp parallel do default(none) private(i,j,K) shared(jsta,jend,ista,iend,spval,duem,arrayr42d,fillvalue)
                   do j=jsta,jend
@@ -2762,11 +2767,11 @@ module post_fv3
               enddo
 
               do K = 1, nbin_ss
-                if ( K == 1) VarName='seas1wt'
-                if ( K == 2) VarName='seas2wt'
-                if ( K == 3) VarName='seas3wt'
-                if ( K == 4) VarName='seas4wt'
-                if ( K == 5) VarName='seas5wt'
+                if ( K == 1) VarName='seas1wtl'
+                if ( K == 2) VarName='seas2wtl'
+                if ( K == 3) VarName='seas3wtl'
+                if ( K == 4) VarName='seas4wtl'
+                if ( K == 5) VarName='seas5wtl'
 
                 if(trim(fieldname)==VarName) then
                   !$omp parallel do default(none) private(i,j,K) shared(jsta,jend,ista,iend,spval,sswt,arrayr42d,fillvalue)
@@ -2958,7 +2963,7 @@ module post_fv3
                 enddo
               endif
 
-            endif !end gocart_on
+            endif !end gocart_on, d2d_chem
 
             ! inst  cloud top pressure
             if(trim(fieldname)=='prescnvclt') then
@@ -4371,7 +4376,7 @@ module post_fv3
               endif
 
               if (gocart_on .or. gccpp_on) then
-                if(trim(fieldname)=='sulf') then
+                if(trim(fieldname)=='sulf' .or. trim(fieldname)=='so4') then
                  !$omp parallel do default(none) private(i,j,l) shared(lm,jsta,jend,ista,iend,suso,arrayr43d,fillvalue,spval)
                   do l=1,lm
                     do j=jsta,jend
@@ -4795,11 +4800,33 @@ module post_fv3
 
       ! chmical field computation
       if(gocart_on .or. gccpp_on .or. nasa_on) then
-        dustcb=0.0
-        dustallcb=0.0
-        do l=1,lm
-          do j=jsta,jend
-            do i=ista, iend
+
+        ! whole-array init kept as in the original (also clears halo points)
+        dustcb    = 0.0
+        dustallcb = 0.0
+        sscb      = 0.0
+        ssallcb   = 0.0
+        bccb      = 0.0
+        occb      = 0.0
+        sulfcb    = 0.0
+        pp25cb    = 0.0
+        pp10cb    = 0.0
+        if(nasa_on) then
+          no3cb = 0.0
+          nh4cb = 0.0
+        endif
+
+        ! Each thread owns whole j-rows -> no race on the *cb accumulators.
+        ! Loop order j -> l -> i keeps i (stride-1) innermost, and each
+        ! (i,j) column is still summed over l = 1..lm in the original order.
+!$omp parallel do default(shared) private(i,j,l,tv)
+        do j=jsta,jend
+
+          !---------------------------------------------------------------
+          ! 1) column integrals + air density, level by level
+          !---------------------------------------------------------------
+          do l=1,lm
+            do i=ista,iend
               if(dust(i,j,l,1)<spval.and.dust(i,j,l,2)<spval.and. &
                  dust(i,j,l,3)<spval.and.dust(i,j,l,4)<spval.and. &
                  dust(i,j,l,5)<spval) then
@@ -4811,164 +4838,124 @@ module post_fv3
                   dust(i,j,l,3)+0.74*dust(i,j,l,4))* &
                   dpres(i,j,l)/grav
               endif
-            enddo
-          enddo
-        enddo
 
-        sscb=0.0
-        ssallcb=0.0
-        do l=1,lm
-          do j=jsta,jend
-            do i=ista,iend
               if(salt(i,j,l,1)<spval.and.salt(i,j,l,2)<spval.and. &
                  salt(i,j,l,3)<spval.and.salt(i,j,l,4)<spval.and. &
                  salt(i,j,l,5)<spval) then
-            sscb(i,j)=sscb(i,j)+ &
-         (salt(i,j,l,1)+salt(i,j,l,2)+0.83*salt(i,j,l,3))*  &
-           dpres(i,j,l)/grav
-
-
-          ssallcb(i,j)=ssallcb(i,j)+ &
-         (salt(i,j,l,1)+salt(i,j,l,2)+salt(i,j,l,3)+salt(i,j,l,4))* &
-           dpres(i,j,l)/grav
+                sscb(i,j)=sscb(i,j)+ &
+                  (salt(i,j,l,1)+salt(i,j,l,2)+0.83*salt(i,j,l,3))* &
+                  dpres(i,j,l)/grav
+                ssallcb(i,j)=ssallcb(i,j)+ &
+                  (salt(i,j,l,1)+salt(i,j,l,2)+salt(i,j,l,3)+salt(i,j,l,4))* &
+                  dpres(i,j,l)/grav
               endif
+
+              if(soot(i,j,l,1)<spval.and.soot(i,j,l,2)<spval) then
+                bccb(i,j)=bccb(i,j)+(soot(i,j,l,1)+soot(i,j,l,2))* &
+                  dpres(i,j,l)/grav
+              endif
+
+              if(waso(i,j,l,1)<spval.and.waso(i,j,l,2)<spval) then
+                occb(i,j)=occb(i,j)+(waso(i,j,l,1)+waso(i,j,l,2))* &
+                  dpres(i,j,l)/grav
+              endif
+
+              if(suso(i,j,l,1)<spval) then
+                sulfcb(i,j)=sulfcb(i,j)+suso(i,j,l,1)* &
+                  dpres(i,j,l)/grav
+              endif
+
+              if(pp25(i,j,l,1)<spval) then
+                pp25cb(i,j)=pp25cb(i,j)+pp25(i,j,l,1)* &
+                  dpres(i,j,l)/grav
+              endif
+
+              if(pp10(i,j,l,1)<spval) then
+                pp10cb(i,j)=pp10cb(i,j)+pp10(i,j,l,1)* &
+                  dpres(i,j,l)/grav
+              endif
+
+              ! air density at mid-layer (needed at all levels: module var)
+              tv = t(i,j,l) * (h1+d608*MAX(q(i,j,l),qmin))
+              rhomid(i,j,l) = pmid(i,j,l) / (rd*tv)
             enddo
-          enddo
-        end do
 
-        bccb=0.0
-        occb=0.0
-        do l=1,lm
-          do j=jsta,jend
-            do i=ista,iend
-              if(soot(i,j,l,1)<spval.and.soot(i,j,l,2)<spval)then
-               bccb(i,j)=bccb(i,j)+(soot(i,j,l,1)+soot(i,j,l,2))* &
-               dpres(i,j,l)/grav
-              endif
-
-              if(waso(i,j,l,1)<spval.and.waso(i,j,l,2)<spval)then
-               occb(i,j)=occb(i,j)+ (waso(i,j,l,1)+waso(i,j,l,2))* &
-               dpres(i,j,l)/grav
-              endif
-            enddo
-          enddo
-        end do
-
-        if(nasa_on) then
-          no3cb=0.0
-          nh4cb=0.0
-          do l=1,lm
-            do j=jsta,jend
+            if(nasa_on) then
               do i=ista,iend
                 if(no3(i,j,l,1)<spval .and. no3(i,j,l,2)<spval .and. &
                    no3(i,j,l,3)<spval) then
-                   no3cb(i,j)=no3cb(i,j)+ (no3(i,j,l,1)+no3(i,j,l,2)+ &
-                   no3(i,j,l,3) ) * dpres(i,j,l)/grav
+                  no3cb(i,j)=no3cb(i,j)+ (no3(i,j,l,1)+no3(i,j,l,2)+ &
+                    no3(i,j,l,3) ) * dpres(i,j,l)/grav
                 else
-                   no3(i,j,l,1)=0.
-                   no3(i,j,l,2)=0.
-                   no3(i,j,l,3)=0.
+                  no3(i,j,l,1)=0.
+                  no3(i,j,l,2)=0.
+                  no3(i,j,l,3)=0.
                 endif
-                if(nh4(i,j,l,1)<spval)then
-                   nh4cb(i,j)=nh4cb(i,j)+ nh4(i,j,l,1)* &
-                   dpres(i,j,l)/grav
+                if(nh4(i,j,l,1)<spval) then
+                  nh4cb(i,j)=nh4cb(i,j)+ nh4(i,j,l,1)* &
+                    dpres(i,j,l)/grav
                 endif
               enddo
-            enddo
-          end do
-        endif !end nasa_on
+            endif
+          enddo ! l
 
-        sulfcb=0.0
-        pp25cb=0.0
-        pp10cb=0.0
-        do l=1,lm
-          do j=jsta,jend
-            do i=ista,iend
-              if(suso(i,j,l,1)<spval)then
-                sulfcb(i,j)=sulfcb(i,j)+ suso(i,j,l,1)* &
-                  dpres(i,j,l)/grav
-              endif
-              if(pp25(i,j,l,1)<spval)then
-                pp25cb(i,j)=pp25cb(i,j)+ pp25(i,j,l,1)* &
-                  dpres(i,j,l)/grav
-              endif
-              if(pp10(i,j,l,1)<spval)then
-                pp10cb(i,j)=pp10cb(i,j)+ pp10(i,j,l,1)* &
-                  dpres(i,j,l)/grav
-              endif
-            enddo
-          enddo
-        enddo ! do loop for l
-
-        do l=1,lm
-         do j=jsta,jend
+          !---------------------------------------------------------------
+          ! 2) clamp column integrals, surface concentrations (l = lm)
+          !---------------------------------------------------------------
+          l=lm
           do i=ista,iend
-            tv = t(i,j,l) * (h1+d608*MAX(q(I,J,L),qmin))
-            rhomid(i,j,l) = pmid(i,j,l) / (rd*tv)
-          enddo
-         enddo
-        enddo
-
-        l=lm
-        do j=jsta,jend
-          do i=ista,iend
-
-            dustcb(i,j) = MAX(dustcb(i,j), 0.0)
+            dustcb(i,j)    = MAX(dustcb(i,j),    0.0)
             dustallcb(i,j) = MAX(dustallcb(i,j), 0.0)
-            sscb(i,j) = MAX(sscb(i,j), 0.0)
-            ssallcb(i,j) = MAX(ssallcb(i,j), 0.0)
-            bccb(i,j) = MAX(bccb(i,j), 0.0)
-            occb(i,j) = MAX(occb(i,j), 0.0)
-            sulfcb(i,j) = MAX(sulfcb(i,j), 0.0)
+            sscb(i,j)      = MAX(sscb(i,j),      0.0)
+            ssallcb(i,j)   = MAX(ssallcb(i,j),   0.0)
+            bccb(i,j)      = MAX(bccb(i,j),      0.0)
+            occb(i,j)      = MAX(occb(i,j),      0.0)
+            sulfcb(i,j)    = MAX(sulfcb(i,j),    0.0)
             if(nasa_on) then
               no3cb(i,j) = MAX(no3cb(i,j), 0.0)
               nh4cb(i,j) = MAX(nh4cb(i,j), 0.0)
             endif
-            pp25cb(i,j) = MAX(pp25cb(i,j), 0.0)
-            pp10cb(i,j) = MAX(pp10cb(i,j), 0.0)
+            pp25cb(i,j)    = MAX(pp25cb(i,j),    0.0)
+            pp10cb(i,j)    = MAX(pp10cb(i,j),    0.0)
 
-           ! Surface PM25 dust and seasalt
-           dustpm(i,j)=(dust(i,j,l,1)+0.38*dust(i,j,l,2))*rhomid(i,j,l) !ug/m3
-           dustpm10(i,j)=(dust(i,j,l,1)+dust(i,j,l,2)+dust(i,j,l,3)+ &
-             0.74*dust(i,j,l,4))*rhomid(i,j,l) !ug/m3
-           sspm(i,j)=(salt(i,j,l,1)+salt(i,j,l,2)+ &
-             0.83*salt(i,j,l,3))*rhomid(i,j,l)  !ug/m3
+            ! Surface PM25 dust and seasalt
+            dustpm(i,j)=(dust(i,j,l,1)+0.38*dust(i,j,l,2))*rhomid(i,j,l) !ug/m3
+            dustpm10(i,j)=(dust(i,j,l,1)+dust(i,j,l,2)+dust(i,j,l,3)+ &
+              0.74*dust(i,j,l,4))*rhomid(i,j,l) !ug/m3
+            sspm(i,j)=(salt(i,j,l,1)+salt(i,j,l,2)+ &
+              0.83*salt(i,j,l,3))*rhomid(i,j,l)  !ug/m3
 
-           if(gocart_on .or. gccpp_on) then
+            if(gocart_on .or. gccpp_on) then
+              !Surface PM10 concentration
+              dusmass(i,j)=(dust(i,j,l,1)+dust(i,j,l,2)+dust(i,j,l,3)+ &
+                0.74*dust(i,j,l,4)+salt(i,j,l,1)+salt(i,j,l,2)+salt(i,j,l,3)+ &
+                salt(i,j,l,4) + soot(i,j,l,1)+soot(i,j,l,2)+waso(i,j,l,1)+ &
+                waso(i,j,l,2) +suso(i,j,l,1)+pp25(i,j,l,1)+pp10(i,j,l,1)) &
+                *rhomid(i,j,l)  !ug/m3
+              !Surface PM25 concentration
+              dusmass25(i,j)=(dust(i,j,l,1)+0.38*dust(i,j,l,2)+ &
+                salt(i,j,l,1)+salt(i,j,l,2)+0.83*salt(i,j,l,3) + &
+                soot(i,j,l,1)+soot(i,j,l,2)+waso(i,j,l,1)+ &
+                waso(i,j,l,2) +suso(i,j,l,1)+pp25(i,j,l,1))*rhomid(i,j,l)  !ug/m3
+              !PM10 column
+              ducmass(i,j)=dustallcb(i,j)+ssallcb(i,j)+bccb(i,j)+ &
+                occb(i,j)+sulfcb(i,j)+pp25cb(i,j)+pp10cb(i,j)
+              !PM25 column
+              ducmass25(i,j)=dustcb(i,j)+sscb(i,j)+bccb(i,j)+occb(i,j) &
+                +sulfcb(i,j)+pp25cb(i,j)
+            elseif(nasa_on) then
+              !Surface PM10 concentration
+              dusmass(i,j)=pp10(i,j,l,1)*rhomid(i,j,l)  !ug/m3
+              !Surface PM25 concentration
+              dusmass25(i,j)=pp25(i,j,l,1)*rhomid(i,j,l)  !ug/m3
+              !PM10 column
+              ducmass(i,j)=pp10cb(i,j)
+              !PM25 column
+              ducmass25(i,j)=pp25cb(i,j)
+            endif
+          enddo ! i
 
-             !Surface PM10 concentration
-             dusmass(i,j)=(dust(i,j,l,1)+dust(i,j,l,2)+dust(i,j,l,3)+ &
-               0.74*dust(i,j,l,4)+salt(i,j,l,1)+salt(i,j,l,2)+salt(i,j,l,3)+ &
-               salt(i,j,l,4) + soot(i,j,l,1)+soot(i,j,l,2)+waso(i,j,l,1)+ &
-               waso(i,j,l,2) +suso(i,j,l,1)+pp25(i,j,l,1)+pp10(i,j,l,1)) &
-               *rhomid(i,j,l)  !ug/m3
-             !Surface PM25 concentration
-             dusmass25(i,j)=(dust(i,j,l,1)+0.38*dust(i,j,l,2)+ &
-               salt(i,j,l,1)+salt(i,j,l,2)+0.83*salt(i,j,l,3) + &
-               soot(i,j,l,1)+soot(i,j,l,2)+waso(i,j,l,1)+ &
-               waso(i,j,l,2) +suso(i,j,l,1)+pp25(i,j,l,1))*rhomid(i,j,l)  !ug/m3
-
-             !PM10 column
-             ducmass(i,j)=dustallcb(i,j)+ssallcb(i,j)+bccb(i,j)+ &
-               occb(i,j)+sulfcb(i,j)+pp25cb(i,j)+pp10cb(i,j)
-             !PM25 column
-             ducmass25(i,j)=dustcb(i,j)+sscb(i,j)+bccb(i,j)+occb(i,j) &
-               +sulfcb(i,j)+pp25cb(i,j)
-
-           elseif(nasa_on) then
-             !Surface PM10 concentration
-             dusmass(i,j)=pp10(i,j,l,1)*rhomid(i,j,l)  !ug/m3
-             !Surface PM25 concentration
-             dusmass25(i,j)=pp25(i,j,l,1)*rhomid(i,j,l)  !ug/m3
-
-             !PM10 column
-             ducmass(i,j)=pp10cb(i,j)
-             !PM25 column
-             ducmass25(i,j)=pp25cb(i,j)
-
-           endif !nasa_on
-         end do
-       end do
+        enddo ! j
 
       endif
 

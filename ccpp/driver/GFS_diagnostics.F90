@@ -3571,7 +3571,7 @@ module GFS_diagnostics
         ExtDiag(idx)%unit = 'kg-1 s-1'
         ExtDiag(idx)%mod_name = 'gfs_sfc'
         ExtDiag(idx)%data%var2 => Coupling%nwfa2d(:)
-      elseif (Model%mraerosol) then
+      elseif (Model%mraerosol .or. Model%gtaerosol) then
         idx = idx + 1
         ExtDiag(idx)%axes = 3
         ExtDiag(idx)%name = 'nwfa'
@@ -3599,7 +3599,7 @@ module GFS_diagnostics
         ExtDiag(idx)%unit = 'kg-1 s-1'
         ExtDiag(idx)%mod_name = 'gfs_sfc'
         ExtDiag(idx)%data%var2 => Coupling%nifa2d(:)
-      else if (Model%mraerosol) then
+      else if (Model%mraerosol .or. Model%gtaerosol) then
         idx = idx + 1
         ExtDiag(idx)%axes = 3
         ExtDiag(idx)%name = 'nifa'
