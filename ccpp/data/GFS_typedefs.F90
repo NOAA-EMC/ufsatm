@@ -168,7 +168,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: def_3 (:,:)   => null()  !< deformation
 !SA-3D-TKE-end
 ! dissipation estimate
-    real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< model layer mean temperature in k
+    real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< dissipation estimate model layer mean temperature
     ! soil state variables - for soil SPPT - sfc-perts, mgehne
     real (kind=kind_phys), pointer :: smc (:,:)   => null()  !< soil moisture content
     real (kind=kind_phys), pointer :: stc (:,:)   => null()  !< soil temperature content
@@ -1864,7 +1864,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dtotprcp  (:)    => null()  !< change in totprcp  (diag_type)
     real (kind=kind_phys), pointer :: dcnvprcp  (:)    => null()  !< change in cnvprcp  (diag_type)
     real (kind=kind_phys), pointer :: drain_cpl (:)    => null()  !< change in rain_cpl (coupling_type)
-    real (kind=kind_phys), pointer :: dsnow_cpl (:)    => null()  !< change in show_cpl (coupling_type)
+    real (kind=kind_phys), pointer :: dsnow_cpl (:)    => null()  !< change in snow_cpl (coupling_type)
 
 !--- phy_f*d variables needed for seamless restarts and moving data between grrad and gbphys
     real (kind=kind_phys), pointer :: phy_fctd (:,:)   => null()  !< cloud base mass flux for CS convection
@@ -2298,7 +2298,7 @@ module GFS_typedefs
 
     ! Auxiliary output arrays for debugging
     real (kind=kind_phys), pointer :: aux2d(:,:)  => null()    !< auxiliary 2d arrays in output (for debugging)
-    real (kind=kind_phys), pointer :: aux3d(:,:,:)=> null()    !< auxiliary 2d arrays in output (for debugging)
+    real (kind=kind_phys), pointer :: aux3d(:,:,:)=> null()    !< auxiliary 3d arrays in output (for debugging)
 
     !--- Lightning threat indices
     real (kind=kind_phys), pointer :: ltg1_max(:)        => null()  !
@@ -7131,7 +7131,7 @@ module GFS_typedefs
         print *, ' lfnc_p0            : ', Model%lfnc_p0
         print *, ' doGP_lwscat        : ', Model%doGP_lwscat
         print *, ' doGP_sgs_cnv       : ', Model%doGP_sgs_cnv
-        print *, ' doGP_sgs_mynn      : ', Model%doGP_sgs_cnv
+        print *, ' doGP_sgs_mynn      : ', Model%doGP_sgs_mynn
         print *, ' doGP_smearclds     : ', Model%doGP_smearclds
         print *, ' iovr_convcld       : ', Model%iovr_convcld
         print *, ' rrtmgp_sw_phys_blksz  : ', Model%rrtmgp_sw_phys_blksz
