@@ -859,7 +859,7 @@ module GFS_typedefs
     integer              :: ntrcaer         !< number of aerosol tracers for Morrison-Gettelman microphysics
     logical              :: lmfshal         !< parameter for radiation
     logical              :: lmfdeep2        !< parameter for radiation
-    integer              :: nrcm            !< second dimension of random number stream for RAS
+    integer              :: nrcm            !< second dimension of random number stream
     integer              :: iflip           !< iflip - is not the same as flipv
     integer              :: isol            !< use prescribed solar constant
                                             !< 0  => fixed value=1366.0\f$W/m^2\f$(old standard)
