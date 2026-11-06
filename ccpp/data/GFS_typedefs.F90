@@ -2532,7 +2532,7 @@ module GFS_typedefs
     Sfcprop%lakefrac  = clear_val
     Sfcprop%lakedepth = clear_val
 
-    Sfcprop%use_lake_model = zero
+    Sfcprop%use_lake_model = 0
     if(Model%lkm > 0) then
       if(Model%iopt_lake==Model%iopt_lake_clm) then
         Sfcprop%clm_lakedepth = clear_val
@@ -2619,18 +2619,18 @@ module GFS_typedefs
     allocate (Sfcprop%hflx       (IM))
     allocate (Sfcprop%qss        (IM))
 
-    Sfcprop%slope      = zero
-    Sfcprop%slope_save = zero
+    Sfcprop%slope      = 0
+    Sfcprop%slope_save = 0
     Sfcprop%shdmin     = clear_val
     Sfcprop%shdmax     = clear_val
     Sfcprop%tg3        = clear_val
     Sfcprop%vfrac      = clear_val
-    Sfcprop%vtype      = zero
-    Sfcprop%vtype_save = zero
-    Sfcprop%stype      = zero
-    Sfcprop%stype_save = zero
-    Sfcprop%scolor      = zero
-    Sfcprop%scolor_save = zero
+    Sfcprop%vtype      = 0
+    Sfcprop%vtype_save = 0
+    Sfcprop%stype      = 0
+    Sfcprop%stype_save = 0
+    Sfcprop%scolor      = 0
+    Sfcprop%scolor_save = 0
     Sfcprop%uustar     = clear_val
     Sfcprop%oro        = clear_val
     Sfcprop%oro_uf     = clear_val
@@ -2984,8 +2984,8 @@ module GFS_typedefs
        Sfcprop%lake_icefrac3d = clear_val
        Sfcprop%lake_rho0 = -111
        Sfcprop%lake_ht = -111
-       Sfcprop%lake_is_salty = zero
-       Sfcprop%lake_cannot_freeze = zero
+       Sfcprop%lake_is_salty = 0
+       Sfcprop%lake_cannot_freeze = 0
        Sfcprop%clm_lake_initialized = zero
     endif
 
