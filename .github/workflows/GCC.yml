@@ -63,7 +63,6 @@ jobs:
         spack external find --not-buildable gmake cmake git git-lfs perl python ${{ matrix.mpi }}
         spack external find --not-buildable --path /usr/lib/x86_64-linux-gnu/openblas-serial/ openblas
         ##
-        sed -i 's|^\s*patch|#\0|' $(spack location --package-dir w3emc)/package.py
         spack concretize |& tee ${SPACK_ENV}/log.concretize
         spack install -j2 --fail-fast
         echo "spackrc=$?" >> ${GITHUB_ENV}
