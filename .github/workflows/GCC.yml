@@ -124,6 +124,8 @@ jobs:
         . ${GITHUB_WORKSPACE}/spack-develop/share/spack/setup-env.sh
         spack env activate gcc${{ matrix.gcc_ver }}
         spack load $(spack find --format "{name}")
+        export crtm_DIR="$(spack location -i crtm)/cmake/crtm"
+        test -f "${crtm_DIR}/crtm-config.cmake"
         cd ${GITHUB_WORKSPACE}/ufsatm
         mkdir ${GITHUB_WORKSPACE}/build
         cd ${GITHUB_WORKSPACE}/build
