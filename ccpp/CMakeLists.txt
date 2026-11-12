@@ -272,9 +272,16 @@ ccpp_validator(VERBOSITY ${CCPP_VERBOSITY}
                TYPE "HOST")
 
 if(CCPP_32BIT)
-  message(STATUS "Compile CCPP slow physics with 32-bit precision")
-  set(CCPP_KINDS "kind_phys=REAL32")
+  set(KIND_PHYS "REAL32")
+else()
+  set(KIND_PHYS "REAL64")
 endif()
+if(32BIT)
+  set(KIND_DYN "REAL32")
+else()
+  set(KIND_DYN "REAL64")
+endif()
+ccpp_kinds(CCPP_KINDS KIND_PHYS ${KIND_PHYS} KIND_DYN ${KIND_DYN})
 
 #------------------------------------------------------------------------------
 # Run ccpp_capgen_ng
@@ -302,6 +309,11 @@ set(CAPGEN_FILES ${CCPP_FILES})
 message(STATUS "List of capgen dependencies: ${CAPGEN_DEPENDENCIES}")
 message(STATUS "List of filtered scheme files: ${SCHEME_FORTRAN_FILES}")
 message(STATUS "List of capgen-generated files: ${CAPGEN_FILES}")
+
+#------------------------------------------------------------------------------
+# TEMPO microphysics: take kinds from ccpp_kinds
+#------------------------------------------------------------------------------
+add_definitions(-Dtempo_ccpp)
 
 #------------------------------------------------------------------------------
 # Set compile options for either 32/64bit physics build
