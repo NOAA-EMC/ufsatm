@@ -5390,6 +5390,9 @@ module GFS_typedefs
     Model%bl_mynn_mixnumcon = bl_mynn_mixnumcon
     Model%bl_mynn_diags2d   = bl_mynn_diags2d
     Model%bl_mynn_diags3d   = bl_mynn_diags3d
+    Model%bl_mynn_mixqt     = bl_mynn_mixqt
+    Model%bl_mynn_edmf_dd   = bl_mynn_edmf_dd
+    Model%bl_mynn_ess       = bl_mynn_ess
     Model%bl_mynn_tkeadvect = bl_mynn_tkeadvect
     Model%bl_mynn_closure   = bl_mynn_closure
     Model%tke_budget        = tke_budget
