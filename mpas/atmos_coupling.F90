@@ -121,7 +121,7 @@ contains
                 end if
              end do
              
-             ! Air denisty (rho) (TODO: Pass to CCPP Physics)
+             ! Air density (rho) (TODO: Pass to CCPP Physics)
              rho(iCol,iLay) = zz(iLay,iCol) * rho_zz(iLay,iCol)
 
              ! Potential temperature (theta_m -> theta)
@@ -135,15 +135,12 @@ contains
              statein % vgrs(iCol,iLay)   = uy(iLay,iCol)
 
              ! Layer geopotential and height. CCPP geopotential is relative to the
-             ! model surface (FV3: get_phi_fv3 sets phii(:,1) = 0), so subtract the
-             ! terrain height zgrid(1,:). Schemes use phil/g as height above ground
-             ! (e.g. drag_suite TOFD: zl**(-1.2) -> NaN where the absolute height
-             ! is <= 0, i.e. land below sea level).
-             statein % phil(iCol,iLay)   = (0.5*(zgrid(iLay+1,iCol)+zgrid(iLay,iCol)) - zgrid(1,iCol))*gravity !(m -> m2/s2)
+             ! model surface, so subtract the terrain height.
+             statein % phil(iCol,iLay)   = (0.5*(zgrid(iLay+1,iCol)+zgrid(iLay,iCol)) - zgrid(1,iCol))*gravity
              statein % zgrid(iCol,iLay)  = 0.5*(zgrid(iLay+1,iCol)+zgrid(iLay,iCol))
 
-             ! Level geopotential (surface-relative) and height.
-             statein % phii(iCol,iLay)   = (zgrid(iLay,iCol) - zgrid(1,iCol))*gravity !(m -> m2/s2)
+             ! Level geopotential and height.
+             statein % phii(iCol,iLay)   = (zgrid(iLay,iCol) - zgrid(1,iCol))*gravity
              statein % zigrid(iCol,iLay) = zgrid(iLay,iCol)
 
              ! Layer thickness.
@@ -156,7 +153,7 @@ contains
              statein % vvl(iCol,iLay) =  -0.5*(w(iLay,iCol) + w(iLay+1,iCol))*rho(iCol,iLay)*gravity
           end do
           do iLay = nVertLevels,nVertLevels+1
-             statein % phii(iCol,iLay)     = (zgrid(iLay,iCol) - zgrid(1,iCol))*gravity !(m -> m2/s2)
+             statein % phii(iCol,iLay)     = (zgrid(iLay,iCol) - zgrid(1,iCol))*gravity
              statein % zigrid(iCol,iLay)   = zgrid(iLay,iCol)
              statein % dzgrid(iCol,iLay-1) = zgrid(iLay,iCol) - zgrid(iLay-1,iCol)
           end do
