@@ -40,6 +40,7 @@ contains
     use mpas_derived_types,  only : MPAS_STREAM_MGR_NOERR, MPAS_LOG_ERR
     use mpas_derived_types,  only : mpas_pool_type, mpas_Clock_type, block_type
     use mpas_derived_types,  only : MPAS_TimeInterval_type, MPAS_Time_Type
+    use mpas_derived_types,  only : field3dReal
     use mpas_timekeeping,    only : mpas_set_time
     use mpas_kind_types,     only : StrKIND, RKIND
     use mpas_derived_types,  only : MPAS_STREAM_LATEST_BEFORE
@@ -48,8 +49,9 @@ contains
     use mpas_timekeeping,    only : mpas_get_clock_time, MPAS_NOW
     use mpas_pool_routines,  only : mpas_pool_get_config, mpas_pool_get_subpool
     use mpas_pool_routines,  only : mpas_pool_shift_time_levels, mpas_pool_get_array
-    use mpas_pool_routines,  only : mpas_pool_get_dimension
-    use module_mpas_config,  only : lbc_filename, pioid_lbc, pio_subsystem_lbc
+    use mpas_pool_routines,  only : mpas_pool_get_dimension, mpas_pool_get_field
+    use module_mpas_config,  only : pioid_lbc
+    use pio, only : pio_inq_dimid, pio_inq_dimlen, pio_noerr, pio_inq_varid
 
     implicit none
 
@@ -103,7 +105,10 @@ contains
     character(len=StrKIND) :: read_time
     integer :: iEdge, iCell, k, j
     integer :: cell1, cell2
-
+    integer :: dimid, nRecFile, pio_ierr
+    type (field3dReal), pointer :: lbc_scalars_field
+    real (kind=RKIND), dimension(:,:,:), pointer :: state_scalars, lbc_scalars_prev
+    integer :: varid
 
     ierr = 0
 
@@ -111,6 +116,18 @@ contains
     call mpas_pool_get_subpool(block % structs, 'state', state)
     call mpas_pool_get_subpool(block % structs, 'lbc', lbc)
 
+    ! Check if forecast out ran the LBC forcing window.
+    ! If so, exit model with error.
+    pio_ierr = pio_inq_dimid(pioid_lbc, 'Time', dimid)
+    if (pio_ierr == pio_noerr) pio_ierr = pio_inq_dimlen(pioid_lbc, dimid, nRecFile)
+    if (pio_ierr /= pio_noerr) then
+       call mpas_log_write('Could not determine the number of records in the LBC file', messageType=MPAS_LOG_CRIT)
+    else if (nRecord > nRecFile) then
+       call mpas_log_write('LBC file has $i records but record $i is needed: '// &
+            'the forecast runs past the end of the LBC data', intArgs=[nRecFile, nRecord], messageType=MPAS_LOG_CRIT)
+    end if
+
+    read_time = 'UNSET'
     if (firstCall) then
        call dyn_mpas_read_write_stream(clock, 'r', 'lbc_in', pio_file_desc=pioid_lbc, ierr=ierr, timeLevel=2, &
             whence = MPAS_STREAM_LATEST_BEFORE, actualWhen=read_time, nRecord=nRecord, debug=debug)
@@ -133,6 +150,11 @@ contains
        return
     end if
 
+    ! Display current LBC file time.
+    do j = 1, len(read_time)
+       if (iachar(read_time(j:j)) < 32) read_time(j:j) = ' '
+    end do
+    call mpas_log_write('LBC record time read from file: "'//trim(read_time)//'"')
     call mpas_set_time(currTime, dateTimeString=trim(read_time))
     
     !
@@ -147,6 +169,30 @@ contains
     call mpas_pool_get_array(lbc, 'lbc_rho_zz', rho_zz, 2)
     call mpas_pool_get_array(lbc, 'lbc_rho', rho, 2)
     call mpas_pool_get_array(lbc, 'lbc_scalars', scalars, 2)
+
+    !
+    ! Special treatment for rtacers with no data in the LBC file
+    ! hold the boundary at the model's initial values.
+    ! Then at first call: copy from the model state.
+    ! And at later calls: carry the previous values forward,
+    ! so the boundary tendency for these tracers is zero.
+    !
+    call mpas_pool_get_field(lbc, 'lbc_scalars', lbc_scalars_field, 2)
+    call mpas_pool_get_array(state, 'scalars', state_scalars, 1)
+    call mpas_pool_get_array(lbc, 'lbc_scalars', lbc_scalars_prev, 1)
+    do j = 1, size(scalars, 1)
+       pio_ierr = pio_inq_varid(pioid_lbc, trim(lbc_scalars_field % constituentNames(j)), varid)
+       if (pio_ierr /= pio_noerr) then
+          if (firstCall) then
+             scalars(j,:,:) = state_scalars(j,:,:)
+             call mpas_log_write('No LBC data for '//trim(lbc_scalars_field % constituentNames(j))// &
+                                 ': boundary held at initial values')
+          else
+             scalars(j,:,:) = lbc_scalars_prev(j,:,:)
+          end if
+       end if
+    end do
+    
 
     call mpas_pool_get_array(mesh, 'cellsOnEdge', cellsOnEdge)
     call mpas_pool_get_dimension(mesh, 'nCells', nCells_ptr)
@@ -300,7 +346,6 @@ contains
     type (block_type), pointer :: blockList
     integer, intent(out) :: ierr
 
-    character(len=StrKIND) :: input_interval
     logical, pointer :: config_apply_lbcs => null()
     integer, pointer :: nCellsSolve => null()
     type (mpas_pool_type), pointer :: meshPool => null()
