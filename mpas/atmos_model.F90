@@ -442,7 +442,6 @@ contains
     endif
     stop_time = MPI_Wtime()
     radClock = radClock + (stop_time - start_time)
-    
     ! Call CCPP Physics Group
     start_time = MPI_Wtime()
     call CCPP_step (step="physics", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
