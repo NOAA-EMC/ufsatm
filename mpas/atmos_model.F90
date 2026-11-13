@@ -56,6 +56,7 @@ module atmos_model_mod
   public :: atmos_model_microphysics
   public :: atmos_model_dynamics
   public :: update_atmos_model_state
+  public :: atmos_model_output
 
   !> #########################################################################################
   !> Type containing information on MPAS enabled UFSATM forecast.
@@ -468,7 +469,7 @@ contains
     type (atmos_control_type), intent(inout) :: Atmos
 
     ! Call MPAS dycore
-    call ufs_mpas_run(mpasClock, outClock, debug, phys_diag)
+    call ufs_mpas_run(mpasClock, debug)
 
   end subroutine atmos_model_dynamics
 
@@ -521,6 +522,21 @@ contains
     Atmos % CurrTime = Atmos % CurrTime + Atmos % TimeStep
 
   end subroutine update_atmos_model_state
+
+  !> #########################################################################################
+  !> Procedure to call MPAS native I/O procedures.
+  !>
+  !> #########################################################################################
+  subroutine atmos_model_output(Atmos)
+    use ufs_mpas_io,        only : ufs_mpas_phys_diag
+    use ufs_mpas_subdriver, only : ufs_mpas_write_streams
+    type (atmos_control_type), intent(inout) :: Atmos
+    character(len=*), parameter :: subname = 'atmos_model::atmos_model_output'
+    if (.not. dycore_only) then
+       call ufs_mpas_phys_diag(statein, control, radiation, diag, tbd, surface)
+    endif
+    call ufs_mpas_write_streams(outClock, debug, phys_diag)
+  end subroutine atmos_model_output
 
   !> ########################################################################################
   !> Procedure to parse constituents.XML file.

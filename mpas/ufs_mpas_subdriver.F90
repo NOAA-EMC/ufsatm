@@ -41,6 +41,7 @@ module ufs_mpas_subdriver
 
   public :: ufs_mpas_init
   public :: ufs_mpas_run
+  public :: ufs_mpas_write_streams
 
   logical :: init_lbc    = .true.
   integer :: nRecord_lbc = 1
@@ -549,7 +550,7 @@ contains
   !> Loop over dynamical time-step(s) and increment MPAS state (timelevel 1->2)
   !>
   !> #########################################################################################
-  subroutine ufs_mpas_run(mpasClock, outClock, debug, phys_diag)
+  subroutine ufs_mpas_run(mpasClock, debug)
     ! MPAS
     use atm_core,             only : atm_do_timestep, atm_compute_output_diagnostics
     use mpas_domain_routines, only : mpas_pool_get_dimension
@@ -564,8 +565,8 @@ contains
     use mpas_timekeeping,     only : mpas_set_timeInterval, operator(+), operator(.LT.), operator(.GT.), operator(.LE.), operator(.EQ.)
     use mpas_stochastic_physics, only : stochastic_physics_pattern_adv
     ! Arguments
-    real(kind=R8KIND), intent(inout) :: mpasClock,outClock
-    logical, intent(in   ) :: debug, phys_diag
+    real(kind=R8KIND), intent(inout) :: mpasClock
+    logical, intent(in   ) :: debug
     ! Locals
     character(len=*), parameter :: subname = 'ufs_mpas_run::ufs_mpas_run'
     real (kind=RKIND), pointer :: config_dt
@@ -686,47 +687,57 @@ contains
     stop_time = MPI_Wtime()
     mpasClock = mpasCLock + + (stop_time - start_time)
 
-    !
-    ! Compute diagnostic fields  (theta, rho, pres) from
-    ! the final prognostic state (theta_m, rho_zz, zz)
-    !
+  end subroutine ufs_mpas_run
+
+  !> #########################################################################################
+  !> Procedure  to write MPAS output/diag_phys/restart streams
+  !>
+  !> #########################################################################################
+  subroutine ufs_mpas_write_streams(outClock, debug, phys_diag)
+    use atm_core,           only : atm_compute_output_diagnostics
+    use mpas_derived_types, only : mpas_Time_type, mpas_pool_type
+    use mpas_kind_types,    only : StrKIND, R8KIND
+    use mpas_pool_routines, only : mpas_pool_get_subpool
+    use mpas_timekeeping,   only : mpas_get_clock_time, mpas_NOW, operator(.EQ.)
+    real(kind=R8KIND), intent(inout) :: outClock
+    logical,           intent(in   ) :: debug, phys_diag
+    character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_write_streams'
+    type (mpas_pool_type), pointer :: state, diag, mesh
+    type (mpas_Time_type) :: timeNow
+    character(len=StrKIND) :: timeStampOutFile
+    integer :: ierr
+    real(kind=R8KIND) :: start_time, stop_time
+
+    start_time = MPI_Wtime()
+
+    ! Diagnostic fields (theta, rho, pressure) from the final prognostic state
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', state)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'diag',  diag)
     call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'mesh',  mesh)
     call atm_compute_output_diagnostics(state, 1, diag, mesh)
 
-    !
-    ! Write any output streams
-    !
-    start_time = MPI_Wtime()
-    call mpas_get_time(curr_time=timeStop, dateTimeString=timeStamp, ierr=ierr)
-    if ( ierr /= 0 ) then
-       call mpas_log_write(subname // ' Failed to get time timeStop"',messageType=MPAS_LOG_CRIT)
-    end if
-    call create_file_timeStamp(timeStop,timeStampOutFile)
+    timeNow = mpas_get_clock_time(clock, mpas_NOW, ierr=ierr)
+    if (ierr /= 0) call mpas_log_write(subname // ' Failed to get clock_time for "mpas_NOW"', messageType=MPAS_LOG_CRIT)
+    call create_file_timeStamp(timeNow, timeStampOutFile)
 
     ! Output stream
-    if (timeStop .EQ. mpas_output_times(out_file_index)) then
-       call ufs_mpas_write("output",    timeStampOutFile, debug)
-       if (phys_diag) then
-          call ufs_mpas_write("diag_phys", timeStampOutFile, debug)
-       end if
+    if (timeNow .EQ. mpas_output_times(out_file_index)) then
+       call ufs_mpas_write("output", timeStampOutFile, debug)
+       if (phys_diag) call ufs_mpas_write("diag_phys", timeStampOutFile, debug)
        out_file_index = out_file_index + 1
     end if
 
     ! Restart stream
     if (allocated(mpas_restart_times)) then
-       if (timeStop .EQ. mpas_restart_times(restart_file_index)) then
+       if (timeNow .EQ. mpas_restart_times(restart_file_index)) then
           call ufs_mpas_write("restart", timeStampOutFile, debug)
           restart_file_index = restart_file_index + 1
        end if
     end if
 
-    ! Stop timer outClock
     stop_time = MPI_Wtime()
     outClock = outClock + (stop_time - start_time)
-
-  end subroutine ufs_mpas_run
+  end subroutine ufs_mpas_write_streams
 
   !> #########################################################################################
   !> Procedure to read MPAS namelist(s).

@@ -13,7 +13,8 @@ module module_fcst_grid_comp
   use atmos_model_mod,    only: dycore_only
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
-                                atmos_model_microphysics, update_atmos_model_state
+                                atmos_model_microphysics, update_atmos_model_state,         &
+                                atmos_model_output
   use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar,             &
                                 pio_subsystem_lbc, pio_subsystem_output, pio_subsystem_oro, &
                                 pio_subsystem_ic, pio_stride, pio_numiotasks,               &
@@ -334,7 +335,8 @@ contains
        call atmos_model_dynamics (Atmos)
        call atmos_model_microphysics (Atmos)
     endif
-    
+    call atmos_model_output (Atmos)
+
     ! Timing info (debug mode)
     if (mype == 0) write(*,'(A,I16,A,F16.6)')'PASS(fcstRUN phase 1), n_atmsteps = ', &
                                                n_atmsteps,' time is ',mpi_wtime()-tbeg1
