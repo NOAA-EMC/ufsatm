@@ -366,10 +366,12 @@ contains
     integer :: ierr
     character(len=*), parameter :: subname = 'atmos_model::atmos_model_end'
 
-    ! Finalize the CCPP physics.
-    call CCPP_step (step="final", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
-    if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP final step failed",messageType=MPAS_LOG_CRIT)
-
+    ! Finalize the CCPP physics (not for dycore only simulations).
+    if (.not. dycore_only) then
+       call CCPP_step (step="final", nblks=Atmos % nblks, ierr=ierr, dycore='mpas')
+       if (ierr/=0) call mpas_log_write(subname // " ERROR: Call to CCPP final step failed",messageType=MPAS_LOG_CRIT)
+    endif
+    
     call mpas_log_write('------------------------------------------------------------------')
     call mpas_log_write('UFSATM-MPAS Timing Information (seconds):')
     call mpas_log_write('Total runtime:             '// stringify([setupClock+atmiClock+radClock+physClock+mpasClock+mpClock+outClock]))
