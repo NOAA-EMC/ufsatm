@@ -64,7 +64,7 @@ module module_mpas_config
   character(len=256) :: lbc_filename=""
 
   !> MPAS GWD file
-  character(len=256) :: oro_filename=""
+  character(len=256) :: oro_filename="none"
 
   !> MPAS stream_list files (i.e. runtime contol over which fields to write)
   character(len=256) :: stream_list_history=""
