@@ -106,7 +106,6 @@ contains
     use ufs_mpas_subdriver,     only : ufs_mpas_init
     use ufs_mpas_io,            only : ufs_mpas_open_init, ufs_mpas_open_lbc, ufs_mpas_open_oro
     use ufs_mpas_io,            only : ufs_mpas_read_stream_lists, ufs_mpas_landuse_read
-    use ufs_mpas_io,            only : use_mpas_slopedata_read
     use atmos_coupling_mod,     only : ufs_mpas_to_physics, ufs_mpas_grid_to_physics, ufs_mpas_sfc_to_physics
     use atmos_coupling_mod,     only : ufs_mpas_landuse_update, ufs_mpas_gwd_to_physics, ufs_mpas_surface_update
     use atmos_coupling_mod,     only : ufs_mpas_reference_pressure
@@ -321,9 +320,6 @@ contains
     call ESMF_TimeGet(CurrTime, dayOfYear=doyc, rc=rc)
     call ufs_mpas_landuse_update(doyc)
     doyc = -999
-
-    !> Read RUC LSM slope data.
-    call use_mpas_slopedata_read(mpicomm, me, master)
 
     ! Populate UFSATM data containers with MPAS "input" stream. We need to do this becuase
     ! we are calling the physics before the MPAS dynamical core.
