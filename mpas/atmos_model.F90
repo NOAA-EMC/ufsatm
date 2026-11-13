@@ -617,7 +617,7 @@ contains
        ivar = ivar + 1
        if (trim(water_species) == "yes") then
           is_water_species(ivar) = .true.
-          constituent_type(ivar) = 1
+          constituent_type(ivar) = 0
        end if
        constituent_name(ivar) = trim(name)
 
