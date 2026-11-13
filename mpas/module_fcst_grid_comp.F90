@@ -111,6 +111,27 @@ contains
     tbeg1 = mpi_wtime()
 
     !
+    ! Forecast-component VM: rank and communicator of the forecast tasks only.
+    ! (With quilting, the parent atmosphere communicator also contains the write
+    !  tasks, which never enter this routine, so PIO must not be initialized on it.)
+    !
+    call ESMF_VMGetCurrent(vm=vm,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+    call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
+                    petCount=fcst_ntasks, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (mype == 0) write(*,*)'in fcst_initialize, fcst_ntasks=',fcst_ntasks
+
+    !
+    ! The cap validated the PIO layout against the full atmosphere PET count;
+    ! re-validate it against the forecast tasks before initializing PIO.
+    !
+    call fcst_check_pio_layout(fcst_ntasks)
+    if (mype == 0) write(*,'(A,4I6)') 'in fcst_initialize, PIO root/stride/numiotasks/rearranger = ', &
+         pio_root, pio_stride, pio_numiotasks, pio_rearranger
+
+    !
     ! Initialize PIO
     !
     allocate(pio_subsystem_ic)
@@ -122,14 +143,6 @@ contains
     allocate(pio_subsystem_output)
     call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_output, base=pio_root)
     
-    call ESMF_VMGetCurrent(vm=vm,rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    call ESMF_VMGet(vm=vm, localPet=mype, mpiCommunicator=fcst_mpi_comm%mpi_val, &
-                    petCount=fcst_ntasks, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    if (mype == 0) write(*,*)'in fcst_initialize, fcst_ntasks=',fcst_ntasks
-
     CF = ESMF_ConfigCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -410,4 +423,42 @@ contains
     if (mype == 0) write(*,*)'PASS(fcst_finalize): total is ', mpi_wtime() - tbeg1
     
   end subroutine fcst_finalize
+
+  ! ###########################################################################################
+  ! Make the PIO I/O-task layout valid for a communicator of ntasks tasks.
+  ! Same rules as ufsatm_cap.F90 InitializeAdvertise, which validates against the
+  ! full atmosphere PET count (forecast + write tasks).
+  ! ###########################################################################################
+  subroutine fcst_check_pio_layout(ntasks)
+    use pio, only: PIO_IOTYPE_PNETCDF, PIO_IOTYPE_NETCDF4P
+    use module_mpas_config, only: pio_iotype
+    integer, intent(in) :: ntasks
+
+    if (pio_root < 0 .or. pio_root > ntasks-1) pio_root = min(1, ntasks-1)
+
+    ! parallel I/O requires at least two I/O tasks
+    if (ntasks > 1 .and. pio_numiotasks == 1 .and. &
+        (pio_iotype == PIO_IOTYPE_PNETCDF .or. pio_iotype == PIO_IOTYPE_NETCDF4P)) then
+       pio_numiotasks = 2
+       pio_stride     = max(1, min(pio_stride, ntasks/2))
+    endif
+
+    if (pio_root + pio_stride*(pio_numiotasks-1) >= ntasks .or. &
+        pio_stride <= 0 .or. pio_numiotasks <= 0) then
+       if (ntasks < 100) then
+          pio_stride = max(1, ntasks/4)
+       else if (ntasks < 1000) then
+          pio_stride = max(1, ntasks/8)
+       else
+          pio_stride = max(1, ntasks/16)
+       end if
+       if (pio_stride > 1) then
+          pio_numiotasks = ntasks/pio_stride
+          pio_root       = min(1, ntasks-1)
+       else
+          pio_numiotasks = ntasks
+          pio_root       = 0
+       end if
+    end if
+  end subroutine fcst_check_pio_layout
 end module  module_fcst_grid_comp
