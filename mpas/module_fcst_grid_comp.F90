@@ -14,10 +14,13 @@ module module_fcst_grid_comp
   use atmos_model_mod,    only: atmos_model_init, atmos_model_end, atmos_control_type
   use atmos_model_mod,    only: atmos_model_radiation_physics, atmos_model_dynamics,        &
                                 atmos_model_microphysics, update_atmos_model_state
-  use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar
+  use module_mpas_config, only: dt_atmos, fcst_mpi_comm, fcst_ntasks, calendar,             &
+                                pio_subsystem_lbc, pio_subsystem_output, pio_subsystem_oro, &
+                                pio_subsystem_ic, pio_stride, pio_numiotasks,               &
+                                pio_rearranger, pio_root
   use CCPP_data,          only: GFS_control
-  use mpas_log,            only : mpas_log_write
-  use mpas_derived_types,  only : MPAS_LOG_CRIT
+  use mpas_log,           only: mpas_log_write
+  use mpas_derived_types, only: MPAS_LOG_CRIT
 
   implicit none
   private
@@ -86,6 +89,7 @@ contains
   ! Initialize the ESMF forecast grid component.
   ! #########################################################################################
   subroutine fcst_initialize(fcst_comp, importState, exportState, clock, rc)
+    use pio, only: pio_init
     type(esmf_GridComp)                    :: fcst_comp
     type(ESMF_State)                       :: importState, exportState
     type(esmf_Clock)                       :: clock
@@ -105,6 +109,18 @@ contains
     
     ! Timing info (debug mode)
     tbeg1 = mpi_wtime()
+
+    !
+    ! Initialize PIO
+    !
+    allocate(pio_subsystem_ic)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_ic, base=pio_root)
+    allocate(pio_subsystem_oro)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_oro, base=pio_root)
+    allocate(pio_subsystem_lbc)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_lbc, base=pio_root)
+    allocate(pio_subsystem_output)
+    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_output, base=pio_root)
     
     call ESMF_VMGetCurrent(vm=vm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return

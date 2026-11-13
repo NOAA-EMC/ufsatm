@@ -109,6 +109,8 @@ module module_mpas_config
   integer :: pio_ioformat
   integer :: pio_stride
   integer :: pio_numiotasks
+  integer :: pio_rearranger
+  integer :: pio_root
   logical :: pio_subsystem_output_file_created = .false.
   integer :: pio_subsystem_output_record = 1
   integer, parameter :: TIMELEVEL_NOW = 1 ! current time
