@@ -734,6 +734,8 @@ contains
   !> The namelist for MPAS are described in MPAS-Model/src/core_atmosphere/Registry.xml, this
   !> is also where the default values defined below originate.
   !>
+  !> DJS: We should parse the MPAS Registry file before reading in the namelist, and set the
+  !>      defualts then. Below the defaults are hardcoded. 
   !> #########################################################################################
   subroutine read_mpas_namelist(nml_file,configPool, mpicomm, master, me)
     use mpi_f08,            only: MPI_Comm, MPI_CHARACTER, MPI_INTEGER, MPI_REAL8,  MPI_LOGICAL
@@ -793,10 +795,10 @@ contains
     logical                 :: mpas_rayleigh_damp_u                = .false.
     real(r8)                :: mpas_rayleigh_damp_u_timescale_days = 5.0_r8
     integer                 :: mpas_number_rayleigh_damp_u_levels  = 6
-    real(r8)                :: mpas_epssm_minimum                  = 0.1
-    real(r8)                :: mpas_epssm_maximum                  = 0.5
-    real(r8)                :: mpas_epssm_transition_bottom_z      = 30000.
-    real(r8)                :: mpas_epssm_transition_top_z         = 50000.
+    real(r8)                :: mpas_epssm_minimum                  = 0.1_r8
+    real(r8)                :: mpas_epssm_maximum                  = 0.5_r8
+    real(r8)                :: mpas_epssm_transition_bottom_z      = 30000._r8
+    real(r8)                :: mpas_epssm_transition_top_z         = 50000._r8
     ! Namelist limited_area
     logical                 :: mpas_apply_lbcs                     = .false.
     character (len=StrKIND) :: mpas_lbc_w                          = "zero"
@@ -823,22 +825,22 @@ contains
     logical                 :: mpas_do_sppt                        = .false.
     logical                 :: mpas_do_skeb                        = .false.
     integer                 :: mpas_spptint                        = 0
-    real(r8)                :: mpas_sppt_1                         = 0.0
-    real(r8)                :: mpas_sppt_2                         = 0.0
-    real(r8)                :: mpas_sppt_3                         = 0.0
-    real(r8)                :: mpas_sppt_tau_1                     = 21600.
-    real(r8)                :: mpas_sppt_tau_2                     = 86400.
-    real(r8)                :: mpas_sppt_tau_3                     = 21600.
-    real(r8)                :: mpas_sppt_lscale_1                  = 500000.
-    real(r8)                :: mpas_sppt_lscale_2                  = 1000000.
-    real(r8)                :: mpas_sppt_lscale_3                  = 2000000.
+    real(r8)                :: mpas_sppt_1                         = 0.0_r8
+    real(r8)                :: mpas_sppt_2                         = 0.0_r8
+    real(r8)                :: mpas_sppt_3                         = 0.0_r8
+    real(r8)                :: mpas_sppt_tau_1                     = 21600._r8
+    real(r8)                :: mpas_sppt_tau_2                     = 86400._r8
+    real(r8)                :: mpas_sppt_tau_3                     = 21600._r8
+    real(r8)                :: mpas_sppt_lscale_1                  = 500000._r8
+    real(r8)                :: mpas_sppt_lscale_2                  = 1000000._r8
+    real(r8)                :: mpas_sppt_lscale_3                  = 2000000._r8
     logical                 :: mpas_sppt_logit                     = .true.
     logical                 :: mpas_sppt_sfclimit                  = .true.
     character (len=StrKIND) :: mpas_iseed_sppt1                    = '2026010112001'
     character (len=StrKIND) :: mpas_iseed_sppt2                    = '0'
     character (len=StrKIND) :: mpas_iseed_sppt3                    = '0'
-    real(r8)                :: mpas_sppt_hgt_top1                  = 15000
-    real(r8)                :: mpas_sppt_hgt_top2                  = 27000
+    real(r8)                :: mpas_sppt_hgt_top1                  = 15000._r8
+    real(r8)                :: mpas_sppt_hgt_top2                  = 27000._r8
     logical                 :: mpas_stochini                       = .false.
 
     namelist /mpas_nhyd_model/ mpas_time_integration, mpas_time_integration_order, mpas_dt,   &
@@ -1051,7 +1053,7 @@ contains
     call mpas_pool_add_config(configPool, 'config_w_adv_order',                    mpas_w_adv_order)
     call mpas_pool_add_config(configPool, 'config_theta_adv_order',                mpas_theta_adv_order)
     call mpas_pool_add_config(configPool, 'config_scalar_adv_order',               mpas_scalar_adv_order)
-    call mpas_pool_add_config(configPool, 'config_h_scalar_filter4',               real(mpas_h_scalar_filter4))
+    call mpas_pool_add_config(configPool, 'config_h_scalar_filter4',               real(mpas_h_scalar_filter4,kind=RKIND))
     call mpas_pool_add_config(configPool, 'config_scalar_eddy_mix',                mpas_scalar_eddy_mix)
     call mpas_pool_add_config(configPool, 'config_u_vadv_order',                   mpas_u_vadv_order)
     call mpas_pool_add_config(configPool, 'config_w_vadv_order',                   mpas_w_vadv_order)
@@ -1075,10 +1077,10 @@ contains
     call mpas_pool_add_config(configPool, 'config_rayleigh_damp_u',                mpas_rayleigh_damp_u)
     call mpas_pool_add_config(configPool, 'config_rayleigh_damp_u_timescale_days', real(mpas_rayleigh_damp_u_timescale_days,kind=RKIND))
     call mpas_pool_add_config(configPool, 'config_number_rayleigh_damp_u_levels',  mpas_number_rayleigh_damp_u_levels)
-    call mpas_pool_add_config(configPool, 'config_epssm_minimum',                  real(mpas_epssm_minimum))
-    call mpas_pool_add_config(configPool, 'config_epssm_maximum',                  real(mpas_epssm_maximum))
-    call mpas_pool_add_config(configPool, 'config_epssm_transition_bottom_z',      real(mpas_epssm_transition_bottom_z))
-    call mpas_pool_add_config(configPool, 'config_epssm_transition_top_z',         real(mpas_epssm_transition_top_z))
+    call mpas_pool_add_config(configPool, 'config_epssm_minimum',                  real(mpas_epssm_minimum,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_epssm_maximum',                  real(mpas_epssm_maximum,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_epssm_transition_bottom_z',      real(mpas_epssm_transition_bottom_z,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_epssm_transition_top_z',         real(mpas_epssm_transition_top_z,kind=RKIND))
     !
     call mpas_pool_add_config(configPool, 'config_apply_lbcs',                     mpas_apply_lbcs)
     call mpas_pool_add_config(configPool, 'config_lbc_w',                          mpas_lbc_w)
@@ -1105,22 +1107,22 @@ contains
     call mpas_pool_add_config(configPool, 'do_sppt',                               mpas_do_sppt)
     call mpas_pool_add_config(configPool, 'do_skeb',                               mpas_do_skeb)
     call mpas_pool_add_config(configPool, 'config_spptint',                        mpas_spptint)
-    call mpas_pool_add_config(configPool, 'config_sppt_1',                         real(mpas_sppt_1))
-    call mpas_pool_add_config(configPool, 'config_sppt_2',                         real(mpas_sppt_2))
-    call mpas_pool_add_config(configPool, 'config_sppt_3',                         real(mpas_sppt_3))
-    call mpas_pool_add_config(configPool, 'config_sppt_tau_1',                     real(mpas_sppt_tau_1))
-    call mpas_pool_add_config(configPool, 'config_sppt_tau_2',                     real(mpas_sppt_tau_2))
-    call mpas_pool_add_config(configPool, 'config_sppt_tau_3',                     real(mpas_sppt_tau_3))
-    call mpas_pool_add_config(configPool, 'config_sppt_lscale_1',                  real(mpas_sppt_lscale_1))
-    call mpas_pool_add_config(configPool, 'config_sppt_lscale_2',                  real(mpas_sppt_lscale_2))
-    call mpas_pool_add_config(configPool, 'config_sppt_lscale_3',                  real(mpas_sppt_lscale_3))
+    call mpas_pool_add_config(configPool, 'config_sppt_1',                         real(mpas_sppt_1,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_2',                         real(mpas_sppt_2,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_3',                         real(mpas_sppt_3,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_1',                     real(mpas_sppt_tau_1,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_2',                     real(mpas_sppt_tau_2,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_tau_3',                     real(mpas_sppt_tau_3,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_1',                  real(mpas_sppt_lscale_1,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_2',                  real(mpas_sppt_lscale_2,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_lscale_3',                  real(mpas_sppt_lscale_3,kind=RKIND))
     call mpas_pool_add_config(configPool, 'config_sppt_logit',                     mpas_sppt_logit)
     call mpas_pool_add_config(configPool, 'config_sppt_sfclimit',                  mpas_sppt_sfclimit)
     call mpas_pool_add_config(configPool, 'config_iseed_sppt1',                    mpas_iseed_sppt1)
     call mpas_pool_add_config(configPool, 'config_iseed_sppt2',                    mpas_iseed_sppt2)
     call mpas_pool_add_config(configPool, 'config_iseed_sppt3',                    mpas_iseed_sppt3)
-    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top1',                  real(mpas_sppt_hgt_top1))
-    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top2',                  real(mpas_sppt_hgt_top2))
+    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top1',                  real(mpas_sppt_hgt_top1,kind=RKIND))
+    call mpas_pool_add_config(configPool, 'config_sppt_hgt_top2',                  real(mpas_sppt_hgt_top2,kind=RKIND))
     call mpas_pool_add_config(configPool, 'config_stochini',                       mpas_stochini)
     
     ! Set some configuration parameters that cannot be changed by UFSATM. *From CAM src/dynamics/mpas/dyn_comp.F90*
