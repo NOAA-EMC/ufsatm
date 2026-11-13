@@ -413,7 +413,7 @@ contains
 
     ! Update surface properties for this day? (doyc is set to -999 in init to trigger here)
     call ESMF_TimeGet(Atmos%CurrTime, dayOfYear=doy, rc=rc)
-    if ((doy .gt. doyc) .or. doyc==-999) then
+    if (doy /= doyc) then
        call ESMF_TimeGet(Atmos%CurrTime, MM=moy, rc=rc)
        call ESMF_TimeGet(Atmos%CurrTime, DD=dom, rc=rc)
        call ufs_mpas_surface_update(dom, moy, control, surface)
