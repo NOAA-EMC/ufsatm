@@ -1629,8 +1629,8 @@ module GFS_typedefs
     integer              :: nseffr          !< the index of snow effective radius in phy_f3d
     integer              :: ngeffr          !< the index of graupel effective radius in phy_f3d
     integer              :: nkbfshoc        !< the index of upward kinematic buoyancy flux from SHOC in phy_f3d
-    integer              :: nahdshoc        !< the index of diffusivity for heat from from SHOC in phy_f3d
-    integer              :: nscfshoc        !< the index of subgrid-scale cloud fraction from from SHOC in phy_f3d
+    integer              :: nahdshoc        !< the index of diffusivity for heat from SHOC in phy_f3d
+    integer              :: nscfshoc        !< the index of subgrid-scale cloud fraction from SHOC in phy_f3d
     integer              :: nT2delt         !< the index of air temperature 2 timesteps back for Z-C MP in phy_f3d
     integer              :: nTdelt          !< the index of air temperature at the previous timestep for Z-C MP in phy_f3d
     integer              :: nqv2delt        !< the index of specific humidity 2 timesteps back for Z-C MP in phy_f3d
@@ -6666,8 +6666,8 @@ module GFS_typedefs
 
     if (Model%do_shoc) then
       Model%nkbfshoc = Model%ntot3d   !< the index of upward kinematic buoyancy flux from SHOC in phy_f3d
-      Model%nahdshoc = Model%ntot3d-1 !< the index of diffusivity for heat from from SHOC in phy_f3d
-      Model%nscfshoc = Model%ntot3d-2 !< the index of subgrid-scale cloud fraction from from SHOC in phy_f3d
+      Model%nahdshoc = Model%ntot3d-1 !< the index of diffusivity for heat from SHOC in phy_f3d
+      Model%nscfshoc = Model%ntot3d-2 !< the index of subgrid-scale cloud fraction from SHOC in phy_f3d
     else
       Model%nkbfshoc = -999
       Model%nahdshoc = -999

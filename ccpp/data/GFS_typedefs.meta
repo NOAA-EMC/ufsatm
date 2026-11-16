@@ -7326,13 +7326,13 @@
   type = integer
 [nahdshoc]
   standard_name = index_of_atmosphere_heat_diffusivity_in_xyz_dimensioned_restart_array
-  long_name = the index of diffusivity for heat from from SHOC in phy_f3d
+  long_name = the index of diffusivity for heat from SHOC in phy_f3d
   units = index
   dimensions = ()
   type = integer
 [nscfshoc]
-  standard_name = index_of_subgrid_cloud_area_fracation_in_atmosphere_layer_in_xyz_dimensioned_restart_array
-  long_name = the index of subgrid-scale cloud fraction from from SHOC in phy_f3d
+  standard_name = index_of_subgrid_cloud_area_fraction_in_atmosphere_layer_in_xyz_dimensioned_restart_array
+  long_name = the index of subgrid-scale cloud fraction from SHOC in phy_f3d
   units = index
   dimensions = ()
   type = integer
@@ -8689,14 +8689,14 @@
   type = real
   kind = kind_phys
   active = (index_of_atmosphere_heat_diffusivity_in_xyz_dimensioned_restart_array > 0)
-[phy_f3d(:,:,index_of_subgrid_cloud_area_fracation_in_atmosphere_layer_in_xyz_dimensioned_restart_array)]
+[phy_f3d(:,:,index_of_subgrid_cloud_area_fraction_in_atmosphere_layer_in_xyz_dimensioned_restart_array)]
   standard_name = subgrid_scale_cloud_fraction_from_shoc
   long_name = subgrid-scale cloud fraction from the SHOC scheme
   units = frac
   dimensions = (horizontal_dimension,vertical_layer_dimension)
   type = real
   kind = kind_phys
-  active = (index_of_subgrid_cloud_area_fracation_in_atmosphere_layer_in_xyz_dimensioned_restart_array > 0)
+  active = (index_of_subgrid_cloud_area_fraction_in_atmosphere_layer_in_xyz_dimensioned_restart_array > 0)
 [phy_f3d(:,:,index_of_cloud_area_fraction_in_atmosphere_layer_in_xyz_dimensioned_restart_array)]
   standard_name = cloud_fraction_for_MG
   long_name = cloud fraction used by Morrison-Gettelman MP
