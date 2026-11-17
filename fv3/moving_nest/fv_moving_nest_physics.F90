@@ -279,7 +279,7 @@ contains
         !  TODO figure out what ifd should be for sea ice
 
         ! ICEFIX
-        ! ccpp/physics/physics/Interstitials/UFS_SCM_NEPTUNE/sfcsub.F
+        ! ccpp/physics/physics/Interstitials/UFS_SCM_NEPTUNE/sfcsub.F90
         !     sli .. land/sea/sea-ice mask. (1/0/2 respectively)
         ! Seems to be slimsk
 
