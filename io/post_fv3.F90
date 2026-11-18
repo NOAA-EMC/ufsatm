@@ -3865,8 +3865,8 @@ module post_fv3
               enddo
             endif
 
-! for GFDL MP or Thompson MP
-            if (imp_physics == 11 .or. imp_physics == 8) then
+! for GFDL MP, Thompson MP, or TEMPO MP
+            if (imp_physics == 11 .or. imp_physics == 8 .or. imp_physics == 88) then
               ! model level cloud water mixing ratio
               if(trim(fieldname)=='clwmr') then
                 !$omp parallel do default(none) private(i,j,l) shared(lm,jsta,jend,ista,iend,qqw,arrayr43d,fillvalue,spval)
@@ -3951,7 +3951,7 @@ module post_fv3
                 enddo
               endif
 
-              if(imp_physics == 8) then
+              if(imp_physics == 8 .or. imp_physics == 88) then
               ! model level rain water number
               if(trim(fieldname)=='rain_nc') then
                 !$omp parallel do default(none) private(i,j,l) shared(lm,jsta,jend,ista,iend,qqnr,arrayr43d,spval,fillvalue)
@@ -4017,9 +4017,9 @@ module post_fv3
                 enddo
               endif
 
-              endif !if(imp_physics == 8) then
+              endif !if(imp_physics == 8 .or. imp_physics == 88) then
 
-            endif !if(imp_physics == 11 .or. imp_physics == 8) then
+            endif !if(imp_physics == 11 .or. imp_physics == 8 .or. imp_physics == 88) then
 
             ! model level ref3d
             if(trim(fieldname)=='ref3D') then
