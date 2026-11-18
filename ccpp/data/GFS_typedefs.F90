@@ -3411,7 +3411,7 @@ module GFS_typedefs
 
     !--- needed for Tempo's aerosol option
     if((Model%imp_physics == Model%imp_physics_tempo) .and. &
-         (Model%ltaerosol)) then
+         (Model%ltaerosol .or. Model%mraerosol)) then
       allocate (Coupling%nwfa2d (IM))
       allocate (Coupling%nifa2d (IM))
       Coupling%nwfa2d   = clear_val
