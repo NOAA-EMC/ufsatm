@@ -6582,6 +6582,22 @@ module GFS_typedefs
         print *,' Thompson MP requires effr_in to be set to .true. - job aborted'
         stop
       end if
+      if (Model%imp_physics == Model%imp_physics_tempo) then
+        ! mp_tempo requires the prognostic tracers for the selected options;
+        ! without them it would write to absent optional arguments
+        if ((Model%ltaerosol .or. Model%mraerosol) .and. &
+            (Model%ntlnc <= 0 .or. Model%ntwa <= 0 .or. Model%ntia <= 0)) then
+          print *,' TEMPO MP with ltaerosol or mraerosol requires the cloud droplet number,', &
+                  ' water-friendly and ice-friendly aerosol tracers (e.g. water_nc, liq_aero,', &
+                  ' ice_aero) in the field table - job aborted'
+          stop
+        end if
+        if (Model%lthailaware .and. (Model%ntgnc <= 0 .or. Model%ntgv <= 0)) then
+          print *,' TEMPO MP with lthailaware requires the graupel number and graupel volume', &
+                  ' tracers (e.g. graupel_nc, graupel_vol) in the field table - job aborted'
+          stop
+        end if
+      end if
       if (Model%me == Model%master) print *,' Using Thompson/TEMPO double moment microphysics', &
                                           ' ltaerosol = ',Model%ltaerosol, &
                                           ' mraerosol = ',Model%mraerosol, &
