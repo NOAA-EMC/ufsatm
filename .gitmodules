@@ -8,12 +8,12 @@
   branch = feature/capgen-v1
 [submodule "ccpp/physics"]
   path = ccpp/physics
-  url = https://github.com/ufs-community/ccpp-physics
-  branch = ufs/dev
+	url = https://github.com/AndersJensen-NOAA/ccpp-physics
+	branch = claude/tender-bell-y5ueuy
 [submodule "upp"]
   path = upp
-  url = https://github.com/NOAA-EMC/UPP
-  branch = develop
+	url = https://github.com/AndersJensen-NOAA/UPP
+	branch = claude/tender-bell-y5ueuy
 [submodule "mpas/MPAS-Model"]
   path = mpas/MPAS-Model
   url = https://github.com/ufs-community/MPAS-Model.git
