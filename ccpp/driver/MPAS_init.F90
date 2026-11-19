@@ -3,7 +3,7 @@
 !>
 ! ###########################################################################################
 module MPAS_init
-  use machine,            only : kind_phys
+  use ccpp_kinds,            only : kind_phys
   use ufs_mpas_subdriver, only : MPAS_control_type
   use GFS_typedefs,       only : GFS_control_type, GFS_diag_type, GFS_grid_type, GFS_tbd_type
   use GFS_typedefs,       only : GFS_sfcprop_type, GFS_statein_type, GFS_stateout_type, GFS_cldprop_type
