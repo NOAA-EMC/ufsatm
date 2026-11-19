@@ -253,9 +253,9 @@ module GFS_diagnostics
     
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'DSWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos downward shortwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'DSWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos downward shortwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -263,9 +263,9 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'USWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos upward shortwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'USWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos upward shortwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'
@@ -273,9 +273,9 @@ module GFS_diagnostics
 
     idx = idx + 1
     ExtDiag(idx)%axes = 2
-    ExtDiag(idx)%name = 'ULWRFItoa'
-    ExtDiag(idx)%desc = 'instantaneous top of atmos upward longwave flux'
-    ExtDiag(idx)%unit = 'W/m**2'
+    ExtDiag(idx)%name = 'ULWRFtoa_acc'
+    ExtDiag(idx)%desc = 'accumulated top of atmos upward longwave flux'
+    ExtDiag(idx)%unit = 'J/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_one
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -905,15 +905,10 @@ module GFS_diagnostics
 !rab      ExtDiag(idx)%data%var2 => IntDiag%uswcmp(:,num)
 !rab    enddo
 
-! DH gfortran cannot point to members of arrays of derived types such
-! as IntDiag(1)%topfsw(:)%upfxc (the compilation succeeds, but the
-! pointers do not reference the correct data and the output either
-! contains garbage (Inf, NaN), or the netCDF I/O layer crashes.
-#ifndef __GFORTRAN__
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_upfxc'
-    ExtDiag(idx)%desc = 'total sky upward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky upward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -922,7 +917,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_dnfxc'
-    ExtDiag(idx)%desc = 'total sky downward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky downward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -931,7 +926,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'sw_upfx0'
-    ExtDiag(idx)%desc = 'clear sky upward sw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous clear sky upward sw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -940,7 +935,7 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'lw_upfxc'
-    ExtDiag(idx)%desc = 'total sky upward lw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous total sky upward lw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
@@ -949,12 +944,11 @@ module GFS_diagnostics
     idx = idx + 1
     ExtDiag(idx)%axes = 2
     ExtDiag(idx)%name = 'lw_upfx0'
-    ExtDiag(idx)%desc = 'clear sky upward lw flux at toa - GFS radiation'
+    ExtDiag(idx)%desc = 'instantaneous clear sky upward lw flux at toa - GFS radiation'
     ExtDiag(idx)%unit = 'W/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%intpl_method = 'bilinear'    
     ExtDiag(idx)%data%var2 => IntDiag%topflw(:)%upfx0
-#endif
 
 !--- physics accumulated diagnostics ---
     idx = idx + 1
@@ -1417,6 +1411,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%frzr(:)
 
     idx = idx + 1
@@ -1426,6 +1421,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%frzrb(:)
 
     idx = idx + 1
@@ -1435,6 +1431,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%frozr(:)
 
     idx = idx + 1
@@ -1444,6 +1441,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%frozrb(:)
 
     idx = idx + 1
@@ -1453,6 +1451,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%tsnowp(:)
 
     idx = idx + 1
@@ -1462,6 +1461,7 @@ module GFS_diagnostics
     ExtDiag(idx)%unit = 'kg/m**2'
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%tsnowpb(:)
 
     idx = idx + 1
@@ -1478,6 +1478,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'total rain at this time step'
     ExtDiag(idx)%unit = 'XXX'
     ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%rain(:)
 
     idx = idx + 1
@@ -1486,6 +1487,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'convective rain at this time step'
     ExtDiag(idx)%unit = 'XXX'
     ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%rainc(:)
 
     idx = idx + 1
@@ -1494,6 +1496,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'ice fall at this time step'
     ExtDiag(idx)%unit = 'XXX'
     ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%ice(:)
 
     idx = idx + 1
@@ -1502,6 +1505,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'snow fall at this time step'
     ExtDiag(idx)%unit = 'XXX'
     ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%snow(:)
 
     idx = idx + 1
@@ -1510,6 +1514,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'graupel fall at this time step'
     ExtDiag(idx)%unit = 'XXX'
     ExtDiag(idx)%mod_name = 'gfs_phys'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%graupel(:)
 
     idx = idx + 1
@@ -1521,6 +1526,7 @@ module GFS_diagnostics
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
     ExtDiag(idx)%time_avg_kind = 'full'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%totice(:)
 
     idx = idx + 1
@@ -1531,6 +1537,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%toticeb(:)
 
     idx = idx + 1
@@ -1542,6 +1549,7 @@ module GFS_diagnostics
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
     ExtDiag(idx)%time_avg_kind = 'full'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%totsnw(:)
 
     idx = idx + 1
@@ -1552,6 +1560,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%totsnwb(:)
 
     idx = idx + 1
@@ -1563,6 +1572,7 @@ module GFS_diagnostics
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
     ExtDiag(idx)%time_avg_kind = 'full'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%totgrp(:)
 
     idx = idx + 1
@@ -1573,6 +1583,7 @@ module GFS_diagnostics
     ExtDiag(idx)%mod_name = 'gfs_phys'
     ExtDiag(idx)%cnvfac = cn_th
     ExtDiag(idx)%time_avg = .TRUE.
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => IntDiag%totgrpb(:)
 
     if(associated(Coupling%sfcdlw)) then
@@ -3104,6 +3115,7 @@ module GFS_diagnostics
     ExtDiag(idx)%desc = 'total time-step precipitation'
     ExtDiag(idx)%unit = 'm'
     ExtDiag(idx)%mod_name = 'gfs_sfc'
+    ExtDiag(idx)%intpl_method = 'bilinear'
     ExtDiag(idx)%data%var2 => Sfcprop%tprcp(:)
 
     idx = idx + 1
