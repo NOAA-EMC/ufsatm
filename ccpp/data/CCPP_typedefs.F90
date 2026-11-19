@@ -5,7 +5,7 @@ module CCPP_typedefs
 !!
 
     ! Physics kind defininitions needed for interstitial DDTs
-    use machine,  only: kind_grid, kind_dyn, kind_phys
+    use ccpp_kinds,  only: kind_grid, kind_dyn, kind_phys
 
     ! Constants/dimensions needed for interstitial DDTs
     use GFS_typedefs,             only: clear_val, LTP

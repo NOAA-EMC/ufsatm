@@ -1,6 +1,6 @@
 module GFS_init
 
-  use machine,                  only: kind_phys
+  use ccpp_kinds,                  only: kind_phys
   use GFS_typedefs,             only: GFS_init_type,                       &
                                       GFS_statein_type, GFS_stateout_type, &
                                       GFS_sfcprop_type, GFS_coupling_type, &

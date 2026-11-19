@@ -6,7 +6,7 @@ module GFS_diagnostics
 !    use by the modeling system for output
 !-----------------------------------------------------------------------
 
-  use machine,            only: kind_phys
+  use ccpp_kinds,            only: kind_phys
 
   !--- GFS_typedefs ---
   use GFS_typedefs,       only: GFS_control_type,  GFS_statein_type,  &
