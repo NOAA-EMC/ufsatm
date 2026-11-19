@@ -3,7 +3,7 @@
   name = MPAS_typedefs
   type = module
   dependencies_path = ../physics/physics/
-  dependencies = hooks/machine.F
+  dependencies =
 
 [ccpp-arg-table]
   name = MPAS_typedefs

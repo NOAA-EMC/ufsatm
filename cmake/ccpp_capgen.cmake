@@ -160,6 +160,39 @@ function(ccpp_validator)
 endfunction()
 
 
+# Comma-separated kind mappings for ccpp_kinds.F90, to be passed as KIND_SPECS
+# to ccpp_capgen. Provides the kind names of the legacy machine.F module.
+#
+# Usage:
+#   ccpp_kinds(OUT_VAR KIND_PHYS <REAL32|REAL64> KIND_DYN <REAL32|REAL64>)
+#
+# KIND_PHYS      - Precision of the (slow) physics; kind_io8 follows kind_phys
+# KIND_DYN       - Precision of the dynamics and fast physics
+function(ccpp_kinds OUT_VAR)
+  set(oneValueArgs KIND_PHYS KIND_DYN)
+  cmake_parse_arguments(arg "" "${oneValueArgs}" "" ${ARGN})
+
+  foreach(kind IN ITEMS KIND_PHYS KIND_DYN)
+    if(NOT arg_${kind} MATCHES "^REAL(32|64)$")
+      message(FATAL_ERROR "function(ccpp_kinds): ${kind} must be REAL32 or REAL64, got '${arg_${kind}}'.")
+    endif()
+  endforeach()
+
+  set(kind_specs
+      "kind_phys=${arg_KIND_PHYS}"
+      "kind_io8=${arg_KIND_PHYS}"
+      "kind_dyn=${arg_KIND_DYN}"
+      "kind_grid=REAL64"
+      "kind_sngl_prec=REAL32"
+      "kind_dbl_prec=REAL64"
+      "kind_io4=REAL32"
+      "kind_integer=INT32"
+      "kind_logical=INT32")
+  list(JOIN kind_specs "," kind_specs)
+  set(${OUT_VAR} "${kind_specs}" PARENT_SCOPE)
+endfunction()
+
+
 # CMake wrapper for ccpp_capgen.py
 #
 # TRACE          - ON/OFF (Default: OFF) - Add --trace flag to capgen call
