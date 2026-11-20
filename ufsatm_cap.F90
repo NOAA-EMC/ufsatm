@@ -36,13 +36,12 @@ module ufsatm_cap_mod
                                     cplprint_flag, first_kdt
 #endif
 #ifdef MPAS
-  use module_mpas_config,     only: output_fh, dt_atmos, calendar,           &
+  use module_mpas_config,     only: output_fh, dt_atmos, calendar,pio_stride,&
                                     fcst_mpi_comm, pio_ioformat, pio_iotype, &
-                                    pio_subsystem_ic, pio_stride, pio_subsystem_lbc, &
-                                    pio_subsystem_output, &
                                     pio_numiotasks, pio_iodesc, cpl_grid_id, &
                                     cplprint_flag, first_kdt, quilting,      &
-                                    quilting_restart
+                                    quilting_restart, pio_rearranger,        &
+                                    pio_root
   use module_mpas_config,     only: mpas_output_times, mpas_restart_times
 #endif
   use module_fv3_io_def,      only: num_pes_fcst,write_groups,               &
@@ -213,7 +212,7 @@ module ufsatm_cap_mod
 
   subroutine InitializeAdvertise(gcomp, rc)
 #ifdef MPAS
-    use pio, only: pio_init, pio_setdebuglevel
+    use pio, only: pio_setdebuglevel
     use pio, only: PIO_REARR_BOX, PIO_REARR_SUBSET
     use pio, only: PIO_64BIT_OFFSET, PIO_64BIT_DATA
     use pio, only: PIO_IOTYPE_NETCDF, PIO_IOTYPE_PNETCDF
@@ -272,8 +271,6 @@ module ufsatm_cap_mod
     character(len=20)                      :: cvalue
     character(ESMF_MAXSTR)                 :: output_grid
     ! PIO
-    integer                                :: pio_root
-    integer                                :: pio_rearranger
     integer                                :: pio_debug_level
     logical                                :: needs_dst_mask
     logical                                :: top_parent_is_global
@@ -472,16 +469,6 @@ module ufsatm_cap_mod
        cvalue = 'SUBSET'
        pio_rearranger = PIO_REARR_SUBSET
     end if
-
-    ! Initialize PIO
-    allocate(pio_subsystem_ic)
-    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_ic, base=pio_root)
-    allocate(pio_subsystem_lbc)
-    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, pio_rearranger, pio_subsystem_lbc, base=pio_root)
-
-    allocate(pio_subsystem_output)
-    call pio_init(mype, fcst_mpi_comm%mpi_val, pio_numiotasks, 0, pio_stride, &
-         pio_rearranger, pio_subsystem_output, base=pio_root)
 
     ! PIO debug related options
     ! pio_debug_level

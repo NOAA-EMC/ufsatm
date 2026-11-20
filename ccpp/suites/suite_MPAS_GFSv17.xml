@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<suite name="MPAS_RRFS" version="1.0">
+<suite name="MPAS_GFSv17" version="1.0">
   <group name="time_vary">
     <subcycle loop="1">
       <scheme>GFS_time_vary_pre</scheme>
@@ -22,7 +22,21 @@
     </subcycle>
   </group>
   <group name="physics">
+    <subcycle loop="1">
+      <scheme>GFS_suite_interstitial_1</scheme>
+      <scheme>dcyc2t3</scheme>
+      <scheme>GFS_photochemistry</scheme>
+      <scheme>GFS_photochemistry_post</scheme>
+      <scheme>ugwpv1_gsldrag</scheme>
+      <scheme>ugwpv1_gsldrag_post</scheme>
+      <scheme>GFS_GWD_generic_post</scheme>
+    </subcycle>
   </group>
   <group name="microphysics">
+    <subcycle loop="1">
+      <scheme>mp_tempo</scheme>
+      <scheme>mp_tempo_post</scheme>
+      <scheme>GFS_MP_generic_post</scheme>
+     </subcycle>
   </group>
 </suite>
