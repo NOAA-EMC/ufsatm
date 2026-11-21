@@ -168,7 +168,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: def_3 (:,:)   => null()  !< deformation
 !SA-3D-TKE-end
 ! dissipation estimate
-    real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< model layer mean temperature in k
+    real (kind=kind_phys), pointer :: diss_est(:,:)   => null()  !< dissipation estimate model layer mean temperature
     ! soil state variables - for soil SPPT - sfc-perts, mgehne
     real (kind=kind_phys), pointer :: smc (:,:)   => null()  !< soil moisture content
     real (kind=kind_phys), pointer :: stc (:,:)   => null()  !< soil temperature content
@@ -861,7 +861,7 @@ module GFS_typedefs
     integer              :: ntrcaer         !< number of aerosol tracers for Morrison-Gettelman microphysics
     logical              :: lmfshal         !< parameter for radiation
     logical              :: lmfdeep2        !< parameter for radiation
-    integer              :: nrcm            !< second dimension of random number stream for RAS
+    integer              :: nrcm            !< second dimension of random number stream
     integer              :: iflip           !< iflip - is not the same as flipv
     integer              :: isol            !< use prescribed solar constant
                                             !< 0  => fixed value=1366.0\f$W/m^2\f$(old standard)
@@ -1637,8 +1637,8 @@ module GFS_typedefs
     integer              :: nseffr          !< the index of snow effective radius in phy_f3d
     integer              :: ngeffr          !< the index of graupel effective radius in phy_f3d
     integer              :: nkbfshoc        !< the index of upward kinematic buoyancy flux from SHOC in phy_f3d
-    integer              :: nahdshoc        !< the index of diffusivity for heat from from SHOC in phy_f3d
-    integer              :: nscfshoc        !< the index of subgrid-scale cloud fraction from from SHOC in phy_f3d
+    integer              :: nahdshoc        !< the index of diffusivity for heat from SHOC in phy_f3d
+    integer              :: nscfshoc        !< the index of subgrid-scale cloud fraction from SHOC in phy_f3d
     integer              :: nT2delt         !< the index of air temperature 2 timesteps back for Z-C MP in phy_f3d
     integer              :: nTdelt          !< the index of air temperature at the previous timestep for Z-C MP in phy_f3d
     integer              :: nqv2delt        !< the index of specific humidity 2 timesteps back for Z-C MP in phy_f3d
@@ -1872,7 +1872,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dtotprcp  (:)    => null()  !< change in totprcp  (diag_type)
     real (kind=kind_phys), pointer :: dcnvprcp  (:)    => null()  !< change in cnvprcp  (diag_type)
     real (kind=kind_phys), pointer :: drain_cpl (:)    => null()  !< change in rain_cpl (coupling_type)
-    real (kind=kind_phys), pointer :: dsnow_cpl (:)    => null()  !< change in show_cpl (coupling_type)
+    real (kind=kind_phys), pointer :: dsnow_cpl (:)    => null()  !< change in snow_cpl (coupling_type)
 
 !--- phy_f*d variables needed for seamless restarts and moving data between grrad and gbphys
     real (kind=kind_phys), pointer :: phy_fctd (:,:)   => null()  !< cloud base mass flux for CS convection
@@ -2322,7 +2322,7 @@ module GFS_typedefs
 
     ! Auxiliary output arrays for debugging
     real (kind=kind_phys), pointer :: aux2d(:,:)  => null()    !< auxiliary 2d arrays in output (for debugging)
-    real (kind=kind_phys), pointer :: aux3d(:,:,:)=> null()    !< auxiliary 2d arrays in output (for debugging)
+    real (kind=kind_phys), pointer :: aux3d(:,:,:)=> null()    !< auxiliary 3d arrays in output (for debugging)
 
     !--- Lightning threat indices
     real (kind=kind_phys), pointer :: ltg1_max(:)        => null()  !
@@ -2556,7 +2556,7 @@ module GFS_typedefs
     Sfcprop%lakefrac  = clear_val
     Sfcprop%lakedepth = clear_val
 
-    Sfcprop%use_lake_model = zero
+    Sfcprop%use_lake_model = 0
     if(Model%lkm > 0) then
       if(Model%iopt_lake==Model%iopt_lake_clm) then
         Sfcprop%clm_lakedepth = clear_val
@@ -2643,18 +2643,18 @@ module GFS_typedefs
     allocate (Sfcprop%hflx       (IM))
     allocate (Sfcprop%qss        (IM))
 
-    Sfcprop%slope      = zero
-    Sfcprop%slope_save = zero
+    Sfcprop%slope      = 0
+    Sfcprop%slope_save = 0
     Sfcprop%shdmin     = clear_val
     Sfcprop%shdmax     = clear_val
     Sfcprop%tg3        = clear_val
     Sfcprop%vfrac      = clear_val
-    Sfcprop%vtype      = zero
-    Sfcprop%vtype_save = zero
-    Sfcprop%stype      = zero
-    Sfcprop%stype_save = zero
-    Sfcprop%scolor      = zero
-    Sfcprop%scolor_save = zero
+    Sfcprop%vtype      = 0
+    Sfcprop%vtype_save = 0
+    Sfcprop%stype      = 0
+    Sfcprop%stype_save = 0
+    Sfcprop%scolor      = 0
+    Sfcprop%scolor_save = 0
     Sfcprop%uustar     = clear_val
     Sfcprop%oro        = clear_val
     Sfcprop%oro_uf     = clear_val
@@ -3008,8 +3008,8 @@ module GFS_typedefs
        Sfcprop%lake_icefrac3d = clear_val
        Sfcprop%lake_rho0 = -111
        Sfcprop%lake_ht = -111
-       Sfcprop%lake_is_salty = zero
-       Sfcprop%lake_cannot_freeze = zero
+       Sfcprop%lake_is_salty = 0
+       Sfcprop%lake_cannot_freeze = 0
        Sfcprop%clm_lake_initialized = zero
     endif
 
@@ -6730,8 +6730,8 @@ module GFS_typedefs
 
     if (Model%do_shoc) then
       Model%nkbfshoc = Model%ntot3d   !< the index of upward kinematic buoyancy flux from SHOC in phy_f3d
-      Model%nahdshoc = Model%ntot3d-1 !< the index of diffusivity for heat from from SHOC in phy_f3d
-      Model%nscfshoc = Model%ntot3d-2 !< the index of subgrid-scale cloud fraction from from SHOC in phy_f3d
+      Model%nahdshoc = Model%ntot3d-1 !< the index of diffusivity for heat from SHOC in phy_f3d
+      Model%nscfshoc = Model%ntot3d-2 !< the index of subgrid-scale cloud fraction from SHOC in phy_f3d
     else
       Model%nkbfshoc = -999
       Model%nahdshoc = -999
@@ -7196,7 +7196,7 @@ module GFS_typedefs
         print *, ' lfnc_p0            : ', Model%lfnc_p0
         print *, ' doGP_lwscat        : ', Model%doGP_lwscat
         print *, ' doGP_sgs_cnv       : ', Model%doGP_sgs_cnv
-        print *, ' doGP_sgs_mynn      : ', Model%doGP_sgs_cnv
+        print *, ' doGP_sgs_mynn      : ', Model%doGP_sgs_mynn
         print *, ' doGP_smearclds     : ', Model%doGP_smearclds
         print *, ' iovr_convcld       : ', Model%iovr_convcld
         print *, ' rrtmgp_sw_phys_blksz  : ', Model%rrtmgp_sw_phys_blksz
@@ -7763,8 +7763,6 @@ module GFS_typedefs
     endif
 
 !--- DFI radar forcing
-    nullify(Tbd%dfi_radar_tten)
-    nullify(Tbd%cap_suppress)
     if(Model%num_dfi_radar>0) then
        allocate (Tbd%dfi_radar_tten(IM,Model%levs,Model%num_dfi_radar))
        Tbd%dfi_radar_tten = -20.0

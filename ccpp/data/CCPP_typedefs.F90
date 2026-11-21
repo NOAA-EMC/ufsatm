@@ -25,7 +25,6 @@ module CCPP_typedefs
     integer, parameter :: NF_CLDS = 9
     ! from module_radiation_gases
     integer, parameter :: NF_VGAS = 10
-    ! from module_radiation_surface
 
     ! GFS_interstitial_type         !< fields required to replace interstitial code in GFS_{physics,radiation}_driver.F90 in CCPP
     public GFS_interstitial_type
@@ -1611,7 +1610,7 @@ contains
     Interstitial%ten_u           = clear_val
     Interstitial%ten_v           = clear_val
     Interstitial%theta           = clear_val
-    Interstitial%tkeh            = 0
+    interstitial%tkeh = clear_val
     Interstitial%tlvl            = clear_val
     Interstitial%tlyr            = clear_val
     Interstitial%tprcp_ice       = Model%huge
@@ -2086,4 +2085,3 @@ contains
   end subroutine gfdl_interstitial_print
 
 end module CCPP_typedefs
-
