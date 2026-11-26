@@ -278,6 +278,7 @@ if (MPAS)
   add_definitions(-DMPAS_PIO_SUPPORT)
   add_definitions(-DMPAS_UFS_DYCORE)
   add_definitions(-DSINGLE_PRECISION)
+  set(MPAS_UFS_DYCORE TRUE)
 
   # Source files for MPAS dynamical core drivers.
   set(MPAS_MAIN_SRC      ${CMAKE_CURRENT_SOURCE_DIR}/mpas/MPAS-Model/src/driver/mpas.F)
@@ -297,6 +298,7 @@ if (MPAS)
     mpas/ufs_mpas_tools.F90
     mpas/ufs_mpas_subdriver.F90
     mpas/ufs_mpas_io.F90
+    mpas/ezxml_mod.F90
     mpas/ufs_mpas_boundaries.F90
     mpas/ufs_mpas_constituents.F90
     ${coupling_srcs}

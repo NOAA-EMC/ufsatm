@@ -14,7 +14,8 @@ module ufs_mpas_constituents
   public
 
   ! These are setup during ATM initialization.
-  character(StrKIND), allocatable :: constituent_name(:)
+  integer, allocatable :: constituent_type(:)
+  character(len=32), allocatable :: constituent_name(:)
   integer, allocatable :: index_constituent_to_mpas_scalar(:)
   integer, allocatable :: index_mpas_scalar_to_constituent(:)
   logical, allocatable :: is_water_species(:)
@@ -177,8 +178,72 @@ contains
 
        do j = 2, size(constituent_name)
           scalarsField % constituentNames(j) = trim(constituent_name(mpas_from_ufs_cnst(j)))
+          if (scalarsField % constituentNames(j) == 'qc') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qc', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud water mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'qr') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Rain mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'qi') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qi', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Ice mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'qs') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qs', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Snow mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'qg') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_qg', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Graupel mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'nc') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_nc', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud droplet number concentration')
+          elseif (scalarsField % constituentNames(j) == 'nr') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_nr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud rain number concentration')
+          elseif (scalarsField % constituentNames(j) == 'ni') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_ni', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud ice number concentration')
+          elseif (scalarsField % constituentNames(j) == 'ns') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_ns', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud snow number concentration')
+          elseif (scalarsField % constituentNames(j) == 'ng') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_ng', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Cloud graupel number concentration')
+          elseif (scalarsField % constituentNames(j) == 'nifa') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_nifa', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Nonhygroscopic ice-nucleating aerosol number concentration')
+          elseif (scalarsField % constituentNames(j) == 'nwfa') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_nwfa', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Nonhygroscopic aerosol number concentration')
+          elseif (scalarsField % constituentNames(j) == 'o3mr') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_o3mr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'ozone mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'sgs_tke') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_sgs_tke', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'm^2 s^{-2}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'subgrid scale turbulent kinetic energy')
+          elseif (scalarsField % constituentNames(j) == 'sigmab') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_sigmab', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'fraction')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'sigma fraction')
+          elseif (scalarsField % constituentNames(j) == 'cld_amt') then
+            if (i == 1) call mpas_pool_add_dimension(statePool, 'index_cld_amt', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', '1')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'cloud amount')
+          end if
        end do
-
     end do
 
     call mpas_pool_add_dimension(statePool, 'moist_start', 1)
@@ -235,6 +300,71 @@ contains
 
        do j = 2, size(constituent_name)
           scalarsField % constituentNames(j) = 'tend_'//trim(constituent_name(mpas_from_ufs_cnst(j)))
+          if (scalarsField % constituentNames(j) == 'tend_qc') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qc', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud water mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_qr') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of rain mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_qi') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qi', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of ice mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_qs') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qs', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of snow mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_qg') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_qg', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of graupel mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_nc') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_nc', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud droplet number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_nr') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_nr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud rain number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_ni') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_ni', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud ice number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_ns') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_ns', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud snow number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_ng') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_ng', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of cloud graupel number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_nifa') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_nifa', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of nonhygroscopic ice-nucleating aerosol number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_nwfa') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_nwfa', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'Tendency of nonhygroscopic aerosol number concentration')
+          elseif (scalarsField % constituentNames(j) == 'tend_o3mr') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_o3mr', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'kg kg^{-1} s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'tendency of ozone mixing ratio')
+          elseif (scalarsField % constituentNames(j) == 'tend_sgs_tke') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_sgs_tke', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'm^2 s^{-3}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'tendency of subgrid scale turbulent kinetic energy')
+          elseif (scalarsField % constituentNames(j) == 'tend_sigmab') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_sigmab', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 'fraction s^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'tendency of sigma fraction')
+          elseif (scalarsField % constituentNames(j) == 'tend_cld_amt') then
+            if (i == 1) call mpas_pool_add_dimension(tendPool, 'index_cld_amt', j)
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'units', 's^{-1}')
+            call mpas_add_att(scalarsField % attLists(j) % attList, 'long_name', 'tendency of cloud amount')
+          end if
        end do
     end do
 
@@ -264,8 +394,8 @@ contains
 
     ! Local variables
     character(len=*), parameter :: subname = 'ufs_mpas_subdriver::ufs_mpas_define_lbc_scalars'
-    type (mpas_pool_type), pointer :: lbcPool
-    integer, pointer :: num_scalars
+    type (mpas_pool_type), pointer :: lbcPool, statePool
+    integer, pointer :: num_scalars, moist_end_ptr
     integer :: i, j, timeLevs, num_moist
     type (field3dReal), pointer :: scalarsField
 
@@ -318,10 +448,10 @@ contains
 
     end do
 
-    ! Define lbc_scalars_tend
-    ! DJS: No need to do this for LBCs. Tendency/State for LBC stored in LBC pool created
-    !      in ufs_mpas_update_bdy_tend()
-
+    !
+    call mpas_pool_get_subpool(domain_ptr % blocklist % structs, 'state', statePool)
+    call mpas_pool_get_dimension(statePool, 'moist_end', moist_end_ptr)
+    num_moist = moist_end_ptr
     call mpas_pool_add_dimension(lbcPool, 'moist_start', 1)
     call mpas_pool_add_dimension(lbcPool, 'moist_end', num_moist)
 
