@@ -33,6 +33,9 @@
   !> Flag to decide if write grid component writes out restart files
   logical                  :: quilting_restart
 
+  !> Flag to decide if Atmosphere ends FMS and diag manager
+  logical                  :: fv3_end_fms_diag
+
 
   !> Output frequency if this array has only two elements and the value of
   !>  the second eletment is -1. Otherwise, it is the specific output forecast

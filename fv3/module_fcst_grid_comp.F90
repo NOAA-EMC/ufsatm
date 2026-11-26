@@ -64,7 +64,7 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
   use module_fv3_config,  only: dt_atmos, fcst_mpi_comm, fcst_ntasks,      &
                                 quilting, quilting_restart,                &
                                 calendar, cpl_grid_id,                     &
-                                cplprint_flag
+                                cplprint_flag, fv3_end_fms_diag
 
   use get_stochy_pattern_mod, only: write_stoch_restart_atm
   use module_cplfields,       only: nExportFields, exportFields, exportFieldsInfo, &
@@ -1658,9 +1658,12 @@ if (rc /= ESMF_SUCCESS) write(0,*) 'rc=',rc,__FILE__,__LINE__; if(ESMF_LogFoundE
 
       call atmos_model_end (Atmos)
 
-      call diag_manager_end (Atmos%Time)
-
-      call fms_end
+      if (fv3_end_fms_diag) then
+        call diag_manager_end(Atmos%Time)
+        call fms_end
+      else
+        if (mype == 0) write(*,*) 'fcst_finalize NOT ending FMS or diag manager'
+      end if
 
       if (mype == 0) write(*,*)'fcst_finalize total time: ', mpi_wtime() - tbeg1
 !

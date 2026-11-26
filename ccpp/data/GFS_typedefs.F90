@@ -823,6 +823,7 @@ module GFS_typedefs
     logical              :: cplcat          !< default no cplcat collection
     logical              :: cplchm          !< default no cplchm collection
     logical              :: cpllnd          !< default no cpllnd collection
+    logical              :: cpllm4          !< default no cpllm4 collection
     logical              :: cpllnd2atm      !< default no lnd->atm coupling
     logical              :: rrfs_sd         !< default no rrfs_sd collection
     logical              :: cpl_fire        !< default no fire_behavior collection
@@ -3372,6 +3373,21 @@ module GFS_typedefs
       Coupling%slmsk_cpl   = clear_val  !< pointer to sfcprop%slmsk
     endif
 
+    ! -- Outgoing SW needed for coupling with LM4 
+
+    ! already allocated if cplflx or cpl_fire
+    if ( (Model%cpllm4 .and. Model%cpllnd2atm) .and. .not.(Model%cplflx .or. Model%cpl_fire) ) then
+      allocate (Coupling%dnirbmi_cpl (IM))
+      allocate (Coupling%dnirdfi_cpl (IM))
+      allocate (Coupling%dvisbmi_cpl (IM))
+      allocate (Coupling%dvisdfi_cpl (IM))
+
+      Coupling%dnirbmi_cpl = clear_val
+      Coupling%dnirdfi_cpl = clear_val
+      Coupling%dvisbmi_cpl = clear_val
+      Coupling%dvisdfi_cpl = clear_val    
+    end if  
+
     ! -- Coupling options to retrive land fluxes from external land component
     if (Model%cpllnd .and. Model%cpllnd2atm) then
       allocate (Coupling%sncovr1_lnd (IM))
@@ -3680,6 +3696,7 @@ module GFS_typedefs
     logical              :: cplcat         = .false.         !< default no cplcat collection
     logical              :: cplchm         = .false.         !< default no cplchm collection
     logical              :: cpllnd         = .false.         !< default no cpllnd collection
+    logical              :: cpllm4         = .false.         !< default no cpllm4 collection
     logical              :: cpllnd2atm     = .false.         !< default no cpllnd2atm coupling
     logical              :: rrfs_sd        = .false.         !< default no rrfs_sd collection
     logical              :: cpl_fire       = .false.         !< default no fire behavior colleciton
@@ -4387,7 +4404,7 @@ module GFS_typedefs
                                tend_opt_mp, tend_opt_stoch,                                 &
                           !--- coupling parameters
                                cplflx, cplice, cplocn2atm, cplwav, cplwav2atm, cplaqm,      &
-                               cplchm, cplcat, cpllnd, cpllnd2atm,                          &
+                               cplchm, cplcat, cpllnd, cpllm4, cpllnd2atm,                  &
                                cpl_fire, rrfs_sd, use_cice_alb,                             &
 #ifdef IDEA_PHYS
                                lsidea, weimer_model, f107_kp_size, f107_kp_interval,        &
@@ -4864,6 +4881,7 @@ module GFS_typedefs
     Model%cplcat           = cplcat
     Model%cplchm           = cplchm .or. cplaqm .or. cplcat
     Model%cpllnd           = cpllnd
+    Model%cpllm4           = cpllm4
     Model%cpllnd2atm       = cpllnd2atm
     Model%use_cice_alb     = use_cice_alb
     Model%use_med_flux     = use_med_flux
@@ -5005,6 +5023,12 @@ module GFS_typedefs
     Model%isol             = isol
     Model%ico2             = ico2
     Model%ialb             = ialb
+
+    if (iems .ne. 2 .and. cpllm4) then
+      write(0,*) "ERROR: must use land model emmisivity if using LM4"
+      stop
+    end if
+
     Model%iems             = iems
     Model%iaer             = iaer
     Model%iaermdl          = iaer/1000
@@ -7168,6 +7192,7 @@ module GFS_typedefs
       print *, ' cplcat            : ', Model%cplcat
       print *, ' cplchm            : ', Model%cplchm
       print *, ' cpllnd            : ', Model%cpllnd
+      print *, ' cpllm4            : ', Model%cpllm4
       print *, ' cpllnd2atm        : ', Model%cpllnd2atm
       print *, ' rrfs_sd           : ', Model%rrfs_sd
       print *, ' cpl_fire          : ', Model%cpl_fire
